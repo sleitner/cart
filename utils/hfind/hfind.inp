@@ -1,0 +1,11 @@
+datpath   ../DAT
+respath   ../HC 
+boxh       : comoving box size in /h Mpc ............................        80.
+ibtype     : bin type (0 - log, 1 - even, 2 - user supplied) ........         2
+imark      : 0 - find all halos and subhalos, 1 - only isolated halos         0
+rmin       : min. radius for profile binning (in comoving /h kpc)....       5.0 
+rmax       : max. radius for profile binning (in comoving /h kpc)....      2000.0 
+nbins      : # of bins for profile binning, ignored if ibtype = 2 ...        40
+niter      : # of unbound particle iterations .......................         5
+rvel       : radius for est. halo velocity in units of rmax .........        1.0 
+nmin       : min # of bound particles for output halos ..............         5
