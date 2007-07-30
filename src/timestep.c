@@ -129,6 +129,7 @@ int timestep( int level )
 	double velocity;
 	int ret;
 	int step;
+	int step_ret;
 	int true_ret;
 	int nlevel;
 	double dt_needed;
@@ -157,13 +158,15 @@ int timestep( int level )
 #endif /* GRAVITY */
 	
 	if ( level < max_level && level < max_level_now() ) {
-		ret = min( timestep( level + 1 ), ret );
+		step_ret = timestep( level + 1 );
+		ret = min( ret, step_ret );
 		if ( ret == -1 && level < max_cfl_sync_level ) { 
 			end_time( LEVEL_TIMER );
 			end_timing_level( level );
 			return ret; 
 		}
-		ret = min( timestep( level + 1 ), ret );
+		step_ret = timestep( level + 1 );
+		ret = min( ret, step_ret );
 		if ( ret == -1 && level < max_cfl_sync_level ) { 
 			end_time( LEVEL_TIMER );
 			end_timing_level( level );
