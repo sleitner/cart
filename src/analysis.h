@@ -4,13 +4,11 @@
 typedef struct HALO {
 	int id;
 	int proc;
-	int sfc_index;
 	float pos[nDim];
 	float vel[nDim];
 	float rhalo;
 	float rvir;
 	float mvir;
-	float vmax;
 	int np;
 	int *particles;
 	int *binding_order;

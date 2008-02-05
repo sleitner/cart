@@ -22,6 +22,7 @@ const char *timer_name[] = {
 	"hydro_update",
 	"hydro_accel",
         "density",
+	"merge_particle_densities",
         "move_parts",
         "update_parts",
 	"trade_particles",

@@ -103,9 +103,6 @@ int main ( int argc, char *argv[]) {
 		*/
 		init_run();
 
-		/* do load balancing */
-		load_balance(); 
-
 		dt = dtl[min_level];
 
 		for ( i = min_level+1; i <= max_level; i++ ) {
@@ -146,6 +143,7 @@ int main ( int argc, char *argv[]) {
 		check_map();
 
 		choose_timestep( &dtl[min_level] );
+		dtl[min_level] *= 0.8;
 		dt = dtl[min_level];
 
 		for ( i = min_level+1; i <= max_level; i++ ) {

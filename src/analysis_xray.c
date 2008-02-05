@@ -82,27 +82,14 @@ void set_xray_redshift( double aexp ) {
 		}
 	} else {
 		/* need to interpolate to specific redshift */
-		rs1 = pow( 10.0, zlmin + dlz*(double)irs1 );
-		rs2 = pow( 10.0, zlmin + dlz*(double)irs2 );
+		rs1 = zlmin + dlz*(double)irs1;
+		rs2 = zlmin + dlz*(double)irs2;
 
 		for ( ilt = 0; ilt < nlt; ilt++ ) {
 			ac = ( cT_table[irs2][ilt] - cT_table[irs1][ilt] ) / (rs2 - rs1);
 			bc = cT_table[irs1][ilt] - ac * rs1;
 
 			cT_fixed[ilt] = ac*rs + bc;
-
-			if ( cT_fixed[ilt] < 0.0 ) {
-				cart_debug("irs1 = %u", irs1 );
-				cart_debug("irs2 = %u", irs2 );
-				cart_debug("rs1 = %e", rs1 );
-				cart_debug("rs2 = %e", rs2 );
-				cart_debug("rs = %e", rs );
-				cart_debug("cT_table[%u][%u] = %e", irs2, ilt, cT_table[irs2][ilt] );
-				cart_debug("cT_table[%u][%u] = %e", irs1, ilt, cT_table[irs1][ilt] );
-				cart_debug("ac = %e", ac );
-				cart_debug("bc = %e", bc );
-				cart_error("cT_fixed[%u] = %e", ilt, cT_fixed[ilt] );
-			}
 
 			ac = ( lambda_table[irs2][ilt] - lambda_table[irs1][ilt] ) / (rs2 - rs1);
 			bc = lambda_table[irs1][ilt] - ac * rs1;
@@ -145,7 +132,7 @@ void xray_calibration( double Tg, double *cT, double *lambda, double *fT ) {
 		d1 = 1.0 - t1;
 
 		*cT = t1*cT_fixed[it1] + d1*cT_fixed[it2];
-		*lambda = t1*lambda_fixed[it1] + d1*lambda_fixed[it2];
+		*lambda = t1*lambda_fixed[it1] + d1*cT_fixed[it2];
 		*fT = t1*fT_fixed[it1] + d1*fT_fixed[it2];
 	}
 }
@@ -153,7 +140,6 @@ void xray_calibration( double Tg, double *cT, double *lambda, double *fT ) {
 double xray_calibrated_line_temperature( double avgE ) {
 	int it1, it2;
 	double logT;
-	double fT, cT, lambda;
 
 	/* invert fT(T) to get Tline */
 	it2 = 1;
@@ -163,18 +149,6 @@ double xray_calibrated_line_temperature( double avgE ) {
 	it1 = it2-1;
 
 	logT = ( avgE - fT_fixed[it1] ) * dlt / ( fT_fixed[it2] - fT_fixed[it1] ) + (tlmin + (double)(it1)*dlt);
-	xray_calibration( pow( 10.0, logT ), &cT, &lambda, &fT );
-	cart_debug("avgE = %e", avgE );
-	cart_debug("it1 = %u", it1 );
-	cart_debug("it2 = %u", it2 );
-	cart_debug("fT_fixed[%u] = %e", it1, fT_fixed[it1] );
-	cart_debug("fT_fixed[%u] = %e", it2, fT_fixed[it2] );
-	cart_debug("dlt = %e", dlt );
-	cart_debug("tlmin = %e", tlmin );
-	cart_debug("norm = %e", tlmin+(double)(it1)*dlt );
-	cart_debug("logT = %e", logT );
-	cart_debug("fT = %e", fT );
-
 	return pow( 10.0, logT );
 }
 

@@ -41,11 +41,11 @@ int particle_output_frequency = 0;
 int tracer_output_frequency = 0;
 int grid_output_frequency = 0;
 int max_steps = 0;
-int max_cfl_sync_level = min_level;
+int max_cfl_sync_level = 2;
 
 double cfl = 0.6;
 double particle_cfl = 0.0;
-double max_time_inc = 1.1;
+double max_time_inc = 1.2;
 double min_time_dec = 1.25;
 double max_da = 3e-3;
 double max_dt = 0.125;
@@ -165,7 +165,7 @@ int timestep( int level )
 			end_timing_level( level );
 			return ret; 
 		}
-		step_ret = timestep( level + 1 );
+		step_ret = timestep( level + 1);
 		ret = min( ret, step_ret );
 		if ( ret == -1 && level < max_cfl_sync_level ) { 
 			end_time( LEVEL_TIMER );

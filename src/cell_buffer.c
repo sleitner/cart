@@ -722,12 +722,16 @@ void merge_buffer_cell_densities( int level ) {
 	int send_offset;
 	int send_count, recv_count;
 
+	start_time( MERGE_DENSITY_TIMER );
 	start_time( COMMUNICATION_TIMER );
 
 	cart_assert( buffer_enabled );
 
 	total_send_vars = total_recv_vars = 0;
 	for ( proc = 0; proc < num_procs; proc++ ) {
+		cart_assert( num_remote_buffers[level][proc] >= 0 );
+		cart_assert( num_local_buffers[level][proc] >= 0 );
+
 		if ( level == min_level ) {
 			num_recv_vars[proc] = 2*num_remote_buffers[min_level][proc];
 			num_send_vars[proc] = 2*num_local_buffers[min_level][proc];
@@ -735,6 +739,8 @@ void merge_buffer_cell_densities( int level ) {
 			num_recv_vars[proc] = 2*num_children*num_remote_buffers[level][proc];
 			num_send_vars[proc] = 2*num_children*num_local_buffers[level][proc];
 		}
+
+		cart_assert( num_send_vars[proc] >= 0 && num_recv_vars[proc] >= 0 );
 
 		total_send_vars += num_send_vars[proc];
 		total_recv_vars += num_recv_vars[proc];
@@ -762,6 +768,7 @@ void merge_buffer_cell_densities( int level ) {
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_send_vars[proc] > 0 ) {
 			if ( level == min_level ) {
+				cart_assert( num_send_vars[proc] == 2*num_local_buffers[level][proc] );
 				for ( i = 0; i < num_local_buffers[min_level][proc]; i++ ) {
 					icell = local_buffers[min_level][proc][i];
 
@@ -769,11 +776,18 @@ void merge_buffer_cell_densities( int level ) {
 					send_buffer[send_count++] = cell_first_species_mass(icell); 
 				}
 			} else {
+				cart_assert( num_send_vars[proc] == 2*num_children*num_local_buffers[level][proc] );
+
 				for ( i = 0; i < num_local_buffers[level][proc]; i++ ) {
 					index = local_buffers[level][proc][i];
+					cart_assert( index >= 0 && index < num_octs );
+					cart_assert( oct_level[index] == level );
 
 					for ( child = 0; child < num_children; child++ ) {
 						icell = oct_child( index, child );
+
+						cart_assert( icell >= 0 && icell < num_cells );
+						cart_assert( cell_level(icell) == level );
 
 						send_buffer[send_count++] = cell_density(icell);
 						send_buffer[send_count++] = cell_first_species_mass(icell);
@@ -781,12 +795,29 @@ void merge_buffer_cell_densities( int level ) {
 				}
 			}
 
-			cart_assert( send_offset + num_send_vars[proc] == send_count );
+			if ( send_offset + num_send_vars[proc] != send_count ) {
+				for ( proc = 0; proc < num_procs; proc++ ) {
+					cart_debug("proc = %d, num_send = %d, num_local = %d", 
+						proc, num_send_vars[proc], num_local_buffers[level][proc] );
+				}
+				cart_debug("level = %d", level );
+				cart_debug("total_send_vars = %d", total_send_vars );
+				cart_debug("i = %d", i );
+				cart_debug("send_offset = %d", send_offset );
+				cart_debug("num_send_vars[%u] = %d", proc, num_send_vars[proc] );
+				cart_debug("num_local_buffers[%d][%d] = %d", level, proc );
+				cart_debug("send_count = %d", send_count );
+			}
 			cart_assert( send_count <= total_send_vars );
+			cart_assert( send_offset + num_send_vars[proc] == send_count );
 
 			MPI_Isend( &send_buffer[send_offset], num_send_vars[proc], MPI_FLOAT,
 				proc, 0, MPI_COMM_WORLD, &sends[proc] );
 
+			/*if ( local_proc_id == 105 ) {
+				cart_debug("proc = %d, send_count = %d, send_offset = %d, num_send_vars[%u] = %d, num_local_buffers = %d",
+					proc, send_count, send_offset, proc, num_send_vars[proc], num_local_buffers[level][proc] );
+			}*/
 			send_offset = send_count;
 		} else {
 			sends[proc] = MPI_REQUEST_NULL;
@@ -839,6 +870,8 @@ void merge_buffer_cell_densities( int level ) {
 	end_time( COMMUNICATION_TIMER );
 
 	cart_free( send_buffer );
+
+	end_time( MERGE_DENSITY_TIMER );
 }
 
 #endif /* GRAVITY */

@@ -22,20 +22,21 @@
 #include "load_balance.h"
 
 float cost_per_cell		= 1.0;
-float cost_per_particle		= 0.1;
-float est_root_buffer_fraction	= 0.15;
-float est_buffer_fraction	= 0.45;
+float cost_per_particle		= 0.5;
+float est_buffer_fraction	= 0.5;
 int load_balance_frequency	= 0;
 
-int divide_list_recursive( float *global_work, int *global_cells, int num_root_cells_in_division,
-		double total_work, long total_cells, int num_procs_in_division, int first_proc,
+int divide_list_recursive( float *global_work, 
+		int *constrained_quantities, 
+		int *per_proc_constraints, 
+		int num_root_cells_in_division, double total_work,
+		int num_procs_in_division, int first_proc,
 		int first_cell_index, int *proc_index ) {
 
-	int i, j, k;
+	int i, j, k, c;
 	float work_frac_left;
 	double current_work, current_work_left, current_work_right;
-	long current_cells, current_cells_left, current_cells_right;
-	long max_cells_left, max_cells_right;
+	long sum_constraints[num_constraints];
 	int num_procs_left, num_procs_right;
 	int left_failure, right_failure;
 
@@ -50,70 +51,87 @@ int divide_list_recursive( float *global_work, int *global_cells, int num_root_c
 	num_procs_left = num_procs_in_division/2;
 	num_procs_right = num_procs_in_division - num_procs_left;
 
-	max_cells_left = (long)num_procs_left*(long)num_cells;
-	max_cells_right = (long)num_procs_right*(long)num_cells;
-
 	cart_assert( num_procs_left >= 1 );
 	cart_assert( num_procs_right >= 1 );
 
 	work_frac_left = (float)(num_procs_left)/num_procs_in_division;
 
-	current_cells = 0;
-	for ( j = 0; j < num_root_cells_in_division; j++ ) {
-		if ( 		j >= num_procs_left && 
-				( num_root_cells_in_division - j < num_procs_right ||
-				j > (long)num_procs_left*(long)((1.0-est_root_buffer_fraction)*(double)num_particles) || 
-				(float)j*(1.+est_root_buffer_fraction)+
-				(float)(current_cells-j)*(1.+est_buffer_fraction) > max_cells_left ) ) {
-			break;
-		}
-		current_cells += global_cells[j];
+	/* find minimal splitting points based on constraints */
+	for ( c = 0; c < num_constraints; c++ ) {
+		sum_constraints[c] = 0;
 	}
 
-	cart_assert( j >= num_procs_left );
+	for ( j = 0; j < num_procs_left; j++ ) {
+		for ( c = 0; c < num_constraints; c++ ) {
+			sum_constraints[c] += constrained_quantities[num_constraints*j+c];
+		}
+	}
 
-	current_cells = 0;
-	for ( i = num_root_cells_in_division-1; i >= 0; i-- ) {
-		if ( 		num_root_cells_in_division - i > num_procs_right &&
-				( i <= num_procs_left ||
-				(num_root_cells_in_division - i - 1) > 
-				(long)num_procs_right*(long)((1.0-est_root_buffer_fraction)*(double)num_particles ) || 
-				(float)( num_root_cells_in_division - i - 1)*(1.+est_root_buffer_fraction) +
-				(float)( current_cells - num_root_cells_in_division + i + 1 )*(1.+est_buffer_fraction) >
-				max_cells_right ) ) {
+	for ( j = num_procs_left; j < num_root_cells_in_division; j++ ) {
+		for ( c = 0; c < num_constraints; c++ ) {
+			if ( sum_constraints[c] >= num_procs_left*per_proc_constraints[c] ) {
+				break;
+			} else {
+				sum_constraints[c] += constrained_quantities[num_constraints*j+c];
+			}
+		}
+
+		if ( c < num_constraints ) {
 			break;
 		}
-		current_cells += global_cells[i];
+	}
+
+	for ( c = 0; c < num_constraints; c++ ) {
+		sum_constraints[c] = 0;
+	}
+
+	for ( i = num_root_cells_in_division-1; i > num_root_cells_in_division - num_procs_right; i-- ) {
+		for ( c = 0; c < num_constraints; c++ ) {
+                        sum_constraints[c] += constrained_quantities[num_constraints*i+c];
+                }
+	}
+
+	for ( i = num_root_cells_in_division - num_procs_right; i >= 0; i-- ) {
+		for ( c = 0; c < num_constraints; c++ ) {
+			if ( sum_constraints[c] >= num_procs_right*per_proc_constraints[c] ) {
+				break;
+			} else {
+				sum_constraints[c] += constrained_quantities[num_constraints*i+c];
+			}
+		}
+
+		if ( c < num_constraints ) {
+			break;
+		}
 	}
 
 	current_work_left = 0.0;
-	current_cells_left = 0;
 
 	for ( k = 0; k <= i; k++ ) {
 		current_work_left += global_work[k];
-		current_cells_left += global_cells[k];
 	}
 	
 	proc_index[first_proc] = first_cell_index;
 
 	if ( i < j ) {
-		/* pick the best guess splitting point */
+		/* pick the best splitting point using work as an estimate */
 		current_work = 0.0;
-		current_cells = 0;
 
-		for ( k = i+1; k < j - 1; k++ ) {
-			if ( current_work + current_work_left + global_work[k] > work_frac_left*total_work ) {
+		for ( k = i + 1; k < j - 1; k++ ) {
+			if ( current_work + current_work_left + global_work[k] > 
+					work_frac_left*total_work ) {
 				break;
 			} else {
 				current_work += global_work[k];
-				current_cells += global_cells[k];
 			}
 		}
 
 		if ( num_procs_left > 1 ) {
-			left_failure = divide_list_recursive( global_work, global_cells, 
+			left_failure = divide_list_recursive( global_work, 
+					constrained_quantities,
+					per_proc_constraints, 
 					k, current_work+current_work_left, 
-					current_cells+current_cells_left, num_procs_left, first_proc, 
+					num_procs_left, first_proc, 
 					first_cell_index, proc_index );
 		} else {
 			left_failure = 0;
@@ -121,108 +139,126 @@ int divide_list_recursive( float *global_work, int *global_cells, int num_root_c
 		}
 
 		if ( num_procs_right > 1 ) {
-			right_failure = divide_list_recursive( &global_work[k], &global_cells[k], 
+			right_failure = divide_list_recursive( &global_work[k], 
+					&constrained_quantities[num_constraints*k], 
+					per_proc_constraints, 
 					num_root_cells_in_division - k,
 					total_work - current_work - current_work_left, 
-					total_cells - current_cells - current_cells_left, num_procs_right, 
-					first_proc+num_procs_left, first_cell_index+k, proc_index );
+					num_procs_right, first_proc+num_procs_left, 
+					first_cell_index+k, proc_index );
 		} else {
 			right_failure = 0;
-			proc_index[first_proc+num_procs_in_division] = first_cell_index+num_root_cells_in_division;
+			proc_index[first_proc+num_procs_in_division] = 
+					first_cell_index+num_root_cells_in_division;
 		}
 
 		/* if we're unable to divide recursively, try linearly instead (for speed) */
 		if ( left_failure && right_failure ) {
-			return divide_list_linear( global_work, global_cells, num_root_cells_in_division,
-					total_work, total_cells, num_procs_in_division, first_proc,
+			return divide_list_linear( global_work, constrained_quantities, 
+					per_proc_constraints, num_root_cells_in_division,
+					total_work, num_procs_in_division, first_proc,
 					first_cell_index, proc_index );
 		} else if ( left_failure ) {
-			return divide_list_linear( global_work, global_cells, k, current_work+current_work_left,
-					current_cells+current_cells_left, num_procs_left, first_proc,
+			return divide_list_linear( global_work, constrained_quantities, 
+					per_proc_constraints, 
+					k, current_work+current_work_left,
+					num_procs_left, first_proc,
 					first_cell_index, proc_index );
 		} else if ( right_failure ) {
-			return divide_list_linear( &global_work[k], &global_cells[k], num_root_cells_in_division - k,
-					total_work - current_work - current_work_left,
-					total_cells - current_cells - current_cells_left, num_procs_right,
+			return divide_list_linear( &global_work[k], &constrained_quantities[num_constraints*k], 
+					per_proc_constraints, num_root_cells_in_division - k,
+					total_work - current_work - current_work_left, num_procs_right,
 					first_proc+num_procs_left, first_cell_index+k, proc_index );
 		} else {
 			return 0;
 		}
 	}
 
-	cart_debug("failed because i >= j, %d %d", i, j);
 	return -1;
 }
 
-int divide_list_linear( float *global_work, int *global_cells, int num_root_cells_in_division,
-                double total_work, long total_cells, int num_procs_in_division, int first_proc,
+int divide_list_linear( float *global_work, int *constrained_quantities,
+                int *per_proc_constraints, 
+		int num_root_cells_in_division, double total_work,
+                int num_procs_in_division, int first_proc,
                 int first_cell_index, int *proc_index ) {
 
-	int i;
+	int i, c, c2;
 	int proc;
 	int index;
 	int min_assigned;
 	double local_work;
-	long local_cells;
 	double ideal_work_per_proc;
 	int num_procs_remaining;
 	int num_root_cells_remaining;
+	long total_constraints[num_constraints];
+	long sum_constraints[num_constraints];
 
-	cart_debug("dividing linearly for %u procs, first_proc = %u", num_procs_in_division, first_proc );
+	cart_debug("dividing linearly for %u procs, first_proc = %u", 
+			num_procs_in_division, first_proc );
 
 	ideal_work_per_proc = total_work / (double)num_procs_in_division;
 
 	index = 0;
 	num_procs_remaining = num_procs_in_division-1;
-	num_root_cells_remaining = num_root_cells_in_division;
-
 	proc_index[first_proc] = first_cell_index;
 
-	for ( proc = first_proc+1; proc < num_procs_in_division + first_proc; proc++ ) {
-		/* ensure minimum of # of root cells to ensure no later processor is assigned too many cells */
-		min_assigned = max( 1, num_root_cells_remaining - 
-				(long)num_procs_remaining*(long)((float)num_cells/
-				((float)(1.+est_root_buffer_fraction))));
+	for ( c = 0; c < num_constraints; c++ ) {
+		total_constraints[c] = 0;
+	}
 
-		local_work = 0.0;
-		local_cells = 0;
-		proc_index[proc] = proc_index[proc-1];
-		for ( i = 0; i < min_assigned; i++ ) {
-			local_work += global_work[index];
-			local_cells += global_cells[index];
-			num_root_cells_remaining--;
-			index++;
+	for ( i = 0; i < num_root_cells_in_division; i++ ) {
+		for ( c = 0; c < num_constraints; c++ ) {
+			total_constraints[c] += constrained_quantities[num_constraints*i+c];
 		}
-		proc_index[proc] += min_assigned;
+	}
 
+	for ( proc = first_proc+1; proc < num_procs_in_division + first_proc; proc++ ) {
+		/* assign a minimum number of cells so that the remaining processors
+		 * can satisfy the constraints (cells, particles, etc) */
+		for ( c = 0; c < num_constraints; c++ ) {
+			sum_constraints[c] = 0;
+		}
+	
+		for ( c = 0; c < num_constraints; c++ ) {
+			while ( total_constraints[c] > num_procs_remaining*per_proc_constraints[c] ) {
+				for ( c2 = 0; c2 < num_constraints; c2++ ) {
+					total_constraints[c2] -= constrained_quantities[num_constraints*index+c2];
+					sum_constraints[c2] += constrained_quantities[num_constraints*index+c2];
+				}
+				index++;
+			}
+		}
+
+		
 		/* ensure maximum of reduced_root_cells, leaving at least one root cell
 		 * for each processor left to come, and not assigning more cells than processor
 		 * can hold (max_cells_allowed), as well as allowing to go above ideal_work_per_proc
 		 * if rest of procs can't hold the cells remaining
 		 */
 		while (         index < num_root_cells_in_division - num_procs_remaining &&
-				num_root_cells_remaining > num_procs_remaining &&
-				proc_index[proc]-proc_index[proc-1] < 
-				(int)((1.0-est_root_buffer_fraction)*(float)num_particles) &&
-				(float)(proc_index[proc]-proc_index[proc-1])*(1.+est_root_buffer_fraction) + 
-				(float)(local_cells - (proc_index[proc]-proc_index[proc-1]))*
-				(1.+est_buffer_fraction) < num_cells &&
-				( local_work + 0.5*global_work[index] < ideal_work_per_proc ||
-				(float)num_root_cells_remaining*(1.+est_root_buffer_fraction) +
-				(float)(total_cells-(local_cells-num_root_cells_remaining))*(1.+est_buffer_fraction) >=
-				(long)num_procs_remaining*(long)num_cells ) ) {
+				local_work + 0.5*global_work[index] < ideal_work_per_proc ) {
 
-			local_work += global_work[index];
-			local_cells += global_cells[index];
-			index++;
-			proc_index[proc]++;
-			num_root_cells_remaining--;
+			for ( c = 0; c < num_constraints; c++ ) {
+				if ( sum_constraints[c] + constrained_quantities[num_constraints*index+c] >
+						per_proc_constraints[c] ) {
+					break;
+				}
+			}
+
+			if ( c < num_constraints ) {
+				break;
+			} else {
+				local_work += global_work[index];
+				index++;
+			}
 		}
+
+		proc_index[proc] = index;
 
 		/* continually re-evaluate ideal work given what work is left */
 		num_procs_remaining--;
 		total_work -= local_work;
-		total_cells -= local_cells;
 
 		if ( num_procs_remaining > 0 ) {
 			ideal_work_per_proc = total_work / (double)(num_procs_remaining);
@@ -234,74 +270,97 @@ int divide_list_linear( float *global_work, int *global_cells, int num_root_cell
 	return 0;
 }
 
-void load_balance_entire_volume( float *global_work, int *global_cells, int *new_proc_sfc_index ) {
-	int i, j;
+void load_balance_entire_volume( float *global_work, 
+		int *constrained_quantities,
+		int *new_proc_sfc_index ) {
+
+	int i, j, c;
 	int last, count;
 	int num_blocks;
 	int flag, ret;
+	float proc_fraction;
 	int current_proc, current_root_index;
 	int num_reserved_procs;
 	int num_procs_in_block;
 	int num_root_cells_in_block;
-	long total_cells, current_cells;
 	double total_work, current_work;
 	double ideal_work_per_proc;
+	double avg_work;
+	long sum_constraints[num_constraints];
+	int per_proc_constraints[num_constraints];
 
-	/* mark large blocks of unrefined cells */
+	per_proc_constraints[0] = (1.0-est_buffer_fraction)*(double)num_children*(double)num_octs;
+
+#ifdef PARTICLES
+	per_proc_constraints[1] = num_particles;
+#endif /* PARTICLES */
+
+	/* compute total work */
+	total_work = 0.0;
+	for ( i = 0; i < num_root_cells; i++ ) {
+		total_work += global_work[i];
+	}
+
+	avg_work = 0.5 * total_work / (double)num_root_cells;
+	cart_debug("avg_work = %e", avg_work );
+
+	for ( c = 0; c < num_constraints; c++ ) {
+		cart_debug("per_proc_constraints[%u] = %d", c, per_proc_constraints[c] );
+	}
+
+	/* find large blocks of low-work (unrefined) cells */
+/*
 	i = 0;
 	count = 0;
 	last = -1;
 	num_blocks = 0;
 	num_reserved_procs = 0;
 	while ( i < num_root_cells ) {
-		if ( global_cells[i] <= 9 ) {
+		if ( global_work[i] <= avg_work ) {
 			count++;
-		} else {
-			/* see how big the refined region is */
+			for ( c = 0; c < num_constraints; c++ ) {
+				sum_constraints[c] += constrained_quantities[num_constraints*i+c];
+			}
+		} else if ( count > 0 ) {
 			j = i;
-			while ( j < num_root_cells && global_cells[j] > 9 ) {
+			while ( j < num_root_cells && global_work[j] > avg_work ) {
 				j++;
 			}
 
-			if ( j - i < 50 ) {
-				/* mark small refined region as if it were unrefined */
-				count += j-i;
-				i = j-1;
-			} else if ( count > 0.15*min( num_particles, num_cells ) ) {
-				/* mark unrefined region for special load allocation */
+			proc_fraction = 0.0;
+
+			for ( c = 0; c < num_constraints; c++ ) {
+				proc_fraction = max( proc_fraction, 
+					(float)sum_constraints[c] / (float)per_proc_constraints[c] );
+				sum_constraints[c] = 0;
+			}
+
+			if ( proc_fraction > 0.2 ) {
 				for ( j = last+1; j < i; j++ ) {
-					global_cells[j] = -global_cells[j];
+					global_work[j] = -global_work[j];
 				}
 			
 				num_blocks++;
 
-#ifdef PARTICLES
-				/* assume ~1 particle per root cell */
-				num_reserved_procs += (count-1)/
-					(int)((1.0-est_root_buffer_fraction)*(float)num_particles) + 1;
-#else
-				num_reserved_procs += (count-1)/(int)((1.0-buffer_fraction)*(float)num_cells) + 1;
-#endif /* particles */
-				count = 0;
-				last = i;
-			} else {
-				count = 0;
-				last = i;
+				num_reserved_procs += (int)ceil(proc_fraction);
 			}
+
+			count = 0;
+			last = i;
+		} else {
+			last = i;
 		}
 
 		i++;
 	}
 
+	num_reserved_procs = min( num_reserved_procs, num_procs-1 );
 	cart_debug("num_reserved_procs = %d", num_reserved_procs );
-
-	/* compute total work (now not including large blocks of 0/1-level cells) */
+	
 	total_work = 0.0;
-	total_cells = 0;
 	for ( i = 0; i < num_root_cells; i++ ) {
-		if ( global_cells[i] > 0 ) {
+		if ( global_work[i] > 0.0 ) {
 			total_work += global_work[i];
-			total_cells += global_cells[i];
 		}
 	}
 
@@ -311,20 +370,17 @@ void load_balance_entire_volume( float *global_work, int *global_cells, int *new
 	cart_debug("total_work = %e, num_reserved_procs = %u, ideal_work_per_proc = %e", total_work,
 		num_reserved_procs, ideal_work_per_proc );
 
-	/* allocate in blocks of highly refined cells */
 	if ( num_blocks > 0 && num_reserved_procs < num_procs ) {
 		last = 0;
 		i = 0;
-		flag = ( global_cells[0] > 0 ) ? 1 : 0;
+		flag = ( global_work[0] > 0 ) ? 1 : 0;
 		current_proc = 0;
 		num_procs_in_block = 0;
 		while ( i < num_root_cells ) {
-			current_cells = 0;
 			current_work = 0.0;
 
 			if ( flag ) {
-				while ( i < num_root_cells && global_cells[i] > 0 ) {
-					current_cells += global_cells[i];
+				while ( i < num_root_cells && global_work[i] > 0 ) {
 					current_work += global_work[i];
 					i++;
 				}
@@ -336,40 +392,34 @@ void load_balance_entire_volume( float *global_work, int *global_cells, int *new
 				total_work -= current_work;
 				ideal_work_per_proc = total_work / (double)(num_procs - num_reserved_procs);
 			} else {
-				while ( i < num_root_cells && global_cells[i] < 0 ) {
-					global_cells[i] = abs(global_cells[i]);
-					current_cells += global_cells[i];
+				while ( i < num_root_cells && global_work[i] < 0.0 ) {
+					global_work[i] = -global_work[i];
 					current_work += global_work[i];
+
+					for ( c = 0; c < num_constraints; c++ ) {
+						sum_constraints[c] += constrained_quantities[num_constraints*i+c];	
+					}
+
 					i++;
 				}
 
 				num_root_cells_in_block = i - last;
 
-#ifdef PARTICLES
-				/* assume ~1 particle per root cell */
-				num_procs_in_block = (num_root_cells_in_block-1)/
-					(int)((1.0-est_root_buffer_fraction)*(float)num_particles) + 1;
-#else
-				num_procs_in_block = (num_root_cells_in_block-1)/
-					(int)((1.0-buffer_fraction)*(float)num_cells) + 1;
-#endif /* particles */
-
+				num_procs_in_block = 0;
+				for ( c = 0; c < num_constraints; c++ ) {
+					num_procs_in_block = max( num_procs_in_block,
+						(int)ceil((float)sum_constraints[c]/(float)per_proc_constraints[c]) );
+				}
 			}
 
 			num_procs_in_block = min( num_procs_in_block, num_procs - current_proc );
 
-			cart_debug("assigning %u procs %d root cells in %u type block, current_work = %e, current_cells = %d",
-					num_procs_in_block, num_root_cells_in_block, flag, current_work, current_cells );
-
 			if ( i < num_root_cells ) {
-				flag = ( global_cells[i] < 0 ) ? 0 : 1;
+				flag = ( global_work[i] < 0 ) ? 0 : 1;
 
 				if ( current_proc + num_procs_in_block == num_procs ) {
 					for ( ; i < num_root_cells; i++ ) {
 						current_work += global_work[i];
-
-						global_cells[i] = abs(global_cells[i]);
-						current_cells += global_cells[i];
 					}
 
 					num_root_cells_in_block = num_root_cells - last;
@@ -380,11 +430,11 @@ void load_balance_entire_volume( float *global_work, int *global_cells, int *new
 
 			new_proc_sfc_index[current_proc] = last;
 
-			/* try dividing until we get a workable solution */
 			do {
-				ret = divide_list_recursive( &global_work[last], &global_cells[last],
-						num_root_cells_in_block, current_work, 
-						current_cells, num_procs_in_block,
+				ret = divide_list_recursive( &global_work[last], 
+						&constrained_quantities[num_constraints*last],
+						per_proc_constraints,
+						num_root_cells_in_block, current_work, num_procs_in_block,
 						current_proc, last, new_proc_sfc_index );
 
 				if ( ret == -1 ) {
@@ -401,27 +451,28 @@ void load_balance_entire_volume( float *global_work, int *global_cells, int *new
 			last = i;
 		}
 	} else {
-		ret = divide_list_recursive( global_work, global_cells, 
-				num_root_cells, total_work, total_cells,
-				num_procs, MASTER_NODE, 0, new_proc_sfc_index );
+*/
+	ret = divide_list_recursive( global_work, 
+			constrained_quantities,
+			per_proc_constraints,
+			num_root_cells, total_work, 
+			num_procs, MASTER_NODE, 0, new_proc_sfc_index );
 
-		if ( ret == -1 ) {
-			cart_error("Unable to find proper load balancing division");
-		}
+	if ( ret == -1 ) {
+		cart_error("Unable to find proper load balancing division");
 	}
 
 	total_work = 0.0;
 	for ( i = 0; i < num_procs; i++ ) {
 		current_work = 0.0;
-		current_cells = 0;
 		for ( j = new_proc_sfc_index[i]; j < new_proc_sfc_index[i+1]; j++ ) {
 			current_work += global_work[j];
-			current_cells += global_cells[j];
 		}
 
 		total_work += current_work;
-		cart_debug("new_proc_sfc_index[%u] = %u, %u, work = %e, %u cells", i, 
-				new_proc_sfc_index[i], new_proc_sfc_index[i+1], current_work, current_cells );
+		cart_debug("new_proc_sfc_index[%u] = %u, %u, work = %e", i, 
+				new_proc_sfc_index[i], new_proc_sfc_index[i+1], 
+				current_work );
 	}
 
 	cart_debug("total work = %e", total_work );
@@ -460,9 +511,9 @@ void load_balance() {
 #endif /* HYDRO_TRACERS */
 
 	float *local_work;
-	int *local_counts;
+	int *local_constraints;
 	float *global_work;
-	int *global_cells;
+	int *global_constraints;
 	int neighbors[num_neighbors];
 	int min_assigned;
 	double current_work, total_work, ideal_work_per_proc;
@@ -494,15 +545,19 @@ void load_balance() {
 
 	/* allocate space to store the work estimators */
 	local_work = cart_alloc( num_cells_per_level[min_level]* sizeof(float) );
-	local_counts = cart_alloc( num_cells_per_level[min_level]* sizeof(int) );
+	local_constraints = cart_alloc( num_constraints*num_cells_per_level[min_level]* sizeof(int) );
 
 	#pragma omp parallel for
 	for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
 		local_work[i] = 0.0;
-		local_counts[i] = 0;
 	}
 
-	/* compute work per root cell */
+	#pragma omp parallel for
+	for ( i = 0; i < num_constraints*num_cells_per_level[min_level]; i++ ) {
+		local_constraints[i] = 0;
+	}
+
+	/* compute work and constraints per root cell */
 	for ( level = min_level; level <= max_level; level++ ) {
 		/* give more weight to higher levels of refinement */
 		level_cost = (float)(1<<level); 
@@ -515,7 +570,7 @@ void load_balance() {
 			sfc = cell_parent_root_sfc( icell );
 
 			local_work[root] += cost_per_cell * level_cost;
-			local_counts[root]++;
+			local_constraints[num_constraints*root]++;
 
 #ifdef PARTICLES
 			/* count number of particles in cell */
@@ -527,6 +582,8 @@ void load_balance() {
 			}
 
 			local_work[root] += cost_per_particle * (float)num_parts * level_cost;
+
+			local_constraints[num_constraints*root+1] += num_parts;
 #endif /* PARTICLES */
 		}
 
@@ -535,7 +592,7 @@ void load_balance() {
 
 	if ( local_proc_id == MASTER_NODE ) {
 		global_work = cart_alloc( num_root_cells * sizeof(float) );
-		global_cells = cart_alloc( num_root_cells * sizeof(int) );
+		global_constraints = cart_alloc( num_constraints * num_root_cells * sizeof(int) );
 
 		for ( i = 0; i < num_procs; i++ ) {
 			receive_counts[i] = proc_sfc_index[i+1] - proc_sfc_index[i];
@@ -546,16 +603,23 @@ void load_balance() {
 	MPI_Gatherv( local_work, num_cells_per_level[min_level], MPI_FLOAT,
 		global_work, receive_counts, proc_sfc_index, MPI_FLOAT,
 		MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Gatherv( local_counts, num_cells_per_level[min_level], MPI_INT,
-		global_cells, receive_counts, proc_sfc_index, MPI_INT,
+
+	if ( local_proc_id == MASTER_NODE ) {
+		for ( i = 0; i < num_procs; i++ ) {
+			receive_counts[i] *= num_constraints;
+		}
+	}
+
+	MPI_Gatherv( local_constraints, num_constraints*num_cells_per_level[min_level], MPI_INT,
+		global_constraints, receive_counts, proc_sfc_index, MPI_INT,
 		MASTER_NODE, MPI_COMM_WORLD );
 
 	cart_free( local_work );
-	cart_free( local_counts );
+	cart_free( local_constraints );
 
 	/* MASTER_NODE determines new splitting of SFC curve */
 	if ( local_proc_id == MASTER_NODE ) {
-		load_balance_entire_volume( global_work, global_cells, new_proc_sfc_index );
+		load_balance_entire_volume( global_work, global_constraints, new_proc_sfc_index );
 	}
 
 	/* tell other processors which cells to expect */

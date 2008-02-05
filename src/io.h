@@ -23,6 +23,7 @@ void save_check();
 
 void write_restart( int gas_filename_flag, int particle_filename_flag, int tracer_filename_flag );
 void read_restart( double aexpn );
+void restart_load_balance( char *grid_filename, char *particle_header_filename, char *particle_data );
 
 #ifdef PARTICLES
 typedef struct {

@@ -211,17 +211,14 @@ halo_list *load_halo_finder_catalog( char *filename ) {
 		halos->list[h].rvir = hrvir/( 1e3*r0 );
 		halos->list[h].rhalo = hrhalo/( 1e3*r0 );
 		halos->list[h].mvir = hmvir;
-		halos->list[h].vmax = vmax;
 		halos->list[h].np = np;
 
 		coords[0] = (int)halos->list[h].pos[0];
 		coords[1] = (int)halos->list[h].pos[1];
 		coords[2] = (int)halos->list[h].pos[2];
 
-		halos->list[h].sfc_index = sfc_index(coords);
-
 		if ( num_procs > 1 ) {
-			halos->list[h].proc = processor_owner(halos->list[h].sfc_index);
+			halos->list[h].proc = processor_owner( sfc_index( coords ) );
 		} else {
 			halos->list[h].proc = local_proc_id;
 		}
@@ -456,9 +453,9 @@ void crude_stellar_mass_fractions( halo_list *halos ) {
 #endif /* STARFORM */
 
 void compute_halo_properties( char *analysis_directory, int halo_section, halo_list *halos ) {
-	int i, j, k, m;
+	int i, j, k;
 	int coords[nDim];
-	int ihalo, isat, icell, ipart;
+	int ihalo, icell, ipart;
 	int irmax;
 	int ix, iy, iz;
 	int index;
@@ -468,7 +465,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	int bin, proc;
 	int throw_bin;
 	int throw_point;
-	int old_halo_leafs;
 	double r, rrl, rll, rri, rout, rlout;
 	double halo_pos[nDim];
 	double point_pos[nDim];
@@ -476,7 +472,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	int max_bin, min_bin;
 	int num_bins;
 	int processor_mask[MAX_PROCS];
-	int *satellite_flag;
 	double rlmin, rlmax, drl, dlout;
 	double rlvirmin, rlvirmax, drlvir;
 	float cell_vx, cell_vy, cell_vz;
@@ -525,7 +520,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	float mass;
 	double Fline, Fcont, Tline, Tcont, x, f_line;
 	double Tcont1, Tcont2, avgE;
-	double Fline_total, Fcont_total, Tcont1_total, Tcont2_total, avgE_total;
 	double xray_Tcont1_cell, xray_Tcont2_cell;
 	double xray_cT, xray_lambda, xray_fT, xray_w;
 	double xray_Tcont1, xray_Tcont2;
@@ -1138,33 +1132,33 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 								bin_star_num[bin]++;
 								bin_star_mass[bin] += particle_mass[ipart];
 
-								bin_star_momentum[0][bin] += particle_v[ipart][0]*star_mass[ipart];
-								bin_star_momentum[1][bin] += particle_v[ipart][1]*star_mass[ipart];
-								bin_star_momentum[2][bin] += particle_v[ipart][2]*star_mass[ipart];
+								bin_star_momentum[0][bin] += particle_v[ipart][0]*particle_mass[ipart];
+								bin_star_momentum[1][bin] += particle_v[ipart][1]*particle_mass[ipart];
+								bin_star_momentum[2][bin] += particle_v[ipart][2]*particle_mass[ipart];
 
 								bin_star_vrms[bin] += particle_mass[ipart] * (
 										particle_v[ipart][0]*particle_v[ipart][0] +
 										particle_v[ipart][1]*particle_v[ipart][1] +
 										particle_v[ipart][2]*particle_v[ipart][2] );
 
-								bin_star_age[bin] += star_tbirth[ipart]*star_mass[ipart];
-								bin_star_metallicity_II[bin] += star_metallicity_II[ipart]*star_mass[ipart];
-								bin_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*star_mass[ipart];
+								bin_star_age[bin] += star_tbirth[ipart]*particle_mass[ipart];
+								bin_star_metallicity_II[bin] += star_metallicity_II[ipart]*particle_mass[ipart];
+								bin_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*particle_mass[ipart];
 
 								if ( particle_t[ipart] - star_tbirth[ipart] <= tnewstar ) {
 									bin_new_star_num[bin]++;
 									bin_new_star_mass[bin] += particle_mass[ipart];
 
-									bin_new_star_momentum[0][bin] += particle_v[ipart][0]*star_mass[ipart];
-									bin_new_star_momentum[1][bin] += particle_v[ipart][1]*star_mass[ipart];
-									bin_new_star_momentum[2][bin] += particle_v[ipart][2]*star_mass[ipart];
+									bin_new_star_momentum[0][bin] += particle_v[ipart][0]*particle_mass[ipart];
+									bin_new_star_momentum[1][bin] += particle_v[ipart][1]*particle_mass[ipart];
+									bin_new_star_momentum[2][bin] += particle_v[ipart][2]*particle_mass[ipart];
 
 									bin_new_star_vrms[bin] += particle_mass[ipart] * (
 											particle_v[ipart][0]*particle_v[ipart][0] +
 											particle_v[ipart][1]*particle_v[ipart][1] +
 											particle_v[ipart][2]*particle_v[ipart][2] );
-									bin_new_star_metallicity_II[bin] += star_metallicity_II[ipart]*star_mass[ipart];
-									bin_new_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*star_mass[ipart];
+									bin_new_star_metallicity_II[bin] += star_metallicity_II[ipart]*particle_mass[ipart];
+									bin_new_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*particle_mass[ipart];
 								}
 							} else {
 								mass = particle_mass(ipart);
@@ -1203,11 +1197,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 #ifdef HYDRO
 				/* build list of leaf cells within halo */
 				leaf_index = cart_alloc( num_halo_leafs * sizeof(int) );
-				satellite_flag = cart_alloc( num_halo_leafs * sizeof(int) );
-
-				for ( i = 0; i < num_halo_leafs; i++ ) {
-					satellite_flag[i] = 0;
-				}
 
 				num_halo_leafs = 0;
 
@@ -1223,27 +1212,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 							index = sfc_index( coords );
 
 							if ( num_procs == 1 || root_cell_is_local(index) ) {
-								old_halo_leafs = num_halo_leafs;
-
 								tree_traversal( root_cell_location(index), build_leaf_index );
-
-								/* build list of satellite halos in this root cell */
-								for ( isat = 0; isat < halos->num_halos; isat++ ) {
-									if ( isat != ihalo && 
-											halos->list[isat].sfc_index == index &&
-											halos->list[isat].vmax < halos->list[ihalo].vmax ) {
-										for ( m = old_halo_leafs; m < num_halo_leafs; m++ ) {
-											cell_position( leaf_index[leaf], cell_pos );
-											r = compute_distance_periodic_float( 
-												halos->list[isat].pos,
-												cell_pos );
-
-											if ( r < halos->list[isat].rhalo ) {
-												satellite_flag[m] = 1;
-											}
-										}
-									}
-								}	
 							} 
 						}
 					}
@@ -1288,31 +1257,42 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 					tcool = cell_gas_internal_energy(icell) / dEcell / dtfact;
 					dEcell /= dEfact;
-#else
-					Zdum = 0.3;
-					dEcell = 0.0;
-					tcool = 0.0;
 #endif /* COOLING */
 
 #ifdef ANALYZE_XRAY
-					if ( !satellite_flag[leaf] ) {
-						/* Alexey's weighting (Vikhlinin 2006) */
-						xray_calibration( Tcell_kev, &xray_cT, &xray_lambda, &xray_fT );
+					/* Alexey's weighting (Vikhlinin 2006) */
+					xray_calibration( Tcell_kev, &xray_cT, &xray_lambda, &xray_fT );
 
-						/* eq 6 */
-						xray_w = xray_cT * cell_gas_density(icell)*cell_gas_density(icell)*pow(Tcell_kev,-alpha_xray );
-	
-						/* numerator & denominator of eq 4, computes <T>_cont */
-						xray_Tcont1 = xray_w*Tcell_kev*cell_volume[level];
-						xray_Tcont2 = xray_w*cell_volume[level];
-	
-						/* eq 9 */
-						xray_Fcont_cell = xray_cT * cell_gas_density(icell)*cell_gas_density(icell)*cell_volume[level];
-					
-						/* eq 11 */
-						xray_Fline_cell = xray_lambda * Zdum * cell_gas_density(icell)*cell_gas_density(icell)*cell_volume[level];
-						xray_avgE_cell = xray_fT * xray_Fline_cell;
+					/* eq 6 */
+					xray_w = xray_cT * cell_gas_density(icell)*cell_gas_density(icell)*pow(Tcell_kev,-alpha_xray );
+
+					/* numerator & denominator of eq 4, computes <T>_cont */
+					xray_Tcont1 = xray_w*Tcell_kev*cell_volume[level];
+					xray_Tcont2 = xray_w*cell_volume[level];
+
+					/* eq 9 */
+					xray_Fcont_cell = xray_cT * cell_gas_density(icell)*cell_gas_density(icell)*cell_volume[level];
+				
+					/* eq 11 */
+					xray_Fline_cell = xray_lambda * Zdum * cell_gas_density(icell)*cell_gas_density(icell)*cell_volume[level];
+					xray_avgE_cell = xray_fT * xray_Fline_cell;
+
+/*
+					if ( Tcell_kev > 0.1 ) {
+						cart_debug("Tcell = %e", Tcell );
+						cart_debug("Tcell = %e", Tcell_kev );
+						cart_debug("xray_cT = %e", xray_cT );
+						cart_debug("xray_lambda = %e", xray_lambda );
+						cart_debug("xray_fT = %e", xray_fT );
+						cart_debug("xray_w = %e", xray_w );
+						cart_debug("xray_Tcont1 = %e", xray_Tcont1 );
+						cart_debug("xray_Tcont2 = %e", xray_Tcont2 );
+						cart_debug("xray_Fcont_cell = %e", xray_Fcont_cell );
+						cart_debug("xray_Fline_cell = %e", xray_Fline_cell );
+						cart_debug("xray_avgE_cell = %e", xray_avgE_cell );
 					}
+*/
+
 #endif /* ANALYZE_XRAY */
 
 					cell_mass = cell_gas_density(icell)*cell_volume[level];
@@ -1322,6 +1302,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 					/* find which bin the center of this cell lies in */
 					cell_position( icell, cell_pos );
+
 					r = compute_distance_periodic_float( halos->list[ihalo].pos, cell_pos );
 
 					if ( r < rr[0] ) {
@@ -1592,14 +1573,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 					Ysz_total = 0.0;
 
-#ifdef ANALYZE_XRAY
-					Fcont_total = 0.0;
-					Fline_total = 0.0;
-					avgE_total = 0.0;
-					Tcont1_total = 0.0;
-					Tcont2_total = 0.0;
-#endif /* ANALYZE_XRAY */
-
 					avg_gas_metallicity_II = 0.0;
 					avg_gas_metallicity_Ia = 0.0;
 					avg_star_metallicity_II = 0.0;
@@ -1659,17 +1632,11 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 						bin_total_sz_flux[bin] = Ysz_total;
 
 #ifdef ANALYZE_XRAY
-						Fcont_total += bin_xray_Fcont[bin];
-						Fline_total += bin_xray_Fline[bin];
-						avgE_total += bin_xray_avgE[bin];
-						Tcont1_total += bin_xray_Tcont1[bin];
-						Tcont2_total += bin_xray_Tcont2[bin];
-
-						bin_total_xray_Fcont[bin] = Fcont_total;
-						bin_total_xray_Fline[bin] = Fline_total;
-						bin_total_xray_avgE[bin] = avgE_total;
-						bin_total_xray_Tcont1[bin] = Tcont1_total;
-						bin_total_xray_Tcont2[bin] = Tcont2_total;
+						bin_total_xray_Fcont[bin] += bin_xray_Fcont[bin];
+						bin_total_xray_Fline[bin] += bin_xray_Fline[bin];
+						bin_total_xray_avgE[bin] += bin_xray_avgE[bin];
+						bin_total_xray_Tcont1[bin] += bin_xray_Tcont1[bin];
+						bin_total_xray_Tcont2[bin] += bin_xray_Tcont2[bin];
 #endif /* ANALYZE_XRAY */
 
 						if ( irflag == 0 ) {
@@ -1770,21 +1737,11 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 							Tline = xray_calibrated_line_temperature(avgE);
 
 							f_line = Fline / ( Fline + Fcont );
-							x = exp( -pow(f_line/delta_xray_1,2.*beta_xray) ) *
+							x = exp( -pow(f_line/delta_xray_1,2*beta_xray) ) *
+								exp( -pow(f_line/delta_xray_2,8.0) ) *
 								exp( -pow(f_line/delta_xray_2,8.0) );
 
 							Tx = x*Tcont + (1.0-x)*Tline;
-
-							cart_debug("Fcont = %e", Fcont );
-                                                        cart_debug("Fline = %e", Fline );
-							cart_debug("avgE = %e", avgE );
-							cart_debug("Tcont1 = %e", Tcont1 );
-							cart_debug("Tcont2 = %e", Tcont2 );
-							cart_debug("Tcont = %e", Tcont );
-							cart_debug("Tline = %e", Tline );
-							cart_debug("x = %e", x );
-							cart_debug("Tx = %e", Tx );
-
 #endif /* ANALYZE_XRAY */
 
 							/* convert to output units */
@@ -1862,6 +1819,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 								f_line = Fline / ( Fline + Fcont );
 								x = exp( -pow(f_line/delta_xray_1,2*beta_xray) ) *
+									exp( -pow(f_line/delta_xray_2,8.0) ) *
 									exp( -pow(f_line/delta_xray_2,8.0) );
 
 								Tx_r[i] = x*Tcont + (1.0-x)*Tline;
@@ -1903,6 +1861,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 						f_line = Fline / ( Fline + Fcont );
 						x = exp( -pow(f_line/delta_xray_1,2*beta_xray) ) *
+							exp( -pow(f_line/delta_xray_2,8.0) ) *
 							exp( -pow(f_line/delta_xray_2,8.0) );
 
 						Tx_r[i] = x*Tcont + (1.0-x)*Tline;
@@ -1985,7 +1944,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 						fprintf( bszlist, " %e %e %e %e", aM_gas_r[i], aM_dark_r[i], aM_total_r[i], Ysz_r[i] );
 					}
 					fprintf( bszlist, "\n" );
-					fflush(btxlist);
 #endif /* HYDRO */
 
 #ifdef ANALYZE_XRAY
@@ -1994,7 +1952,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 						fprintf( btxlist, " %e %e %e %e", aM_gas_r[i], aM_dark_r[i], aM_total_r[i], Tx_r[i] );
 					}
 					fprintf( btxlist, "\n" );
-					fflush(btxlist);
 #endif /* ANALYZE_XRAY */
 
 
@@ -2240,33 +2197,33 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 								bin_star_num[bin]++;
 								bin_star_mass[bin] += particle_mass[ipart];
 
-								bin_star_momentum[0][bin] += particle_v[ipart][0]*star_mass[ipart];
-								bin_star_momentum[1][bin] += particle_v[ipart][1]*star_mass[ipart];
-								bin_star_momentum[2][bin] += particle_v[ipart][2]*star_mass[ipart];
+								bin_star_momentum[0][bin] += particle_v[ipart][0]*particle_mass[ipart];
+								bin_star_momentum[1][bin] += particle_v[ipart][1]*particle_mass[ipart];
+								bin_star_momentum[2][bin] += particle_v[ipart][2]*particle_mass[ipart];
 
 								bin_star_vrms[bin] += particle_mass[ipart] * (
 										particle_v[ipart][0]*particle_v[ipart][0] +
 										particle_v[ipart][1]*particle_v[ipart][1] +
 										particle_v[ipart][2]*particle_v[ipart][2] );
 
-								bin_star_age[bin] += star_tbirth[ipart]*star_mass[ipart];
-								bin_star_metallicity_II[bin] += star_metallicity_II[ipart]*star_mass[ipart];
-								bin_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*star_mass[ipart];
+								bin_star_age[bin] += star_tbirth[ipart]*particle_mass[ipart];
+								bin_star_metallicity_II[bin] += star_metallicity_II[ipart]*particle_mass[ipart];
+								bin_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*particle_mass[ipart];
 
 								if ( particle_t[ipart] - star_tbirth[ipart] <= tnewstar ) {
 									bin_new_star_num[bin]++;
 									bin_new_star_mass[bin] += particle_mass[ipart];
 
-									bin_new_star_momentum[0][bin] += particle_v[ipart][0]*star_mass[ipart];
-									bin_new_star_momentum[1][bin] += particle_v[ipart][1]*star_mass[ipart];
-									bin_new_star_momentum[2][bin] += particle_v[ipart][2]*star_mass[ipart];
+									bin_new_star_momentum[0][bin] += particle_v[ipart][0]*particle_mass[ipart];
+									bin_new_star_momentum[1][bin] += particle_v[ipart][1]*particle_mass[ipart];
+									bin_new_star_momentum[2][bin] += particle_v[ipart][2]*particle_mass[ipart];
 
 									bin_new_star_vrms[bin] += particle_mass[ipart] * (
 											particle_v[ipart][0]*particle_v[ipart][0] +
 											particle_v[ipart][1]*particle_v[ipart][1] +
 											particle_v[ipart][2]*particle_v[ipart][2] );
-									bin_new_star_metallicity_II[bin] += star_metallicity_II[ipart]*star_mass[ipart];
-									bin_new_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*star_mass[ipart];
+									bin_new_star_metallicity_II[bin] += star_metallicity_II[ipart]*particle_mass[ipart];
+									bin_new_star_metallicity_Ia[bin] += star_metallicity_Ia[ipart]*particle_mass[ipart];
 								}
 							} else {
 								bin_dark_num[bin]++;
@@ -2803,7 +2760,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 #ifdef HYDRO
 				cart_free( leaf_index );
-				cart_free( satellite_flag );
 #endif
 			}
 		}

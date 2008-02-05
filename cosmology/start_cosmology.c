@@ -40,6 +40,9 @@ void init_run() {
 #ifdef PARTICLES
 	sprintf( filename, "%s/PMcrd.DAT", output_directory );
 	sprintf( filename2, "%s/PMcrs0.DAT", output_directory );
+
+	restart_load_balance( NULL, filename, filename2 );
+
 	read_particles( filename, filename2, NULL, NULL, 0, NULL );
 	cart_debug("read in particles");
 #endif
@@ -99,12 +102,16 @@ void init_run() {
 	}
 #endif
 
+	build_cell_buffer();
+	repair_neighbors();
+
 	/* do initial refinement */
 	level = min_level;
 	total_cells_per_level[min_level] = num_root_cells;
 	while ( level < max_level && total_cells_per_level[level] > 0 ) {
-		load_balance();
+		cart_debug("assigning density to level %u", level );
 		assign_density(level);
+		cart_debug("refining level %u, num_cells_per_level = %d", level, num_cells_per_level[level] );
 		modify( level, 0 );
 		cart_debug("done refining level %u, created %u new cells", 
 				level, num_cells_per_level[level+1] );
@@ -113,8 +120,10 @@ void init_run() {
 		level++;
 	
 		if ( local_proc_id == MASTER_NODE ) {
-			cart_debug("%u: %u cells", level, total_cells_per_level[level] );
+			cart_debug("level %u: %u cells", level, total_cells_per_level[level] );
 		}
+
+		load_balance();
 	}
 
 	if ( !buffer_enabled ) {

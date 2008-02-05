@@ -945,6 +945,9 @@ void build_particle_list() {
 			/* some consistency checks */
 			cart_assert( icell >= 0 && icell < num_cells );
 			cart_assert( cell_is_leaf( icell ) );
+			if ( !cell_contains_position(icell, particle_x[i]) ) {
+				cart_debug("%d %e %e %e", icell, particle_x[i][0], particle_x[i][1], particle_x[i][2] );
+			}	
 			cart_assert( cell_contains_position( icell, particle_x[i] ) );
 
 			/* insert particle into cell list */
