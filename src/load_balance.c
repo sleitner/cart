@@ -61,15 +61,10 @@ int divide_list_recursive( float *global_work,
 		sum_constraints[c] = 0;
 	}
 
-	for ( j = 0; j < num_procs_left; j++ ) {
+	for ( j = 0; j < num_root_cells_in_division-num_procs_right; j++ ) {
 		for ( c = 0; c < num_constraints; c++ ) {
-			sum_constraints[c] += constrained_quantities[num_constraints*j+c];
-		}
-	}
-
-	for ( j = num_procs_left; j < num_root_cells_in_division; j++ ) {
-		for ( c = 0; c < num_constraints; c++ ) {
-			if ( sum_constraints[c] >= num_procs_left*per_proc_constraints[c] ) {
+			if ( j >= num_procs_left && 
+					sum_constraints[c] >= num_procs_left*per_proc_constraints[c] ) {
 				break;
 			} else {
 				sum_constraints[c] += constrained_quantities[num_constraints*j+c];
@@ -85,15 +80,10 @@ int divide_list_recursive( float *global_work,
 		sum_constraints[c] = 0;
 	}
 
-	for ( i = num_root_cells_in_division-1; i > num_root_cells_in_division - num_procs_right; i-- ) {
+	for ( i = num_root_cells_in_division - 1; i >= num_procs_left; i-- ) {
 		for ( c = 0; c < num_constraints; c++ ) {
-                        sum_constraints[c] += constrained_quantities[num_constraints*i+c];
-                }
-	}
-
-	for ( i = num_root_cells_in_division - num_procs_right; i >= 0; i-- ) {
-		for ( c = 0; c < num_constraints; c++ ) {
-			if ( sum_constraints[c] >= num_procs_right*per_proc_constraints[c] ) {
+			if ( num_root_cells_in_division-i > num_procs_right &&
+					sum_constraints[c] >= num_procs_right*per_proc_constraints[c] ) {
 				break;
 			} else {
 				sum_constraints[c] += constrained_quantities[num_constraints*i+c];
@@ -174,6 +164,9 @@ int divide_list_recursive( float *global_work,
 		}
 	}
 
+	cart_debug("i = %d, j = %d, num_procs = %d, %d, %d, num_root_cells = %d",
+		i, j, num_procs_in_division, num_procs_left, num_procs_right, 
+		num_root_cells_in_division );
 	return -1;
 }
 
@@ -217,8 +210,10 @@ int divide_list_linear( float *global_work, int *constrained_quantities,
 		/* assign a minimum number of cells so that the remaining processors
 		 * can satisfy the constraints (cells, particles, etc) */
 		for ( c = 0; c < num_constraints; c++ ) {
-			sum_constraints[c] = 0;
+			sum_constraints[c] = constrained_quantities[num_constraints*index+c];
+			total_constraints[c2] -= constrained_quantities[num_constraints*index+c];
 		}
+		index++;
 	
 		for ( c = 0; c < num_constraints; c++ ) {
 			while ( total_constraints[c] > num_procs_remaining*per_proc_constraints[c] ) {
@@ -229,7 +224,6 @@ int divide_list_linear( float *global_work, int *constrained_quantities,
 				index++;
 			}
 		}
-
 		
 		/* ensure maximum of reduced_root_cells, leaving at least one root cell
 		 * for each processor left to come, and not assigning more cells than processor
@@ -243,18 +237,24 @@ int divide_list_linear( float *global_work, int *constrained_quantities,
 				if ( sum_constraints[c] + constrained_quantities[num_constraints*index+c] >
 						per_proc_constraints[c] ) {
 					break;
+				} else {
+					sum_constraints[c] += constrained_quantities[num_constraints*index+c];
 				}
 			}
 
 			if ( c < num_constraints ) {
 				break;
 			} else {
+				for ( c = 0; c < num_constraints; c++ ) {
+					total_constraints[c] -= constrained_quantities[num_constraints*index+c];
+				}
+
 				local_work += global_work[index];
 				index++;
 			}
 		}
 
-		proc_index[proc] = index;
+		proc_index[proc] = index+first_cell_index;
 
 		/* continually re-evaluate ideal work given what work is left */
 		num_procs_remaining--;
