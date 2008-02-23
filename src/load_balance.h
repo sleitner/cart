@@ -1,6 +1,8 @@
 #ifndef __LOAD_BALANCE_H__
 #define __LOAD_BALANCE_H__
 
+#include "defs.h"
+
 extern float cost_per_cell;
 extern float cost_per_particle;
 extern float est_buffer_fraction;

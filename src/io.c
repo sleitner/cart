@@ -216,8 +216,6 @@ void read_restart( double aexpn ) {
 #endif /* HYDRO */
 
 #ifdef PARTICLES
-	init_particles();
-
 	cart_debug("Reading particle restart...");
 #ifdef STARFORM
 	read_particles( filename1, filename2, filename3, filename4, 0, NULL );
@@ -352,10 +350,13 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 		if ( particle_header_filename != NULL ) {
 			read_particle_header( particle_header_filename, &header, &endian, &nbody_flag );
 
-			num_particles_total = particle_species_indices[num_particle_species];
-			num_row = header.Nrow;
-			num_parts_per_page = num_row*num_row;
+			num_particles_total = header.num[ header.Nspecies - 1 ];
+			num_parts_per_page = header.Nrow*header.Nrow;
 			num_pages = (num_particles_total-1) / num_parts_per_page + 1;
+
+			cart_debug("num_parts_per_page = %d", num_parts_per_page );
+			cart_debug("num_particles_total = %d", num_particles_total );
+			cart_debug("num_pages = %d", num_pages );
 	
 			if ( nbody_flag ) {
 				grid_shift = 1.5;
@@ -382,7 +383,7 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 			}
 
 			for ( page = 0; page < num_pages; page++ ) {
-				if ( i == num_pages - 1 ) {
+				if ( page == num_pages - 1 ) {
 					num_parts_in_page = num_particles_total - 
 							num_parts_per_page*(num_pages-1);
 				} else {
@@ -390,7 +391,7 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 				}
 
 				num_read = fread( input_page, sizeof(particle_float), 
-						nDim*num_parts_per_page, input );
+							nDim*num_parts_per_page, input );
 
 				if ( num_read != nDim*num_parts_per_page ) {
 					cart_error("Error reading from particle file %s: insufficient data", particle_data );
@@ -503,31 +504,31 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 						fread( &size, sizeof(int), 1, input );
 					}
 				}
-			} 
 
-			/* read cellrefined */
-			fread( &size, sizeof(int), 1, input );
+				/* read cellrefined */
+				fread( &size, sizeof(int), 1, input );
 			
-			if ( endian ) {
-				reorder( (char *)&size, sizeof(int) );
-			}
-
-			cellrefined = cart_alloc( size );
-			size /= sizeof(int);
-			fread( cellrefined, sizeof(int), size, input );
-
-			fclose(input);
-
-			if ( endian ) {
-				for ( j = 0; j < size; j++ ) {
-					reorder( (char *)&cellrefined, sizeof(int) );
+				if ( endian ) {
+					reorder( (char *)&size, sizeof(int) );
 				}
-			}
 
-			for ( j = 0; j < size; j++ ) {
-				constrained_quantities[num_constraints*index] += cellrefined[j];
-				cell_work[index] += cost_per_cell*cellrefined[j];
-				index++;
+				cellrefined = cart_alloc( size );
+				size /= sizeof(int);
+				fread( cellrefined, sizeof(int), size, input );
+
+				fclose(input);
+
+				if ( endian ) {
+					for ( j = 0; j < size; j++ ) {
+						reorder( (char *)&cellrefined, sizeof(int) );
+					}
+				}
+
+				for ( j = 0; j < size; j++ ) {
+					constrained_quantities[num_constraints*index] += cellrefined[j];
+					cell_work[index] += cost_per_cell*cellrefined[j];
+					index++;
+				}
 			}
 
 			cart_free( cellrefined );
@@ -2034,7 +2035,7 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 	fread( desc, sizeof(char), 45, input );
 	desc[45] = '\0';
 
-	cart_debug( "Particle file: %s", desc );
+	cart_debug( "Particle header file: %s", desc );
 
 	if ( size != sizeof(particle_header)+45 ) {
 		if ( size == sizeof(nbody_particle_header)+45 ) {
@@ -2126,7 +2127,8 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 	}
 }
 
-void read_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename,
+void read_particles( char *header_filename, char *data_filename, 
+			char *timestep_filename, char *stellar_filename,
 			int num_sfcs, int *sfc_list ) {
 	int i, j, k;
 	char desc[47];
