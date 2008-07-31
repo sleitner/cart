@@ -183,7 +183,6 @@ extern int free_oct_list;
 
 extern int num_cells_per_level[max_level-min_level+1];
 extern int local_oct_list[max_level-min_level+1];
-extern int oct_list_needs_ordering[max_level-min_level+1];
 
 extern float cell_size[max_level-min_level+1];
 extern float cell_size_inverse[max_level-min_level+1];

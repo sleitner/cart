@@ -30,7 +30,6 @@ int all_hydro_vars[num_hydro_vars];
 /* level linked list variables */
 int num_cells_per_level[max_level-min_level+1];
 int local_oct_list[max_level-min_level+1];
-int oct_list_needs_ordering[max_level-min_level+1];
 
 /* tables of stats for each level */
 float cell_size[max_level-min_level+1];
@@ -67,7 +66,6 @@ void init_tree()
 
 		num_cells_per_level[i] = 0;
 		local_oct_list[i] = NULL_OCT;
-		oct_list_needs_ordering[i] = 0;
 	}
 
 	#pragma omp parallel for

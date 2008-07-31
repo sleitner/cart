@@ -15,7 +15,6 @@ extern index_hash *buffer_oct_reverse_hash[MAX_PROCS];
 
 extern int num_buffer_cells[max_level-min_level+1];
 extern int buffer_oct_list[max_level-min_level+1]; 
-extern int buffer_oct_list_needs_ordering[max_level-min_level+1];
 
 extern int *remote_buffers[max_level-min_level+1][MAX_PROCS];
 extern int num_remote_buffers[max_level-min_level+1][MAX_PROCS];
