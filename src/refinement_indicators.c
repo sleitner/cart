@@ -6,9 +6,13 @@
 #include "tree.h"
 #include "refinement_indicators.h"
 
-float refinement_indicator_threshold[num_refinement_indicators][num_refinement_levels];
-float refinement_indicator_weight[num_refinement_indicators];
-int use_refinement_indicator[num_refinement_indicators][num_refinement_levels];
+/*
+//  NG: +1 here is so that num_refinement_levels can be set to zero 
+//      for a uniform mesh mode
+*/
+float refinement_indicator_threshold[num_refinement_indicators][num_refinement_levels+1];
+float refinement_indicator_weight[num_refinement_indicators+1];
+int use_refinement_indicator[num_refinement_indicators][num_refinement_levels+1];
 
 float refinement_volume_min[nDim];
 float refinement_volume_max[nDim];

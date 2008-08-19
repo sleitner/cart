@@ -1,0 +1,10 @@
+# COMPILE OPTIONS
+
+# lyra (any gcc)
+CC      = mpicc
+CFLAGS  = -g -Wall
+F77     = g77
+FFLAGS  = -g -Wall
+INCLUDES=
+EXTRALIBS= -lg2c
+

@@ -1,7 +1,7 @@
 #ifndef __DENSITY_H__
 #define __DENSITY_H__
 
-#ifdef GRAVITY
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
 void initialize_density( int level );
 void assign_density( int level );

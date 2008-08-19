@@ -68,12 +68,12 @@ int particle_list_enabled = 0;
 void init_particles() { 
 	int i;
 
-	#pragma omp parallel for
+#pragma omp parallel for default(none), private(i), shared(cell_particle_list)
 	for ( i = 0; i < num_cells; i++ ) {
 		cell_particle_list[i] = NULL_PARTICLE;
 	}
 
-	#pragma omp parallel for
+#pragma omp parallel for default(none), private(i), shared(particle_id,particle_level,particle_list_next,particle_list_prev)
 	for ( i = 0; i < num_particles; i++ ) {
 		particle_id[i] = NULL_PARTICLE;
 		particle_level[i] = FREE_PARTICLE_LEVEL;
@@ -158,10 +158,7 @@ void move_particles( int level ) {
         t_next = tl[level] + dtl[level];
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(iter_cell,ipart,x,y,z,icell,level1, \
-		found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3, \
-		pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1, \
-		ax,ay,az,vx,vy,vz,delta_t)		
+#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next)
 	for ( m = 0; m < num_level_cells; m++ ) {
 		iter_cell = level_cells[m];
 
@@ -348,6 +345,10 @@ void move_particles( int level ) {
 				vx = particle_v[ipart][0] + ax;
 				vy = particle_v[ipart][1] + ay;
 				vz = particle_v[ipart][2] + az;
+#else
+				vx = particle_v[ipart][0];
+				vy = particle_v[ipart][1];
+				vz = particle_v[ipart][2];
 #endif /* GRAVITY */
 	
 				delta_t = t_next - particle_t[ipart];

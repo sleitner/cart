@@ -1,0 +1,9 @@
+# COMPILE OPTIONS
+
+# cobalt (altix)
+CFLAGS          = -O2 -w1 -ipo -unroll -fno-alias -ansi_alias
+EXTRALIBS      = -lmpi
+CC             = icc
+F77            = ifort
+INCLUDES       = -I${FFTW_HOME}/include -L${FFTW_HOME}/lib -I${GSL_HOME}/include -L${GSL_HOME}/lib
+

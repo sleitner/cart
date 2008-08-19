@@ -21,9 +21,9 @@ float density_gradient_indicator( int cell, int level );
 float pressure_gradient_indicator( int cell, int level );
 float entropy_gradient_indicator( int cell, int level );
 
-extern float refinement_indicator_threshold[num_refinement_indicators][num_refinement_levels];
-extern float refinement_indicator_weight[num_refinement_indicators];
-extern int use_refinement_indicator[num_refinement_indicators][num_refinement_levels];
+extern float refinement_indicator_threshold[num_refinement_indicators][num_refinement_levels+1];
+extern float refinement_indicator_weight[num_refinement_indicators+1];
+extern int use_refinement_indicator[num_refinement_indicators][num_refinement_levels+1];
 extern float refinement_volume_min[nDim];
 extern float refinement_volume_max[nDim];
 

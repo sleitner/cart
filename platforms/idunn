@@ -1,0 +1,10 @@
+# COMPILE OPTIONS
+
+# idunn (PG compilers)
+CFLAGS  = -fast -mp 
+CC      = pgcc
+FFLAGS  = -fast -mp
+F77     = pgf77 
+INCLUDES = -I/idunn/scratch1/ext/include
+EXTRALIBS = -pgf77libs -L/idunn/scratch1/ext/lib -L/usr/lib64 -llammpio -llamf77mpi -lmpi -llam -laio -laio -lutil -lpthread 
+

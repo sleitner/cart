@@ -15,6 +15,10 @@
 #include "auxiliary.h"
 #include "timing.h"
 
+#ifdef RADIATIVE_TRANSFER
+#include "rt_solver.h"
+#endif
+
 int root_buffer_enabled = 0;
 int buffer_enabled = 0;
 int *buffer_cell_sfc_index;
@@ -699,14 +703,22 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 }
 
 #ifdef PARTICLES
-#ifdef GRAVITY
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
 void merge_buffer_cell_densities( int level ) {
 	int i;
 	int index, child;
 	int icell, ioct, proc;
 
+#ifdef RT_VAR_SOURCE
+	const int vars_per_cell = 3;
+	const int density_vars_size = 2;
+	const int density_vars[2] = { VAR_DENSITY, RT_VAR_SOURCE };
+#else
+	const int vars_per_cell = 2;
+	const int density_vars_size = 1;
 	const int density_vars[1] = { VAR_DENSITY };
+#endif
 
 	MPI_Request sends[MAX_PROCS];
         MPI_Request receives[MAX_PROCS];
@@ -733,11 +745,11 @@ void merge_buffer_cell_densities( int level ) {
 		cart_assert( num_local_buffers[level][proc] >= 0 );
 
 		if ( level == min_level ) {
-			num_recv_vars[proc] = 2*num_remote_buffers[min_level][proc];
-			num_send_vars[proc] = 2*num_local_buffers[min_level][proc];
+			num_recv_vars[proc] = vars_per_cell*num_remote_buffers[min_level][proc];
+			num_send_vars[proc] = vars_per_cell*num_local_buffers[min_level][proc];
 		} else {
-			num_recv_vars[proc] = 2*num_children*num_remote_buffers[level][proc];
-			num_send_vars[proc] = 2*num_children*num_local_buffers[level][proc];
+			num_recv_vars[proc] = vars_per_cell*num_children*num_remote_buffers[level][proc];
+			num_send_vars[proc] = vars_per_cell*num_children*num_local_buffers[level][proc];
 		}
 
 		cart_assert( num_send_vars[proc] >= 0 && num_recv_vars[proc] >= 0 );
@@ -774,6 +786,9 @@ void merge_buffer_cell_densities( int level ) {
 
 					send_buffer[send_count++] = cell_density(icell);
 					send_buffer[send_count++] = cell_first_species_mass(icell); 
+#ifdef RT_VAR_SOURCE
+					send_buffer[send_count++] = cell_rt_source(icell);
+#endif
 				}
 			} else {
 				cart_assert( num_send_vars[proc] == 2*num_children*num_local_buffers[level][proc] );
@@ -791,6 +806,9 @@ void merge_buffer_cell_densities( int level ) {
 
 						send_buffer[send_count++] = cell_density(icell);
 						send_buffer[send_count++] = cell_first_species_mass(icell);
+#ifdef RT_VAR_SOURCE
+						send_buffer[send_count++] = cell_rt_source(icell);
+#endif
 					}
 				}
 			}
@@ -837,6 +855,9 @@ void merge_buffer_cell_densities( int level ) {
 
 					cell_density(icell) += recv_buffer[recv_count++];
 					cell_first_species_mass(icell) += recv_buffer[recv_count++];
+#ifdef RT_VAR_SOURCE
+					cell_rt_source(icell) += recv_buffer[recv_count++];
+#endif
 				}
 			} else {
 				for ( i = 0; i < num_remote_buffers[level][proc]; i++ ) {
@@ -847,6 +868,9 @@ void merge_buffer_cell_densities( int level ) {
 
 						cell_density(icell) += recv_buffer[recv_count++];
 						cell_first_species_mass(icell) += recv_buffer[recv_count++];
+#ifdef RT_VAR_SOURCE
+						cell_rt_source(icell) += recv_buffer[recv_count++];
+#endif
 					}
 				}
 			}
@@ -861,7 +885,7 @@ void merge_buffer_cell_densities( int level ) {
 
 	/* now update density variables */
 	start_time( MERGE_DENSITIES_UPDATE_TIMER );
-	update_buffer_level( level, density_vars, 1 );
+	update_buffer_level( level, density_vars, density_vars_size );
 	end_time( MERGE_DENSITIES_UPDATE_TIMER );
 
 	/* wait for sends */

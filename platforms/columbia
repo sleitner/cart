@@ -1,0 +1,10 @@
+# COMPILE OPTIONS
+
+# columbia (altix)
+CFLAGS  	= -O2 -w1 -ipo -unroll -fno-alias -ansi_alias
+EXTRALIBS	= -lmpi
+CC      	= icc
+F77     	= ifort
+INCLUDES 	= -L/u/drudd/lib/ -I/u/drudd/include/ -L/opt/sgi/mpt/1.9.1.0/lib
+
+

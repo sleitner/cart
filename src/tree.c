@@ -68,13 +68,13 @@ void init_tree()
 		local_oct_list[i] = NULL_OCT;
 	}
 
-	#pragma omp parallel for
+#pragma omp parallel for default(none), private(i), shared(cell_child_oct)
 	for ( i = 0; i < num_cells; i++ ) {
 		cell_child_oct[i] = UNREFINED_CELL;
 	}
 
 	/* this now starts at first_oct due to root cells */
-	#pragma omp parallel for
+#pragma omp parallel for default(none), private(i), shared(oct_parent_cell,oct_parent_root_sfc,oct_level,oct_next,oct_prev)
 	for ( i = 0; i < num_octs; i++ ) {
 		oct_parent_cell[i] = -1;
 		oct_parent_root_sfc[i] = -1;
@@ -166,7 +166,7 @@ void repair_neighbors()
 	 * previous for calculating neighbors */
 	for ( level = min_level; level < max_level; level++ ) {
 		select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
-		#pragma omp parallel for private(icell,ioct)
+#pragma omp parallel for default(none), private(i,icell,ioct), shared(num_level_cells,level_cells,cell_child_oct,oct_neighbors)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -375,6 +375,40 @@ void cell_position( int c, float position[nDim] ) {
 	}
 }
 
+void cell_position_double( int c, double position[nDim] ) {
+/* equivalent to iPs2 in fortran version 
+ *
+ * purpose: finds coordinates of center of cell c
+ */
+	int i;
+	int coords[nDim];
+	int level, child;
+	int parent;
+
+	cart_assert ( c >= 0 && c < num_cells );
+
+	if ( cell_is_root_cell(c) ) {
+		/* convert sfc index of cell to 3-d coordinates */
+		sfc_coords( cell_parent_root_sfc(c), coords);
+
+		/* center of cell is actually cell_center_offset from
+		 * its index (otherwise 0,0,0 cell straddles into negative
+		 * coordinates) */
+		for ( i = 0; i < nDim; i++ ) {
+			position[i] = (double)coords[i] + cell_center_offset;
+		}
+	} else {
+		parent = cell_parent_oct(c);
+		level = oct_level[parent];
+		child = cell_child_number(c); 
+
+		/* use delta to compute offset from parent's center */
+		for ( i = 0; i < nDim; i++ ) {
+			position[i] = (double)oct_pos[parent][i] + (double)cell_size[level] * (double)cell_delta[child][i];
+		}
+	}
+}
+
 int cell_find_position( double position[nDim] ) {
 	int i;
 	int coords[nDim];
@@ -386,7 +420,7 @@ int cell_find_position( double position[nDim] ) {
 	for ( i = 0; i < nDim; i++ ) {
 		coords[i] = (int)(position[i]);
 
-		if ( coords[i] >= num_grid ) {
+		if ( coords[i]<0 || coords[i]>=num_grid ) {
 			return -1;
 		}
 	}
@@ -423,6 +457,10 @@ int cell_find_position_level( int level, double position[nDim] ) {
 
 	for ( i = 0; i < nDim; i++ ) {
 		coords[i] = (int)(position[i]);
+
+		if ( coords[i]<0 || coords[i]>=num_grid ) {
+			return -1;
+		}
 	}
 	root_index = sfc_index( coords );
                                                                                                                                                             
@@ -463,7 +501,8 @@ int cell_find_position_above_level( int level, double position[nDim] ) {
 
 	for ( i = 0; i < nDim; i++ ) {
 		coords[i] = (int)(position[i]);
-		if ( coords[i] >= num_grid ) {
+
+		if ( coords[i]<0 || coords[i]>=num_grid ) {
 			return -1;
 		}
 	}
@@ -738,3 +777,20 @@ void cell_all_neighbors( int c, int neighbors[num_neighbors] )
 		}
 	}
 }
+
+
+#ifdef HYDRO
+float cell_gas_kinetic_energy(int icell)
+{
+  int j;
+  double ke = 0.0;
+
+  if(cell_gas_density(icell) > 0.0)
+    {
+      for(j=0; j<nDim; j++) ke += cell_momentum(icell,j)*cell_momentum(icell,j);
+      return (float)(0.5*ke/cell_gas_density(icell));
+    }
+  else return 0.0;
+}
+#endif
+

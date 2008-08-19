@@ -1,6 +1,24 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#define rbinmax         (5e3/hubble)
+#define rbinmin         (10.0/hubble)
+#define max_bins        100
+
+#define rbinvirmin      0.05
+#define rbinvirmax      4.0
+#define num_vir_bins    50
+#define virial_radius_index     2       /* r500, 0 = rvir */
+
+#define points_per_cell 1
+
+#define Tcold           (1e5)
+#define new_star_age    (0.1)
+
+#define min_halo_particles      (1e3)
+#define min_xray_removal_mass   (1e12)
+#define xray_removal_radius     (1.0)
+
 typedef struct HALO {
 	int id;
 	int proc;

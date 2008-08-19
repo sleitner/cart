@@ -36,6 +36,10 @@
 #include <omp.h>
 #endif
 
+#ifdef RADIATIVE_TRANSFER
+void rtInitRun();
+#endif
+
 void init_run();
 void run_output();
 
@@ -90,6 +94,10 @@ int main ( int argc, char *argv[]) {
 	init_hydro_tracers();
 #endif /* HYDRO_TRACERS */
 
+#ifdef RADIATIVE_TRANSFER
+	rtInitRun();
+#endif /* RADIATIVE_TRANSFER */
+
 	start_time( TOTAL_TIME );
 	start_time( INIT_TIMER );
 
@@ -114,21 +122,25 @@ int main ( int argc, char *argv[]) {
 		step = 0;
 		current_output = 0;
 
-#ifdef GRAVITY
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 		for ( level = min_level; level <= max_level; level++ ) {
 			cart_debug("assigning density on level %u", level );
 			assign_density( level );
 
+#ifdef GRAVITY
 			cart_debug("solving potential on level %u", level );
 			solve_poisson( level, 0 );
 			cart_debug("done solving potential");
-		
+
 			if ( level > min_level+1 ) {
 				cart_debug("restricting potential to level %u", level-1);
 				restrict_to_level( level-1 );
 			}
+#endif		
 		}
+#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
 
+#ifdef GRAVITY
 #ifdef HYDRO
 		for ( level = min_level; level <= max_level; level++ ) {
 			copy_potential( level );
@@ -155,6 +167,13 @@ int main ( int argc, char *argv[]) {
 		for ( i = min_level; i <= max_level; i++ ) {
 			cart_debug("num_cells_per_level[%u] = %u", i, num_cells_per_level[i] );
 		}
+
+#if defined(RADIATIVE_TRANSFER)
+		for ( level = min_level; level <= max_level; level++ ) {
+			cart_debug("assigning density on level %u", level );
+			assign_density( level );
+		}
+#endif /* defined(RADIATIVE_TRANSFER) */
 	} 
 
 #ifdef COOLING

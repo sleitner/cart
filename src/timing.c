@@ -55,6 +55,13 @@ const char *timer_name[] = {
 	"communication",
 	"particle_io",
 	"gas_io",
+        "cooling",
+#ifdef RADIATIVE_TRANSFER
+	"RT_tables",
+	"RT_cooling",
+	"RT_level_update",
+	"RT_after_density",
+#endif
         "level_total"
 };
 
@@ -73,14 +80,18 @@ void init_timers() {
 	current_timer_level = min_level;
 }
 
-void start_time( int timerid ) {
+void start_time_at_location( int timerid, const char *file, int line ) {
 	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
 	cart_assert( timers[current_timer_level][timerid].current_time == -1.0 );
 
 	timers[current_timer_level][timerid].current_time = MPI_Wtime();
+
+#ifdef DEBUG
+	log_in_debug(timerid,1,file,line);
+#endif
 }
 
-double end_time( int timerid ) {
+double end_time_at_location( int timerid, const char *file, int line ) {
 	double elapsed;
 	
 	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
@@ -92,6 +103,10 @@ double end_time( int timerid ) {
 	timers[current_timer_level][timerid].total_time += elapsed;
 	timers[current_timer_level][timerid].current_time = -1.0;
 	timers[current_timer_level][timerid].num_calls++;
+
+#ifdef DEBUG
+	log_in_debug(timerid,0,file,line);
+#endif
 
 	return elapsed;
 }

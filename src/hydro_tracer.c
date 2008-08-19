@@ -63,12 +63,11 @@ char *hydro_vars_traced_labels[] = {	"density",
 void init_hydro_tracers() { 
 	int i;
 
-	#pragma omp parallel for
 	for ( i = 0; i < num_tracers; i++ ) {
 		tracer_id[i] = NULL_TRACER;
 	}
 
-	#pragma omp parallel for
+#pragma omp parallel for default(none), private(i), shared(cell_tracer_list)
 	for ( i = 0; i < num_cells; i++ ) {
 		cell_tracer_list[i] = NULL_TRACER;
 	}

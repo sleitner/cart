@@ -1,0 +1,69 @@
+erase
+ltype 0
+lweight 2
+
+
+window 1 1 1 1
+location 5000 31000 5000 31000
+
+
+define LMIN	-8.5
+define LMAX	-3.5
+
+define LTMIN	1
+define LTMAX	5
+define LXMIN	-8.0
+define LXMAX	0.2
+
+
+notation -2 1 -2 1
+ticksize -1 0 -1 0
+
+define y_gutter 0
+
+expand 1.01
+window 1 2 1 2
+expand 1.5
+limits $LMIN $LMAX $LTMIN $LTMAX
+box 0 2 3 3
+expand 2
+ylabel T (K)
+
+expand 1.01
+window 1 2 1 1
+expand 1.5
+limits $LMIN $LMAX $LXMIN $LXMAX
+box 
+expand 2
+ylabel X_{HI}
+xlabel t (CU)
+
+
+macro plot 2 {
+	da $1
+	read { l 2 t 5 x 6 }
+	set ll = lg(1e-30+l)
+	set lt = lg(t)
+	set lx = lg(x)
+	
+	ctype $2
+
+	expand 1.01
+	window 1 2 1 2
+	limits $LMIN $LMAX $LTMIN $LTMAX
+	connect ll lt
+
+	expand 1.01
+	window 1 2 1 1
+	limits $LMIN $LMAX $LXMIN $LXMAX
+	connect ll lx
+
+	ctype 0
+}
+
+plot q1 3
+plot q2 5
+
+
+
+

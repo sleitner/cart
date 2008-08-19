@@ -21,6 +21,6 @@
 
 #define keV	(8.6170868e-8)
 
-#define small	(1e-20)
+#define small	(1e-30)
 
 #endif

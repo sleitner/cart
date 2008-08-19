@@ -1,0 +1,8 @@
+# COMPILE OPTIONS
+
+# jacquard (pathscale compiler)
+CFLAGS  	= -O2
+EXTRALIBS	= -lm
+CC      	= mpicc
+INCLUDES	= ${FFTW} -I/u1/drudd/include/ -L/u1/drudd/lib/
+

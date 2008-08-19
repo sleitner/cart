@@ -1,0 +1,53 @@
+erase
+lweight 2
+ltype 0
+
+
+location 4500 32000 4000 32000
+
+
+macro plot 2 {
+
+da $1
+read { t 1 x 2 w 3 }
+
+set lt = lg(1.0e-30+t)
+set lx = lg(1.0e-30+x)
+set lw = lg(1.0e-30+w)
+
+define y_gutter 0
+
+expand 1.01
+window 1 2 1 2
+limits -6 7.5 -7.5 0.2
+expand 1.5
+box 0 2 0 0
+expand 2
+ylabel log(x_{HI})
+ctype $2
+connect lt lx
+ctype 0
+
+expand 1.01
+window 1 2 1 1
+limits -6 7.5 2 5
+expand 1.5
+box 1 2 0 0
+expand 2
+xlabel log(t) [yr]
+ylabel log(T) [K]
+ctype $2
+connect lt lw
+ctype 0
+
+
+expand 1.01
+window 1 1 1 1
+}
+
+
+plot evol0.res 0
+
+plot evol.res  3
+
+

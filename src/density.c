@@ -13,7 +13,13 @@
 #include "auxiliary.h"
 #include "timing.h"
 
-#ifdef GRAVITY
+
+#ifdef RADIATIVE_TRANSFER
+#include "rt_solver.h"
+#endif
+
+
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
 void initialize_density( int level ) {
 	int i;
@@ -25,30 +31,41 @@ void initialize_density( int level ) {
 
 #ifdef PARTICLES
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_volume,cell_vars,level)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		cell_density(icell) = -cell_volume[level]; 
 		cell_first_species_mass(icell) = 0.0;
+#ifdef RT_VAR_SOURCE
+		cell_rt_source(icell) = 0.0;
+#endif	
 	}
 
 	cart_free( level_cells );
 
 	select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
-        #pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars)
         for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		cell_density(icell) = 0.0; 
 		cell_first_species_mass(icell) = 0.0;
+#ifdef RT_VAR_SOURCE
+		cell_rt_source(icell) = 0.0;
+#endif	
 	}
 	
 	cart_free( level_cells );
 #else
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level,cell_volume)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
+#ifdef GRAVITY
 		cell_density(icell) = -cell_volume[level];
+#endif
+#ifdef RT_VAR_SOURCE
+		cell_rt_source(icell) = 0.0;
+#endif	
 	}
 
 	cart_free( level_cells );
@@ -69,6 +86,10 @@ void assign_density( int level ) {
 
 #ifdef HYDRO
 	assign_hydro_density( level );
+#else /* HYDRO */
+#ifdef RADIATIVE_TRANSFER
+	rtAfterAssignDensity1(level);
+#endif
 #endif /* HYDRO */
 
 	end_time( DENSITY_TIMER );
@@ -86,11 +107,17 @@ void assign_hydro_density( int level ) {
 
 	/* assumes buffer gas density is up to date */
 	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level,cell_volume)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
+#ifdef GRAVITY
 		cell_density(icell) += cell_gas_density(icell)*cell_volume[level];
+#endif
 	}
+
+#ifdef RADIATIVE_TRANSFER
+	rtAfterAssignDensity2(level,num_level_cells,level_cells);
+#endif
 
 	cart_free( level_cells );
 
@@ -113,6 +140,9 @@ void assign_particle_density( int level ) {
 	double dx0, dx1, dy0, dy1, dz0, dz1;
 	double d00, d01, d10, d11;
 	int is_first;
+#ifdef RT_VAR_SOURCE
+	float sor;
+#endif
 
 	start_time( WORK_TIMER );
 
@@ -165,6 +195,9 @@ void assign_particle_density( int level ) {
 			d10 = dx1*dy0;
 			d11 = dx1*dy1;
 
+#ifdef RT_VAR_SOURCE
+			sor = rtSource(ipart);
+#endif
 			/* child 0 */
 			corner[0] = cornerx0;
 			corner[1] = cornery0;
@@ -174,7 +207,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d00*dz0;
 				cell_density(icell) += mass;
-	
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
 				if ( is_first ) {
 					cell_first_species_mass(icell) += mass;
 				}
@@ -187,7 +222,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d10*dz0;
 				cell_density(icell) += mass;
-
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
 				if ( is_first ) {
 					cell_first_species_mass(icell) += mass;
 				}
@@ -201,7 +238,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d01*dz0;
 				cell_density(icell) += mass;
-
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
 				if ( is_first ) {
 					cell_first_species_mass(icell) += mass;
 				}
@@ -214,7 +253,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d11*dz0;
 				cell_density(icell) += mass;
-
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
 				if ( is_first ) {
 					cell_first_species_mass(icell) += mass;
 				}
@@ -229,7 +270,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d00*dz1;
 				cell_density(icell) += mass;
-
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
 				if ( is_first ) {
 					cell_first_species_mass(icell) += mass;
 				}
@@ -242,7 +285,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d10*dz1;
 				cell_density(icell) += mass;
-
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
                                 if ( is_first ) {
                                         cell_first_species_mass(icell) += mass;
                                 }
@@ -256,7 +301,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d01*dz1;
 				cell_density(icell) += mass;
-
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
 				if ( is_first ) {
 					cell_first_species_mass(icell) += mass;
 				}
@@ -269,7 +316,9 @@ void assign_particle_density( int level ) {
 			if ( icell != -1 ) {
 				mass = d11*dz1;
 				cell_density(icell) += mass;
-
+#ifdef RT_VAR_SOURCE
+				cell_rt_source(icell) += mass*sor;
+#endif	
 				if ( is_first ) {
 					cell_first_species_mass(icell) += mass;
 				}

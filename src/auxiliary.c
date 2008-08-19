@@ -20,6 +20,9 @@
 unsigned long int rng_seed = 0L;
 gsl_rng *cart_random_generator;
 
+extern int current_step_level;
+
+
 void init_auxiliary() {
 	FILE *state;
 	char filename[256];
@@ -206,13 +209,27 @@ void cart_error( const char *fmt, ... ) {
 
 #ifndef NDEBUG
 void cart_debug( const char *fmt, ... ) {
-	char message[256];
-
+        int i;
+	char message[256], prompt[256];
 	va_list args;
+
+	/* prompt */
+	if(current_step_level > -1)
+	  {
+	    strcpy(prompt,"> ");
+	    for(i=1; i<=current_step_level; i++)
+	      {
+		if(i%5 == 0) strcat(prompt,": "); else strcat(prompt,". ");
+	      }
+	  }
+	else
+	  {
+	    prompt[0] = 0;
+	  }
 
 	va_start( args, fmt );
 	vsnprintf( message, 256, fmt, args );
-	fprintf( stdout, "%u: %s\n", local_proc_id, message );
+	fprintf( stdout, "%u: %s%s\n", local_proc_id, prompt, message );
 	va_end(args);
 }
 #endif

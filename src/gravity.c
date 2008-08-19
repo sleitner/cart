@@ -43,7 +43,7 @@ void copy_potential( int level ) {
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		cell_potential_hydro(icell) = cell_potential(icell);
@@ -65,7 +65,7 @@ void interpolate_potential( int level ) {
 	dtdt2 = 0.5 * dtl[level]/dtl_old[level];
 
 	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,dtdt2)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -99,7 +99,7 @@ void prolongate( int level ) {
 	start_time( WORK_TIMER );
 
 	select_level( level-1, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell,j)
+#pragma omp parallel for default(none), private(i,icell,j), shared(num_level_cells,level_cells,cell_vars,cell_child_oct)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -220,7 +220,7 @@ void smooth( int level ) {
 
 	ind = cart_alloc( num_octs * sizeof(int) );
 
-	#pragma omp parallel for
+#pragma omp parallel for default(none), private(i), shared(ind)
 	for ( i = 0; i < num_octs; i++ ) {
 		ind[i] = -1;
 	}
@@ -330,7 +330,7 @@ void smooth( int level ) {
 			ind[oct_list[oct_count+i]] = oct_count+i;
 		}
 	} else {
-		#pragma omp parallel for
+#pragma omp parallel for default(none), private(i), shared(num_indirect_blocks,ind,oct_list,oct_count)
 		for ( i = 0; i < num_indirect_blocks; i++ ) {
 			ind[oct_list[oct_count+i]] = oct_count+i;
 		}
@@ -509,7 +509,7 @@ void smooth( int level ) {
 	rho_black = cart_alloc( 4*num_blocks * sizeof(double) );
 
 	/* pack cell_blocks */
-	#pragma omp parallel for private(j,child)
+#pragma omp parallel for default(none), private(i,j,child), shared(num_blocks,oct_list,phi_red,phi_black,cell_vars,rho_red,rho_black)
 	for ( i = 0; i < num_blocks; i++ ) {
 		j = 4*i;
 		child = oct_child(oct_list[i],0);
@@ -558,15 +558,15 @@ void smooth( int level ) {
 
 	/* convert send_indices and recv_indices from oct index to index in packed arrays */
 	for ( proc = 0; proc < num_procs; proc++ ) {
-		#pragma omp parallel 
+#pragma omp parallel 
 		{
 
-		#pragma omp for, nowait
+#pragma omp for nowait
 		for ( i = 0; i < num_send_octs[proc]; i++ ) {
 			send_indices[proc][i] = 4*ind[send_indices[proc][i]];
 		}
 
-		#pragma omp for
+#pragma omp for
 		for ( i = 0; i < num_recv_octs[proc]; i++ ) {
 			recv_indices[proc][i] = 4*ind[ recv_indices[proc][i] ];
 		}
@@ -623,7 +623,7 @@ void smooth( int level ) {
 
 			/* pack into arrays for communication */
 			for ( proc = 0; proc < num_procs; proc++ ) {
-				#pragma omp parallel for private(j,k)
+#pragma omp parallel for default(none), private(i,j,k), shared(proc,num_send_octs,send_indices,packed_red,phi_red,packed_black,phi_black)
 				for ( i = 0; i < num_send_octs[proc]; i++ ) {
 					j = send_indices[proc][i];
 					k = (num_children/2)*i;
@@ -648,7 +648,7 @@ void smooth( int level ) {
 
 			/* now move from buffers to actual array */
 			for ( proc = 0; proc < num_procs; proc++ ) {
-				#pragma omp parallel for private(j,k)
+#pragma omp parallel for default(none), private(i,j,k), shared(num_recv_octs,proc,recv_indices,phi_red,buffer_red,phi_black,buffer_black)
 				for ( i = 0; i < num_recv_octs[proc]; i++ ) {
 					j = recv_indices[proc][i];
 					k = (num_children/2)*i;
@@ -671,7 +671,7 @@ void smooth( int level ) {
 		start_time( WORK_TIMER );
 
 		/* red (local red and buffered red) */
-		#pragma omp parallel for private(block,phi1,phi2,phi4,phi7,phi_ext_neighbors,icell)
+#pragma omp parallel for default(none), private(i,block,phi1,phi2,phi4,phi7,phi_ext_neighbors,icell), shared(num_local_blocks,num_direct_blocks,phi_black,ext_red,phi_red,wsor6,trfi2,rho_red)
 		for ( i = 0; i < num_local_blocks + num_direct_blocks; i++ ) {
 			block = i*4;
 			
@@ -723,7 +723,7 @@ void smooth( int level ) {
 		trfi2 = wsor * cell_size_inverse[level] / aexp[level]; 
 
 		/* black (just local black cells) */
-		#pragma omp parallel for private(block,phi0,phi3,phi5,phi6,phi_ext_neighbors,icell)
+#pragma omp parallel for default(none), private(i,block,phi0,phi3,phi5,phi6,phi_ext_neighbors,icell), shared(num_local_blocks,phi_red,ext_black,phi_black,wsor6,trfi2,rho_black)
 		for ( i = 0; i < num_local_blocks; i++ ) {
 			block = i*4;
 
@@ -789,7 +789,7 @@ void smooth( int level ) {
 	/* write back to cell array */
 	start_time( WORK_TIMER );
 
-	#pragma omp parallel for private(j,child)
+#pragma omp parallel for default(none), private(i,j,child), shared(num_local_blocks,oct_list,cell_vars,phi_red,phi_black)
 	for ( i = 0; i < num_local_blocks; i++ ) {
                 j = 4*i;
 		cart_assert( oct_list[i] >= 0 && oct_list[i] < num_octs );
@@ -876,7 +876,7 @@ void restrict_to_level( int level ) {
 	start_time( WORK_TIMER );
                                                                                                                   
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell,sum,j)
+#pragma omp parallel for default(none), private(i,icell,sum,j), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		if ( cell_is_refined(icell) ) {
@@ -902,103 +902,7 @@ void restrict_to_level( int level ) {
 void potential() {
 	const int potential_vars[1] = { VAR_POTENTIAL };
 	
-	int coords[3];
-	int index;
-	int p, i;
-	type_fft *density, *potential;
-	MPI_Status status;
-
-	start_time( FFT_TIMER );
-
-	/* gather all root densities to master node */
-	if ( local_proc_id == MASTER_NODE ) {
-		start_time( WORK_TIMER );
-
-		potential = cart_alloc( num_root_cells * sizeof(type_fft) );
-		density = cart_alloc( num_root_cells * sizeof(type_fft) );
-
-		#pragma omp parallel for private(coords,index)
-		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-			sfc_coords( i, coords );
-			index = num_grid*(num_grid*coords[0] + coords[1] ) + coords[2];
-			density[index] = cell_density(i);
-		}
-
-		end_time( WORK_TIMER );
-
-		start_time( COMMUNICATION_TIMER );
-
-		for ( p = 1; p < num_procs; p++ ) {
-			MPI_Recv( potential, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT,
-				p, 0, MPI_COMM_WORLD, &status );
-
-			#pragma omp parallel for private(coords,index)
-			for ( i = 0; i < proc_sfc_index[p+1]-proc_sfc_index[p]; i++ ) {
-				sfc_coords(i+proc_sfc_index[p],coords);
-				index = num_grid*(num_grid*coords[0] + coords[1] ) + coords[2];
-				density[index] = potential[i];
-			}
-		}
-
-		end_time( COMMUNICATION_TIMER );
-
-		/* compute potential */
-		start_time( WORK_TIMER );
-	        poisson( density, potential );
-		end_time( WORK_TIMER );
-
-		start_time( COMMUNICATION_TIMER );
-		for ( p = 1; p < num_procs; p++ ) {
-			#pragma omp parallel for private(coords,index)
-			for ( i = 0; i < proc_sfc_index[p+1]-proc_sfc_index[p]; i++ ) {
-				sfc_coords(i+proc_sfc_index[p],coords);
-				index = num_grid*(num_grid*coords[0] + coords[1] ) + coords[2];
-				density[i] = potential[index];
-			}
-
-			MPI_Send( density, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT, p, 1, MPI_COMM_WORLD );
-		}
-		end_time( COMMUNICATION_TIMER );
-
-		start_time( WORK_TIMER );
-		#pragma omp parallel for private(coords,index)
-		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-			sfc_coords( i, coords );
-			index = num_grid*(num_grid*coords[0] + coords[1] ) + coords[2];
-
-			cell_potential(i) = potential[index];
-		}
-		end_time( WORK_TIMER );
-
-		cart_free(potential);
-		cart_free(density);
-	} else {
-		start_time( COMMUNICATION_TIMER );
-		potential = cart_alloc( num_cells_per_level[min_level] * sizeof(type_fft) );
-		
-		#pragma omp parallel for
-		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-			potential[i] = cell_density(i);
-		}
-		
-		MPI_Send( potential, num_cells_per_level[min_level], MPI_TYPE_FFT, MASTER_NODE, 0, MPI_COMM_WORLD );
-		MPI_Recv( potential, num_cells_per_level[min_level], MPI_TYPE_FFT, MASTER_NODE, 1, MPI_COMM_WORLD, &status );
-
-		#pragma omp parallel for
-		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-			cell_potential(i) = potential[i];
-		}
-
-		cart_free(potential);
-		end_time( COMMUNICATION_TIMER );
-	}
-
-	/* update cell buffer */
-	start_time( FFT_UPDATE_TIMER );
-	update_buffer_level( min_level, potential_vars, 1 );
-	end_time( FFT_UPDATE_TIMER );
-
-	end_time( FFT_TIMER );
+	top_level_fft(VAR_DENSITY,1,potential_vars,poisson);
 }
 
 #ifdef HYDRO 
@@ -1026,7 +930,7 @@ void compute_accelerations_hydro( int level ) {
 	start_time( WORK_TIMER );
 
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-        #pragma omp parallel for private(icell,j,neighbors,L1,R1,phi_l,phi_r)
+#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half)
         for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -1090,7 +994,7 @@ void compute_accelerations_particles( int level ) {
 #endif
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell,j,neighbors,L1,R1,phi_l,phi_r)
+#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 

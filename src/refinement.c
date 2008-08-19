@@ -47,7 +47,7 @@ void modify( int level, int op ) {
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,level)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		mark_refinement_indicators( icell, level );
@@ -60,7 +60,7 @@ void modify( int level, int op ) {
                 start_time( DIFFUSION_STEP_TIMER );
 
 		start_time( WORK_TIMER );
-		#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(icell), shared(num_level_cells,level_cells)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 			add_reaction( icell );
@@ -72,7 +72,7 @@ void modify( int level, int op ) {
 		end_time( DIFFUSION_UPDATE_TIMER );
 
 		start_time( WORK_TIMER );
-		#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 			diffusion_step( icell );
@@ -291,7 +291,7 @@ void derefine( int level ) {
 	num_cells_to_refine = 0;
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
-	#pragma omp parallel for	
+#pragma omp parallel for default(none), private(i), shared(num_level_cells,level_cells)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		choose_cells_wanting_derefinement( level_cells[i] );
 	}

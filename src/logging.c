@@ -122,6 +122,11 @@ void init_logging( int restart ) {
 	if ( dependency == NULL ) {
 		cart_error( "Unable to open %s for writing!", filename );
 	}
+
+
+#ifdef DEBUG
+	log_in_debug(-1,0,__FILE__,__LINE__);
+#endif
 }
 
 void finalize_logging() {
@@ -307,7 +312,7 @@ void log_diagnostics() {
 
 		cart_debug("total_resolved_volume = %e", total_resolved_volume);
 
-		if ( total_resolved_volume >= 0.0 ) {
+		if ( total_resolved_volume > 0.0 ) {
 			sfr = d_stellar_initial_mass * aM0 * hubble * hubble * hubble / dtyears / total_resolved_volume;
 		} else {
 			sfr = 0.0;
@@ -354,6 +359,7 @@ void log_diagnostics() {
 #ifdef PARTICLES
 		ekin = total_particle_kinetic;
 
+#ifdef COSMOLOGY
 		if ( step == 1 ) {
 			au0 = aexp_old[min_level]*total_particle_potential;
 			aeu0 = au0 + aexp_old[min_level]*total_particle_kinetic;
@@ -365,6 +371,18 @@ void log_diagnostics() {
 			error = ( aexp_old[min_level]*(kinetic_energy+total_particle_potential) - aeu0 + tintg ) /
 					( aexp_old[min_level]*total_particle_potential - au0 );
 		}
+#else
+		if ( step == 1 ) {
+			au0 = total_particle_potential;
+			aeu0 = au0 + total_particle_kinetic;
+			tintg = 0.0;
+			error = 0.0;
+		} else {
+ 		        kinetic_energy = 0.5*(ekin+ekin1);
+			if(aeu0 != 0.0) error = (kinetic_energy+total_particle_potential)/aeu0 - 1.0; else error = 0.0;
+		}
+#endif  /* COSMOLOGY */
+
 #endif /* PARTICLES */
 
 		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e %e\n",
@@ -388,3 +406,50 @@ void log_diagnostics() {
 #endif
 
 }
+
+
+#ifdef DEBUG
+
+extern const char *timer_name[];
+double offset = 0.0;
+
+void log_in_debug(int timerid, int start, const char *file, int line)
+{
+#if (DEBUG-0 > 1)
+  char filename[256];
+  FILE *f = 0;
+  
+  sprintf(filename,"%s/debug.%03u.log",logfile_directory,local_proc_id);
+  if(timerid < 0)
+    {
+      offset = MPI_Wtime();
+      f = fopen(filename,"w");
+      if(f != 0) fclose(f);
+      return;
+    }
+  
+  f = fopen(filename,"a");
+  if(f != 0)
+    {
+      switch(start)
+	{
+	case 0:
+	  {
+	    fprintf(f,"%s @ %d: %s done at %f sec.\n",file,line,timer_name[timerid],MPI_Wtime()-offset);
+	    break;
+	  }
+	case 1:
+	  {
+	    fprintf(f,"%s @ %d: %s started at %f sec.\n",file,line,timer_name[timerid],MPI_Wtime()-offset);
+	    break;
+	  }
+	default:
+	  {
+	    fprintf(f,"%s @ %d: marker #%d set at %f sec.\n",file,line,timerid,MPI_Wtime()-offset);
+	  }
+	}
+      fclose(f);
+    }
+#endif
+}
+#endif

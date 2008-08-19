@@ -27,7 +27,7 @@ extern double max_dt;
 extern double max_frac_da;
 
 int global_timestep( double dt );
-int timestep( int level );
+int timestep( int level, MPI_Comm local_comm );
 void choose_timestep( double *dt );
 
 #ifdef HYDRO

@@ -1,0 +1,65 @@
+erase
+lweight 3
+ltype 0
+ctype 0
+
+
+location 5000 32000 4000 32000
+
+
+ticksize -1 0 0 0
+notation -1 2 -1 2
+
+
+define IBOX 1
+
+
+macro plot 2 {
+	da $1
+	read { lr1 1 a1 2 s1 3 w1 4 }
+
+	set lr = lr1 if ( a1 > 0 )
+	set a = a1 if ( a1 > 0 )
+	set s = s1 if ( a1 > 0 )
+	set w = w1 if ( a1 > 0 )
+
+	set la = ln(a)
+	set le = ln(a+s) - la
+
+	set la = la + ln(4*PI) + 2*ln(10**lr)
+
+	if ( $IBOX ) {
+		limits lr -1.2 1.2
+		expand 1.5
+		box
+		expand 2.0
+		xlabel r
+		ylabel G(r)
+
+		set ly = 0*lr
+		ltype 1
+		connect lr ly
+		ltype 0
+
+		define IBOX 0
+	}
+
+	set lrs = lr concat reverse(lr)
+	set las = (la+le) concat reverse(la-le)
+
+	ctype $2
+	lweight 3
+	connect lr la
+	lweight 1
+	connect lrs las
+	shade 300 lrs las
+	lweight 3
+	ltype 2
+	connect lr w
+	ltype 0
+	ctype 0
+}
+
+plot OUT/prof_ss.res 3
+plot OUT/prof_te.res 5
+

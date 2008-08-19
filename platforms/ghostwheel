@@ -1,0 +1,7 @@
+# COMPILE OPTIONS
+
+# ghostwheel (ecc)
+CFLAGS = -O2 -w1 -ipo
+CC      = mpicc
+F77     = mpif77
+

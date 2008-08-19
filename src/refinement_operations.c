@@ -123,6 +123,10 @@ int split ( int cell ) {
 			cell_gas_gamma(child_cell) = cell_gas_gamma(cell);
 
 			/* interpolate potential and add to kinetic to get total energy */
+
+			/*
+			  ASK DOUG WHY WE DO IT THAT WAY
+			*/
 			cell_gas_energy(child_cell) = cell_kinetic_energy(child_cell) + 
 				cell_interpolate_function_with_neighbors( cell, cell_internal_energy, neighbors );
 			weights[4] += cell_gas_energy(child_cell);

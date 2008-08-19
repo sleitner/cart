@@ -1,0 +1,115 @@
+#include "defs.h"      
+#ifdef RADIATIVE_TRANSFER
+#include "../rt_config.h"
+C
+C  IO routines
+C
+      subroutine frtWriteRadiationFields(iunit)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_LWBANDS
+      include 'frt_tablesLW.inc'
+#endif
+C
+C  Write into existing Fortran binary file
+C
+      write(iunit) (ang(j),j=1,NRAD)
+#ifdef RT_LWBANDS
+      write(iunit) (angLW(j),j=1,NRLW)
+#endif
+
+      return
+      end
+C
+C
+C
+      subroutine frtReadRadiationFields(iunit)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_LWBANDS
+      include 'frt_tablesLW.inc'
+#endif
+C
+C  Read from existing Fortran binary file
+C
+      read(iunit,err=10) (ang(j),j=1,NRAD)
+#ifdef RT_LWBANDS
+      read(iunit,err=20) (angLW(j),j=1,NRLW)
+#endif
+
+      return
+
+ 10   write(6,*) 'Error reading radiation field from a file.'
+      return
+
+#ifdef RT_LWBANDS
+ 20   write(6,*) 'Error reading LW bands from a file.'
+      return
+#endif
+
+      end
+C
+C
+C
+      subroutine frtPackRadiationFields(n,data)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_LWBANDS
+      include 'frt_tablesLW.inc'
+#endif
+      dimension data(*)
+
+      n0 = NRAD
+#ifdef RT_LWBANDS
+      n0 = n0 + NRLW
+#endif
+      if(n .ne. n0) then
+         n = n0
+      else
+         do j=1,NRAD
+            data(j) = ang(j)
+         enddo
+#ifdef RT_LWBANDS
+         do j=1,NRLW
+            data(NRAD+j) = angLW(j)
+         enddo
+#endif
+      endif
+
+      return
+      end
+C
+C
+C
+      subroutine frtUnpackRadiationFields(n,data)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_LWBANDS
+      include 'frt_tablesLW.inc'
+#endif
+      dimension data(*)
+
+      n0 = NRAD
+#ifdef RT_LWBANDS
+      n0 = n0 + NRLW
+#endif
+      if(n .ne. n0) then
+         n = n0
+      else
+         do j=1,NRAD
+            ang(j) = data(j)
+         enddo
+#ifdef RT_LWBANDS
+         do j=1,NRLW
+            angLW(j) = data(NRAD+j)
+         enddo
+#endif
+      endif
+
+      return
+      end
+
+#endif
+      subroutine frtDummyIO(i)
+      i = 0
+      end

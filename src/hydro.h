@@ -10,7 +10,7 @@
 #define gamma_max		10.0
 
 #ifndef T_min
-#define T_min			( 300.0 )
+#define T_min			( 3.0 )
 #endif
 
 #ifdef PRESSURE_FLOOR

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "defs.h"
 #include "io.h"
 #include "hydro.h"
 #include "timestep.h"
@@ -16,6 +15,12 @@
 #include "sfc.h"
 #include "auxiliary.h"
 #include "cooling.h"
+
+#include "defs.h"
+#ifdef RADIATIVE_TRANSFER
+#include "rt_solver.h"
+#endif
+
 
 #ifdef HYDRO 
 
@@ -107,7 +112,7 @@ void hydro_step( int level ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
 #ifdef _OPENMP
-		#pragma omp parallel for private(icell,j)
+#pragma omp parallel for default(none), private(i,icell,j), shared(num_level_cells,level_cells,backup_fluxes)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -117,7 +122,7 @@ void hydro_step( int level ) {
 		}
 #endif /* openmp */
 
-		#pragma omp parallel for private(icell,R1,R2,L1,L2,f,j) default(shared)
+#pragma omp parallel for default(none), private(i,icell,R1,R2,L1,L2,f,j), shared(num_level_cells,level_cells,cell_child_oct,sweep_direction,backup_hvars,mj3,mj4,ref,dxi,level,mj5,backup_fluxes)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -251,7 +256,7 @@ void hydro_step( int level ) {
 
 #ifdef _OPENMP
 		/* apply fluxes for right cells */
-		#pragma omp parallel for private(icell)
+#pragma omp parallel for default(none), private(i,icell,j), shared(num_level_cells,level_cells,backup_fluxes,mj3,mj4,mj5,ref,dxi,backup_hvars)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -276,7 +281,7 @@ void hydro_step( int level ) {
 
 		if ( level > min_level ) {
 			select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
-			#pragma omp parallel for private(icell,R1,R2,L1,L2,f)
+#pragma omp parallel for default(none), private(i,icell,R1,R2,L1,L2,f,j), shared(num_level_cells,level_cells,cell_child_oct,sweep_direction,level,backup_hvars,mj3,mj4,mj5,dxi,ref)
 			for ( i = 0; i < num_level_cells; i++ ) {
 				icell = level_cells[i];
 
@@ -335,7 +340,7 @@ void hydro_step( int level ) {
 #ifndef GRAVITY_IN_RIEMANN
 		/* now we need to apply a gravity correction */
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-		#pragma omp parallel for private(icell,gravadd)
+#pragma omp parallel for default(none), private(icell,gravadd)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -400,7 +405,7 @@ void hydro_magic( int level ) {
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell,j,kinetic_energy,thermal_energy)
+#pragma omp parallel for default(none), private(i,icell,j,kinetic_energy,thermal_energy,average_density,neighbors), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,gas_density_floor,Tminc)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -417,7 +422,9 @@ void hydro_magic( int level ) {
 				cart_debug("cell %u hit density floor, old density %e, new density = %e",
 					icell, cell_gas_density(icell), max( average_density/(float)num_neighbors,
 					gas_density_floor ) );
-
+#if defined(DEBUG) && (DEBUG-0 > 9)
+				cart_error("aborting...");
+#endif
 
 				for ( i = 0; i < num_hydro_vars; i++ ) {
 					cart_debug("hydro var %u: %e", i, cell_hydro_variable( icell, i ) );
@@ -427,12 +434,7 @@ void hydro_magic( int level ) {
 								gas_density_floor );
 			}
 
-			kinetic_energy = 0.0;
-			for ( j = 0; j < nDim; j++ ) {
-				kinetic_energy += cell_momentum(icell,j)*cell_momentum(icell,j);
-			}
-			kinetic_energy *= 0.5/cell_gas_density(icell);
-
+			kinetic_energy = cell_gas_kinetic_energy(icell);
 			thermal_energy = Tminc * cell_gas_density(icell);
 
 			cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
@@ -440,7 +442,15 @@ void hydro_magic( int level ) {
 
 #ifdef ADVECT_SPECIES
 			for ( j = 0; j < num_chem_species; j++ ) {
+			  /* 
+			     1e-15 may be too large a number for ionic species;
+			     at least let's scale them with density and make 1e-20;
+                             Gnedin: 1e-20 is not small enough for chemistry, making it 1e-30
+			  */
+				cell_advected_variable(icell,j) = max( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
+				/* Doug had it like that:
 				cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
+				*/
 			}
 #endif /* ADVECT_SPECIES */
 		}
@@ -451,7 +461,7 @@ void hydro_magic( int level ) {
 }
 
 void hydro_eos( int level ) {
-	int i,j;
+	int i;
 	int icell;
 	int num_level_cells;
 	int *level_cells;
@@ -460,16 +470,12 @@ void hydro_eos( int level ) {
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell,j,kinetic_energy)
+#pragma omp parallel for default(none), private(i,icell,i,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
 		if ( cell_is_leaf( icell) ) {
-			kinetic_energy = 0.0;
-			for ( j = 0; j < nDim; j++ ) {
-				kinetic_energy += cell_momentum(icell,j)*cell_momentum(icell,j);
-			}
-			kinetic_energy *= 0.5/cell_gas_density(icell);
+			kinetic_energy = cell_gas_kinetic_energy(icell);
 
 #ifdef PRESSURELESS_FLUID
 			cell_gas_pressure(icell) = 1e-20;
@@ -488,30 +494,67 @@ void hydro_eos( int level ) {
 	end_time( WORK_TIMER );
 }
 
-void hydro_advance_internalenergy( int level ) {
-	int i, j;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
-	double kinetic_energy;
-	double energy;
-	double t_begin, t_end;
-	double t_curr, a_curr;
-	double ai, a1, a2, afact;
-	double e_min, e_small;
-	double Zdum;
-	double fact_nH, Tfact, Tfact_cell, Tfact_cell2;
-	double rhogi, rhog2, rhogl;
+
+#ifdef COOLING
+
+void hydro_cool_one_cell(int icell, double t_begin, double t_end, double a1, double afact, double Zdum, double rhogl, double rhog2, double fact_nH, double Tfact_cell, double e_small) {
 	int continue_cooling;
-	double dt_e, ei1, T_gas;
+	double t_curr, a_curr;
+	double ai;
 	double dE;
-	double gamma1, div, div_dt;
+	double dt_e, ei1, T_gas;
+	double Tfact_cell2;
 
 #define dstep	(0.01)
 
-	start_time( WORK_TIMER );
+	continue_cooling = 1;
+	t_curr = t_begin;
+	a_curr = a1;
 
-#ifdef COOLING
+	/* integrate cooling using smaller timestep */
+	while ( ( t_curr < t_end ) && continue_cooling ) {
+		ai = 1.0 / a_curr;
+		Tfact_cell2 = Tfact_cell * ai * ai;
+		T_gas = Tfact_cell2 * cell_gas_internal_energy(icell);
+
+		/* compute new timestep */
+		dE = cooling_rate( rhogl, T_gas, Zdum );
+		dE *= -rhog2 * a_curr;
+		dt_e = min( dstep * fabs( cell_gas_internal_energy(icell) / dE ), t_end - t_curr );
+
+		ei1 = max( cell_gas_internal_energy(icell) + 0.5 * dE * dt_e, e_small );
+		T_gas = Tfact_cell2 * ei1;
+
+		dE = cooling_rate( rhogl, T_gas, Zdum );
+		dE *= -rhog2 * a_curr * dt_e;
+
+		/* adjust cell energies */
+		cell_gas_internal_energy(icell) += dE;
+		cell_gas_energy(icell) += dE;
+
+		/* stop if we hit energy minimum */
+		if ( cell_gas_internal_energy(icell) < e_small ) {
+			continue_cooling = 0;
+		}
+
+		cell_gas_internal_energy(icell) = max( e_small, cell_gas_internal_energy(icell) );
+		cell_gas_energy(icell) = max( e_small, cell_gas_energy(icell) );
+
+		/* advance timestep */
+		t_curr += dt_e;
+		a_curr = a1 + afact * ( t_curr - t_begin );
+	}
+}
+
+void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
+	int i;
+	int icell;
+	double t_begin, t_end;
+	double ai, a1, a2, afact;
+	double e_min, e_small;
+	double Zdum;
+	double fact_nH, Tfact, Tfact_cell;
+	double rhogi, rhog2, rhogl;
 
 	t_begin	= tl[level];
 	t_end = tl[level] + dtl[level];
@@ -524,46 +567,19 @@ void hydro_advance_internalenergy( int level ) {
 #else
 	a1 = a2 = ai = 1.0;
 	afact = 0.0;
-#endif /* COSMOLOGY */
+#endif
 
 	fact_nH = log10( 1.12e-5 * hubble * hubble * Omega0 * ( 1.0 - Y_p ) * ai*ai*ai );
 	Tfact = T0 * ( gamma - 1.0 ) / 1e4;
 	e_min = T_min * a1 * a1  / T0 / ( gamma - 1.0 );
-#endif /* COOLING */
 
-	div_dt = dtl[level] / 3.0;
-
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell,j,kinetic_energy,energy)
+#pragma omp parallel for default(none), private(icell,i,rhogi,rhog2,rhogl,Zdum,Tfact_cell,e_small), shared(num_level_cells,level_cells,t_begin,t_end,fact_nH,Tfact,e_min,cell_child_oct,cell_vars,a1,afact)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
-
 		if ( cell_is_leaf(icell) ) {
-			/* P dV term */
-			gamma1 = cell_gas_gamma(icell) - 1.0;
-			div = 1.0 + gamma1 * ref[icell] * div_dt;
-			cell_gas_internal_energy(icell) = max( small, cell_gas_internal_energy(icell)*div*div*div);
-
-			/* synchronize internal and total energy */
-			kinetic_energy = 0.0;
-			for ( j = 0; j < nDim; j++ ) {
-				kinetic_energy += cell_momentum(icell,j)*cell_momentum(icell,j);
-			}
-			kinetic_energy *= 0.5/cell_gas_density(icell);
-
-			energy = cell_gas_energy(icell);
-
-			/* we trust energy over internal energy since it's computed using
-			 * the riemann solver rather than just advection equation, so if
-			 * internal energy is sufficiently large then compute it from 
-			 * e = E - rho * v**2 /2 */
-			if ( ( energy - kinetic_energy) / energy > 1e-3 ) {
-                                cell_gas_internal_energy(icell) = energy - kinetic_energy;
-                        }
 		
 			cell_gas_gamma(icell) = gamma;
 
-#ifdef COOLING
 			rhogi = 1.0 / cell_gas_density(icell);
 			rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 
@@ -580,49 +596,65 @@ void hydro_advance_internalenergy( int level ) {
 			Zdum = 0.0;
 #endif /* METALCOOLING*/
 
-			continue_cooling = 1;
-			t_curr = t_begin;
-			a_curr = a1;
 			Tfact_cell = Tfact * rhogi;
 			e_small = e_min * cell_gas_density(icell);
 
-			/* integrate cooling using smaller timestep */
-			while ( ( t_curr < t_end ) && continue_cooling ) {
-				ai = 1.0 / a_curr;
-				Tfact_cell2 = Tfact_cell * ai * ai;
-				T_gas = Tfact_cell2 * cell_gas_internal_energy(icell);
-
-				/* compute new timestep */
-				dE = cooling_rate( rhogl, T_gas, Zdum );
-				dE *= -rhog2 * a_curr;
-				dt_e = min( dstep * fabs( cell_gas_internal_energy(icell) / dE ), t_end - t_curr );
-
-				ei1 = max( cell_gas_internal_energy(icell) + 0.5 * dE * dt_e, e_small );
-				T_gas = Tfact_cell2 * ei1;
-
-				dE = cooling_rate( rhogl, T_gas, Zdum );
-				dE *= -rhog2 * a_curr * dt_e;
-
-				/* adjust cell energies */
-				cell_gas_internal_energy(icell) += dE;
-				cell_gas_energy(icell) += dE;
-
-				/* stop if we hit energy minimum */
-				if ( cell_gas_internal_energy(icell) < e_small ) {
-					continue_cooling = 0;
-				}
-
-				cell_gas_internal_energy(icell) = max( e_small, cell_gas_internal_energy(icell) );
-				cell_gas_energy(icell) = max( e_small, cell_gas_energy(icell) );
-
-				/* advance timestep */
-				t_curr += dt_e;
-				a_curr = a1 + afact * ( t_curr - t_begin );
-			}
-
-#endif /* COOLING */
+			hydro_cool_one_cell(icell,t_begin,t_end,a1,afact,Zdum,rhogl,rhog2,fact_nH,Tfact_cell,e_small);
 		}
 	}
+}
+
+#endif /* COOLING */
+
+void hydro_advance_internalenergy( int level ) {
+	int i;
+	int icell;
+	int num_level_cells;
+	int *level_cells;
+	double kinetic_energy;
+	double energy;
+	double gamma1, div, div_dt;
+
+	start_time( WORK_TIMER );
+
+	div_dt = dtl[level] / 3.0;
+
+	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(icell,i,kinetic_energy,energy,gamma1,div), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,ref,div_dt)
+	for ( i = 0; i < num_level_cells; i++ ) {
+		icell = level_cells[i];
+
+		if ( cell_is_leaf(icell) ) {
+			/* P dV term */
+			gamma1 = cell_gas_gamma(icell) - 1.0;
+			div = 1.0 + gamma1 * ref[icell] * div_dt;
+			cell_gas_internal_energy(icell) = max( small, cell_gas_internal_energy(icell)*div*div*div);
+
+			/* synchronize internal and total energy */
+			kinetic_energy = cell_gas_kinetic_energy(icell);
+			energy = cell_gas_energy(icell);
+
+			/* we trust energy over internal energy since it's computed using
+			 * the riemann solver rather than just advection equation, so if
+			 * internal energy is sufficiently large then compute it from 
+			 * e = E - rho * v**2 /2 */
+			if ( ( energy - kinetic_energy) / energy > 1e-3 ) {
+                                cell_gas_internal_energy(icell) = energy - kinetic_energy;
+                        }
+		}
+	}
+
+#ifdef COOLING
+#ifdef RADIATIVE_TRANSFER
+	start_time( RT_COOLING_TIMER );
+	rtApplyCooling(level,num_level_cells,level_cells);
+	end_time( RT_COOLING_TIMER );
+#else
+	start_time( COOLING_TIMER );
+	hydro_apply_cooling(level,num_level_cells,level_cells);
+	end_time( COOLING_TIMER );
+#endif /* RADIATIVE_TRANSFER */
+#endif /* COOLING */
 
 	cart_free( level_cells );
 
@@ -642,7 +674,7 @@ void hydro_split_update( int level ) {
 		start_time( WORK_TIMER );
 
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-		#pragma omp parallel for private(icell,j,k,children) 
+#pragma omp parallel for default(none), private(i,icell,j,k,children,new_var), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -667,7 +699,7 @@ void hydro_split_update( int level ) {
 }
 
 void compute_hydro_fluxes( int L2, int L1, int R1, int R2, double f[num_hydro_vars-1] ) {
-	int i, j;
+        int j;
 	double v[num_hydro_vars-1][4];
 	double c[2];
 
@@ -789,7 +821,7 @@ void hydro_copy_vars( int level, int direction, int copy_cells ) {
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	#pragma omp parallel for private(icell,j,neighbors,do_copy)
+#pragma omp parallel for default(none), private(i,icell,j,neighbors,do_copy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,copy_cells,direction,backup_hvars,ref)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 

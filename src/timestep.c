@@ -1,3 +1,5 @@
+#include "defs.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -21,6 +23,12 @@
 #include "auxiliary.h"
 #include "cooling.h"
 
+
+#ifdef RADIATIVE_TRANSFER
+#include "rt_solver.h"
+#endif  /* RADIATIVE_TRANSFER */
+
+
 double tl[max_level-min_level+1];
 double tl_old[max_level-min_level+1];
 double dtl[max_level-min_level+1];
@@ -41,11 +49,11 @@ int particle_output_frequency = 0;
 int tracer_output_frequency = 0;
 int grid_output_frequency = 0;
 int max_steps = 0;
-int max_cfl_sync_level = 2;
+int max_cfl_sync_level = min_level;
 
 double cfl = 0.6;
 double particle_cfl = 0.0;
-double max_time_inc = 1.2;
+double max_time_inc = 1.1;
 double min_time_dec = 1.25;
 double max_da = 3e-3;
 double max_dt = 0.125;
@@ -54,6 +62,7 @@ double max_frac_da = 0.1;
 int step;
 int step_of_last_increase = 0;
 int steps_before_increasing = 4;
+int current_step_level = -1;
 
 int global_timestep( double dt ) {
 	int i;
@@ -84,6 +93,10 @@ int global_timestep( double dt ) {
 	set_cooling_redshift( aexp[min_level] );
 #endif /* COOLING */
 
+#ifdef RADIATIVE_TRANSFER
+	rtStepBegin();
+#endif  /* RADIATIVE_TRANSFER */
+
 #ifdef STARFORM
 	num_new_stars = 0;
 	last_star_id = particle_species_indices[num_particle_species]-1;
@@ -97,32 +110,40 @@ int global_timestep( double dt ) {
 	}
 #endif /* STARFORM */
 
-	ret = timestep( min_level );
+	ret = timestep( min_level, MPI_COMM_WORLD );
+	current_step_level = -1;
 
 	/* check if any other processors had problems (violation of CFL condition) */
 	MPI_Allreduce( &ret, &global_ret, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD );
 
 	/* do a last refinement step (without allowing derefinement */
 	if ( global_ret != -1 ) {
-#ifdef GRAVITY
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 		for ( i = min_level; i <= max_level-1; i++ ) {
 			assign_density(i);
 		}
 #endif
 
+#ifdef REFINEMENT
 		for ( i = min_level; i <= max_level-1; i++ ) {
 			modify( i, 0 );
 		}
+#endif
+
 #ifdef STARFORM
 		/* now remap ids of stars created in this timestep */
 		remap_star_ids();
 #endif /* STARFORM */
 	}
 
+#ifdef RADIATIVE_TRANSFER
+	rtStepEnd();
+#endif  /* RADIATIVE_TRANSFER */
+
 	return global_ret;
 }
 
-int timestep( int level ) 
+int timestep( int level, MPI_Comm local_comm ) 
 /* returns -1 if timestep would invalidate cfl condition */
 {
 	int courant_cell;
@@ -133,8 +154,15 @@ int timestep( int level )
 	int true_ret;
 	int nlevel;
 	double dt_needed;
+	MPI_Comm child_comm;
+	int refined;
+#ifdef DEBUG
+	int i;
+#endif
 
 	cart_assert( level >= min_level && level <= max_level );
+
+	current_step_level = level;
 
 	/* assume step was sucessful */
 	ret = 0;
@@ -143,8 +171,21 @@ int timestep( int level )
 	start_time( LEVEL_TIMER );
 
         if ( local_proc_id == MASTER_NODE  ) {
-                cart_debug("timestep(%u, %e)", level, dtl[level] ); 
+                cart_debug("timestep(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
+#ifdef DEBUG
+		for(i=min_level; i<=max_level; i++)
+		  {
+		    cart_debug("Level %d, # of cells: %d",i,num_cells_per_level[i-min_level]);
+		  }
+#endif
         }
+
+
+	/* 
+	//  Create a child communicator
+	*/
+	refined = (level<max_level && level<max_level_now());
+	MPI_Comm_split(local_comm,refined,local_proc_id,&child_comm);
 
 
 #ifdef HYDRO
@@ -158,18 +199,22 @@ int timestep( int level )
 #endif /* GRAVITY */
 	
 	if ( level < max_level && level < max_level_now() ) {
-		step_ret = timestep( level + 1 );
+		step_ret = timestep( level + 1, child_comm );
+		current_step_level = level;
 		ret = min( ret, step_ret );
 		if ( ret == -1 && level < max_cfl_sync_level ) { 
 			end_time( LEVEL_TIMER );
 			end_timing_level( level );
+			MPI_Comm_free( &child_comm );
 			return ret; 
 		}
-		step_ret = timestep( level + 1);
+		step_ret = timestep( level + 1, child_comm );
+		current_step_level = level;
 		ret = min( ret, step_ret );
 		if ( ret == -1 && level < max_cfl_sync_level ) { 
 			end_time( LEVEL_TIMER );
 			end_timing_level( level );
+			MPI_Comm_free( &child_comm );
 			return ret; 
 		}
 	} else {
@@ -183,6 +228,7 @@ int timestep( int level )
 					if ( true_ret < 0 ) {
 						end_time( LEVEL_TIMER );
 						end_timing_level( level );
+						MPI_Comm_free( &child_comm );
 						return true_ret;
 					}
 				}
@@ -239,9 +285,15 @@ int timestep( int level )
 		if ( true_ret < 0 ) {
 			end_time( LEVEL_TIMER );
 			end_timing_level( level ); 
+			MPI_Comm_free( &child_comm );
 			return true_ret;
 		}
 	}
+
+#ifdef RADIATIVE_TRANSFER
+	/* Do RT step */
+	rtLevelUpdate(level,local_comm);
+#endif  /* RADIATIVE_TRANSFER */
 
 	/* do hydro step */
 	hydro_step( level );
@@ -290,9 +342,12 @@ int timestep( int level )
 	aexp[level] = b2a( tl[level] );
 #endif
 
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
+	assign_density( level );
+#endif
+
 #ifdef GRAVITY
 	/* recompute potential */
-	assign_density( level );
 
 #ifdef HYDRO
 	copy_potential( level );
@@ -301,17 +356,22 @@ int timestep( int level )
 	solve_poisson( level, num_steps_on_level[level] );
 #endif /* GRAVITY */
 
+#ifdef REFINEMENT
 	if ( level < max_level ) {
 		modify( level, 1 );
 	}
+#endif
 
 	num_steps_on_level[level]++;
 
 	end_time( LEVEL_TIMER );
 	end_timing_level( level );
 
+	MPI_Comm_free( &child_comm );
+
 	return ret;
 }
+
 
 void choose_timestep( double *dt ) {
 	int i, j;
@@ -322,7 +382,11 @@ void choose_timestep( double *dt ) {
 	double dt_new, dt_min;
 
 #ifdef CONSTANT_TIMESTEP
-	return;
+
+#ifdef RADIATIVE_TRANSFER
+	rtModifyTimeStep(dt);
+#endif  /* RADIATIVE_TRANSFER */
+
 #else 
 
 	dt_new = 0.0;

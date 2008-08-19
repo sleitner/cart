@@ -20,6 +20,7 @@ void save_check();
 
 #define WRITE_GENERIC		0
 #define WRITE_SAVE		1
+#define WRITE_BACKUP		2
 
 void write_restart( int gas_filename_flag, int particle_filename_flag, int tracer_filename_flag );
 void read_restart( double aexpn );
@@ -89,8 +90,10 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 #ifdef HYDRO
 void read_gas_ic( char *filename );
 void write_grid_binary( char *filename );
+void write_grid_binary2( char *filename );
 void write_hart_gas_binary( char *filename );
 void read_grid_binary( char *filename );
+void read_grid_binary2( char *filename );
 void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_level_to_read );
 
 #ifdef HYDRO_TRACERS

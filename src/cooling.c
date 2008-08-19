@@ -196,6 +196,8 @@ double cooling_rate( double rhogl, double T_g, double Z_met ) {
 		d1*t2*d3 * ccl_rs[iz2][id1][it2] +
 		t1*d2*d3 * ccl_rs[iz2][id2][it1] +
 		d1*d2*d3 * ccl_rs[iz2][id2][it2];
+#else
+	return 0.0;
 #endif /* CLOUDY_COOLING */	
 }
 

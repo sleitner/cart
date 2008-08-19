@@ -18,24 +18,15 @@
 #endif /* FFT_DOUBLE */
 
 
-void poisson( type_fft *density_grid, type_fft *potential_grid ) {
+void poisson( int id, fftw_complex *fft_density, fftw_complex *dummy ) {
 	int i, j, k;
 	int index, index1, index2;
-	fftwnd_plan forward, backward;
 	double G, G_i, G_j, G_k;
 	double green[num_grid];
 	double lambda;
-	fftw_complex *fft_density;
 	double trphi;
 
 	trphi = -6.0 / (4.0 * aexp[min_level] * (double)(num_grid*num_grid*num_grid) );
-
-	fft_density = cart_alloc( num_grid*num_grid*(num_grid/2+1) * sizeof(fftw_complex) );
-
-	forward = rfftw3d_create_plan(num_grid, num_grid, num_grid, 
-			FFTW_REAL_TO_COMPLEX, FFTW_ESTIMATE | FFTW_OUT_OF_PLACE );
-	rfftwnd_one_real_to_complex( forward, (fftw_real *)density_grid, fft_density);
-	rfftwnd_destroy_plan(forward);
 
 	/* precompute G(k) */
 	lambda = M_PI/(double)num_grid;
@@ -67,16 +58,6 @@ void poisson( type_fft *density_grid, type_fft *potential_grid ) {
 			}
 		}
 	}
-
-	/* perform inverse transform to get potential */
-	backward = rfftw3d_create_plan(num_grid, num_grid, num_grid, 
-			FFTW_COMPLEX_TO_REAL, FFTW_ESTIMATE | FFTW_OUT_OF_PLACE );
-	rfftwnd_one_complex_to_real( backward, fft_density, (fftw_real *)potential_grid);
-        rfftwnd_destroy_plan(backward);
-
-	cart_debug("done with fft");
-
-	cart_free( fft_density );
 }
 
 #endif

@@ -1,0 +1,12 @@
+# COMPILE OPTIONS
+
+# fulla (PG compilers)
+CFLAGS  = -fast -mp -mcmodel=medium
+#CFLAGS  = -g -Ktrap=fp 
+CC      = mpicc
+FFLAGS  = -fast -mp -mcmodel=medium
+#FFLAGS  = -g -Mbounds -Ktrap=fp 
+F77     = mpif77
+INCLUDES = -I/data/scratch33/drudd/include
+EXTRALIBS = -pgf77libs -L/data/scratch33/drudd/lib
+

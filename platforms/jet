@@ -1,0 +1,8 @@
+# COMPILE OPTIONS
+
+# jet, mandor (intel compiler)
+CFLAGS  = -O2 -xW -w1 -ipo -fno-alias -unroll -mcmodel=large -i_dynamic 
+CC      = mpicc
+F77     = mpif77
+INCLUDES=-I/home/drudd/include -L/home/drudd/lib/
+
