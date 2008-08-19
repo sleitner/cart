@@ -355,14 +355,18 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 	int num_read;
 	float *cell_work;	
 	int *constrained_quantities;
+
+#ifdef PARTICLES
 	int num_parts_per_page;
 	int num_parts_in_page;
 	int num_pages;
 	particle_float *x, *y, *z;
 	particle_float *input_page;
+	particle_header header;
+#endif /* PARTICLES */
+
 	FILE *input;
 	int endian, nbody_flag;
-	particle_header header;
 	int grid_change_flag;
 	int size, value;
 	int *cellrefined;
