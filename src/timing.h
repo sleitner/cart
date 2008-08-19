@@ -55,18 +55,19 @@ extern double timelimit;
 #define		PARTICLE_IO_TIMER		42
 #define		GAS_IO_TIMER			43
 #define		COOLING_TIMER			44
+#define		MERGE_DENSITY_TIMER		45
 
 #ifdef RADIATIVE_TRANSFER
 
-#define		RT_TABLES_TIMER			45
-#define		RT_COOLING_TIMER		46
-#define		RT_LEVEL_UPDATE_TIMER	        47
-#define		RT_AFTER_DENSITY_TIMER		48
-#define		LEVEL_TIMER			49
+#define		RT_TABLES_TIMER			46
+#define		RT_COOLING_TIMER		47
+#define		RT_LEVEL_UPDATE_TIMER	        48
+#define		RT_AFTER_DENSITY_TIMER		49
+#define		LEVEL_TIMER			50
 
 #else
 
-#define		LEVEL_TIMER			45
+#define		LEVEL_TIMER			46
 
 #endif
 

@@ -56,6 +56,7 @@ const char *timer_name[] = {
 	"particle_io",
 	"gas_io",
         "cooling",
+	"merge_density",
 #ifdef RADIATIVE_TRANSFER
 	"RT_tables",
 	"RT_cooling",

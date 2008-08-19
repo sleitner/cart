@@ -1,0 +1,10 @@
+# COMPILE OPTIONS
+
+# generic 
+CC      = mpicc
+CFLAGS  = -g -Wall
+F77     = gfortran
+FFLAGS  = -g -Wall
+INCLUDES= -I/sw/include/
+EXTRALIBS= -lg2c -L/sw/lib/
+
