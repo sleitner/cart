@@ -617,8 +617,9 @@ void load_balance() {
 	int old_proc_sfc_index[MAX_PROCS+1];
 	int new_proc_sfc_index[MAX_PROCS+1];
 
+	int ipart;
 #ifdef PARTICLES
-	int ipart, ipart_next;
+	int ipart_next;
 	int num_parts_to_send[MAX_PROCS];
 	int particle_list_to_send[MAX_PROCS];
 #endif /* PARTICLES */
