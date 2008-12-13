@@ -34,7 +34,7 @@
 
 #define N50             0.05
 #define T_i             1.0e4
-#define BottomLevel     2
+#define BottomLevel     3
 
 
 extern float rtSingleSourceVal;
@@ -44,8 +44,6 @@ double tStart;
 
 void pix2ang_nest( long nside, long ipix, double *theta, double *phi);
 
-
-#define refine_radius   (0.25*num_grid)
 
 void refine_level( int cell, int level )
 {
@@ -63,9 +61,9 @@ void refine_level( int cell, int level )
       pos[j] -= 0.5*num_grid;
     }
 
-  r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);
+  r = 0.125*num_grid/(1+0.25*level);
 
-  if ( r < refine_radius )
+  if(fabs(pos[0])<r && fabs(pos[1])<r && fabs(pos[2])<r)
     {
       refinement_indicator(cell,0) = 1.0;	
     }

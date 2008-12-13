@@ -135,9 +135,9 @@ void set_rt_initial_conditions(void)
 
 void run_output()
 {
-  const int nvars = 5;
+  const int nvars = 8;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC };
+  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2 };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -174,12 +174,9 @@ void run_output()
 
 void init_run()
 {
-   int i, level, ioct, cell;
+   int i, level, cell;
    int num_level_cells;
    int *level_cells;
-   int all_hydro_vars[num_hydro_vars];
-   char filename[128];
-   int min_index, max_index;
    float astart;
 
    /* set units */

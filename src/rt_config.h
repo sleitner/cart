@@ -1,6 +1,13 @@
 #ifndef __RT_CONFIG_H__
 #define __RT_CONFIG_H__
 
+
+/*
+//  Currently implemented methods for radiative transfer
+*/
+#define RT_METHOD_OTVET     1  /* Optically Thin Variable Eddington Tensor approximation */
+
+
 /* 
 // rt_defs.h file should only be included here 
 */
@@ -53,13 +60,6 @@
 
 
 /*
-//  Apply flux-conserving correction a-la Abel to photoionization rates.
-//  There is no reason why it shouldn't be always on.
-*/
-#define RT_TRANSFER_FLUX_CONSERVING
-
-
-/*
 //  Use log interpolation for photo rates. 
 */
 #define RT_INTERPOLLOG
@@ -79,7 +79,14 @@
 //  that those two are always in the equilibrium. This is introduced for 
 //  testing purposes only, so it is hidden here.
 */
-#undef RT_8SPECIES
+/* #define RT_8SPECIES */
+
+/*
+//  Apply flux-conserving correction a-la Abel to photoionization rates.
+//  May slow down the cooling computation. So far, I found no effect, so it
+//  is off by default
+*/
+/* #define RT_TRANSFER_FLUX_CONSERVING */
 
 
 /*
@@ -95,10 +102,36 @@
 
 
 /*
+//  A helper switch to optimize calculations if photoionization and
+//  photoheating rates are const during one cooling step. Should be set
+//  only with RT_TRANSFER and RT_TRANSFER_FLUX_CONSERVING are both on.
+//  (May be removed after the development is complete.)
+*/
+#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+/* #define RT_VARIABLE_PRATES */
+/* #define RT_VARIABLE_RFIELD */
+#endif
+
+/*
+//  We need at least 1 global buffer
+*/
+#if (!defined(RT_PARALLEL_NUM_OPENMP_BUFFERS) || RT_PARALLEL_NUM_OPENMP_BUFFERS<1)
+#define RT_PARALLEL_NUM_OPENMP_BUFFERS 1
+#endif
+
+/*
 //  If we are running several specific tests, use a single source
 */
 #if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==5 || RT_TEST==6)
 #define RT_SINGLE_SOURCE
+#endif
+
+
+/*
+//  If we are running several specific tests, remove the background
+*/
+#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==5 || RT_TEST==6 || RT_TEST==11 || RT_TEST==15 || RT_TEST==16)
+#define RT_NO_BACKGROUND
 #endif
 
 

@@ -39,7 +39,6 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc);
 #ifdef RT_SINGLE_SOURCE
 extern float rtSingleSourceVal;
 extern double rtSingleSourcePos[nDim];
-extern double rtSingleSourceEps;
 #endif
 
 

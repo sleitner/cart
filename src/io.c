@@ -41,8 +41,13 @@ int last_restart_step;
 
 int num_output_files = 1;
 
+#ifdef OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION
+typedef float particle_float;
+#define MPI_PARTICLE_FLOAT	MPI_FLOAT
+#else
 typedef double particle_float;
 #define MPI_PARTICLE_FLOAT	MPI_DOUBLE
+#endif
 
 void reorder( char *buffer, int size ) {
         int i;
@@ -2285,6 +2290,7 @@ void read_particles( char *header_filename, char *data_filename,
 
 		ap0 		= b2a( tl[min_level] - 0.5*dt );
 
+#ifndef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
 		if ( header.Ngrid != num_grid ) {
 			cart_debug( "Mismatch between particle file num_grid and compiled value!" );
 
@@ -2295,7 +2301,9 @@ void read_particles( char *header_filename, char *data_filename,
 			for ( i = 0; i < header.Nspecies; i++ ) {
 				header.mass[i] *= rfact*rfact*rfact;
 			}
-		} else {
+		} else
+#endif
+		{
 			grid_change_flag = 0;
 		}
 

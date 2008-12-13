@@ -14,11 +14,12 @@ C  Check that Yp is set to 0
 C
       Yp = 4*XG
       if(Yp .gt. 1.0e-10) then
-         write(0,*) 'Supported tests only work with Yp<1e-10. Abort.'
+         write(0,*) 'RT_Testing: fatal error, '
+     .        'supported tests only work with Yp<1e-10.'
          stop
       endif
 
-#if (RT_TEST == 1)
+#if (RT_TEST==1 || RT_TEST==11)
 C
 C  Monochromatic
 C

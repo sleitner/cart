@@ -66,4 +66,5 @@ C
 C
 C  Integration weights and normalization
 C
-        common/RT_XRS_F/ wpTabSE(istabDim,NRAD), upTabSE(istabDim)
+        common/RT_XRS_F/ wpTabSE(istabDim,NRAD)
+

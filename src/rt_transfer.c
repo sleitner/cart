@@ -133,7 +133,6 @@ void rtTransferUpdateUniformSource(rtArrayAverageData *avg);
 #ifdef RT_SINGLE_SOURCE
 float rtSingleSourceVal;
 double rtSingleSourcePos[nDim];
-double rtSingleSourceEps;
 
 #ifdef RT_VAR_SOURCE
 void rtTransferAssignSingleSourceDensity(int level);
@@ -164,8 +163,7 @@ void rtInitRunTransfer()
 
 #ifdef RT_SINGLE_SOURCE
   rtSingleSourceVal = 0.0;
-  for(i=0; i<nDim; i++) rtSingleSourcePos[nDim] = 0.0;
-  rtSingleSourceEps = 1.0;
+  for(i=0; i<nDim; i++) rtSingleSourcePos[i] = 0.5*num_grid;
 #endif
 
 #if RT_TRANSFER_METHOD == RT_METHOD_OTVET
@@ -180,8 +178,8 @@ void rtStepBeginTransfer()
 {
   int level;
 
-  /* Time the source is on (30 Myr) */
-  rt_trad_on = 3.0e7/(t0*aexp[0]*aexp[0]);
+  /* Time the source is on (20 Myr) */
+  rt_trad_on = 2.0e7/(t0*aexp[0]*aexp[0]);
 
   f2c_wrapper(frtstepbegintransfer)();
 

@@ -150,12 +150,9 @@ void run_output()
 
 void init_run()
 {
-   int i, level, ioct, cell;
+   int i, level, cell;
    int num_level_cells;
    int *level_cells;
-   int all_hydro_vars[num_hydro_vars];
-   char filename[128];
-   int min_index, max_index;
    float astart;
 
    /* set units */

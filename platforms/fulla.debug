@@ -1,9 +1,9 @@
 # COMPILE OPTIONS
 
 # fulla (PG compilers)
-CFLAGS  = -fast -mp -mcmodel=medium
+CFLAGS  = -g -Ktrap=fp -mcmodel=medium
 CC      = mpicc
-FFLAGS  = -fast -mp -mcmodel=medium
+FFLAGS  = -g -Ktrap=fp -mcmodel=medium -Mbounds
 F77     = mpif77
 INCLUDES = -I/userhome/drudd/include
 EXTRALIBS = -pgf77libs -L/userhome/drudd/lib -lmpi_f77

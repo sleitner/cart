@@ -96,6 +96,114 @@ void init_particles() {
 	particle_list_enabled = 0;
 }
 
+#ifdef STARFORM
+
+#ifdef FEEDBACK
+double cfbe, t_fb_code, T_fact, efact;
+#ifdef FEEDBACK_SNIa
+double t_SNIa_code, R_SNIa_fact, cfbeIa;
+#ifdef ENRICH_SNIa
+double ejM_SNIa_code;
+#endif /* ENRICH_SNIa */
+#endif /* FEEDBACK_SNIa */
+#endif /* FEEDBACK */
+
+#ifdef STELLARMASSLOSS
+double T0_ml_code;
+#endif /* STELLARMASSLOSS */
+
+void stellar_feedback(int level, int iter_cell, int ipart, double delta_t, double edum, double t_next, double vx, double vy, double vz)
+{
+  double dte, efrac, fmetej, erel;
+  double xd, dN_SNIa;
+  double dmloss, rhor, e_old, rhofact;
+
+  /* do feedback, enrichment, etc */
+#ifdef FEEDBACK
+  if ( particle_t[ipart] - star_tbirth[ipart] <= t_fb_code )
+    {
+      dte = min( delta_t, t_fb_code - particle_t[ipart] + star_tbirth[ipart] );
+      efrac = dte / t_fb_code;
+    
+#ifdef ENRICH
+      fmetej = efrac * fmass_met * star_initial_mass[ipart];
+      cell_gas_metallicity_II(iter_cell) += fmetej * cell_volume_inverse[level];
+#endif /* ENRICH */
+
+      erel = efrac * cfbe * star_initial_mass[ipart];
+
+      /* limit energy release and don't allow to explode in hot bubble */
+      erel = min( erel, efact * cell_gas_density(iter_cell) );
+
+      if ( edum < T_max_feedback )
+	{
+	  cell_gas_energy(iter_cell) += erel;
+	  cell_gas_internal_energy(iter_cell) += erel;
+	  cell_gas_pressure(iter_cell) = (cell_gas_gamma(iter_cell)-1.0)*cell_gas_internal_energy(iter_cell);
+	}
+    }
+#endif /* FEEDBACK */
+
+#ifdef FEEDBACK_SNIa
+  xd = t_SNIa_code / ( t_next - star_tbirth[ipart] );
+  dN_SNIa = R_SNIa_fact * exp(-xd*xd) * xd * sqrt(xd) * delta_t * star_initial_mass[ipart];
+  erel = min( dN_SNIa * cfbeIa, efact * cell_gas_density(iter_cell) );
+  
+  if ( edum < T_max_feedback )
+    {
+      cell_gas_energy(iter_cell) += erel;
+      cell_gas_internal_energy(iter_cell) += erel;
+      cell_gas_pressure(iter_cell) = (cell_gas_gamma(iter_cell)-1.0)*cell_gas_internal_energy(iter_cell);
+    }
+#ifdef ENRICH_SNIa
+  cell_gas_metallicity_Ia(iter_cell) += dN_SNIa * ejM_SNIa_code;
+#endif /* ENRICH_SNIa */
+#endif /* FEEDBACK_SNIa */
+	
+#ifdef STELLARMASSLOSS
+  /* limit mass loss to 10% of star's current mass */
+  dmloss = min( 0.1*particle_mass[ipart],
+		star_initial_mass[ipart]*delta_t*c0_ml / 
+		(particle_t[ipart] - star_tbirth[ipart] + T0_ml_code) );
+					
+  particle_mass[ipart] -= dmloss;
+
+  /* convert to density for cell values */
+  dmloss *= cell_volume_inverse[level];
+
+  /* account for momentum change */
+  rhor = 1.0 / cell_gas_density(iter_cell);
+  e_old = cell_gas_energy(iter_cell) -
+    0.5 * ( cell_momentum(iter_cell,0)*cell_momentum(iter_cell,0) +
+	    cell_momentum(iter_cell,1)*cell_momentum(iter_cell,1) +
+	    cell_momentum(iter_cell,2)*cell_momentum(iter_cell,2) ) * rhor; 
+  cell_gas_density(iter_cell) += dmloss;
+  rhofact = rhor * cell_gas_density(iter_cell);
+  
+  cell_momentum(iter_cell,0) += dmloss * vx;
+  cell_momentum(iter_cell,1) += dmloss * vy;
+  cell_momentum(iter_cell,2) += dmloss * vz;
+				
+  cell_gas_energy(iter_cell) = e_old + 
+    0.5 * ( cell_momentum(iter_cell,0)*cell_momentum(iter_cell,0) +
+	    cell_momentum(iter_cell,1)*cell_momentum(iter_cell,1) +
+	    cell_momentum(iter_cell,2)*cell_momentum(iter_cell,2) ) /
+    cell_gas_density(iter_cell);
+  cell_gas_internal_energy(iter_cell) *= rhofact;
+  cell_gas_pressure(iter_cell) *= rhofact;
+
+#ifdef ENRICH
+  cell_gas_metallicity_II(iter_cell) += dmloss*star_metallicity_II[ipart];
+#ifdef ENRICH_SNIa
+  cell_gas_metallicity_Ia(iter_cell) += dmloss*star_metallicity_Ia[ipart];
+#endif /* ENRICH_SNIa */
+#endif /* ENRICH */
+#endif /* STELLARMASSLOSS */
+}
+
+#endif /* STARFORM */
+
+
 void move_particles( int level ) {
 	int i, j, k, m;
 	int ipart;
@@ -118,28 +226,18 @@ void move_particles( int level ) {
 	double d3t2t1, d3t2d1, d3d2t1, d3d2d1;
 	double pconst;
 	double delta_t;
-
-	double cfbe;
-	double t_fb_code, t_fbi_code;
-	double T_fact;
-	double efact, erel, edum, efrac;
-	double dte, fmetej, xd, dN_SNIa;
-	double dmloss, rhor, rhofact;
-	double e_old;
-	double T0_ml_code;
-	double ejM_SNIa_code;
-	double cfbeIa;
-	double t_SNIa_code, R_SNIa_fact;
+	double edum;
 
         cart_assert( level >= min_level && level <= max_level );
         
 	start_time( MOVE_PARTS_TIMER );
 	start_time( WORK_TIMER ); 
 
+#ifdef STARFORM
+
 #ifdef FEEDBACK
 	cfbe = C_fb * aexp[level]*aexp[level] * cell_volume_inverse[level];
 	t_fb_code = t_fb / t0 / ( aexp[level]*aexp[level] );
-	t_fbi_code = 1.0 / t_fb_code;
 	T_fact = T0 / ( aexp[level]*aexp[level] );
 	efact = T_max_feedback / T_fact / (gamma - 1.0);
 #ifdef FEEDBACK_SNIa
@@ -155,16 +253,26 @@ void move_particles( int level ) {
 	T0_ml_code = T0_ml * 1e6 / t0 / ( aexp[level] * aexp[level] );
 #endif /* STELLARMASSLOSS */
 
+#endif /* STARFORM */
+
         t_next = tl[level] + dtl[level];
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next)
+#ifdef GRAVITY
+#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t,t2t1,t2d1,d2t1,d2d1,edum), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next,cell_size_inverse,tl,particle_pot,particle_mass,cell_vars,T_fact), schedule(dynamic)
+#else
+#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t,edum), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next)
+#endif
 	for ( m = 0; m < num_level_cells; m++ ) {
 		iter_cell = level_cells[m];
 
+#ifdef STARFORM
 #ifdef FEEDBACK
 		edum = T_fact * cell_gas_pressure(iter_cell) / cell_gas_density(iter_cell);
+#else
+		edum = 0.0;
 #endif /* FEEDBACK */
+#endif /* STARFORM */
 
 		ipart = cell_particle_list[iter_cell];
 		while ( ipart != NULL_PARTICLE ) {
@@ -355,87 +463,10 @@ void move_particles( int level ) {
 
 #ifdef STARFORM
 				/* do feedback, enrichment, etc */
-				if ( particle_is_star(ipart) ) {
-					/* this is inlined so we have access to predefined values dte, etc */
-#ifdef FEEDBACK
-					if ( particle_t[ipart] - star_tbirth[ipart] <= t_fb_code ) {
-						dte = min( delta_t, t_fb_code - particle_t[ipart] + star_tbirth[ipart] );
-						efrac = dte * t_fbi_code;
-
-#ifdef ENRICH
-						fmetej = efrac * fmass_met * star_initial_mass[ipart];
-						cell_gas_metallicity_II(iter_cell) += fmetej * cell_volume_inverse[level];
-#endif /* ENRICH */
-
-						erel = efrac * cfbe * star_initial_mass[ipart];
-
-						/* limit energy release and don't allow to explode in hot bubble */
-						erel = min( erel, efact * cell_gas_density(iter_cell) );
-
-						if ( edum < T_max_feedback ) {
-							cell_gas_energy(iter_cell) += erel;
-							cell_gas_internal_energy(iter_cell) += erel;
-							cell_gas_pressure(iter_cell) = (cell_gas_gamma(iter_cell)-1.0)*
-											cell_gas_internal_energy(iter_cell);
-						}
-					}
-#endif /* FEEDBACK */
-#ifdef FEEDBACK_SNIa
-					xd = t_SNIa_code / ( t_next - star_tbirth[ipart] );
-					dN_SNIa = R_SNIa_fact * exp(-xd*xd) * xd * sqrt(xd) * delta_t * star_initial_mass[ipart];
-					erel = min( dN_SNIa * cfbeIa, efact * cell_gas_density(iter_cell) );
-					
-					if ( edum < T_max_feedback ) {
-						cell_gas_energy(iter_cell) += erel;
-						cell_gas_internal_energy(iter_cell) += erel;
-						cell_gas_pressure(iter_cell) = (cell_gas_gamma(iter_cell)-1.0)*
-										cell_gas_internal_energy(iter_cell);
-					}
-#ifdef ENRICH_SNIa
-					cell_gas_metallicity_Ia(iter_cell) += dN_SNIa * ejM_SNIa_code;
-#endif /* ENRICH_SNIa */
-#endif /* FEEDBACK_SNIa */
-	
-#ifdef STELLARMASSLOSS
-					/* limit mass loss to 10% of star's current mass */
-					dmloss = min( 0.1*particle_mass[ipart],
-						star_initial_mass[ipart]*delta_t*c0_ml / 
-						(particle_t[ipart] - star_tbirth[ipart] + T0_ml_code) );
-					
-					particle_mass[ipart] -= dmloss;
-
-					/* convert to density for cell values */
-					dmloss *= cell_volume_inverse[level];
-
-					/* account for momentum change */
-					rhor = 1.0 / cell_gas_density(iter_cell);
-					e_old = cell_gas_energy(iter_cell) -
-						0.5 * ( cell_momentum(iter_cell,0)*cell_momentum(iter_cell,0) +
-							cell_momentum(iter_cell,1)*cell_momentum(iter_cell,1) +
-							cell_momentum(iter_cell,2)*cell_momentum(iter_cell,2) ) * rhor; 
-					cell_gas_density(iter_cell) += dmloss;
-					rhofact = rhor * cell_gas_density(iter_cell);
-					
-					cell_momentum(iter_cell,0) += dmloss * vx;
-					cell_momentum(iter_cell,1) += dmloss * vy;
-					cell_momentum(iter_cell,2) += dmloss * vz;
-				
-					cell_gas_energy(iter_cell) = e_old + 
-						0.5 * ( cell_momentum(iter_cell,0)*cell_momentum(iter_cell,0) +
-							cell_momentum(iter_cell,1)*cell_momentum(iter_cell,1) +
-							cell_momentum(iter_cell,2)*cell_momentum(iter_cell,2) ) /
-						cell_gas_density(iter_cell);
-					cell_gas_internal_energy(iter_cell) *= rhofact;
-					cell_gas_pressure(iter_cell) *= rhofact;
-
-#ifdef ENRICH
-					cell_gas_metallicity_II(iter_cell) += dmloss*star_metallicity_II[ipart];
-#ifdef ENRICH_SNIa
-					cell_gas_metallicity_Ia(iter_cell) += dmloss*star_metallicity_Ia[ipart];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
-#endif /* STELLARMASSLOSS */
-				}
+				if ( particle_is_star(ipart) )
+				  {
+				    stellar_feedback(level,iter_cell,ipart,delta_t,edum,t_next,vx,vy,vz);
+				  }
 #endif /* STARFORM */
 
 				x += vx * delta_t;

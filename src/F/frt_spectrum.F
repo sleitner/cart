@@ -44,7 +44,7 @@ C
 C  Start initialization
 C
       if(IPOP.ne.2 .and. IPOP.ne.3) then
-         write(0,*) 'frtInitSourceSpectrum: ',
+         write(0,*) 'RT_Spectrum: ',
      .        'fatal error, invalid IPOP value: ', IPOP
          stop
       endif
@@ -132,9 +132,8 @@ C
       IF(FESCSET.gt.-1.0 .and. FESCSET.lt.1.0) then
 
          if(abs(FESCSET) .lt. 1.0e-5) then
-            write(0,*) 'CoolInit: FESCSET = ', FESCSET
-            write(0,*) 'CoolInit: fatal error, such a small an ',
-     .           'escape fraction makes no sense.'
+            write(0,*) 'RT_Spectrum: fatal error, FESCSET = ', FESCSET,
+     .           ';such a small an escape fraction makes no sense.'
             stop
          endif
 
@@ -190,7 +189,7 @@ C$OMP+ guv_G,guv_Q,lrH1tr,lrmax)
          if(abs(fe_c/fesc-1.0) .gt. 1.0e-3) then
 
             if(iter .gt. 99) then
-               write(0,*) 'CoolInit: fatal error, FESC does not ',
+               write(0,*) 'RT_Spectrum: fatal error, FESC does not ',
      .              'converge ', fesc, iter
                stop
             endif

@@ -1,5 +1,6 @@
 TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
+NO_RT = 
 
 include $(TOP_DIR)/Make.config
 

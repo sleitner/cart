@@ -2,190 +2,181 @@
 #ifdef RADIATIVE_TRANSFER
 #include "../rt_config.h"
 C
-C  Sum-up global contributions
+C  Add one global contributions to a specific buffer
 C
-      subroutine frtAccumulateGlobalFields(ntot,rGlob)
+      subroutine frtIncrementGlobalFields(iBuf,avg,itab,info)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_global.inc'
-      dimension rGlob(ioDim,*)
+      dimension avg(iavgDim), itab(2)
 C
-      real*8 dTabH, dTabM, dNAvg, dFail, dCall
-      real*8 dCXH1, dCXG1, dCXG2, dDust, dBrem
-      real*8 dRAH2, dRAG2, dRAG3, dRBH2, dRBG2, dRBG3
-C
-C Recombination and bremstrahlung photons that need to be accumulated
-C during the CoolOff calls
-C
-      dCXH1 = 0.0d0
-      dCXG1 = 0.0d0
-      dCXG2 = 0.0d0
-      dRAH2 = 0.0d0
-      dRAG2 = 0.0d0
-      dRAG3 = 0.0d0
-      dRBH2 = 0.0d0
-      dRBG2 = 0.0d0
-      dRBG3 = 0.0d0
-      dDust = 0.0d0
+      real*8 dBremBuf(NRAD,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dDataBuf(iavgMax1,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dInfoBuf(infoDim,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      common/RT_GLBBUF/ dBremBuf, dDataBuf, dInfoBuf
 
+      if(iBuf .lt. 1) then
+         write(0,*) 'RT_Global: fatal error, ',
+     .        'invalid buffer ID; buffer ID must be > 0.'
+         stop
+      endif
+
+      if(iBuf .gt. RT_PARALLEL_NUM_OPENMP_BUFFERS) then
+         write(0,*) 'RT_Global: fatal error, ',
+     .        'not enough global buffers. Set the variable ',
+     .        'RT_PARALLEL_NUM_OPENMP_BUFFERS in rt_defs.h ',
+     .        'to at least ', iBuf
+         stop
+      endif
+
+#ifndef RT_NO_BACKGROUND
+C
+C  Bremstrahlung
+C
+      do lr=1,NRAD
+         teml = avg(iavgTemp)
+         if(teml .gt. 1.0e-2*Txi(lr)) then
+            dBremBuf(lr,iBuf) = dBremBuf(lr,iBuf) + 
+     .           avg(iavgBrem)*exp(-Txi(lr)/teml)/teml
+         endif
+      enddo
+C
+C Recombination photons and other quantities
+C
+      do j=1,iavgMax1
+         dDataBuf(j,iBuf) = dDataBuf(j,iBuf) + avg(j)
+      enddo
+#endif
+
+#ifdef RT_OUTPUT
+C
+C  Diagnostics
+C
+      dInfoBuf(infoTabH,iBuf) = dInfoBuf(infoTabH,iBuf) + itab(1)
+      dInfoBuf(infoTabM,iBuf) = dInfoBuf(infoTabM,iBuf) + itab(2)
+      if(info .lt. 0) then
+         dInfoBuf(infoFail,iBuf) = dInfoBuf(infoFail,iBuf) + 1.0d0
+         dInfoBuf(infoCall,iBuf) = dInfoBuf(infoCall,iBuf) + 1.0d0
+      else if(info .gt. 0) then
+         dInfoBuf(infoNAvg,iBuf) = dInfoBuf(infoNAvg,iBuf) + info
+         dInfoBuf(infoNMax,iBuf) = max(dInfoBuf(infoNMax,iBuf),
+     .        dble(info))
+         dInfoBuf(infoCall,iBuf) = dInfoBuf(infoCall,iBuf) + 1.0d0
+      endif
+#endif
+
+      return
+      end
+C
+C Initialize global field buffers
+C
+      subroutine frtInitGlobalFields
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      include 'frt_global.inc'
+C
+      real*8 dBremBuf(NRAD,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dDataBuf(iavgMax1,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dInfoBuf(infoDim,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      common/RT_GLBBUF/ dBremBuf, dDataBuf, dInfoBuf
+C
 C$OMP PARALLEL DO DEFAULT(NONE),
-C$OMP+PRIVATE(ic),
-C$OMP+SHARED(ntot,rGlob),
-C$OMP+REDUCTION(+: dCXH1,dCXG1,dCXG2,dDust,dRAH2,dRAG2,dRAG3,dRBH2,
-C$OMP+ dRBG2,dRBG3)
-      do ic=1,ntot
-         dCXH1 = dCXH1 + rGlob(ioCXH1,ic)
-         dCXG1 = dCXG1 + rGlob(ioCXG1,ic)
-         dCXG2 = dCXG2 + rGlob(ioCXG2,ic)
-         dRAH2 = dRAH2 + rGlob(ioRAH2,ic)
-         dRAG2 = dRAG2 + rGlob(ioRAG2,ic)
-         dRAG3 = dRAG3 + rGlob(ioRAG3,ic)
-         dRBH2 = dRBH2 + rGlob(ioRBH2,ic)
-         dRBG2 = dRBG2 + rGlob(ioRBG2,ic)
-         dRBG3 = dRBG3 + rGlob(ioRBG3,ic)
-         dDust = dDust + rGlob(ioDust,ic)
+C$OMP+PRIVATE(i,j),
+C$OMP+SHARED(dBremBuf,dDataBuf,dInfoBuf)
+      do i=1,RT_PARALLEL_NUM_OPENMP_BUFFERS
+         do j=1,NRAD
+            dBremBuf(j,i) = 0.0
+         enddo
+         do j=1,iavgMax1
+            dDataBuf(j,i) = 0.0
+         enddo
+         do j=1,infoDim
+            dInfoBuf(j,i) = 0.0
+         enddo
       enddo
 
-      gData(ioCXH1) = gData(ioCXH1) + dCXH1
-      gData(ioCXG1) = gData(ioCXG1) + dCXG1
-      gData(ioCXG2) = gData(ioCXG2) + dCXG2
-      gData(ioRAH2) = gData(ioRAH2) + dRAH2
-      gData(ioRAG2) = gData(ioRAG2) + dRAG2
-      gData(ioRAG3) = gData(ioRAG3) + dRAG3
-      gData(ioRBH2) = gData(ioRBH2) + dRBH2
-      gData(ioRBG2) = gData(ioRBG2) + dRBG2
-      gData(ioRBG3) = gData(ioRBG3) + dRBG3
-      gData(ioDust) = gData(ioDust) + dDust
+      return
+      end
 C
-C  Not every OMP implementation supports array reduction, so
-C  we do this loop separately. 
+C  Sum-up global contributions
+C
+      subroutine frtFinalizeGlobalFields(vol)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      include 'frt_global.inc'
+C
+      real*8 dBremBuf(NRAD,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dDataBuf(iavgMax1,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dInfoBuf(infoDim,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      common/RT_GLBBUF/ dBremBuf, dDataBuf, dInfoBuf
+C
+      real*8 s
+      real*8 dBremBufLoc(NRAD)
+      real*8 dDataBufLoc(iavgMax1)
+      real*8 dInfoBufLoc(infoDim)
+      real*8 dBremBufGlob(NRAD)
+      real*8 dDataBufGlob(iavgMax1)
+      real*8 dInfoBufGlob(infoDim)
+C
+      weight = vol/tStep
+C
+C  Bremstrahlung
 C
 C$OMP PARALLEL DO DEFAULT(NONE),
-C$OMP+PRIVATE(ic,lr,teml,dBrem),
-C$OMP+SHARED(ntot,rGlob,Txi,gBrem)
+C$OMP+PRIVATE(lr,ib,s),
+C$OMP+SHARED(dBremBufLoc,dBremBuf,weight)
       do lr=1,NRAD
-
-         dBrem = 0.0d0
-
-         do ic=1,ntot
-            teml = rGlob(ioTemp,ic)
-            if(teml .gt. 1.0e-2*Txi(lr)) then
-               dBrem = dBrem + rGlob(ioBrem,ic)*exp(-Txi(lr)/teml)/teml
-            endif
+         s = 0.0d0
+         do ib=1,RT_PARALLEL_NUM_OPENMP_BUFFERS
+            s = s + dBremBuf(lr,ib)
          enddo
-
-         gBrem(lr) = gBrem(lr) + dBrem
-
+         dBremBufLoc(lr) = weight*s
+      enddo
+C
+C Recombination photons and other quantities
+C
+      do j=1,iavgMax1
+         s = 0.0d0
+         do ib=1,RT_PARALLEL_NUM_OPENMP_BUFFERS
+            s = s + dDataBuf(j,ib)
+         enddo
+         dDataBufLoc(j) = weight*s
       enddo
 C
 C  Diagnostics
 C
-      dTabH = 0.0d0
-      dTabM = 0.0d0
-      dNAvg = 0.0d0
-      dFail = 0.0d0
-      dCall = 0.0d0
-
-      rNMax = 0.0
-
-C$OMP PARALLEL DO DEFAULT(NONE),
-C$OMP+PRIVATE(ic),
-C$OMP+SHARED(ntot,rGlob),
-C$OMP+REDUCTION(+: dTabH,dTabM,dNAvg,dFail,dCall), 
-C$OMP+REDUCTION(max: rNMax)
-      do ic=1,ntot
-         dTabH = dTabH + rGlob(ioTabH,ic)
-         dTabM = dTabM + rGlob(ioTabM,ic)
-         if(rGlob(ioInfo,ic) .lt. 0.0) then
-            dFail = dFail + 1.0d0
-            dCall = dCall + 1.0d0
-         else if(rGlob(ioInfo,ic) .gt. 0.0) then
-            dNAvg = dNAvg + rGlob(ioInfo,ic)
-            rNMax = max(rNMax,rGlob(ioInfo,ic))
-            dCall = dCall + 1.0d0
-         endif
+      do j=1,infoMax1
+         s = 0.0d0
+         do ib=1,RT_PARALLEL_NUM_OPENMP_BUFFERS
+            s = s + dInfoBuf(j,ib)
+         enddo
+         dInfoBufLoc(j) = s
       enddo
 
-      gInfo(infoTabH) = gInfo(infoTabH) + dTabH
-      gInfo(infoTabM) = gInfo(infoTabM) + dTabM
-      gInfo(infoNAvg) = gInfo(infoNAvg) + dNAvg
-      gInfo(infoNMax) = max(gInfo(infoNMax),rNMax)
-      gInfo(infoFail) = gInfo(infoFail) + dFail
-      gInfo(infoCall) = gInfo(infoCall) + dCall
-
-      return
-      end
-C
-C
-C
-      subroutine frtResetGlobalFields
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      include 'frt_global.inc'
-
-      do j=1,iglobBDim
-         gBrem(j) = 0.0
+      s = dInfoBuf(infoNMax,1)
+      do ib=2,RT_PARALLEL_NUM_OPENMP_BUFFERS
+         s = max(s,dInfoBuf(infoNMax,ib))
       enddo
-      do j=1,iglobDDim
-         gData(j) = 0.0
-      enddo
-      do j=1,iglobIDim
-         gInfo(j) = 0.0
+      dInfoBufLoc(infoNMax) = s
+C
+C  Final summation (if needed)
+C
+      call frtGlobalAverage(0,NRAD,dBremBufLoc,dBremBufGlob)
+      call frtGlobalAverage(0,iavgMax1,dDataBufLoc,dDataBufGlob)
+      call frtGlobalAverage(0,infoMax1,dInfoBufLoc,dInfoBufGlob)
+      call frtGlobalAverage(1,1,dInfoBufLoc(infoNMax),
+     .     dInfoBufGlob(infoNMax))
+
+      do lr=1,NRAD
+         gBrem(lr) = dBremBufGlob(lr)
       enddo
 
-      return
-      end
-C
-C
-C
-      function frtQueryGlobalFieldSize()
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      include 'frt_global.inc'
-      integer frtQueryGlobalFieldSize
-
-      frtQueryGlobalFieldSize = iglobBDim + iglobDDim + iglobIDim
-
-      return
-      end
-C
-C
-C
-      subroutine frtQueryGlobalFieldData(data)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      include 'frt_global.inc'
-      dimension data(*)
-
-      do j=1,iglobBDim
-         data(j) = gBrem(j)
-      enddo
-      do j=1,iglobDDim
-         data(iglobBDim+j) = gData(j)
-      enddo
-      do j=1,iglobIDim
-         data(iglobBDim+iglobDDim+j) = gInfo(j)
+      do j=1,iavgMax1
+         gData(j) = dDataBufGlob(j)
       enddo
 
-      return
-      end
-C
-C
-C
-      subroutine frtUpdateGlobalFieldData(data)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      include 'frt_global.inc'
-      dimension data(*)
-
-      do j=1,iglobBDim
-         gBrem(j) = data(j)
-      enddo
-      do j=1,iglobDDim
-         gData(j) = data(iglobBDim+j)
-      enddo
-      do j=1,iglobIDim
-         gInfo(j) = data(iglobBDim+iglobDDim+j)
+      do j=1,infoDim
+         gInfo(j) = dInfoBufGlob(j)
       enddo
 
       return

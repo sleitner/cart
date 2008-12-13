@@ -14,6 +14,13 @@
 
 #ifdef STARFORM
 
+/*
+//  NG: fall back to the old-style recipe if this is not set
+*/
+#ifndef SF_RECIPE
+#define SF_RECIPE 1
+#endif
+
 int num_local_star_particles;
 int last_star_id;
 int num_new_stars;
@@ -58,11 +65,15 @@ double t_fb = 1000.0;
 double T0_ml = 5.0;
 double c0_ml = 0.05;
 
+double eps_SFH2 = 0.01;
+double fH2_SFH2 = 0.1;
+double den_SFH2_eff = 100.0;
+
 double C_SFR;
 double C_fb;
 double C_fbIa;
 double fmass_met;
-double rho_SF_fact;
+double rho_SF_fact, rho_SFH2_eff, den_SFH2_fact;
 double aMSN_ave;
 double fmass_SN;
 double RIaf;
@@ -113,10 +124,15 @@ double fej_IMF_plaw( double amstar ) {
 }
                                                                                                                                                             
 void init_star_formation() {
+        int j;
 	double Aprime;
 	double aN_SNII, An_IMF;
 
+#if (SF_RECIPE == 1)
 	C_SFR = eps_SF * 2.5*pow(10.0, 6.0 - 16.0*alpha_SF) * t0 * pow(rho0,alpha_SF-1.0);
+#else
+	C_SFR = 49.53*2.5e-18*t0*sqrt(rho0);  /* This is from Kostas */
+#endif
 
 	if ( a_IMF > 0.0 ) {
 		if ( a_IMF == 2.0 ) {
@@ -193,6 +209,15 @@ void init_star_formation() {
 	C_fbIa = 1e51 * E_51 / E0;
 	rho_SF_fact = rho_SF * 8.9e4 / (hubble*hubble) / Omega0 / ( 1.0 - Y_p );
 
+	/*
+	//  NG: This limit is very obscure, disable by default
+	*/
+	for(j=0; j<nDim; j++)
+	  {
+	    star_formation_volume_min[j] = 0.0;
+	    star_formation_volume_max[j] = num_grid;
+	  }
+
 	if ( local_proc_id == MASTER_NODE ) {
 		cart_debug("tau_SF = %e", tau_SF );
 		cart_debug("T_SF = %e", T_SF );
@@ -219,7 +244,7 @@ void star_formation( int level, int time_multiplier ) {
 	double tau_SF_code;
 	double tau_SF_eff;
 	double dt_eff;
-	double P_SF;
+	double P_SF, fH2_cell, zSol_cell;
 
 	cell_fraction = 0.667 * cell_volume[level];
 
@@ -227,7 +252,14 @@ void star_formation( int level, int time_multiplier ) {
 	rho_SF_min = max( rho_SF_fact * aexp[level]*aexp[level]*aexp[level], 200.0 * Omegab0 / Omega0 );
 	tau_SF_code = tau_SF / ( t0 * aexp[level]*aexp[level] );
 	dt_eff = dtl[level] * time_multiplier;
+
+#if (SF_RECIPE == 1)
 	fmass = pow(aexp[level], (5.0 - 3.0*alpha_SF)) * C_SFR * cell_volume[level] * tau_SF_code;
+#else
+	den_SFH2_fact = (1.123e-5*Omega0*hubble*hubble)/(aexp[level]*aexp[level]*aexp[level]);
+	rho_SFH2_eff = den_SFH2_eff/den_SFH2_fact;
+	fmass = eps_SFH2 * sqrt(aexp[level]) * C_SFR * cell_volume[level] * tau_SF_code;
+#endif
 
 	/* probability of forming a star is Poisson with <t> = tau_SF */
 	P_SF = exp( -dt_eff / tau_SF_code );
@@ -250,12 +282,44 @@ void star_formation( int level, int time_multiplier ) {
 			if ( do_star_formation ) {
 				if ( cell_gas_density(icell) > rho_SF_min ) {
 					Tcell = cell_gas_pressure(icell) / cell_gas_density(icell);
-					if ( Tcell < T_SF_max ) {
+					if ( Tcell < T_SF_max
+#ifdef RADIATIVE_TRANSFER
+					     && cell_H2_fraction(icell) > fH2_SFH2
+#endif
+ ) {
 						/* randomly generate particle on timescale tau_SF_eff */
 						if ( cart_rand() > P_SF ) {
 							/* how big of a star particle to create? */
-							dm_star = min( fmass * pow( cell_gas_density(icell), alpha_SF ), 
-									cell_fraction * cell_gas_density(icell) );
+#if (SF_RECIPE == 1)
+						        dm_star = fmass * pow( cell_gas_density(icell), alpha_SF );
+#else /* SF_RECIPE == 1 */
+
+#ifdef RADIATIVE_TRANSFER
+							fH2_cell = 2*cell_H2_density(icell)/(2*cell_H2_density(icell)+cell_HI_density(icell));
+#else /* RADIATIVE_TRANSFER */
+#ifdef ENRICH
+							zSol_cell = cell_gas_metallicity(icell);
+#else
+							zSol_cell = 0.0;
+#endif /* ENRICH */
+							fH2_cell = (max(1.0e-3,zSol_cell)*den_SFH2_fact*cell_gas_density > 30.0) ? 1.0 : 0.0;
+#endif /* RADIATIVE_TRANSFER */
+
+							dm_star = 0.0;  /* compiler will remove this if the setting is correct */
+#if (SF_RECIPE == 2)
+							dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(rho_SFH2_eff);
+#endif
+#if (SF_RECIPE == 3)
+							dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(max(cell_gas_density(icell),rho_SFH2_eff));
+#endif
+#if (SF_RECIPE == 4)
+							dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(cell_gas_density(icell));
+#endif
+
+#endif /* SF_RECIPE == 1 */
+
+
+							dm_star = min( dm_star,	cell_fraction * cell_gas_density(icell) );
 
 							/* create the new star */
 							create_star_particle( icell, dm_star );

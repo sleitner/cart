@@ -27,6 +27,8 @@
 #include "density.h"
 #include "io.h"
 #include "auxiliary.h"
+#include "particle.h"
+#include "starformation.h"
 
 #include "rt_solver.h"
 #include "rt_utilities.h"
@@ -34,11 +36,8 @@
 
 #define N50             0.05
 #define T_i             1.0e4
-#define BottomLevel     2
+#define BottomLevel     3
 
-
-extern float rtSingleSourceVal;
-extern double rtSingleSourcePos[nDim];
 
 double tStart;
 
@@ -125,7 +124,7 @@ float fHI(float r, double e[])
 
   for(j=0; j<3; j++)
     {
-      pos[j] = rtSingleSourcePos[j] + r*e[j];
+      pos[j] = 0.5*num_grid + r*e[j];
       if(pos[j] > num_grid) pos[j] -= num_grid;
       if(pos[j] < 0.0) pos[j] += num_grid;
     }
@@ -218,9 +217,9 @@ void FindIFront(float val, float *riAvg, float *riMin, float *riMax)
 
 void run_output()
 {
-  const int nvars = 9;
+  const int nvars = 15;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC, RT_VAR_OT_FIELD, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2 };
+  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC, RT_VAR_OT_FIELD, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2, rt_et_offset+0, rt_et_offset+1, rt_et_offset+2, rt_et_offset+3, rt_et_offset+4, rt_et_offset+5 };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -273,10 +272,11 @@ void run_output()
 
 void init_run()
 {
-   int i, level, cell;
+   int i, j, species, id, level, cell;
    int num_level_cells;
    int *level_cells;
    float astart;
+   double pos[3];
 
    /* set units */
    astart = 1;
@@ -362,8 +362,81 @@ void init_run()
      }
 
    /* source */
-   rtSingleSourceVal = N50*t0*pow(astart,2)/(1.05e11*Omega0/hubble*pow(r0,3));
-   rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.5*num_grid;
+   num_row = num_grid;
+   num_particle_species = 2;
+   particle_species_mass[0] = 1.0;
+   particle_species_mass[1] = N50*t0*pow(astart,2)/(1.05e11*Omega0/hubble*pow(r0
+,3));
+
+   num_particles_total = 10000;
+   particle_species_num[0] = num_particles_total - num_star_particles;
+   particle_species_num[1] = num_star_particles;
+   particle_species_indices[0] = 0;
+   particle_species_indices[1] = particle_species_num[0];
+   particle_species_indices[2] = num_particles_total;
+  
+   num_local_particles = 0;
+   num_local_star_particles = 0;
+  
+   for(i=0; i<num_particles; i++)
+     {
+       particle_level[num_local_particles] = -1;
+     }
+
+   for(i=0; i<num_particles_total; i++)
+     {
+       if(i < num_star_particles)
+         {
+           species = 1;
+           id = particle_species_num[0] + i;
+           for(j=0; j<3; j++) pos[j] = 0.5*num_grid;
+         }
+       else
+         {
+           species = 0;
+           id = i - num_star_particles;
+           pos[0] = 0.5*num_grid + 0*0.49*num_grid*sin(i*1.0);
+           pos[1] = 0.5*num_grid + 0*0.49*num_grid*sin(i*3.0);
+           pos[2] = 0.5*num_grid + 0*0.49*num_grid*sin(i*7.0);
+         }
+      
+       cell = cell_find_position(pos);
+      
+       /* purpose: identifies what type of root cell corresponds
+        *  to the given index
+        *
+        *  returns: 1 if cell is local, 2 if cell is buffer, 
+        *      0 if cell is non-local
+        */
+       if(cell!=-1 && root_cell_type(cell_parent_root_sfc(cell))==1)
+         {
+          
+           for(j=0; j<nDim; j++)
+             {
+               particle_x[num_local_particles][j] = pos[j];
+               particle_v[num_local_particles][j] = 0.0;
+             }
+          
+           particle_id[num_local_particles] = id;
+           particle_mass[num_local_particles] = particle_species_mass[species];
+          
+           particle_t[num_local_particles] = 0.0;
+           particle_dt[num_local_particles] = dtl[cell_level(cell)];
+
+           particle_level[num_local_particles] = cell_level(cell);
+
+           if(species == 1)
+             {
+               star_tbirth[num_local_star_particles] = 0.0;
+               star_initial_mass[num_local_star_particles] = particle_mass[num_local_particles];
+               num_local_star_particles++;
+             }
+          
+           num_local_particles++;
+         }
+     }
+  
+   build_particle_list();
    
    cart_debug("done with initialization");
    

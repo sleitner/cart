@@ -28,13 +28,13 @@ C
 #endif
 C
 #ifdef RT_DUST
-      write(0,*) 'frtInitRun: fatal error, ',
+      write(0,*) 'RT_Base: fatal error, ',
      .   'RT_DUST is on - this is not fully debugged yet.'
       stop
 #endif
 C
       if(Yp.lt.1.0e-10 .or. Yp.gt.0.99) then
-         write(0,*) 'frtInitRun: fatal error, ',
+         write(0,*) 'RT_Base: fatal error, ',
      .        'Yp must be between 1e-10 and 0.99.'
          stop
       endif
@@ -153,14 +153,10 @@ C   Only need to switch from proper time unit and from ergs to K
 C
       facCool = uRate*(CFSTAR/1.381e-16)
 C
-C  P_i = facPi*Sum_j sigma_j ang_j/aStep**3 
-C  facPi = c * CSSTAR *dxi
+C  P_i = facPhot * Sum_j sigma_j ang_j/aStep**3 
+C  facPhot = c * CSSTAR * XISTEP / aStep**3 
 C
-      facPi = 2.880e-13*XISTEP/aStep**3
-C
-C  P_h = facPh*t0 * Sum_j sigma_j T_j ang_j
-C
-      facPh = facPi*uTime
+      facPhot = 2.998e10*CSSTAR*XISTEP/aStep**3
 C
 C  Compton cooling: dEin/dt (K/code units) = facCC*Xfe*(T-TCMB)
 C
@@ -175,7 +171,7 @@ C  dEa/dt = 1.735e-11 K cm^3/c ang(Lya)
 C  Here t0 is in years.
 C
 #ifdef RT_LYMAN_ALPHA_HEATING
-      facLya = 1.735e-11*uTime*ang(lrH1rB)
+      facLya = 1.735e-11*ang(lrH1rB)
 #else
       facLya = 0.0
 #endif
@@ -252,7 +248,7 @@ C
 C
 C  Reset global field counters
 C
-      call frtResetGlobalFields
+      call frtInitGlobalFields
 
       return
       end
@@ -275,22 +271,6 @@ C
       character*(99) str1, str2, str3
 C
       common/RT_RT_UV/ duvin, axiH1tr, angH1tr
-C
-C  Unpack global quantities
-C
-      duvin = avg(1)
-#ifdef RT_CHEMISTRY
-      XH1_va = avg(2)
-      XMH_va = avg(3)
-#endif
-
-      s = vol/tStep
-      do j=1,NRAD
-         gBrem(j) = gBrem(j)*s
-      enddo
-      do j=1,ioMax1
-         gData(j) = gData(j)*s
-      enddo
 C
 C  Diagnostics
 C
@@ -348,7 +328,17 @@ C
       endif
 #endif
 
-#ifndef RT_TEST
+#ifndef RT_NO_BACKGROUND
+C
+C  Unpack global quantities
+C
+      duvin = avg(1)
+#ifdef RT_CHEMISTRY
+      XH1_va = avg(2)
+      XMH_va = avg(3)
+#endif
+
+      call frtFinalizeGlobalFields(vol)
 C
 C  Coefficient for Bremstrahlung: 
 C     dn_xi/dt = 1/V e^{-h\nu/kT} 1/kT dE_tot/dt
@@ -384,9 +374,9 @@ C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
 C$OMP+SHARED(axi,CRAD2,csDust,lrmin,lrmax,csLyS,gData)
       do lr=lrmin,lrmax
-         axi(lr) = axi(lr) + CRAD2*csLyS(lr)*gData(ioCXH1)
+         axi(lr) = axi(lr) + CRAD2*csLyS(lr)*gData(iavgCXH1)
 #ifdef RT_DUST
-         axi(lr) = axi(lr) + CRAD2*csDust(lr)*gData(ioDust)
+         axi(lr) = axi(lr) + CRAD2*csDust(lr)*gData(iavgDust)
 #endif
       enddo
 
@@ -404,8 +394,8 @@ C$OMP+PRIVATE(lr),
 C$OMP+SHARED(axi,CRAD2,lrmin,lrmax,csH1,csG1,csG2,gData)
       do lr=lrmin,lrmax
                
-         axi(lr) = axi(lr) + CRAD2*(csH1(lr)*gData(ioCXH1)+
-     .        csG1(lr)*gData(ioCXG1)+csG2(lr)*gData(ioCXG2))
+         axi(lr) = axi(lr) + CRAD2*(csH1(lr)*gData(iavgCXH1)+
+     .        csG1(lr)*gData(iavgCXG1)+csG2(lr)*gData(iavgCXG2))
       enddo
 
 #endif
@@ -427,15 +417,15 @@ C  Hydrogen and Helium recombination photons:
 C
 C  Recombination case A
 C
-      sxi(lrH1tr) = sxi(lrH1tr) + CRAD1*gData(ioRAH2)/XISTEP
-      sxi(lrG1tr) = sxi(lrG1tr) + CRAD1*gData(ioRAG2)/XISTEP
-      sxi(lrG2tr) = sxi(lrG2tr) + CRAD1*gData(ioRAG3)/XISTEP
+      sxi(lrH1tr) = sxi(lrH1tr) + CRAD1*gData(iavgRAH2)/XISTEP
+      sxi(lrG1tr) = sxi(lrG1tr) + CRAD1*gData(iavgRAG2)/XISTEP
+      sxi(lrG2tr) = sxi(lrG2tr) + CRAD1*gData(iavgRAG3)/XISTEP
 C
 C  Recombination case B
 C
-      sxi(lrH1rB) = sxi(lrH1rB) + CRAD1*gData(ioRBH2)/XISTEP
-      sxi(lrG1rB) = sxi(lrG1rB) + CRAD1*gData(ioRBG2)/XISTEP
-      sxi(lrG2rB) = sxi(lrG2rB) + CRAD1*gData(ioRBG3)/XISTEP
+      sxi(lrH1rB) = sxi(lrH1rB) + CRAD1*gData(iavgRBH2)/XISTEP
+      sxi(lrG1rB) = sxi(lrG1rB) + CRAD1*gData(iavgRBG2)/XISTEP
+      sxi(lrG2rB) = sxi(lrG2rB) + CRAD1*gData(iavgRBG3)/XISTEP
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,t12,p12,q12),
@@ -460,6 +450,9 @@ C$OMP+SHARED(axi,tStep,anb,ang,sxi)
 
       shift = hStep*tStep
       lshift = int(shift/XISTEP)
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(xib,xig,shift)
       do lr=1,NRAD
          xib(lr) = xig(lr) + shift
       enddo
@@ -487,6 +480,9 @@ C$OMP+SHARED(lshift,ang,anb,xib,xig)
 C
 C  This is just in case...
 C
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(ang)
       do lr=1,NRAD
          ang(lr) = max(0.0,ang(lr))
       enddo
@@ -501,6 +497,9 @@ C
       call frtLW_ComputeAbs(hStep,fH1,tStep,0.0,axiLW)
       call frtLW_ComputeSource(hStep,fH1,tStep,guvLWe,sxiLW)
 
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(anbLW,angLW,axiLW,duvin,sxiLW,tStep)
       do lr=1,NRLW
          anbLW(lr) = angLW(lr)*axiLW(lr) + duvin*sxiLW(lr)*tStep
       enddo
@@ -544,7 +543,7 @@ C
 
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
 
-#endif /* RT_TEST */
+#endif /* RT_NO_BACKGROUND */
 
       return
       end
@@ -565,6 +564,23 @@ C
       include 'frt_base.inc'
 
       frtQueryXHe = XG
+
+      return
+      end
+C
+C
+C
+      function frtLogWithUnits(val,iDen,iLen,iTime)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+
+      if(uDen.gt.0.0 .and. uLen.gt.0.0 .and. uTime.gt.0.0 .and.
+     .     val.gt.0.0) then
+         frtLogWithUnits = log10(val) + iDen*log10(uDen) + 
+     .        iLen*log10(uLen) + iTime*log10(uTime)
+      else
+         frtLogWithUnits = -1000
+      endif
 
       return
       end

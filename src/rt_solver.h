@@ -16,6 +16,7 @@ float rtSource(int ipart);
 
 void rtApplyCooling(int level, int num_level_cells, int *level_cells);
 
+void rtInitRun();
 void rtStepBegin();
 void rtStepEnd();
 void rtLevelUpdate(int level, MPI_Comm local_comm);

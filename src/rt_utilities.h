@@ -34,6 +34,9 @@ for(_Index=0; _Index<_Num_level_cells; _Index++) \
  _Level_cells = 0; \
 }
 
+#define DEFINE_LEVEL_ARRAY(type,name) \
+type name##_buffer[max_level-min_level+1]; \
+type *const name = name##_buffer - min_level
 
 
 #define rtuStencilSize     (2*nDim*nDim)

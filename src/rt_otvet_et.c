@@ -34,7 +34,7 @@ extern const int Vars[];
 
 void rtOtvetTopLevelEddingtonTensor(int id, fftw_complex *fft_source, fftw_complex *fft_output);
 void rtOtvetTreeEmulatorEddingtonTensor(int level);
-void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos, double srcEps);
+void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos);
 
 #ifdef RT_VAR_SOURCE
 float rtSource(int ipart);
@@ -45,7 +45,7 @@ void rtOtvetEddingtonTensor(int level)
 {
 #ifdef RT_SINGLE_SOURCE
 
-  rtOtvetSingleSourceEddingtonTensor(level,rtSingleSourceVal,rtSingleSourcePos,rtSingleSourceEps);
+  rtOtvetSingleSourceEddingtonTensor(level,rtSingleSourceVal,rtSingleSourcePos);
 
 #else
 
@@ -53,20 +53,20 @@ void rtOtvetEddingtonTensor(int level)
 
 #endif
 
-  update_buffer_level(level,Vars,NumVars);
   rtTransferUpdateFields(level,level,1,RT_VAR_OT_FIELD,rt_glob_Avg+1);
 }
 
 
 void rtOtvetTreeEmulatorEddingtonTensor(int level)
 {
+  const int NumSmooth = 2;
   const double S1 = 1.0;
   const double S2 = (S1-1)/nDim;
 
-  int i, j, k, l, cell, parent;
+  int i, j, k, l, cell, parent, vars[rt_num_et_vars+1];
   int nb3[nDim], nb6[num_neighbors], nb18[rtuStencilSize];
   int num_level_cells, *level_cells;
-  float norm, h2, eps2;
+  float norm, h2, eps2, *tmp;
   float ot, et[rt_num_et_vars], sor;
   double r2, q;
 
@@ -165,7 +165,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
 	      //  Add local contributions from 18 neighbors
 	      */
 	      rtuGetStencil(level,cell,nb18);
-	      for(l=0; l<-rtuStencilSize; l++) if((sor = cell_rt_source(nb18[l])) > 0.0)
+	      for(l=0; l<rtuStencilSize; l++) if((sor = cell_rt_source(nb18[l])) > 0.0)
 		{
 		  r2 = rtuStencilDist2[l];
 
@@ -194,9 +194,60 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
 		}
 	    }
 	}
+
+      cart_free(level_cells);
+      select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
     }
 
+  update_buffer_level(level,Vars,NumVars);
+
+  /*
+  // Smooth a few times
+  */
+  tmp = (float *)cart_alloc(num_level_cells*sizeof(float)*rt_num_et_vars);
+
+  for(l=0; l<NumSmooth; l++)
+    {
+
+#pragma omp parallel for default(none), private(i,j,k,cell,et,nb18), shared(level,num_level_cells,level_cells,cell_vars,tmp)
+      for(i=0; i<num_level_cells; i++)
+	{
+	  cell = level_cells[i];
+
+	  rtuGetStencil(level,cell,nb18);
+	  //cell_all_neighbors(cell,nb18);
+
+	  for(k=0; k<rt_num_et_vars; k++) et[k] = 2*cell_var(cell,rt_et_offset+k);
+
+	  for(j=0; j<rtuStencilSize; j++)
+	    //for(j=0; j<num_neighbors; j++)
+	    {
+	      for(k=0; k<rt_num_et_vars; k++)
+		{
+		  et[k] += cell_var(nb18[j],rt_et_offset+k);
+		}
+	    }
+
+	  for(k=0; k<rt_num_et_vars; k++) tmp[i*rt_num_et_vars+k] = et[k]/(2+rtuStencilSize);
+	}
+
+#pragma omp parallel for default(none), private(i,k,cell), shared(level,num_level_cells,level_cells,cell_vars,tmp)
+      for(i=0; i<num_level_cells; i++)
+	{
+	  cell = level_cells[i];
+	  
+	  for(k=0; k<rt_num_et_vars; k++)
+	    {
+	      cell_var(cell,rt_et_offset+k) = tmp[i*rt_num_et_vars+k];
+	    }
+	}
+
+      update_buffer_level(level,Vars+1,NumVars-1);
+    }
+
+  cart_free(tmp);
   cart_free(level_cells);
+
 }
 
 
@@ -317,24 +368,43 @@ void rtOtvetTopLevelEddingtonTensor(int id, fftw_complex *fft_source, fftw_compl
 }
 
 
-void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos, double srcEps)
+void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
 {
-  int i, j, l;
+  int i, j, l, index, cell, srcLevel;
   int num_level_cells, *level_cells;
-  int index, cell;
-  double eps2, dr2, pos[nDim];
+  double eps1, eps2, dr2, pos[nDim];
+  int proc, coord[nDim];
 
-  eps2 = srcEps*srcEps;
+  for(j=0; j<nDim; j++) coord[j] = (int)srcPos[j];
+  index = sfc_index(coord);
+  proc = processor_owner(index);
+  
+  cell = cell_find_position(srcPos);
+  if(cell>-1 && cell_is_local(cell))
+    {
+      srcLevel = cell_level(cell);
+      cart_assert(proc == local_proc_id);
+    }
+  else
+    {
+      srcLevel = -1;
+      cart_assert(proc != local_proc_id);
+    }
+
+  MPI_Bcast(&srcLevel,1,MPI_INT,proc,MPI_COMM_WORLD);
+
+  eps1 = 0.01*cell_size[srcLevel]*cell_size[srcLevel];
+  eps2 = 4*cell_size[srcLevel]*cell_size[srcLevel];
 
   select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
 
-#pragma omp parallel for default(none), private(index,cell,pos,dr2,i,j,l), shared(level,num_level_cells,level_cells,srcVal,srcPos,eps2,cell_vars)
+#pragma omp parallel for default(none), private(index,cell,pos,dr2,i,j,l), shared(level,num_level_cells,level_cells,srcVal,srcPos,eps1,eps2,cell_vars)
   for(index=0; index<num_level_cells; index++)
     {
       cell = level_cells[index];
       cell_position_double(cell,pos);
 
-      dr2 = eps2;
+      dr2 = eps1;
       for(i=0; i<nDim; i++)
 	{
 	  pos[i] -= srcPos[i];
@@ -344,18 +414,21 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos,
 	}
 
       cell_var(cell,RT_VAR_OT_FIELD) = srcVal/(4*M_PI*dr2);
-
+      
+      dr2 += nDim*eps2;
       for(l=j=0; j<nDim; j++)
 	{
 	  for(i=0; i<j; i++)
 	    {
 	      cell_var(cell,rt_et_offset+l++) = pos[i]*pos[j]/dr2;
 	    }
-	  cell_var(cell,rt_et_offset+l++) = (eps2/nDim+pos[j]*pos[j])/dr2;
+	  cell_var(cell,rt_et_offset+l++) = (eps2+pos[j]*pos[j])/dr2;
 	}
     }
 
   cart_free(level_cells);
+
+  update_buffer_level(level,Vars,NumVars);
 }
 
 #endif  // defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)

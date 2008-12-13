@@ -231,8 +231,8 @@ void run_output()
       rtOtvetTreeEmulatorEddingtonTensor(level);
     }
 
-//  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,"OUT/out_te.bin");
-  SaveProfile("OUT/prof_te.res");
+  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,"OUT/out_te.bin");
+  //SaveProfile("OUT/prof_te.res");
 
 
   finalize_logging();

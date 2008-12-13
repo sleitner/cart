@@ -36,7 +36,7 @@
 
 #define N50             0.05
 #define T_i             1.0e2
-#define BottomLevel     1
+#define BottomLevel     3
 
 
 double tStart;

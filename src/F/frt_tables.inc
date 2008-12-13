@@ -123,6 +123,7 @@ C
 	parameter(iptabCi31 = 11)
 	parameter(iptabCi32 = 12)
 	parameter(iptabCi99 = 13)
+	parameter(iptabIon  =  6)
 	parameter(iptabOT   =  7)
 	parameter(iptabH1   =  5)
 	parameter(iptabG1   =  3)
@@ -136,7 +137,7 @@ C
      .	                 altH1m, altG1m, altG2m,
      .		         tH1min, tG1min, tG2min,
      .		         tH1max, tG1max, tG2max, 
-     .                   iptabMax1, iptabMax2
+     .                   iptabMax
 	common/RT_TAB_I/ itloc2(NOPTT,NOPTT)
 C
 C  Radiation field tables: global field
@@ -149,7 +150,7 @@ C
 C
 C  Integration weights and normalization
 C
-	common/RT_TAB_L/ wpTab(iptabDim,NRAD), upTab(iptabDim)
+	common/RT_TAB_L/ wpTab(iptabDim,NRAD)
 C
 C  Radiation mesh
 C

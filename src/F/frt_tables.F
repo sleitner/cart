@@ -970,8 +970,8 @@ C
          endif
          
          if(aloptl .lt. 1.00001*acT2O(lo-1)) then
-            write(0,*) 'CoolInit: fatal error,'
-            write(0,*) 'opacity table is not monotonic.'
+            write(0,*) 'RT_Tables: fatal error, ',
+     .           'opacity table is not monotonic.'
             stop
          endif
 
@@ -1053,26 +1053,7 @@ C
       dimension pG1(iptabDim), sgpG1(iptabDim)
       dimension pG2(iptabDim), sgpG2(iptabDim)
 C
-C  Integration normalization
-C
-      upTab(iptabPiH1) = facPi
-      upTab(iptabPhH1) = facPh
-      upTab(iptabPiG1) = facPi
-      upTab(iptabPhG1) = facPh
-      upTab(iptabPiG2) = facPi
-      upTab(iptabPhG2) = facPh
-#ifdef RT_CHEMISTRY
-      upTab(iptabCi27) = facPi
-      upTab(iptabCi28) = facPi
-      upTab(iptabCi29) = facPi
-      upTab(iptabCi30) = facPi
-      upTab(iptabCi31) = facPi
-      upTab(iptabCi32) = facPi
-      upTab(iptabCi99) = facPi
-#endif  // RT_CHEMISTRY
-C
-      iptabMax1 = 6
-      iptabMax2 = 6
+      iptabMax = 6
 
       sumc1 = 0.0
       sumc2 = 0.0
@@ -1090,17 +1071,16 @@ C
          sumi3 = sumi3 + ang(lr)*csG2(lr)
       enddo
 
-      pRate0(iptabPhH1) = max(0.0,facPh*sumc1)
-      pRate0(iptabPhG1) = max(0.0,facPh*sumc2)
-      pRate0(iptabPhG2) = max(0.0,facPh*sumc3)
-      pRate0(iptabPiH1) = max(0.0,facPi*sumi1)
-      pRate0(iptabPiG1) = max(0.0,facPi*sumi2)
-      pRate0(iptabPiG2) = max(0.0,facPi*sumi3)
+      pRate0(iptabPhH1) = max(0.0,facPhot*sumc1)
+      pRate0(iptabPhG1) = max(0.0,facPhot*sumc2)
+      pRate0(iptabPhG2) = max(0.0,facPhot*sumc3)
+      pRate0(iptabPiH1) = max(0.0,facPhot*sumi1)
+      pRate0(iptabPiG1) = max(0.0,facPhot*sumi2)
+      pRate0(iptabPiG2) = max(0.0,facPhot*sumi3)
 
 #ifdef RT_CHEMISTRY
 
-      iptabMax1 = 12
-      iptabMax2 = 13
+      iptabMax = 12
 
       sumi27 = 0.0
       sumi28 = 0.0
@@ -1118,12 +1098,12 @@ C
          sumi32 = sumi32 + ang(lr)*csMH32(lr)
       enddo
 
-      pRate0(iptabCi27) = max(0.0,facPi*sumi27)
-      pRate0(iptabCi28) = max(0.0,facPi*sumi28)
-      pRate0(iptabCi29) = max(0.0,facPi*sumi29)
-      pRate0(iptabCi30) = max(0.0,facPi*sumi30)
-      pRate0(iptabCi31) = max(0.0,facPi*sumi31)
-      pRate0(iptabCi32) = max(0.0,facPi*sumi32)
+      pRate0(iptabCi27) = max(0.0,facPhot*sumi27)
+      pRate0(iptabCi28) = max(0.0,facPhot*sumi28)
+      pRate0(iptabCi29) = max(0.0,facPhot*sumi29)
+      pRate0(iptabCi30) = max(0.0,facPhot*sumi30)
+      pRate0(iptabCi31) = max(0.0,facPhot*sumi31)
+      pRate0(iptabCi32) = max(0.0,facPhot*sumi32)
 C
 C  Do Lyman-Werner bands separately
 C
@@ -1138,7 +1118,7 @@ C
          sumi99 = sumi99 + ang(lr)*csMH99(lr)
       enddo
 #endif  // RT_LWBANDS
-      pRate0(iptabCi99) = max(0.0,facPi*sumi99)
+      pRate0(iptabCi99) = max(0.0,facPhot*sumi99)
 
 #endif  // RT_CHEMISTRY
 
@@ -1160,12 +1140,12 @@ C
          sumi3 = sumi3 + guveff(lr)*csG2(lr)
       enddo
 
-      sgpRate0(iptabPhH1) = max(0.0,facPh*sumc1*facLX)
-      sgpRate0(iptabPhG1) = max(0.0,facPh*sumc2*facLX)
-      sgpRate0(iptabPhG2) = max(0.0,facPh*sumc3*facLX)
-      sgpRate0(iptabPiH1) = max(0.0,facPi*sumi1*facLX)
-      sgpRate0(iptabPiG1) = max(0.0,facPi*sumi2*facLX)
-      sgpRate0(iptabPiG2) = max(0.0,facPi*sumi3*facLX)
+      sgpRate0(iptabPhH1) = max(0.0,facPhot*sumc1*facLX)
+      sgpRate0(iptabPhG1) = max(0.0,facPhot*sumc2*facLX)
+      sgpRate0(iptabPhG2) = max(0.0,facPhot*sumc3*facLX)
+      sgpRate0(iptabPiH1) = max(0.0,facPhot*sumi1*facLX)
+      sgpRate0(iptabPiG1) = max(0.0,facPhot*sumi2*facLX)
+      sgpRate0(iptabPiG2) = max(0.0,facPhot*sumi3*facLX)
 
 #ifdef RT_CHEMISTRY
 
@@ -1185,12 +1165,12 @@ C
          sumi32 = sumi32 + guveff(lr)*csMH32(lr)
       enddo
 
-      sgpRate0(iptabCi27) = max(0.0,facPi*sumi27*facLX)
-      sgpRate0(iptabCi28) = max(0.0,facPi*sumi28*facLX)
-      sgpRate0(iptabCi29) = max(0.0,facPi*sumi29*facLX)
-      sgpRate0(iptabCi30) = max(0.0,facPi*sumi30*facLX)
-      sgpRate0(iptabCi31) = max(0.0,facPi*sumi31*facLX)
-      sgpRate0(iptabCi32) = max(0.0,facPi*sumi32*facLX)
+      sgpRate0(iptabCi27) = max(0.0,facPhot*sumi27*facLX)
+      sgpRate0(iptabCi28) = max(0.0,facPhot*sumi28*facLX)
+      sgpRate0(iptabCi29) = max(0.0,facPhot*sumi29*facLX)
+      sgpRate0(iptabCi30) = max(0.0,facPhot*sumi30*facLX)
+      sgpRate0(iptabCi31) = max(0.0,facPhot*sumi31*facLX)
+      sgpRate0(iptabCi32) = max(0.0,facPhot*sumi32*facLX)
 C
 C  Do Lyman-Werner bands separately
 C
@@ -1205,7 +1185,7 @@ C
          sumi99 = sumi99 + guveff(lr)*csMH99(lr)
       enddo
 #endif  // RT_LWBANDS
-      sgpRate0(iptabCi99) = max(0.0,facPi*sumi99*facLX)
+      sgpRate0(iptabCi99) = max(0.0,facPhot*sumi99*facLX)
 
 #endif  // RT_CHEMISTRY
 
@@ -1275,7 +1255,7 @@ C
 C
 C  OT part
 C
-      do j=1,iptabMax1
+      do j=1,iptabMax
          pOT(j) = 0.0
 #ifdef RT_TRANSFER
          sgpOT(j) = 0.0
@@ -1284,10 +1264,10 @@ C
 
 #ifdef RT_CHEMISTRY
       call frtIntegrateRates_OT(iptabDim,wpTab,
-     .     iptabOT,iptabMax1,pOT)
+     .     iptabOT,iptabMax,pOT)
 #ifdef RT_TRANSFER
       call frtLocalIntegrateRates_OT(iptabDim,wpTab,
-     .     iptabOT,iptabMax1,sgpOT)
+     .     iptabOT,iptabMax,sgpOT)
 #endif
 #endif  // RT_CHEMISTRY
 
@@ -1296,10 +1276,10 @@ C$OMP+PRIVATE(lo1,lo2,lo3,tauH1l,tauG1l,tauG2l,itind,itind2,j,
 C$OMP+ pH1,pG1,pG2,sgpH1,sgpG1,sgpG2)
 C$OMP+SHARED(tauH1m,acTAU,csH1tr,csG1tr,csG2tr,tauG1m,tauG2m,
 C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,iptabOT,iptabH1,iptabG1,
-C$OMP+ wpTab,upTab,facLX,iptabMax1)
+C$OMP+ wpTab,facPhot,facLX,iptabMax)
       do lo1=1,NOPT1
 
-         do j=1,iptabMax1
+         do j=1,iptabMax
             pH1(j) = pOT(j)
 #ifdef RT_TRANSFER
             sgpH1(j) = sgpOT(j)
@@ -1310,11 +1290,11 @@ C$OMP+ wpTab,upTab,facLX,iptabMax1)
 
             tauH1l = tauH1m*acTAU(lo1)
             call frtIntegrateRates_H1(iptabDim,wpTab,
-     .           iptabH1,iptabMax1,pH1,
+     .           iptabH1,iptabMax,pH1,
      .           0.0,tauH1l)
 #ifdef RT_TRANSFER
             call frtLocalIntegrateRates_H1(iptabDim,wpTab,
-     .           iptabH1,iptabMax1,sgpH1,
+     .           iptabH1,iptabMax,sgpH1,
      .           0.0,tauH1l)
 #endif
 
@@ -1326,7 +1306,7 @@ C$OMP+ wpTab,upTab,facLX,iptabMax1)
 
          do lo2=1,NOPT1
 
-            do j=1,iptabMax1
+            do j=1,iptabMax
                pG1(j) = pH1(j)
 #ifdef RT_TRANSFER
                sgpG1(j) = sgpH1(j)
@@ -1337,11 +1317,11 @@ C$OMP+ wpTab,upTab,facLX,iptabMax1)
 
                tauG1l = tauG1m*acTAU(lo2)
                call frtIntegrateRates_G1(iptabDim,wpTab,
-     .              iptabG1,iptabMax1,pG1,
+     .              iptabG1,iptabMax,pG1,
      .              0.0,tauH1l,tauG1l)
 #ifdef RT_TRANSFER
                call frtLocalIntegrateRates_G1(iptabDim,wpTab,
-     .              iptabG1,iptabMax1,sgpG1,
+     .              iptabG1,iptabMax,sgpG1,
      .              0.0,tauH1l,tauG1l)
 #endif
 
@@ -1355,7 +1335,7 @@ C$OMP+ wpTab,upTab,facLX,iptabMax1)
 
             do lo3=1,NOPT1
 
-               do j=1,iptabMax1
+               do j=1,iptabMax
                   pG2(j) = pG1(j)
 #ifdef RT_TRANSFER
                   sgpG2(j) = sgpG1(j)
@@ -1366,36 +1346,36 @@ C$OMP+ wpTab,upTab,facLX,iptabMax1)
 
                   tauG2l = tauG2m*acTAU(lo3)
                   call frtIntegrateRates_G2(iptabDim,wpTab,
-     .                 iptabG2,iptabMax1,pG2,
+     .                 iptabG2,iptabMax,pG2,
      .                 0.0,tauH1l,tauG1l,tauG2l)
 #ifdef RT_TRANSFER
                   call frtLocalIntegrateRates_G2(iptabDim,wpTab,
-     .                 iptabG2,iptabMax1,sgpG2,
+     .                 iptabG2,iptabMax,sgpG2,
      .                 0.0,tauH1l,tauG1l,tauG2l)
 #endif
 
                endif
 
                itind = lo3 + itind2
-               do j=1,iptabMax1
+               do j=1,iptabMax
 #ifdef RT_INTERPOLLOG
                   if(pG2(j) .gt. 0.0) then
-                     pTab(j,itind) = log(1.0e-35+upTab(j)*pG2(j))
+                     pTab(j,itind) = log(1.0e-35+facPhot*pG2(j))
                   else
                      pTab(j,itind) = -1000.0
                   endif
 #ifdef RT_TRANSFER
                   if(sgpG2(j) .gt. 0.0) then
                      sgpTab(j,itind) = log(1.0e-35+
-     .                    facLX*upTab(j)*sgpG2(j))
+     .                    facLX*facPhot*sgpG2(j))
                   else
                      sgpTab(j,itind) = -1000.0
                   endif
 #endif
 #else  // RT_INTERPOLLOG
-                  pTab(j,itind) = max(0.0,upTab(j)*pG2(j))
+                  pTab(j,itind) = max(0.0,facPhot*pG2(j))
 #ifdef RT_TRANSFER
-                  sgpTab(j,itind) = max(0.0,facLX*upTab(j)*sgpG2(j))
+                  sgpTab(j,itind) = max(0.0,facLX*facPhot*sgpG2(j))
 #endif
 #endif // RT_INTERPOLLOG
                enddo
@@ -1415,93 +1395,7 @@ C$OMP+ wpTab,upTab,facLX,iptabMax1)
 C
 C
 C     
-      subroutine frtGetPhotoRates(par,rf,itab,y,pRate)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-#ifdef RT_TRANSFER
-      include 'frt_transfer.inc'
-#endif
-      dimension par(*), rf(*)
-      dimension itab(*)
-      dimension y(*), pRate(*)
-      logical start
-#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-      parameter (TAUMIN = 1.0e-2)
-      dimension rfFront(irfDim), rfBack(irfDim)
-      dimension pRateBack(iptabDim)
-#endif
-
-#ifdef RT_1ZONE
-C
-C  Single zone plug-in
-C
-      call frtGetPhotoRates1Zone(par,rf,itab,y,pRate)
-#else
-
-#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-C
-C  Flux-conserving correction
-C
-      if(max(rf(irfH1hw),rf(irfG1hw),rf(irfG2hw)) .gt. TAUMIN) then
-
-         rfFront(irfNorm) = rf(irfNorm)
-         rfFront(irfH1lf) = max(0.0,rf(irfH1lf)-rf(irfH1hw))
-         rfFront(irfG1lf) = max(0.0,rf(irfG1lf)-rf(irfG1hw))
-         rfFront(irfG2lf) = max(0.0,rf(irfG2lf)-rf(irfG2hw))
-         rfFront(irfH1gf) = max(0.0,rf(irfH1gf)-rf(irfH1hw))
-         rfFront(irfG1gf) = max(0.0,rf(irfG1gf)-rf(irfG1hw))
-         rfFront(irfG2gf) = max(0.0,rf(irfG2gf)-rf(irfG2hw))
-
-         call frtGetPhotoRates1(par,rfFront,itab,y,pRate)
-      
-         rfBack(irfNorm) = rf(irfNorm)
-         rfBack(irfH1lf) = rf(irfH1lf) + rf(irfH1hw)
-         rfBack(irfG1lf) = rf(irfG1lf) + rf(irfG1hw)
-         rfBack(irfG2lf) = rf(irfG2lf) + rf(irfG2hw)
-         rfBack(irfH1gf) = rf(irfH1gf) + rf(irfH1hw)
-         rfBack(irfG1gf) = rf(irfG1gf) + rf(irfG1hw)
-         rfBack(irfG2gf) = rf(irfG2gf) + rf(irfG2hw)
-
-         call frtGetPhotoRates1(par,rfBack,itab,y,pRateBack)
-      
-         if(rf(irfG2hw) .gt. TAUMIN) then
-            pRate(iptabPhG2) = 0.5*(pRate(iptabPhG2)-
-     .           pRateBack(iptabPhG2))/rf(irfG2hw)
-            pRate(iptabPiG2) = 0.5*(pRate(iptabPiG2)-
-     .           pRateBack(iptabPiG2))/rf(irfG2hw)
-         endif
-         if(rf(irfG1hw) .gt. TAUMIN) then
-            pRate(iptabPhG1) = 0.5*(pRate(iptabPhG1)-
-     .           pRateBack(iptabPhG1))/rf(irfG1hw)
-            pRate(iptabPiG1) = 0.5*(pRate(iptabPiG1)-
-     .           pRateBack(iptabPiG1))/rf(irfG1hw)
-         endif
-         if(rf(irfH1hw) .gt. TAUMIN) then
-            pRate(iptabPhH1) = 0.5*(pRate(iptabPhH1)-
-     .           pRateBack(iptabPhH1))/rf(irfH1hw)
-            pRate(iptabPiH1) = 0.5*(pRate(iptabPiH1)-
-     .           pRateBack(iptabPiH1))/rf(irfH1hw)
-         endif
-
-      else
-#endif  // defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-C
-C  Generic rates
-C
-         call frtGetPhotoRates1(par,rf,itab,y,pRate)
-
-#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-      endif
-#endif  // defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-
-#endif
-
-      return
-      end
-C
-C
-C     
-      subroutine frtGetPhotoRates1(par,rf,itab,y,pRate)
+      subroutine frtPhotoRatesTable(par,rf,itab,y,pRate,jmax)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
@@ -1519,7 +1413,7 @@ C
 C
 C  Global field
 C
-#ifdef RT_TRANSFER
+#if defined(RT_TRANSFER) && !defined(RT_NO_BACKGROUND)
       tauH1l = rf(irfH1gf)
       tauG1l = rf(irfG1gf)
       tauG2l = rf(irfG2gf)
@@ -1532,7 +1426,7 @@ C
 #if defined(RT_TABLES) && !defined(RT_DUST)
 
       call frtSampleTable(tauH1l,tauG1l,tauG2l,
-     .     iptabDim,pTab,iptabMax1,pRate,iOk)
+     .     iptabDim,pTab,jmax,pRate,iOk)
 
       if(iOk .eq. 1) then
          itab(1) = itab(1) + 1
@@ -1540,7 +1434,7 @@ C
 
 #endif  // defined(RT_TABLES) && !defined(RT_DUST)
 
-         do j=1,iptabMax1
+         do j=1,jmax
             pRate(j) = 0.0
          enddo
 
@@ -1550,23 +1444,23 @@ C
 
 #ifdef RT_CHEMISTRY
          call frtIntegrateRates_OT(iptabDim,wpTab,
-     .        iptabOT,iptabMax1,pRate)
+     .        iptabOT,jmax,pRate)
 #endif  // RT_CHEMISTRY
 
          call frtIntegrateRates_H1(iptabDim,wpTab,
-     .        iptabH1,iptabMax1,pRate,
+     .        iptabH1,jmax,pRate,
      .        par(iparDGas),tauH1l)
 
          call frtIntegrateRates_G1(iptabDim,wpTab,
-     .        iptabG1,iptabMax1,pRate,
+     .        iptabG1,jmax,pRate,
      .        par(iparDGas),tauH1l,tauG1l)
 
          call frtIntegrateRates_G2(iptabDim,wpTab,
-     .        iptabG2,iptabMax1,pRate,
+     .        iptabG2,jmax,pRate,
      .        par(iparDGas),tauH1l,tauG1l,tauG2l)
 
-         do j=1,iptabMax1
-            pRate(j) = upTab(j)*max(0.0,pRate(j))
+         do j=1,jmax
+            pRate(j) = facPhot*max(0.0,pRate(j))
          enddo
 
 #endif  // defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
@@ -1589,7 +1483,7 @@ C
 #if defined(RT_TABLES) && !defined(RT_DUST)
 
       call frtSampleTable(tauH1l,tauG1l,tauG2l,
-     .     iptabDim,sgpTab,iptabMax1,sgpRate,iOk)
+     .     iptabDim,sgpTab,jmax,sgpRate,iOk)
 
       if(iOk .eq. 1) then
          itab(1) = itab(1) + 1
@@ -1597,7 +1491,7 @@ C
 
 #endif  // defined(RT_TABLES) && !defined(RT_DUST)
 
-         do j=1,iptabMax1
+         do j=1,jmax
             sgpRate(j) = 0.0
          enddo
 
@@ -1607,23 +1501,23 @@ C
 
 #ifdef RT_CHEMISTRY
          call frtLocalIntegrateRates_OT(iptabDim,wpTab,
-     .        iptabOT,iptabMax1,sgpRate)
+     .        iptabOT,jmax,sgpRate)
 #endif  // RT_CHEMISTRY
 
          call frtLocalIntegrateRates_H1(iptabDim,wpTab,
-     .        iptabH1,iptabMax1,sgpRate,
+     .        iptabH1,jmax,sgpRate,
      .        par(iparDGas),tauH1l)
 
          call frtLocalIntegrateRates_G1(iptabDim,wpTab,
-     .        iptabG1,iptabMax1,sgpRate,
+     .        iptabG1,jmax,sgpRate,
      .        par(iparDGas),tauH1l,tauG1l)
 
          call frtLocalIntegrateRates_G2(iptabDim,wpTab,
-     .        iptabG2,iptabMax1,sgpRate,
+     .        iptabG2,jmax,sgpRate,
      .        par(iparDGas),tauH1l,tauG1l,tauG2l)
 
-         do j=1,iptabMax1
-            sgpRate(j) = facLX*upTab(j)*max(0.0,sgpRate(j))
+         do j=1,jmax
+            sgpRate(j) = facLX*facPhot*max(0.0,sgpRate(j))
          enddo
 
 #endif  // defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
@@ -1690,9 +1584,13 @@ C
 #endif
 
 #ifdef RT_TRANSFER
-      do j=1,iptabMax2
-         pRate(j) = max(SORTOL*pRate(j),pRate(j)+rf(irfNorm)*sgpRate(j))
+      do j=1,jmax
+         pRate(j) = pRate(j) + rf(irfNorm)*sgpRate(j)
       enddo
+#ifdef RT_CHEMISTRY
+      pRate(iptabCi99) = pRate(iptabCi99) + rf(irfNorm)*
+     .     sgpRate(iptabCi99)
+#endif
 #endif  // RT_TRANSFER
 
 #if (RT_CFI == 2)

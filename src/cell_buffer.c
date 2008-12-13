@@ -780,7 +780,7 @@ void merge_buffer_cell_densities( int level ) {
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_send_vars[proc] > 0 ) {
 			if ( level == min_level ) {
-				cart_assert( num_send_vars[proc] == 2*num_local_buffers[level][proc] );
+				cart_assert( num_send_vars[proc] == vars_per_cell*num_local_buffers[level][proc] );
 				for ( i = 0; i < num_local_buffers[min_level][proc]; i++ ) {
 					icell = local_buffers[min_level][proc][i];
 
@@ -791,7 +791,7 @@ void merge_buffer_cell_densities( int level ) {
 #endif
 				}
 			} else {
-				cart_assert( num_send_vars[proc] == 2*num_children*num_local_buffers[level][proc] );
+				cart_assert( num_send_vars[proc] == vars_per_cell*num_children*num_local_buffers[level][proc] );
 
 				for ( i = 0; i < num_local_buffers[level][proc]; i++ ) {
 					index = local_buffers[level][proc][i];
@@ -813,6 +813,7 @@ void merge_buffer_cell_densities( int level ) {
 				}
 			}
 
+#ifdef DEBUG
 			if ( send_offset + num_send_vars[proc] != send_count ) {
 				for ( proc = 0; proc < num_procs; proc++ ) {
 					cart_debug("proc = %d, num_send = %d, num_local = %d", 
@@ -826,6 +827,8 @@ void merge_buffer_cell_densities( int level ) {
 				cart_debug("num_local_buffers[%d][%d] = %d", level, proc );
 				cart_debug("send_count = %d", send_count );
 			}
+#endif
+
 			cart_assert( send_count <= total_send_vars );
 			cart_assert( send_offset + num_send_vars[proc] == send_count );
 

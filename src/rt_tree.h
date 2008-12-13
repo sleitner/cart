@@ -13,8 +13,6 @@
 /*
 //  Currently implemented methods for radiative transfer
 */
-#define RT_METHOD_OTVET    1
-
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
 #define rt_num_frequencies      6
@@ -25,9 +23,13 @@
 #define rt_et_offset            (rt_grav_vars_offset+2)
 #define rt_freq_offset          (rt_grav_vars_offset+2+rt_num_et_vars)
 
-#else
-#error "There is no RT method beyond OTVET implemented yet."
+#endif  /* RT_TRANSFER_METHOD == RT_METHOD_OTVET */
+
+
+#if !defined(rt_num_frequencies) || !defined(rt_freq_offset)
+#error "A radiative transfer method must be specified.\n Please set RT_TRANSFER_METHOD to one of the supported methods (listed in rt_config.h)."
 #endif
+
 
 #define rt_num_disk_vars        rt_num_frequencies
 #define rt_disk_offset          rt_freq_offset

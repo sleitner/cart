@@ -16,8 +16,6 @@ C
 	parameter (TAUMAX = 23.0)
 	parameter (XVLOW = 1.0e-10)
 C
-	parameter (SORTOL = 0.0)
-C
 C  Equation indecies
 C
         parameter(ieqEin = 1)
@@ -30,24 +28,6 @@ C
         parameter(ieqXHp = 8)
         parameter(ieqXHm = 9)
         parameter(ieqDim = 9)
-C
-        parameter(ioCXH1 =  1)
-        parameter(ioCXG1 =  2)
-        parameter(ioCXG2 =  3)
-        parameter(ioRAH2 =  4)
-        parameter(ioRAG2 =  5)
-        parameter(ioRAG3 =  6)
-        parameter(ioRBH2 =  7)
-        parameter(ioRBG2 =  8)
-        parameter(ioRBG3 =  9)
-        parameter(ioDust = 10)
-        parameter(ioBrem = 11)
-        parameter(ioTemp = 12)
-        parameter(ioMax1 = 11)
-        parameter(ioTabH = 13)
-        parameter(ioTabM = 14)
-        parameter(ioInfo = 15)
-        parameter(ioDim  = 15)
 C
 C  Parameter indecies
 C  (yes, iparZsol = iparDGas)
@@ -73,19 +53,37 @@ C
         parameter(iparDeb  = 18)
         parameter(iparDim  = 18)
 C
+C  Globally-averaged quantities
+C
+        parameter(iavgCXH1 =  1)
+        parameter(iavgCXG1 =  2)
+        parameter(iavgCXG2 =  3)
+        parameter(iavgRAH2 =  4)
+        parameter(iavgRAG2 =  5)
+        parameter(iavgRAG3 =  6)
+        parameter(iavgRBH2 =  7)
+        parameter(iavgRBG2 =  8)
+        parameter(iavgRBG3 =  9)
+        parameter(iavgDust = 10)
+        parameter(iavgBrem = 11)
+        parameter(iavgTemp = 12)
+        parameter(iavgMax1 = 11)
+        parameter(iavgDim  = 12)
+C
 C  Diagnostic info
 C
 	parameter(infoTabH = 1)
 	parameter(infoTabM = 2)
 	parameter(infoNAvg = 3)
-	parameter(infoNMax = 4)
-	parameter(infoFail = 5)
-	parameter(infoCall = 6)
+	parameter(infoFail = 4)
+	parameter(infoCall = 5)
+	parameter(infoMax1 = 5)
+	parameter(infoNMax = 6)
 	parameter(infoDim  = 6)
 C
         common/RT_BASE_A/ XH, XG, XFEMAX
         common/RT_BASE_B/ uDen, uLen, uTime, uRate, uColumn
-        common/RT_BASE_C/ facPi, facPh, facCC, facH2CMB, facCool,
+        common/RT_BASE_C/ facPhot, facCC, facH2CMB, facCool,
      .                    facLX, facLya, facRecB
         common/RT_BASE_D/ modeAB
         common/RT_BASE_E/ aStep, hStep, tStep, TemCMB

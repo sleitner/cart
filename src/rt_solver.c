@@ -3,6 +3,11 @@
 
 #include <math.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif /* _OPENMP */
+
+
 #include "auxiliary.h"
 #include "constants.h"
 #include "hydro.h"
@@ -25,28 +30,24 @@ float rt_XHe;
 float rt_TemScale;
 
 
-void rtCoolOff(int level, int cell, float *Ein, f2c_real *rOut);
+void rtCoolOff(int level, int cell, float *Ein, int thread);
 void rtGetSobolevFactors(int cell, int level, float *len, float *vel);
 
 
 /* 
 //  Fortran interface 
 */
-void f2c_wrapper(frtcooloff)(f2c_real *rPar, f2c_real *rRF0, f2c_real *rRF1, f2c_real *rTime, f2c_real *rVar, f2c_real *rGlob);
-void f2c_wrapper(frtaccumulateglobalfields)(f2c_intg *ntot, f2c_real *rOut);
+void f2c_wrapper(frtcooloff)(f2c_real *rPar, f2c_real *rRF0, f2c_real *rRF1, f2c_real *rTime, f2c_real *rVar, f2c_intg *iBuf);
 void f2c_wrapper(frtinitrun)(f2c_real *Yp);
 void f2c_wrapper(frtstepbeginart)(f2c_real *aexp, f2c_real *daexp, f2c_real *dt, f2c_real *Om0, f2c_real *h100, f2c_real *r0, f2c_real *t0);
 void f2c_wrapper(frtstepend)(f2c_intg *id, f2c_real *vol, f2c_real *avg);
-
-f2c_intg f2c_wrapper(frtqueryglobalfieldsize)();
-void f2c_wrapper(frtqueryglobalfielddata)(f2c_real *glob);
-void f2c_wrapper(frtupdateglobalfielddata)(f2c_real *glob);
 
 f2c_real f2c_wrapper(frtein)(f2c_real *tem, f2c_real *y);
 f2c_real f2c_wrapper(frttem)(f2c_real *Ein, f2c_real *y);
 f2c_real f2c_wrapper(frtgamma)(f2c_real *Ein, f2c_real *y);
 f2c_real f2c_wrapper(frtqueryxh)(void);
 f2c_real f2c_wrapper(frtqueryxhe)(void);
+f2c_real f2c_wrapper(frtlogwithunits)(f2c_real *val, f2c_intg *pDen, f2c_intg *pLen, f2c_intg *pTime);
 
 #ifdef RT_TEST
 void f2c_wrapper(frttestmodifytimestep)(f2c_real *dt, f2c_intg *ns);
@@ -62,12 +63,10 @@ d//  This size must be maintained to be always consistent with the parameter ioD
 */
 void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 {
-  int i, j, icell, nchunk;
+  int i, j, icell, nchunk, thread;
   float Efact, Escale = rt_TemScale/(aexp[level]*aexp[level]);
   float vol = cell_volume[level];
   float tmp, Ein;
-  f2c_intg iNumCells;
-  f2c_real *rOut;
 
   /* 
   //  OpenMP chunk size 
@@ -75,15 +74,10 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
   nchunk = 128/(1<<level);
   if(nchunk < 1) nchunk = 1;
 
-  /* 
-  //  Allocate memory for global variables 
-  */
-  rOut = (f2c_real *)cart_alloc(IOUT_DIM*num_level_cells*sizeof(f2c_real));
-
   /*
   //  Main loop
   */
-#pragma omp parallel for default(none), private(i,icell,Ein,Efact,tmp,j), shared(rOut,cell_vars,num_level_cells,cell_child_oct,level_cells,Escale,level,vol), schedule(dynamic,nchunk)
+#pragma omp parallel for default(none), private(i,icell,Ein,Efact,tmp,j,thread), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,Escale,level,vol), schedule(dynamic,nchunk)
   for(i=0; i<num_level_cells; i++) if(cell_is_leaf((icell = level_cells[i])) && cell_gas_density(icell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
     {
       /*
@@ -92,27 +86,20 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
       Efact = Escale/cell_gas_density(icell);
       Ein = max(T_min,Efact*cell_gas_internal_energy(icell));
 
+#ifdef _OPENMP
+      thread = omp_get_thread_num();
+#else
+      thread = 0;
+#endif /* _OPENMP */
+
       /*
       //  Wrapper over an actual (Fortran) worker
       */
-      rtCoolOff(level,icell,&Ein,rOut+IOUT_DIM*i);
+      rtCoolOff(level,icell,&Ein,thread);
 
-      /*
-      //  Save contributions to global quantities (bremsstruhling and
-      //  recombination photons, and time averages of ionization fractions)
-      */
-      tmp = vol*cell_gas_density(icell);
-      for(j=0; j<IOUT_MAX; j++) rOut[IOUT_DIM*i+j] *= tmp;
- 
       cell_gas_internal_energy(icell) = max(T_min,Ein)/Efact;
       cell_gas_energy(icell) = cell_gas_kinetic_energy(icell) + cell_gas_internal_energy(icell);
     }
-
-  /* Sum-up global contributions */
-  iNumCells = num_level_cells;
-  f2c_wrapper(frtaccumulateglobalfields)(&iNumCells,rOut);
-
-  cart_free(rOut);
 }
 
 
@@ -191,27 +178,6 @@ void rtStepEnd()
 
   MESH_RUN_DECLARE(level,cell);
   double sumSrc, sumRho, sumRhoHI, sumRhoH2;
-
-  /*
-  //  Compute various averages needed for Fortran worker
-  //    1. Global fields maintained by Fortran block
-  */
-  n = f2c_wrapper(frtqueryglobalfieldsize)();
-  buffer = (double *)cart_alloc(n*sizeof(double));
-  glob = (f2c_real *)cart_alloc(n*sizeof(f2c_real));
-  f2c_wrapper(frtqueryglobalfielddata)(glob);
-
-  /*
-  //  Need the re-assignment, type conversion may occur
-  */
-  for(i=0; i<n; i++) buffer[i] = glob[i];
-  rtuGlobalAverage(n,buffer);
-  for(i=0; i<n; i++) glob[i] = buffer[i];
-
-  f2c_wrapper(frtupdateglobalfielddata)(glob);
-
-  cart_free(glob);
-  cart_free(buffer);
 
   /*
   //    2. Averages over mesh variables and their derivatives
@@ -306,7 +272,7 @@ void rtLevelUpdate(int level, MPI_Comm local_comm)
 /*
 //  Follow cooling evolution of one resolution element - convenient wrapper over a Fortran routine
 */
-void rtCoolOff(int level, int cell, float *Ein, f2c_real *rOut)
+void rtCoolOff(int level, int cell, float *Ein, int thread)
 {
   int i;
 #ifdef RT_CHEMISTRY
@@ -323,6 +289,7 @@ void rtCoolOff(int level, int cell, float *Ein, f2c_real *rOut)
 #else
   f2c_real *rRF0 = 0, *rRF1 = 0;
 #endif
+  f2c_intg iBuffer = 1 + thread;
 
   for(i=0; i<IPAR_DIM; i++) rPar[i] = 0.0;
 
@@ -424,8 +391,21 @@ void rtCoolOff(int level, int cell, float *Ein, f2c_real *rOut)
   /*
   //  Call the Fortran worker 
   */
-  f2c_wrapper(frtcooloff)(rPar,rRF0,rRF1,&rTime,rVar,rOut);
+  f2c_wrapper(frtcooloff)(rPar,rRF0,rRF1,&rTime,rVar,&iBuffer);
 
+  /*
+  //  Unpack radiation field (if needed) 
+  */
+#if defined(RT_TRANSFER) && defined(RT_VARIABLE_RFIELD)
+  if(sizeof(f2c_real) != sizeof(float))  /* Optimization */
+    {
+      for(i=0; i<rt_num_frequencies; i++)
+	{
+	  cell_var(cell,rt_freq_offset+i) = rRF1[i];
+	}
+    }
+#endif
+  
   /*
   //  Unpack elemental abundances 
   */
@@ -648,5 +628,18 @@ void rtGetPhotoRates(int cell, float ionRates[3], float heatRates[3])
   heatRates[2] = pRate[0];
 }
 
+
+#ifdef RT_DEBUG
+void rtPrintValue(const char *name, float val, int pDen, int pLen, int pTime)
+{
+  f2c_real fval = val;
+  f2c_intg fpDen = pDen;
+  f2c_intg fpLen = pLen;
+  f2c_intg fpTime = pTime;
+
+  val = f2c_wrapper(frtlogwithunits)(&fval,&fpDen,&fpLen,&fpTime);
+  cart_debug("Checking: lg(%s) = %g",name,val);
+}
+#endif
 
 #endif  /* RADIATIVE_TRANSFER */

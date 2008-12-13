@@ -340,7 +340,7 @@ void hydro_step( int level ) {
 #ifndef GRAVITY_IN_RIEMANN
 		/* now we need to apply a gravity correction */
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(icell,gravadd)
+#pragma omp parallel for default(none), private(icell,gravadd), shared(num_level_cells,level_cells,cell_child_oct,backup_hvars,cell_vars,sweep_dimension,mj3)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 

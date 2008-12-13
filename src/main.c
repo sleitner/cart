@@ -37,7 +37,7 @@
 #endif
 
 #ifdef RADIATIVE_TRANSFER
-void rtInitRun();
+#include "rt_solver.h"
 #endif
 
 void init_run();
@@ -229,6 +229,9 @@ int main ( int argc, char *argv[]) {
 
 			start_time( RESTART_TIMER );
 			destroy_cell_buffer();
+#ifdef PARTICLES
+			init_particles();
+#endif /* PARTICLES */
 			read_restart(0);
 			load_balance();
 			end_time( RESTART_TIMER );

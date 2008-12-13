@@ -8,7 +8,7 @@ compile: art
 
 run:
 
-art: .obj .obj/F $(OBJS) defs.h start_rt.c
+art: .obj  $(OBJS) defs.h start_rt.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_rt.c -o art $(LIBS) $(EXTRALIBS)
 
 clean:

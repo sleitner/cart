@@ -13,13 +13,13 @@ C
 C  Set sampling points here (except the last point)
 C
       if(NSETS .ne. 3) then
-         write(0,*) 'frtInitRunTransfer: fatal error, ',
+         write(0,*) 'RT_Transfer: fatal error, ',
      .        'only NSETS=3 is supported.'
          stop
       endif
 
       if(nfreq .ne. 2*NSETS) then
-         write(0,*) 'frtInitRunTransfer: fatal error, ',
+         write(0,*) 'RT_Transfer: fatal error, ',
      .        'only nfreq=2*NSETS is supported.'
          stop
       endif
@@ -158,6 +158,10 @@ C
       include 'frt_tables.inc'
       include 'frt_transfer.inc'
       dimension par(*), y(*), rawRF0(*), rawRF1(*), rf(*)
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      parameter(wFlux = 0.0, wCell = 0.0)
+      dimension tau(NSETS)
+#endif
 
       rf(irfNorm) = rawRF0(1)
 C
@@ -167,16 +171,62 @@ C
 C
 C  2. Global field
 C
+#ifndef RT_NO_BACKGROUND
       call frtTransferPackHelper(1,par,y,rawRF0,rawRF1,rf)
+#else
+      do j=1,3
+         rf(irfOgf+j) = -1.0
+      enddo
+#endif
 
 #ifdef RT_TRANSFER_FLUX_CONSERVING
-      rf(irfH1hw) = 0.5*csH1tr*par(iparDelN)
-      rf(irfG1hw) = 0.5*csG1tr*par(iparDelN)
-      rf(irfG2hw) = 0.5*csG2tr*par(iparDelN)
+      tau(1) = csH1tr*par(iparDelN)
+      tau(2) = csG1tr*par(iparDelN)
+      tau(3) = csG2tr*par(iparDelN)
+
+      do j=1,3
+         q = 1.0/max(ySmall(1+j),y(1+j))
+         if(rf(irfOlf+j) .lt. 0.0) then
+            rf(irfOlf+j) = -1.0
+            rf(irfOlv+j) = 0.0
+         else
+            rf(irfOlf+j) = max(0.0,rf(irfOlf+j)-wFlux*tau(j))
+            rf(irfOlv+j) = wFlux*tau(j)*q
+         endif
+         if(rf(irfOgf+j) .lt. 0.0) then
+            rf(irfOgf+j) = -1.0
+            rf(irfOgv+j) = 0.0
+         else
+            rf(irfOgf+j) = max(0.0,rf(irfOgf+j)-wFlux*tau(j))
+            rf(irfOgv+j) = wFlux*tau(j)*q
+         endif
+         rf(irfOwf+j) = (1-wCell)*tau(j)
+         rf(irfOwv+j) = wCell*tau(j)*q
+      enddo
 #endif
 
       return
       end
+C
+C Do some postprocessing
+C
+#ifdef RT_VARIABLE_RFIELD
+      subroutine frtTransferUnPackRadiationField(y,rawRF0,rawRF1,rf)
+      include 'frt_base.inc'
+      include 'frt_transfer.inc'
+      dimension y(*), rawRF0(*), rawRF1(*), rf(*)
+C
+C  1. Local field
+C
+      call frtTransferUnPackHelper(0,y,rawRF0,rawRF1,rf)
+C
+C  2. Global field
+C
+      call frtTransferUnPackHelper(1,y,rawRF0,rawRF1,rf)
+
+      return
+      end
+#endif  // RT_TRANSFER_FLUX_CONSERVING
 C
 C  *******************
 C
@@ -189,7 +239,6 @@ C
       include 'frt_tables.inc'
       include 'frt_transfer.inc'
       dimension par(*), y(*), w0(*), w(*), rf(*)
-      dimension tauFront(3), tauWidth(3)
 C
 C  Works only for the NSETS=3 case
 C
@@ -251,6 +300,64 @@ C
 
       return
       end
+C
+C
+C
+#ifdef RT_VARIABLE_RFIELD
+      subroutine frtTransferUnPackHelper(k,y,w0,w,rf)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      include 'frt_transfer.inc'
+      dimension y(*), w0(*), w(*), rf(*)
+C
+C  Works only for the NSETS=3 case
+C
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      ta1 = y(ieqXH1)*rf(k*NSETS+irfH1lv) + rf(k*NSETS+irfH1lf)
+      ta2 = y(ieqXG1)*rf(k*NSETS+irfG1lv) + rf(k*NSETS+irfG1lf)
+      ta3 = y(ieqXG2)*rf(k*NSETS+irfG2lv) + rf(k*NSETS+irfG2lf)
+#else
+      ta1 = rf(k*NSETS+irfH1lf)
+      ta2 = rf(k*NSETS+irfG1lf)
+      ta3 = rf(k*NSETS+irfG2lf)
+#endif
+            
+      if(ta2 .gt. 0.0) then
+         if(ta3 .ge. 0.0) ta3 = csG1n(lrG2tr)*ta2 + ta3
+      endif
+
+      if(ta1 .gt. 0.0) then
+         if(ta2 .ge. 0.0) ta2 = csH1n(lrG1tr)*ta1 + ta2
+         if(ta3 .ge. 0.0) ta3 = csH1n(lrG2tr)*ta1 + ta3
+      endif
+
+      if(ta1 .lt. 0.0) then
+         w(k*NSETS+1) = 0.0
+      else if(k .eq. 0) then
+         w(k*NSETS+1) = w0(k+1)*QFsor(ta1,1)
+      else
+         w(k*NSETS+1) = w0(k+1)*QFhat(ta1,1)
+      endif
+
+      if(ta2 .lt. 0.0) then
+         w(k*NSETS+2) = 0.0
+      else if(k .eq. 0) then
+         w(k*NSETS+2) = w0(k+1)*QFsor(ta2,1)
+      else
+         w(k*NSETS+2) = w0(k+1)*QFhat(ta2,1)
+      endif
+
+      if(ta3 .lt. 0.0) then
+         w(k*NSETS+3) = 0.0
+      else if(k .eq. 0) then
+         w(k*NSETS+3) = w0(k+1)*QFsor(ta3,1)
+      else
+         w(k*NSETS+3) = w0(k+1)*QFhat(ta3,1)
+      endif
+
+      return
+      end
+#endif  // RT_TRANSFER_FLUX_CONSERVING
 #endif
 #endif
 

@@ -4,13 +4,13 @@
 C
 C  Follow cooling evolution of one resolution element
 C
-      subroutine frtCoolOff(par,rawRF0,rawRF1,tFin,y0,out)
+      subroutine frtCoolOff(par,rawRF0,rawRF1,tFin,y0,iBuf)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
       include 'frt_transfer.inc'
 #endif
-      dimension par(*), rawRF0(*), rawRF1(*), y0(*), out(*)
+      dimension par(*), rawRF0(*), rawRF1(*), y0(*)
 C
 C  This function solves the equation
 C   
@@ -29,24 +29,32 @@ C
 C
       dimension yf(ieqDim), rs(ieqDim)
       dimension w0(ieqDim), a0(ieqDim)
-      dimension out0(ioMax1), out1(ioMax1)
+#ifndef RT_NO_BACKGROUND
+      dimension avg(iavgDim), avg0(iavgMax1), avg1(iavgMax1)
+#endif
 C
       dimension itab(2), pRate(iptabDim)
 #ifdef RT_TRANSFER
+#ifdef RT_TRANSFER_FLUX_CONSERVING
       dimension rf(irfDim)
+#else
+      dimension rf(irfMax)
+#endif
 #else
       dimension rf(1)
 #endif
 C
-#if defined(RT_TEST) && (RT_TEST==1)
+#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
       y0save = y0(ieqEin)
 #endif
 
       y0(ieqEin) = y0(ieqEin) + par(iparDTsh)*tFin
 
-      do j=1,ioMax1
-         out(j) = 0.0
+#ifndef RT_NO_BACKGROUND
+      do j=1,iavgMax1
+         avg(j) = 0.0
       enddo
+#endif
 C
 C  Sub-cell bias factor & cooling suppressing factor:
 C  if not set, set them both to 1
@@ -65,7 +73,11 @@ C
       par(iparSDp1) = par(iparZsol)
       par(iparSDp2) = 2.7*exp(-(par(iparZsol)/0.316)**3)
       par(iparSDp3) = 0.04*par(iparZsol)**2
+#ifdef RT_DUST_TO_GAS_FLOOR
+      par(iparDGas) = max(RT_DUST_TO_GAS_FLOOR,par(iparZsol))
+#else
       par(iparDGas) = par(iparZsol)
+#endif
 
       par(iparRecB) = facRecB*par(iparRhoB)
 
@@ -82,12 +94,16 @@ C
          fac = fH2*par(iparNumF)
          y0(ieqXH1) = y0(ieqXH1)/(1+fac/max(1.0e-5,y0(ieqXH1)/XH))
          y0(ieqXH2) = y0(ieqXH2)/(1+fac/max(1.0e-5,y0(ieqXH2)/XH))
-*         y0(ieqXH1) = y0(ieqXH1)*exp(-fac/max(1.0e-5,y0(ieqXH1)/XH))
-*         y0(ieqXH2) = y0(ieqXH2)*exp(-fac/max(1.0e-5,y0(ieqXH2)/XH))
       endif
 #endif
 
       call frtAdjust(y0,nEqs)
+
+#ifdef RT_DEBUG
+      if(par(iparDeb) .gt. 0.5) then
+         write(6,*) 'In cell-level debug: ', uDen*par(iparRhoB)
+      endif
+#endif
 
 #ifdef RT_TRANSFER
 #ifdef RT_TRANSFER_FLUX_CONSERVING
@@ -96,12 +112,15 @@ C
       call frtTransferPackRadiationField(par,y0,rawRF0,rawRF1,rf)
 #endif
 
+#if defined(RT_DEBUG) || !defined(RT_VARIABLE_PRATES)
       call frtGetPhotoRates(par,rf,itab,y0,pRate)
+#endif
 
 #ifdef RT_DEBUG
       if(par(iparDeb) .gt. 0.5) then
-         write(6,*) 'XYZ', uDen*par(iparRhoB), pRate(iptabPiH1),
-     .        pRate(iptabPiG1), pRate(iptabPiG2)
+         write(6,*) 'Photo rates: ', 
+     .        pRate(iptabPiH1), pRate(iptabPiG1), pRate(iptabPiG2),
+     .        pRate(iptabPhH1), pRate(iptabPhG1), pRate(iptabPhG2)
       endif
 #endif
 C
@@ -114,7 +133,7 @@ C
 
 #ifdef RT_DEBUG
       if(par(iparDeb) .gt. 0.5) then
-         call frtDebugOut(6,nStep,t,dt,tFin,y0,0) 
+         call frtDebugPrint(6,nStep,t,dt,tFin,y0,0) 
          if(par(iparDeb) .gt. 1.5) then
             if(par(iparDeb) .gt. 9.5) then
                open(unit=81, file='debug.ini', form='unformatted')
@@ -126,7 +145,7 @@ C
                stop
             endif
             open(unit=81, file='debug.log', access='append')
-            call frtDebugOut(81,nStep,t,dt,tFin,y0,1) 
+            call frtDebugPrint(81,nStep,t,dt,tFin,y0,1) 
             call frtAdjust(y0,nEqs)
          endif
       endif
@@ -135,7 +154,7 @@ C
  10   nStep = nStep + 1
 
       call frtGetRates(par,rf,itab,
-     .     y0,w0,a0,out0,pRate)
+     .     y0,w0,a0,avg0,pRate)
 C
 C  ODE Solver
 C
@@ -145,10 +164,10 @@ C
 
       if(nStep .lt. 300) then
          call frtCoolOffStepQS1(nEqs,dt,par,rf,itab,
-     .        y0,w0,a0,yf,rs,d1,out1,pRate)
+     .        y0,w0,a0,yf,rs,d1,avg1,pRate)
       else
          call frtCoolOffStepQSN(nEqs,dt,par,rf,itab,
-     .        y0,w0,a0,yf,rs,d1,out1,pRate)
+     .        y0,w0,a0,yf,rs,d1,avg1,pRate)
       endif
 
       ieqmax = 1
@@ -175,9 +194,11 @@ C
 
       else
 
-         do j=1,ioMax1
-            out(j) = out(j) + dt*(d1*out0(j)+(1-d1)*out1(j))
+#ifndef RT_NO_BACKGROUND
+         do j=1,iavgMax1
+            avg(j) = avg(j) + dt*(d1*avg0(j)+(1-d1)*avg1(j))
          enddo
+#endif
 
          t = t + dt
 
@@ -197,7 +218,7 @@ C
 
 #ifdef RT_DEBUG
          if(par(iparDeb) .gt. 2.5) then
-            call frtDebugOut(81,nStep,t,dt,tFin,yf,ieqmax) 
+            call frtDebugPrint(81,nStep,t,dt,tFin,yf,ieqmax) 
          endif
 #endif
 
@@ -211,36 +232,42 @@ C
 
 #ifdef RT_DEBUG
       if(par(iparDeb) .gt. 0.5) then
-         call frtDebugOut(6,nStep,t,dt,tFin,yf,0) 
+         call frtDebugPrint(6,nStep,t,dt,tFin,yf,0) 
          if(par(iparDeb) .gt. 1.5) then
-            call frtDebugOut(81,nStep,t,dt,tFin,yf,ieqmax) 
+            call frtDebugPrint(81,nStep,t,dt,tFin,yf,ieqmax) 
             close(81)
             if(par(iparDeb) .gt. 8.5) stop
          endif
       endif
 #endif
 
-      out(ioBrem) = out(ioBrem)*par(iparRhoB)
-      out(ioRAH2) = out(ioRAH2)*par(iparRhoB)
-      out(ioRAG2) = out(ioRAG2)*par(iparRhoB)
-      out(ioRAG3) = out(ioRAG3)*par(iparRhoB)
-      out(ioRBH2) = out(ioRBH2)*par(iparRhoB)
-      out(ioRBG2) = out(ioRBG2)*par(iparRhoB)
-      out(ioRBG3) = out(ioRBG3)*par(iparRhoB)
+#ifndef RT_NO_BACKGROUND
+      avg(iavgBrem) = avg(iavgBrem)*par(iparRhoB)
+      avg(iavgRAH2) = avg(iavgRAH2)*par(iparRhoB)
+      avg(iavgRAG2) = avg(iavgRAG2)*par(iparRhoB)
+      avg(iavgRAG3) = avg(iavgRAG3)*par(iparRhoB)
+      avg(iavgRBH2) = avg(iavgRBH2)*par(iparRhoB)
+      avg(iavgRBG2) = avg(iavgRBG2)*par(iparRhoB)
+      avg(iavgRBG3) = avg(iavgRBG3)*par(iparRhoB)
 
 #ifdef RT_HIGH_DENSITY
-      out(ioTemp) = frtTem(y0(ieqEin),y0,iLTE)
+      avg(iavgTemp) = frtTem(y0(ieqEin),y0,iLTE)
 #else
-      out(ioTemp) = frtTem(y0(ieqEin),y0)
+      avg(iavgTemp) = frtTem(y0(ieqEin),y0)
+#endif
 #endif
 
-      out(ioTabH) = itab(1)
-      out(ioTabM) = itab(2)
-      out(ioInfo) = info
+      call frtIncrementGlobalFields(iBuf,avg,itab,info)
 
-#if defined(RT_TEST) && (RT_TEST==1)
+#if defined(RT_TRANSFER) && defined(RT_VARIABLE_RFIELD)
+      call frtTransferUnPackRadiationField(y0,rawRF0,rawRF1,rf)
+#endif
+
+#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
       y0(ieqEin) = y0save
 #endif
+
+      iBuf = info
 
       return
       end
@@ -248,7 +275,7 @@ C
 C
 C
 #ifdef RT_DEBUG
-      subroutine frtDebugOut(io,nStep,t,dt,tFin,y,ieqmax)
+      subroutine frtDebugPrint(io,nStep,t,dt,tFin,y,ieqmax)
       include 'frt_base.inc'
       dimension y(*)
 
@@ -310,12 +337,12 @@ C
 C
 C
       subroutine frtGetRates(par,rf,itab,
-     .     y,w,a,out,pRate)
+     .     y,w,a,avg,pRate)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension par(*), rf(*), itab(*)
       dimension y(*), w(*), a(*)
-      dimension out(*), pRate(*)
+      dimension avg(*), pRate(*)
 C
       dimension aRate(irateAtomN)
 #ifdef RT_CHEMISTRY
@@ -361,6 +388,10 @@ C
       do j=1,irateAtomN
          aRate(j) = ql*RateAtom(j,il) + qu*RateAtom(j,iu)
       enddo
+
+#ifdef RT_VARIABLE_PRATES
+      call frtGetPhotoRates(par,rf,itab,y,pRate)
+#endif
 C
 #ifdef RT_CHEMISTRY
 C
@@ -452,14 +483,16 @@ C
 C
 C  Recombination photons
 C
-      out(ioRAH2) = uRate*XH2ll*Xfell*wa*aRate(irateRAiH2)
-      out(ioRBH2) = uRate*XH2ll*Xfell*wb*aRate(irateRBiH2)
+#ifndef RT_NO_BACKGROUND
+      avg(iavgRAH2) = uRate*XH2ll*Xfell*wa*aRate(irateRAiH2)
+      avg(iavgRBH2) = uRate*XH2ll*Xfell*wb*aRate(irateRBiH2)
 
-      out(ioRAG2) = uRate*XG2ll*Xfell*wa*aRate(irateRAiG2)
-      out(ioRBG2) = uRate*XG2ll*Xfell*wb*aRate(irateRBiG2)
+      avg(iavgRAG2) = uRate*XG2ll*Xfell*wa*aRate(irateRAiG2)
+      avg(iavgRBG2) = uRate*XG2ll*Xfell*wb*aRate(irateRBiG2)
 
-      out(ioRAG3) = uRate*XG3ll*Xfell*wa*aRate(irateRAiG3)
-      out(ioRBG3) = uRate*XG3ll*Xfell*wb*aRate(irateRBiG3)
+      avg(iavgRAG3) = uRate*XG3ll*Xfell*wa*aRate(irateRAiG3)
+      avg(iavgRBG3) = uRate*XG3ll*Xfell*wb*aRate(irateRBiG3)
+#endif
 C
 C  Cooling rates
 C
@@ -474,13 +507,15 @@ C
 C
 C  Return parameters
 C
-      out(ioCXH1) = par(iparCFH1)*XH1ll
-      out(ioCXG1) = par(iparCFG1)*XG1ll
-      out(ioCXG2) = par(iparCFG2)*XG2ll
-      out(ioBrem) = facCool*CF_FFl
+#ifndef RT_NO_BACKGROUND
+      avg(iavgCXH1) = par(iparCFH1)*XH1ll
+      avg(iavgCXG1) = par(iparCFG1)*XG1ll
+      avg(iavgCXG2) = par(iparCFG2)*XG2ll
+      avg(iavgBrem) = facCool*CF_FFl
+#endif
 
       aEinll = facCool*par(iparRhoB)*(CF_PPl+CF_FFl) !! Atomic cooling and Bremstrahlung
-      wEinll = sFact1*(XH1ll*(facLya+pRate(iptabPhH1))+  !! PhotoHeating
+      wEinll = uTime*sFact1*(XH1ll*(facLya+pRate(iptabPhH1))+  !! PhotoHeating
      .     XG1ll*pRate(iptabPhG1)) + sFact1He*XG2ll*pRate(iptabPhG2)
 
       aEinl2 = facCC*Xfell*tem  !! Compton cooling
@@ -597,8 +632,8 @@ C
 C  Heating due to gas reactions
 C
          wEinll = wEinll + 
-     .        sFact2*(T1eV*0.4*facPh*XMHll*(pRate(iptabCi29)+
-     .        pRate32+pRate(iptabCi99))/facPi)
+     .        uTime*sFact2*(T1eV*0.4*XMHll*(pRate(iptabCi29)+
+     .        pRate32+pRate(iptabCi99)))
 C
 C  Cooling function
 C
@@ -713,7 +748,7 @@ C
      .     3.7e-2*(1.0e-4*tem)**0.7/(1+2.0e-4*psi)
       
       pRatePAHh = par(iparSDp1)*285*eps*exp(-d_sPAH*cdDUl)*
-     .     facPh*pRate(iptabCi99)/facPi
+     .     pRate(iptabCi99)
 C
 C  5. Cosmic rays heating and ionizations
 C
@@ -723,27 +758,32 @@ C
       a(ieqXH1) = a(ieqXH1) + uTime*pRateCRi
       w(ieqXH2) = w(ieqXH2) + uTime*XH1ll*pRateCRi
 
-      wEinll = wEinll + (XH1ll+2*XMHll)*pRatePAHh + XH1ll*pRateCRh
+      wEinll = wEinll + uTime*((XH1ll+2*XMHll)*pRatePAHh+
+     .     XH1ll*pRateCRh)
 #endif
 C
 C  Final aseembly
 C
       aEinll = aEinll + facCool*par(iparRhoB)*(CF_MHl+CF_HEl)
 
-      out(ioDust) = par(iparDGas)*(XH1ll+2*XMHll)
+#ifndef RT_NO_BACKGROUND
+      avg(iavgDust) = par(iparDGas)*(XH1ll+2*XMHll)
+#endif
 
 #else  // RT_CHEMISTRY
 
       a(ieqXMH) = 0.0
       w(ieqXMH) = 0.0
 
-      out(ioDust) = 0.0
+#ifndef RT_NO_BACKGROUND
+      avg(iavgDust) = 0.0
+#endif
 
 #endif  // RT_CHEMISTRY
 C
 C  Turn cooling into heating below CMB (induced emission)
 C
-#if defined(RT_TEST) && (RT_TEST==1)
+#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
 
       a(ieqEin) = 0.0
       w(ieqEin) = 0.0
@@ -832,6 +872,100 @@ C
       return
       end
 C
+C
+C     
+      subroutine frtGetPhotoRates(par,rf,itab,y,pRate)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_TRANSFER
+      include 'frt_transfer.inc'
+#endif
+      dimension par(*), rf(*)
+      dimension itab(*)
+      dimension y(*), pRate(*)
+#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+      parameter (wFront = 0.5)
+      parameter (TAUMIN = 1.0e-2)
+      dimension rfFrnt(irfMax), rfBack(irfMax), drf(NSETS)
+      dimension pRateBack(iptabDim)
+#endif
+
+#ifdef RT_1ZONE
+C
+C  Single zone plug-in
+C
+      call frtPhotoRates1Zone(par,rf,itab,y,pRate)
+#else
+
+#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+C
+C  Flux-conserving correction
+C
+      drf(1) = rf(irfH1wf) + y(ieqXH1)*rf(irfH1wv)
+      drf(2) = rf(irfG1wf) + y(ieqXG1)*rf(irfG1wv)
+      drf(3) = rf(irfG2wf) + y(ieqXG2)*rf(irfG2wv)
+
+      if(max(drf(1),drf(2),drf(3)) .gt. TAUMIN) then
+
+         rfFrnt(irfNorm) = rf(irfNorm)
+         rfBack(irfNorm) = rf(irfNorm)
+         do j=1,NSETS
+            if(rf(irfOlf+j) .lt. 0.0) then
+               rfFrnt(irfOlf+j) = -1.0
+               rfBack(irfOlf+j) = -1.0
+            else
+               rfFrnt(irfOlf+j) = max(0.0,rf(irfOlf+j)+
+     .              y(1+j)*rf(irfOlv+j)-wFront*drf(j))
+               rfBack(irfOlf+j) = rfFrnt(irfOlf+j) + drf(j)
+            endif
+            if(rf(irfOgf+j) .lt. 0.0) then
+               rfFrnt(irfOgf+j) = -1.0
+               rfBack(irfOgf+j) = -1.0
+            else
+               rfFrnt(irfOgf+j) = max(0.0,rf(irfOgf+j)+
+     .              y(1+j)*rf(irfOgv+j)-wFront*drf(j))
+               rfBack(irfOgf+j) = rfFrnt(irfOgf+j) + drf(j)
+            endif
+         enddo
+
+         call frtPhotoRatesTable(par,rfFrnt,itab,y,pRate,iptabMax)
+         call frtPhotoRatesTable(par,rfBack,itab,y,pRateBack,iptabIon)
+      
+         if(drf(1) .gt. TAUMIN) then
+            pRate(iptabPhH1) = max(0.0,pRate(iptabPhH1)-
+     .           pRateBack(iptabPhH1))/drf(1)
+            pRate(iptabPiH1) = max(0.0,pRate(iptabPiH1)-
+     .           pRateBack(iptabPiH1))/drf(1)
+         endif
+         if(drf(2) .gt. TAUMIN) then
+            pRate(iptabPhG1) = max(0.0,pRate(iptabPhG1)-
+     .           pRateBack(iptabPhG1))/drf(2)
+            pRate(iptabPiG1) = max(0.0,pRate(iptabPiG1)-
+     .           pRateBack(iptabPiG1))/drf(2)
+         endif
+         if(drf(3) .gt. TAUMIN) then
+            pRate(iptabPhG2) = max(0.0,pRate(iptabPhG2)-
+     .           pRateBack(iptabPhG2))/drf(3)
+            pRate(iptabPiG2) = max(0.0,pRate(iptabPiG2)-
+     .           pRateBack(iptabPiG2))/drf(3)
+         endif
+
+      else
+#endif  // defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+C
+C  Generic rates
+C
+         call frtPhotoRatesTable(par,rf,itab,y,pRate,iptabMax)
+
+#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+      endif
+#endif  // defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+
+#endif
+
+      return
+      end
+C
 C  -------------------------
 C
 C  Thermodynamic functions
@@ -862,7 +996,7 @@ C
       include 'frt_base.inc'
       dimension y(*)
 
-#if defined(RT_TEST) && (RT_TEST==1)
+#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
 
       Xtot = XH
 

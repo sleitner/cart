@@ -59,27 +59,6 @@ C
       dimension pG1(istabDim), sgpG1(istabDim)
       dimension pG2(istabDim), sgpG2(istabDim)
 C
-C  Integration normalization
-C
-      upTabSE(istabPiH1H1w1) = facPi
-      upTabSE(istabPiH1G1w1) = facPi
-      upTabSE(istabPiH1G2w1) = facPi
-      upTabSE(istabPiG1H1w1) = facPi
-      upTabSE(istabPiG1G1w1) = facPi
-      upTabSE(istabPiG1G2w1) = facPi
-
-      upTabSE(istabPiH1H1w2) = facPi
-      upTabSE(istabPiH1G1w2) = facPi
-      upTabSE(istabPiH1G2w2) = facPi
-      upTabSE(istabPiG1H1w2) = facPi
-      upTabSE(istabPiG1G1w2) = facPi
-      upTabSE(istabPiG1G2w2) = facPi
-
-      upTabSE(istabPhH1w1) = facPh
-      upTabSE(istabPhG1w1) = facPh
-      upTabSE(istabPhH1w2) = facPh
-      upTabSE(istabPhG1w2) = facPh
-C
 C  Main tables
 C
 #if defined(RT_TABLES) && !defined(RT_DUST)
@@ -88,7 +67,7 @@ C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lo1,lo2,lo3,tauH1l,tauG1l,tauG2l,itind,itind2,j,
 C$OMP+ pH1,pG1,pG2,sgpH1,sgpG1,sgpG2)
 C$OMP+SHARED(tauH1m,acTAU,csH1tr,csG1tr,csG2tr,tauG1m,tauG2m,
-C$OMP+ itloc2,pTabSE,sgpTabSE,pOT,sgpOT,wpTabSE,upTabSE,facLX)
+C$OMP+ itloc2,pTabSE,sgpTabSE,pOT,sgpOT,wpTabSE,facPhot,facLX)
       do lo1=1,NOPT1
 
          do j=1,istabDim
@@ -142,7 +121,7 @@ C$OMP+ itloc2,pTabSE,sgpTabSE,pOT,sgpOT,wpTabSE,upTabSE,facLX)
                tauG1l = -1.0
 
             endif
-jjj
+
             itind2 = itloc2(lo2,lo1)
 
             do lo3=1,NOPT1
@@ -174,23 +153,22 @@ C
                do j=1,istabDim
 #ifdef RT_INTERPOLLOG
                   if(pG2(j) .gt. 0.0) then
-                     pTabSE(j,itind) = log(1.0e-35+upTabSE(j)*pG2(j))
+                     pTabSE(j,itind) = log(1.0e-35+facPhot*pG2(j))
                   else
                      pTabSE(j,itind) = -1000.0
                   endif                     
 #ifdef RT_TRANSFER
                   if(sgpG2(j) .gt. 0.0) then
                      sgpTabSE(j,itind) = log(1.0e-35+
-     .                    facLX*upTabSE(j)*sgpG2(j))
+     .                    facLX*facPhot*sgpG2(j))
                   else
                      sgpTabSE(j,itind) = -1000.0
                   endif
 #endif
 #else  // RT_INTERPOLLOG
-                  pTabSE(j,itind) = max(0.0,upTabSE(j)*pG2(j))
+                  pTabSE(j,itind) = max(0.0,facPhot*pG2(j))
 #ifdef RT_TRANSFER
-                  sgpTabSE(j,itind) = 
-     .                 max(0.0,facLX*upTabSE(j)*sgpG2(j))
+                  sgpTabSE(j,itind) = max(0.0,facLX*facPhot*sgpG2(j))
 #endif
 #endif // RT_INTERPOLLOG
                enddo
@@ -223,9 +201,9 @@ C
 C  Global field
 C
 #ifdef RT_TRANSFER
-      tauH1l = y(ieqXH1)*rf(irfH1gv) + rf(irfH1gf)
-      tauG1l = y(ieqXG1)*rf(irfG1gv) + rf(irfG1gf)
-      tauG2l = y(ieqXG2)*rf(irfG2gv) + rf(irfG2gf)
+      tauH1l = rf(irfH1gf)
+      tauG1l = rf(irfG1gf)
+      tauG2l = rf(irfG2gf)
 #else
       tauH1l = 0.0
       tauG1l = 0.0
@@ -264,7 +242,7 @@ C
      .        par(iparDGas),tauH1l,tauG1l,tauG2l)
 
          do j=1,istabDim
-            pRate1(j) = upTabSE(j)*max(0.0,pRate1(j))
+            pRate1(j) = facPhot*max(0.0,pRate1(j))
          enddo
 
 #endif  // defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
@@ -276,10 +254,9 @@ C
 C  Local field
 C
 #ifdef RT_TRANSFER
-
-      tauH1l = y(ieqXH1)*rf(irfH1lv) + rf(irfH1lf)
-      tauG1l = y(ieqXG1)*rf(irfG1lv) + rf(irfG1lf)
-      tauG2l = y(ieqXG2)*rf(irfG2lv) + rf(irfG2lf)
+      tauH1l = rf(irfH1lf)
+      tauG1l = rf(irfG1lf)
+      tauG2l = rf(irfG2lf)
 
 #if defined(RT_TABLES) && !defined(RT_DUST)
 
@@ -313,7 +290,7 @@ C
      .        par(iparDGas),tauH1l,tauG1l,tauG2l)
 
          do j=1,istabDim
-            sgpRate1(j) = facLX*upTabSE(j)*max(0.0,sgpRate1(j))
+            sgpRate1(j) = facLX*facPhot*max(0.0,sgpRate1(j))
          enddo
 
 #endif  // defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
