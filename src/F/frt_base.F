@@ -30,13 +30,13 @@ C
 #ifdef RT_DUST
       write(0,*) 'RT_Base: fatal error, ',
      .   'RT_DUST is on - this is not fully debugged yet.'
-      stop
+      call frtAbort
 #endif
 C
       if(Yp.lt.1.0e-10 .or. Yp.gt.0.99) then
          write(0,*) 'RT_Base: fatal error, ',
      .        'Yp must be between 1e-10 and 0.99.'
-         stop
+         call frtAbort
       endif
       XH = 1 - Yp
       XG = 0.25*Yp
@@ -63,13 +63,6 @@ C
       call frtLW_ReadData(guvLW0)
 #endif
 #endif
-C
-C  Init radiation field factors
-C
-      do lr=1,NRAD
-         tauhat_xi(lr) = 0.0
-         qfdhat_xi(lr) = 1.0
-      enddo
 
       return
       end
@@ -109,7 +102,7 @@ C
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
-      dimension guvloc(NRADL)
+      dimension guv(NRADL)
 C
 C  Parameters of the step
 C
@@ -139,6 +132,20 @@ C  Additional units (and conversions)
 C
       uRate = uDen*uTime
       uColumn = CSSTAR*uDen*uLen
+
+#ifdef RT_DEBUG
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         write(6,*) 'RT_Base: uDen = ', uDen
+         write(6,*) 'RT_Base: uLen = ', uLen
+         write(6,*) 'RT_Base: uTime = ', uTime
+         write(6,*) 'RT_Base: aStep = ', aStep
+         write(6,*) 'RT_Base: hStep = ', hStep
+         write(6,*) 'RT_Base: tStep = ', tStep
+         write(6,*) 'RT_Base: uRate = ', uRate
+         write(6,*) 'RT_Base: uColumn = ', uColumn
+      endif
+#endif
 C
 C  CMB temperature (in K)
 C
@@ -167,11 +174,11 @@ C
       facLX = (uLen/2.998e10)/uTime
 C
 C  Lyman-alpha pumping - Tozzi et al formula. Jordi says it is wrong.
-C  dEa/dt = 1.735e-11 K cm^3/c ang(Lya)
+C  dEa/dt = 1.735e-11 K cm^3/c angAvg(Lya)
 C  Here t0 is in years.
 C
 #ifdef RT_LYMAN_ALPHA_HEATING
-      facLya = 1.735e-11*ang(lrH1rB)
+      facLya = 1.735e-11*angAvg(lrH1rB)
 #else
       facLya = 0.0
 #endif
@@ -186,15 +193,15 @@ C
          facRecB = 0.0
       endif
 C
-C Get the source spectrum
+C Set the source spectrum
 C
-      call frtComputeSourceSpectrum(aStep,guvloc)
+      call frtSetSourceSpectrum(aStep,guv)
 C
 C  Normalize
 C
-      uComovingDen = uDen*aStep**3
+      fac = uDen*aStep**3
       do lr=1,NRAD
-         guveff(lr) = uComovingDen*guvloc(lr)
+         guvEff(lr) = fac*guv(lr)
       enddo
 
 #ifdef RT_CHEMISTRY
@@ -202,9 +209,9 @@ C
 
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(guvLW0,guvLWe,guveff,lr99tr)
+C$OMP+SHARED(guvLW0,guvLWe,guvEff,lrLWtr)
       do lr=1,NRLW
-         guvLWe(lr) = guvLW0(lr)*guveff(lr99tr)
+         guvLWe(lr) = guvLW0(lr)*guvEff(lrLWtr)
       enddo
 C     
 C  Call Massimo's function
@@ -255,7 +262,7 @@ C
 C
 C
 C
-      subroutine frtStepEnd(id,vol,avg)
+      subroutine frtStepEnd(vol,avg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
@@ -264,19 +271,18 @@ C
       include 'frt_global.inc'
       dimension avg(*)
 C
-      dimension axi(NRAD), sxi(NRAD), xib(NRAD), anb(NRAD)
+      dimension axi(NRAD), sxi(NRAD), xib(NRAD)
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
       dimension axiLW(NRLW), sxiLW(NRLW), xibLW(NRLW), anbLW(NRLW)
 #endif
-      character*(99) str1, str2, str3
 C
       common/RT_RT_UV/ duvin, axiH1tr, angH1tr
 C
 C  Diagnostics
 C
 #ifdef RT_OUTPUT
-
-      if(id .ge. 0) then
+      call frtQueryId(id)
+      if(id .eq. 0) then
 
          ftabHit = gInfo(infoTabH)
          ftabMiss = gInfo(infoTabM)
@@ -286,49 +292,28 @@ C
 #else
          ftabFill = 2.0*NOPT**3
 #endif
-
-         if(id .gt. 0) then
-            write(str3,*) id
-            ibeg = 1
-            iok = 0
-            do i=1,99
-               if(iok.eq.0 .and. str3(i:i).eq.' ') then
-                  ibeg = ibeg + 1
-               else
-                  iok = 1
-               endif
-            enddo
-            iend = ibeg + index(str3(ibeg:99),' ') - 2
-            str1 = 'RT_Tables['//str3(ibeg:iend)//'] '
-            str2 = 'RT_Cooling['//str3(ibeg:iend)//'] '
-         else
-            str1 = 'RT_Tables '
-            str2 = 'RT_Cooling '
-         endif
-         iend1 = index(str1,' ') - 1
-         iend2 = index(str2,' ') - 1
          
          if(ftabHit .gt. 0.5) then
-            write(6,*) str1(1:iend1)//': miss/hit ', 
+            write(6,*) 'RT_Tables: miss/hit ', 
      .           ftabMiss/ftabHit, ', fill/hit ', ftabFill/ftabHit
          endif
 
          if(gInfo(infoCall) .gt. gInfo(infoFail)) then
-            write(6,*) str2(1:iend2)//': avg # of steps ', 
+            write(6,*) 'RT_Cooling: avg # of steps ', 
      .           gInfo(infoNAvg)/(gInfo(infoCall)-gInfo(infoFail))
-            write(6,*) str2(1:iend2)//': max # of steps ', 
+            write(6,*) 'RT_Cooling: max # of steps ', 
      .           gInfo(infoNMax)
          endif
 
          if(gInfo(infoFail) .gt. 0.0d0) then
-            write(6,*) str2(1:iend2)//': fail/call ', 
+            write(6,*) 'RT_Coolin: fail/call ', 
      .           gInfo(infoFail)/gInfo(infoCall)
          endif
-
       endif
 #endif
 
-#ifndef RT_NO_BACKGROUND
+#ifdef RT_EXTERNAL_BACKGROUND
+#if (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
 C
 C  Unpack global quantities
 C
@@ -341,11 +326,11 @@ C
       call frtFinalizeGlobalFields(vol)
 C
 C  Coefficient for Bremstrahlung: 
-C     dn_xi/dt = 1/V e^{-h\nu/kT} 1/kT dE_tot/dt
-C     gBrem(xi) = Sum dV rho dT/dt 1/T e^{-T_xi/T}
-C     CRAD1 = n_b/V
+C     d\tilde{n}_xi/dt = 1/V e^{-h\nu/kT} 1/kT dE_tot/dt
+C     gBrem(xi) = Sum dV rho dT/dt 1/T e^{-T_xi/T} / V
+C     CRAD1 = \tilde{n}_b = comoving n_b
 C
-      CRAD1 = uDen
+      CRAD1 = uDen*aStep**3
 C
 C  Coefficient for absorption:
 C    c*CSSTAR*n_b/uTime = uColumn/facLX
@@ -353,15 +338,6 @@ C
       CRAD2 = uColumn/facLX
 C
 C  Advance the average radiation field:
-C  Source function
-C
-C$OMP PARALLEL DO DEFAULT(NONE),
-C$OMP+PRIVATE(lr),
-C$OMP+SHARED(CRAD1,gBrem,duvin,guveff,sxi)
-      do lr=1,NRAD
-         sxi(lr) = CRAD1*gBrem(lr) + duvin*guveff(lr)
-      enddo
-C
 C  Absorption
 C
       do lr=1,NRAD
@@ -405,16 +381,32 @@ C
 C  Absorption of Lyman-Wienner band photons (only included in the volume 
 C  averaged equation to fix Olber's paradox).
 C
-      do lr=lr99tr,lrH1tr-1
-         axi(lr) = axi(lr) + csMH99(lr)*XMH_va*CRAD2
+      do lr=lrLWtr,lrH1tr-1
+         axi(lr) = axi(lr) + csMHLW(lr)*XMH_va*CRAD2
       enddo
 #endif
-
-      axiH1tr = axi(lrH1tr)
-      angH1tr = ang(lrH1tr)
+C
+C  Frequency shift
+C
+      shift = hStep*tStep
+      lshift = int(shift/XISTEP)
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(xib,xig,shift)
+      do lr=1,NRAD
+         xib(lr) = xig(lr) + shift
+      enddo
+C
+C  Step 1: background due to uniform components
+C
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(CRAD1,gBrem,sxi)
+      do lr=1,NRAD
+         sxi(lr) = CRAD1*gBrem(lr)
+      enddo
 C
 C  Hydrogen and Helium recombination photons:
-C
 C  Recombination case A
 C
       sxi(lrH1tr) = sxi(lrH1tr) + CRAD1*gData(iavgRAH2)/XISTEP
@@ -427,65 +419,47 @@ C
       sxi(lrG1rB) = sxi(lrG1rB) + CRAD1*gData(iavgRBG2)/XISTEP
       sxi(lrG2rB) = sxi(lrG2rB) + CRAD1*gData(iavgRBG3)/XISTEP
 C
-C$OMP PARALLEL DO DEFAULT(NONE), 
-C$OMP+PRIVATE(lr,t12,p12,q12),
-C$OMP+SHARED(axi,tStep,anb,ang,sxi)
-      do lr=1,NRAD
-
-         t12 = axi(lr)*tStep
-         if(t12 .gt. 20.0) then
-            p12 = 0.0
-            q12 = 1.0/axi(lr)
-         else if(t12 .lt. 0.001) then
-            p12 = 1.0-t12
-            q12 = tStep
-         else
-            p12 = exp(-t12)
-            q12 = (1.0-p12)/axi(lr)
-         endif
-
-         anb(lr) = ang(lr)*p12 + sxi(lr)*q12 
-
-      enddo
-
-      shift = hStep*tStep
-      lshift = int(shift/XISTEP)
+      call frtAdvanceBackground(lshift,xib,axi,sxi,angUni)
+C
+C  Step 2: background due to local sources
+C
+#ifdef RT_TRANSFER
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(xib,xig,shift)
+C$OMP+SHARED(duvin,guvEff,sxi)
       do lr=1,NRAD
-         xib(lr) = xig(lr) + shift
-      enddo
-
-C$OMP PARALLEL DO DEFAULT(NONE), 
-C$OMP+PRIVATE(lr,lbl,lbr,anbl,xibl,anbr,xibr),
-C$OMP+SHARED(lshift,ang,anb,xib,xig)
-      do lr=1,NRAD
-         lbl = lr + lshift
-         lbr = lbl+1
-         if(lbl .gt. NRAD) then
-            ang(lr) = 0.0
-         else 
-            anbl = anb(lbl)
-            xibl = xig(lbl)
-            if(lbr .gt. NRAD) then
-               anbr = 0.0
-            else
-               anbr = anb(lbr)
-            endif
-            xibr = xibl + XISTEP
-            ang(lr) = ((xib(lr)-xibl)*anbr+(xibr-xib(lr))*anbl)/XISTEP
-         endif
+         sxi(lr) = duvin*guvEff(lr)
       enddo
 C
-C  This is just in case...
+      call frtAdvanceBackground(lshift,xib,axi,sxi,angLoc)
+#endif
+C
+C  Total
 C
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(ang)
+C$OMP+SHARED(angUni,angLoc,angAvg)
       do lr=1,NRAD
-         ang(lr) = max(0.0,ang(lr))
+         angAvg(lr) = angUni(lr) + angLoc(lr)
       enddo
+
+      axiH1tr = axi(lrH1tr)
+      angH1tr = angAvg(lrH1tr)
+
+#ifdef RT_DEBUG
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         fac = 1.59e-17/aStep**3
+         write(6,*) 'RT: <abs_HI> = ', axiH1tr, axiH1tr/csH1tr/CRAD2
+         write(6,*) 'RT: <PIR_HI> = ', 
+     .        angUni(lrH1tr)*csH1tr*facPhot, 
+     .        angLoc(lrH1tr)*csH1tr*facPhot
+         write(6,*) 'RT: <Jnu_HI> = ', 
+     .        angUni(lrH1tr)*fac, angLoc(lrH1tr)*fac
+         write(6,*) 'RT: <Jnu_LW> = ', 
+     .        angUni(lrH1tr-1)*fac, angLoc(lrH1tr-1)*fac
+      endif
+#endif
 C
 C  Do Lyman-Werner bands separately
 C
@@ -543,27 +517,79 @@ C
 
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
 
-#endif /* RT_NO_BACKGROUND */
+#else /* RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT */
+
+      call frtSetExternalBackground(aStep,ang)
+
+#if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
+      call frtSetExternalBackgroundLW(aStep,angLW)
+#endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
+
+#endif /* RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT */
+#endif /* RT_EXTERNAL_BACKGROUND */
 
       return
       end
 C
 C
 C
-      function frtQueryXH()
+      subroutine frtAdvanceBackground(lshift,xib,axi,sxi,ang1)
       include 'frt_base.inc'
-
-      frtQueryXH = XH
-
-      return
-      end
+      include 'frt_tables.inc'
+      dimension xib(NRAD), axi(NRAD), sxi(NRAD), ang1(NRADL)
 C
+      dimension anb(NRAD)
 C
-C
-      function frtQueryXHe()
-      include 'frt_base.inc'
+C$OMP PARALLEL DO DEFAULT(NONE), 
+C$OMP+PRIVATE(lr,t12,p12,q12),
+C$OMP+SHARED(axi,tStep,anb,ang1,sxi)
+      do lr=1,NRAD
 
-      frtQueryXHe = XG
+         t12 = axi(lr)*tStep
+         if(t12 .gt. 20.0) then
+            p12 = 0.0
+            q12 = 1.0/axi(lr)
+         else if(t12 .lt. 0.001) then
+            p12 = 1.0-t12
+            q12 = tStep
+         else
+            p12 = exp(-t12)
+            q12 = (1.0-p12)/axi(lr)
+         endif
+
+         anb(lr) = ang1(lr)*p12 + sxi(lr)*q12 
+
+      enddo
+
+C$OMP PARALLEL DO DEFAULT(NONE), 
+C$OMP+PRIVATE(lr,lbl,lbr,anbl,xibl,anbr,xibr),
+C$OMP+SHARED(lshift,ang1,anb,xib,xig)
+      do lr=1,NRAD
+         lbl = lr + lshift
+         lbr = lbl+1
+         if(lbl .gt. NRAD) then
+            ang1(lr) = 0.0
+         else 
+            anbl = anb(lbl)
+            xibl = xig(lbl)
+            if(lbr .gt. NRAD) then
+               anbr = 0.0
+            else
+               anbr = anb(lbr)
+            endif
+            xibr = xibl + XISTEP
+            ang1(lr) = ((xib(lr)-xibl)*anbr+(xibr-xib(lr))*anbl)/XISTEP
+         endif
+      enddo
+C
+C  This is just in case...
+C
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(ang1)
+      do lr=1,NRAD
+         ang1(lr) = max(0.0,ang1(lr))
+      enddo
 
       return
       end

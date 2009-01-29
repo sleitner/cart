@@ -122,7 +122,7 @@ C
 	parameter(iptabCi30 = 10)
 	parameter(iptabCi31 = 11)
 	parameter(iptabCi32 = 12)
-	parameter(iptabCi99 = 13)
+	parameter(iptabCiLW = 13)
 	parameter(iptabIon  =  6)
 	parameter(iptabOT   =  7)
 	parameter(iptabH1   =  5)
@@ -154,9 +154,10 @@ C
 C
 C  Radiation mesh
 C
-	common/RT_TAB_M/ tauhat_xi(NRADL), qfdhat_xi(NRADL),
-     .                   xig(NRADL), ang(NRADL), Txi(NRADL)
-	common/RT_TAB_N/ guveff(NRADL)
+	common/RT_TAB_M/ xig(NRADL), Txi(NRADL), guvEff(NRADL),
+     .                   tauLoc(NRADL)
+	common/RT_TAB_N/ angUni(NRADL), angLoc(NRADL),
+     .	                 angAvg(NRADL), angEff(NRADL)
 C
 C  Cross sections: atomic & dust
 C
@@ -171,10 +172,10 @@ C
      .                   lrmin, lrmax, lrLStr, lrDUtr, lrSEtr
 C
 C  Cross sections: chemistry 
-C  (99 = LW bands, 31 = 32 para, 32 = 32 ortho)
+C  (LW = LW bands, 31 = 32 para, 32 = 32 ortho)
 C
 	common/RT_TAB_Q/ csMH27(NRADL), csMH28(NRADL), csMH29(NRADL),
      .                   csMH30(NRADL), csMH31(NRADL), csMH32(NRADL),
-     .                   csMH99(NRADL)
+     .                   csMHLW(NRADL)
 	common/RT_TAB_R/ lr27tr, lr28tr, lr29tr, 
-     .                   lr30tr, lr31tr, lr32tr, lr99tr
+     .                   lr30tr, lr31tr, lr32tr, lrLWtr

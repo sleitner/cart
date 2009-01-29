@@ -21,9 +21,9 @@ C
       endif
 
       if(ierr .ne. MPI_SUCCESS) then
-         write(0,*) 'RT_Mpi: fatal error, ',
+         write(0,*) 'RT_MPI: fatal error, ',
      .        'MPI communication error #',ierr
-         stop
+         call frtAbort
       endif
 
 #else
@@ -36,7 +36,48 @@ C
 
       return
       end
+C
+C
+C
+      subroutine frtQueryId(id)
+#ifdef RT_PARALLEL_USE_MPI
+      include 'mpif.h'
+#endif /* RT_PARALLEL_USE_MPI */
 
+#ifdef RT_PARALLEL_USE_MPI
+
+      call MPI_COMM_RANK(MPI_COMM_WORLD,id,ierr)
+      if(ierr .ne. MPI_SUCCESS) then
+         write(0,*) 'RT_MPI: fatal error, ',
+     .        'MPI communication error #',ierr
+         call frtAbort
+      endif
+
+#else
+
+      id = 0
+
+#endif /* RT_PARALLEL_USE_MPI */
+
+      return
+      end
+C
+C
+C
+      subroutine frtAbort()
+
+C$OMP CRITICAL
+
+      write(0,*) 'Abort.'
+#ifdef RT_PARALLEL_USE_MPI
+      call MPI_ABORT(MPI_COMM_WORLD,81,ierr)
+#endif /* RT_PARALLEL_USE_MPI */
+      stop
+
+C$OMP END CRITICAL
+
+      return
+      end
 #endif
 
       subroutine frtDummyMpi(i)

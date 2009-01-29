@@ -97,15 +97,15 @@ C
       clight=3.e10   ![cm s-1]
       Atocm=1.e-8
       
-      open (unit=11,file='lwbands.dat', status='old')
+      open (unit=81,file='lwbands.dat', status='old')
       do i=1,n_lines_file
-         read(11,*) lambd,ttpop3 ![erg s-1 A-1] 
+         read(81,*) lambd,ttpop3 ![erg s-1 A-1] 
          nu=clight/lambd/Atocm
          if (i.eq.1) lamin=lambd
          if (i.eq.n_lines_file) lamax=lambd
          tempJ(i-1)=ttpop3*lambd/nu/4./pi   !*1.e30 [erg s-1 Hz-1 sr-1]
       end do
-      close(11)
+      close(81)
       tempJdla=(lamax-lamin)/(n_lines_file-1)
 
       
@@ -383,7 +383,6 @@ C$OMP+SHARED(BETA)
       end do
       
       STEP = XISH2/HUBBLE
-      print*,"STEPS=",int(DELTA_t/STEP+0.5), DELTA_t
 
       do STAR_t = 0., DELTA_t, STEP
 

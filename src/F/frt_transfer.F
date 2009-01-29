@@ -15,13 +15,13 @@ C
       if(NSETS .ne. 3) then
          write(0,*) 'RT_Transfer: fatal error, ',
      .        'only NSETS=3 is supported.'
-         stop
+         call frtAbort
       endif
 
       if(nfreq .ne. 2*NSETS) then
          write(0,*) 'RT_Transfer: fatal error, ',
      .        'only nfreq=2*NSETS is supported.'
-         stop
+         call frtAbort
       endif
 
       LRSETS(1) = lrH1tr
@@ -40,13 +40,13 @@ C
       dimension rfAvg(*)
 C
       dimension w(NSETS)
-
+C
       do L=1,NSETS
 
          lr = LRSETS(L)
 
-         aqbar = facLX*guveff(lr)
-         ajbar = ang(lr)
+         aqbar = facLX*guvEff(lr)
+         ajbar = angAvg(lr)
 
          q = ajbar - aqbar*rfAvg(L)
          if(q .lt. 0.0) q = 0.0
@@ -59,24 +59,20 @@ C
 
       enddo
 
-      tauH1 = QIhat(w(1))
+      tauH1 = QIuni(w(1))
       do lr=1,NRAD
-         tauhat_xi(lr) = tauH1*csH1n(lr)
+         tauLoc(lr) = tauH1*csH1n(lr)
       enddo
 
-      tauG1 = QIhat(w(2)) - tauH1*csH1n(lrG1tr)
+      tauG1 = QIuni(w(2)) - tauH1*csH1n(lrG1tr)
       do lr=lrG1tr,NRAD
-         tauhat_xi(lr) = tauhat_xi(lr) + tauG1*csG1n(lr)
+         tauLoc(lr) = tauLoc(lr) + tauG1*csG1n(lr)
       enddo
 
-      tauG2 = QIhat(w(3)) - tauG1*csG1n(lrG2tr) - 
+      tauG2 = QIuni(w(3)) - tauG1*csG1n(lrG2tr) - 
      .     tauH1*csH1n(lrG2tr)
       do lr=lrG2tr,NRAD
-         tauhat_xi(lr) = tauhat_xi(lr) + tauG2*csG2n(lr)
-      enddo
-
-      do lr=1,NRAD
-         qfdhat_xi(lr) = QFhat(tauhat_xi(lr),1)
+         tauLoc(lr) = tauLoc(lr) + tauG2*csG2n(lr)
       enddo
 
       return
@@ -136,17 +132,31 @@ C  Using a C-callback
 C
       subroutine frtTransferGetGlobalAbs(abc)
       include 'frt_base.inc'
+      include 'frt_tables.inc'
       include 'frt_transfer.inc'
       dimension abc(*)
-      dimension ifield(NSETS)
-C
-C  Average global fields
-C
-      do i=1,NSETS
-         ifield(i) = NSETS + i
-      enddo 
 
-      call rtTransferGetGlobalAbs(NSETS,ifield,abc)
+      call rtextTransferGetGlobalAbs(NSETS,abc)
+
+#ifdef RT_DEBUG
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         abe1 = abc(1)
+         abe2 = abc(2) - abe1*csH1n(lrG1tr)
+         abe3 = abc(3) - abe1*csH1n(lrG2tr) - abe2*csG1n(lrG2tr)
+         write(6,*) 'RT: <abcH1> = ', abc(1), abe1/csH1tr/uColumn
+         write(6,*) 'RT: <abcG1> = ', abc(2), abe2/csG1tr/uColumn
+         write(6,*) 'RT: <abcG2> = ', abc(3), abe3/csG2tr/uColumn
+      endif
+#endif
+
+      do i=1,NSETS
+         if(abc(i) .lt. 0.0) then
+            write(0,*) 'RT_Transfer: fatal error, ',
+     .           'negative global absoprtion: ', i, abc(i)
+            call frtAbort
+         endif
+      enddo
 
       return
       end
@@ -171,7 +181,7 @@ C
 C
 C  2. Global field
 C
-#ifndef RT_NO_BACKGROUND
+#ifdef RT_EXTERNAL_BACKGROUND
       call frtTransferPackHelper(1,par,y,rawRF0,rawRF1,rf)
 #else
       do j=1,3
@@ -247,9 +257,9 @@ C
          if(w(k*NSETS+1) .gt. 1.0e-35) then
             t1 = min(1.0,w(k*NSETS+1)/w0(k+1))
             if(k .eq. 0) then
-               ta1 = QIsor(t1)
+               ta1 = QIloc(t1)
             else
-               ta1 = QIhat(t1)
+               ta1 = QIuni(t1)
             endif
          else
             ta1 = -1.0
@@ -258,9 +268,9 @@ C
          if(w(k*NSETS+2) .gt. 1.0e-35) then
             t2 = min(1.0,w(k*NSETS+2)/w0(k+1))
             if(k .eq. 0) then
-               ta2 = QIsor(t2)
+               ta2 = QIloc(t2)
             else
-               ta2 = QIhat(t2)
+               ta2 = QIuni(t2)
             endif
             if(ta1 .gt. 0.0) then
                ta2 = ta2 - ta1*csH1n(lrG1tr)
@@ -272,9 +282,9 @@ C
          if(w(k*NSETS+3) .gt. 1.0e-35) then
             t3 = min(1.0,w(k*NSETS+3)/w0(k+1))
             if(k .eq. 0) then
-               ta3 = QIsor(t3)
+               ta3 = QIloc(t3)
             else
-               ta3 = QIhat(t3)
+               ta3 = QIuni(t3)
             endif
             if(ta1 .gt. 0.0) then
                ta3 = max(1.0e-10,ta3-ta1*csH1n(lrG2tr))
@@ -334,25 +344,25 @@ C
       if(ta1 .lt. 0.0) then
          w(k*NSETS+1) = 0.0
       else if(k .eq. 0) then
-         w(k*NSETS+1) = w0(k+1)*QFsor(ta1,1)
+         w(k*NSETS+1) = w0(k+1)*QFloc(ta1)
       else
-         w(k*NSETS+1) = w0(k+1)*QFhat(ta1,1)
+         w(k*NSETS+1) = w0(k+1)*QFuni(ta1)
       endif
 
       if(ta2 .lt. 0.0) then
          w(k*NSETS+2) = 0.0
       else if(k .eq. 0) then
-         w(k*NSETS+2) = w0(k+1)*QFsor(ta2,1)
+         w(k*NSETS+2) = w0(k+1)*QFloc(ta2)
       else
-         w(k*NSETS+2) = w0(k+1)*QFhat(ta2,1)
+         w(k*NSETS+2) = w0(k+1)*QFuni(ta2)
       endif
 
       if(ta3 .lt. 0.0) then
          w(k*NSETS+3) = 0.0
       else if(k .eq. 0) then
-         w(k*NSETS+3) = w0(k+1)*QFsor(ta3,1)
+         w(k*NSETS+3) = w0(k+1)*QFloc(ta3)
       else
-         w(k*NSETS+3) = w0(k+1)*QFhat(ta3,1)
+         w(k*NSETS+3) = w0(k+1)*QFuni(ta3)
       endif
 
       return

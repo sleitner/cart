@@ -13,7 +13,8 @@ C
 C
 C  Write into existing Fortran binary file
 C
-      write(iunit) (ang(j),j=1,NRAD)
+      write(iunit) (angUni(j),j=1,NRAD)
+      write(iunit) (angLoc(j),j=1,NRAD)
 #ifdef RT_LWBANDS
       write(iunit) (angLW(j),j=1,NRLW)
 #endif
@@ -32,10 +33,20 @@ C
 C
 C  Read from existing Fortran binary file
 C
-      read(iunit,err=10) (ang(j),j=1,NRAD)
+      read(iunit,err=10) (angUni(j),j=1,NRAD)
+      read(iunit,err=10) (angLoc(j),j=1,NRAD)
 #ifdef RT_LWBANDS
       read(iunit,err=20) (angLW(j),j=1,NRLW)
 #endif
+C
+C  Total
+C
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(angUni,angLoc,angAvg)
+      do lr=1,NRAD
+         angAvg(lr) = angUni(lr) + angLoc(lr)
+      enddo
 
       return
 
@@ -59,7 +70,7 @@ C
 #endif
       dimension data(*)
 
-      n0 = NRAD
+      n0 = 2*NRAD
 #ifdef RT_LWBANDS
       n0 = n0 + NRLW
 #endif
@@ -67,11 +78,14 @@ C
          n = n0
       else
          do j=1,NRAD
-            data(j) = ang(j)
+            data(j) = angUni(j)
+         enddo
+         do j=1,NRAD
+            data(NRAD+j) = angLoc(j)
          enddo
 #ifdef RT_LWBANDS
          do j=1,NRLW
-            data(NRAD+j) = angLW(j)
+            data(2*NRAD+j) = angLW(j)
          enddo
 #endif
       endif
@@ -89,7 +103,7 @@ C
 #endif
       dimension data(*)
 
-      n0 = NRAD
+      n0 = 2*NRAD
 #ifdef RT_LWBANDS
       n0 = n0 + NRLW
 #endif
@@ -97,11 +111,14 @@ C
          n = n0
       else
          do j=1,NRAD
-            ang(j) = data(j)
+            angUni(j) = data(j)
+         enddo
+         do j=1,NRAD
+            angLoc(j) = data(NRAD+j)
          enddo
 #ifdef RT_LWBANDS
          do j=1,NRLW
-            angLW(j) = data(NRAD+j)
+            angLW(j) = data(2*NRAD+j)
          enddo
 #endif
       endif

@@ -42,16 +42,17 @@ C
         parameter(iparSobL =  7)
         parameter(iparNumF =  8)
         parameter(iparCell =  9)
-        parameter(iparRecB = 10)
-        parameter(iparSDp1 = 11)
-        parameter(iparSDp2 = 12)
-        parameter(iparSDp3 = 13)
-        parameter(iparCFH1 = 14)
-        parameter(iparCFG1 = 15)
-        parameter(iparCFG2 = 16)
-        parameter(iparDelN = 17)
-        parameter(iparDeb  = 18)
-        parameter(iparDim  = 18)
+        parameter(iparVolB = 10)
+        parameter(iparRecB = 11)
+        parameter(iparSDp1 = 12)
+        parameter(iparSDp2 = 13)
+        parameter(iparSDp3 = 14)
+        parameter(iparCFH1 = 15)
+        parameter(iparCFG1 = 16)
+        parameter(iparCFG2 = 17)
+        parameter(iparDelN = 18)
+        parameter(iparDeb  = 19)
+        parameter(iparDim  = 19)
 C
 C  Globally-averaged quantities
 C
@@ -66,9 +67,11 @@ C
         parameter(iavgRBG3 =  9)
         parameter(iavgDust = 10)
         parameter(iavgBrem = 11)
-        parameter(iavgTemp = 12)
+        parameter(iavgNorm = 12)
+        parameter(iavgTemp = 13)
         parameter(iavgMax1 = 11)
-        parameter(iavgDim  = 12)
+        parameter(iavgMax2 = 12)
+        parameter(iavgDim  = 13)
 C
 C  Diagnostic info
 C

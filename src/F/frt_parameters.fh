@@ -20,7 +20,7 @@
 #endif
 
 
-#define IPAR_RHOB		 1
+#define IPAR_RHO 		 1
 #define IPAR_ZSOL		 2
 #define IPAR_DTSH		 3
 #define IPAR_DTAD		 4
@@ -29,11 +29,12 @@
 #define IPAR_SOBL		 7
 #define IPAR_NUMF		 8
 #define IPAR_CELL		 9
-#define IPAR_DEB		18
-#define IPAR_DIM		18
+#define IPAR_VOL		10
+#define IPAR_DEB		19
+#define IPAR_DIM		19
 
 
-#define IOUT_MAX		11
-#define IOUT_DIM		15
+#define IRATE_DIM		13
+
 
 #endif

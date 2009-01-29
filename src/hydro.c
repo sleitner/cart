@@ -24,7 +24,7 @@
 
 #ifdef HYDRO 
 
-float pressure_floor_factor = 50.0;
+float pressure_floor_factor = 10.0;
 float pressure_floor;
 float gas_density_floor = 1e-6;
 

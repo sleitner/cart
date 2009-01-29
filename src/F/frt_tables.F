@@ -47,14 +47,16 @@ C  Radiation tables
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,fnu,x,cs0,fn0,y0,y1,yw,ya,p,y,w)
-C$OMP+SHARED(Txi,xig,ang,csH1,csG1,csG2,csDust,
-C$OMP+ tauhat_xi,qfdhat_xi,csMH27,csMH28,csMH29,csMH30,csMH31,
-C$OMP+ csMH32,csMH99)
+C$OMP+SHARED(Txi,xig,angUni,angLoc,angAvg,tauLoc,csH1,csG1,csG2,csDust,
+C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW)
       do lr = 1,NRAD
 
          xig(lr) = XISTEP*(real(lr)-0.5) + log(TXI0/TH1)
-         ang(lr) = 0.0
          Txi(lr) = TH1*exp(xig(lr))
+         angUni(lr) = 0.0
+         angLoc(lr) = 0.0
+         angAvg(lr) = 0.0
+         tauLoc(lr) = 0.0
          fnu = Txi(lr)/T1eV
 
          if(Txi(lr) .lt. TH1) then
@@ -204,12 +206,12 @@ C
          endif
 
          if(fnu.lt.11.3 .or. fnu.gt.13.6) then
-            csMH99(lr) = 0.0
+            csMHLW(lr) = 0.0
          else
 C
 C  R = 10^8 s^{-1} I_\nu  (that is what Tom Abel told me)
 C
-            csMH99(lr) = 3.6e-18/CSSTAR
+            csMHLW(lr) = 3.6e-18/CSSTAR
          endif
 
 #endif
@@ -354,7 +356,7 @@ C$OMP+ csDust,csDustn)
       lr30tr = 0
       lr31tr = 0
       lr32tr = 0
-      lr99tr = 0
+      lrLWtr = 0
       do lr=1,NRAD
          if(lr27tr.eq.0 .and. csMH27(lr).gt.1.0e-35) lr27tr = lr
          if(lr28tr.eq.0 .and. csMH28(lr).gt.1.0e-35) lr28tr = lr
@@ -362,7 +364,7 @@ C$OMP+ csDust,csDustn)
          if(lr30tr.eq.0 .and. csMH30(lr).gt.1.0e-35) lr30tr = lr
          if(lr31tr.eq.0 .and. csMH31(lr).gt.1.0e-35) lr31tr = lr
          if(lr32tr.eq.0 .and. csMH32(lr).gt.1.0e-35) lr32tr = lr
-         if(lr99tr.eq.0 .and. csMH99(lr).gt.1.0e-35) lr99tr = lr
+         if(lrLWtr.eq.0 .and. csMHLW(lr).gt.1.0e-35) lrLWtr = lr
       enddo
       if(lr27tr .eq. 0) lr27tr = 1
       if(lr28tr .eq. 0) lr28tr = 1
@@ -370,7 +372,7 @@ C$OMP+ csDust,csDustn)
       if(lr30tr .eq. 0) lr30tr = 1
       if(lr31tr .eq. 0) lr31tr = 1
       if(lr32tr .eq. 0) lr32tr = 1
-      if(lr99tr .eq. 0) lr99tr = 1
+      if(lrLWtr .eq. 0) lrLWtr = 1
 
 #ifdef RT_LWBANDS
 C
@@ -972,7 +974,7 @@ C
          if(aloptl .lt. 1.00001*acT2O(lo-1)) then
             write(0,*) 'RT_Tables: fatal error, ',
      .           'opacity table is not monotonic.'
-            stop
+            call frtAbort
          endif
 
          acT2O(lo) = aloptl
@@ -1028,7 +1030,7 @@ C
          wpTab(iptabCi30,lr) = csMH30(lr)
          wpTab(iptabCi31,lr) = csMH31(lr)
          wpTab(iptabCi32,lr) = csMH32(lr)
-         wpTab(iptabCi99,lr) = csMH99(lr)
+         wpTab(iptabCiLW,lr) = csMHLW(lr)
 #endif  // RT_CHEMISTRY
       enddo
  
@@ -1053,6 +1055,10 @@ C
       dimension pG1(iptabDim), sgpG1(iptabDim)
       dimension pG2(iptabDim), sgpG2(iptabDim)
 C
+      do lr=1,NRAD
+         angEff(lr) = angUni(lr) + angLoc(lr)*QFuni(tauLoc(lr))
+      enddo
+C
       iptabMax = 6
 
       sumc1 = 0.0
@@ -1063,12 +1069,12 @@ C
       sumi3 = 0.0
 
       do lr=1,NRAD
-         sumc1 = sumc1 + ang(lr)*csH1(lr)*(Txi(lr)-TH1)
-         sumc2 = sumc2 + ang(lr)*csG1(lr)*(Txi(lr)-TG1)
-         sumc3 = sumc3 + ang(lr)*csG2(lr)*(Txi(lr)-TG2)
-         sumi1 = sumi1 + ang(lr)*csH1(lr)
-         sumi2 = sumi2 + ang(lr)*csG1(lr)
-         sumi3 = sumi3 + ang(lr)*csG2(lr)
+         sumc1 = sumc1 + angAvg(lr)*csH1(lr)*(Txi(lr)-TH1)
+         sumc2 = sumc2 + angAvg(lr)*csG1(lr)*(Txi(lr)-TG1)
+         sumc3 = sumc3 + angAvg(lr)*csG2(lr)*(Txi(lr)-TG2)
+         sumi1 = sumi1 + angAvg(lr)*csH1(lr)
+         sumi2 = sumi2 + angAvg(lr)*csG1(lr)
+         sumi3 = sumi3 + angAvg(lr)*csG2(lr)
       enddo
 
       pRate0(iptabPhH1) = max(0.0,facPhot*sumc1)
@@ -1090,12 +1096,12 @@ C
       sumi32 = 0.0
 
       do lr=1,NRAD
-         sumi27 = sumi27 + ang(lr)*csMH27(lr)
-         sumi28 = sumi28 + ang(lr)*csMH28(lr)
-         sumi29 = sumi29 + ang(lr)*csMH29(lr)
-         sumi30 = sumi30 + ang(lr)*csMH30(lr)
-         sumi31 = sumi31 + ang(lr)*csMH31(lr)
-         sumi32 = sumi32 + ang(lr)*csMH32(lr)
+         sumi27 = sumi27 + angAvg(lr)*csMH27(lr)
+         sumi28 = sumi28 + angAvg(lr)*csMH28(lr)
+         sumi29 = sumi29 + angAvg(lr)*csMH29(lr)
+         sumi30 = sumi30 + angAvg(lr)*csMH30(lr)
+         sumi31 = sumi31 + angAvg(lr)*csMH31(lr)
+         sumi32 = sumi32 + angAvg(lr)*csMH32(lr)
       enddo
 
       pRate0(iptabCi27) = max(0.0,facPhot*sumi27)
@@ -1107,18 +1113,18 @@ C
 C
 C  Do Lyman-Werner bands separately
 C
-      sumi99 = 0.0
+      sumiLW = 0.0
 #ifdef RT_LWBANDS
       do lr=1,NRLW
-         sumi99 = sumi99 + angLW(lr)*csLWMH(lr)
+         sumiLW = sumiLW + angLW(lr)*csLWMH(lr)
       enddo
-      sumi99 = sumi99*XILWST/XISTEP
+      sumiLW = sumiLW*XILWST/XISTEP
 #else
       do lr=1,NRAD
-         sumi99 = sumi99 + ang(lr)*csMH99(lr)
+         sumiLW = sumiLW + angAvg(lr)*csMHLW(lr)
       enddo
 #endif  // RT_LWBANDS
-      pRate0(iptabCi99) = max(0.0,facPhot*sumi99)
+      pRate0(iptabCiLW) = max(0.0,facPhot*sumiLW)
 
 #endif  // RT_CHEMISTRY
 
@@ -1132,12 +1138,12 @@ C
       sumi3 = 0.0
 
       do lr=1,NRAD
-         sumc1 = sumc1 + guveff(lr)*csH1(lr)*(Txi(lr)-TH1)
-         sumc2 = sumc2 + guveff(lr)*csG1(lr)*(Txi(lr)-TG1)
-         sumc3 = sumc3 + guveff(lr)*csG2(lr)*(Txi(lr)-TG2)
-         sumi1 = sumi1 + guveff(lr)*csH1(lr)
-         sumi2 = sumi2 + guveff(lr)*csG1(lr)
-         sumi3 = sumi3 + guveff(lr)*csG2(lr)
+         sumc1 = sumc1 + guvEff(lr)*csH1(lr)*(Txi(lr)-TH1)
+         sumc2 = sumc2 + guvEff(lr)*csG1(lr)*(Txi(lr)-TG1)
+         sumc3 = sumc3 + guvEff(lr)*csG2(lr)*(Txi(lr)-TG2)
+         sumi1 = sumi1 + guvEff(lr)*csH1(lr)
+         sumi2 = sumi2 + guvEff(lr)*csG1(lr)
+         sumi3 = sumi3 + guvEff(lr)*csG2(lr)
       enddo
 
       sgpRate0(iptabPhH1) = max(0.0,facPhot*sumc1*facLX)
@@ -1157,12 +1163,12 @@ C
       sumi32 = 0.0
 
       do lr=1,NRAD
-         sumi27 = sumi27 + guveff(lr)*csMH27(lr)
-         sumi28 = sumi28 + guveff(lr)*csMH28(lr)
-         sumi29 = sumi29 + guveff(lr)*csMH29(lr)
-         sumi30 = sumi30 + guveff(lr)*csMH30(lr)
-         sumi31 = sumi31 + guveff(lr)*csMH31(lr)
-         sumi32 = sumi32 + guveff(lr)*csMH32(lr)
+         sumi27 = sumi27 + guvEff(lr)*csMH27(lr)
+         sumi28 = sumi28 + guvEff(lr)*csMH28(lr)
+         sumi29 = sumi29 + guvEff(lr)*csMH29(lr)
+         sumi30 = sumi30 + guvEff(lr)*csMH30(lr)
+         sumi31 = sumi31 + guvEff(lr)*csMH31(lr)
+         sumi32 = sumi32 + guvEff(lr)*csMH32(lr)
       enddo
 
       sgpRate0(iptabCi27) = max(0.0,facPhot*sumi27*facLX)
@@ -1174,18 +1180,18 @@ C
 C
 C  Do Lyman-Werner bands separately
 C
-      sumi99 = 0.0
+      sumiLW = 0.0
 #ifdef RT_LWBANDS
       do lr=1,NRLW
-         sumi99 = sumi99 + guvLWe(lr)*csLWMH(lr)
+         sumiLW = sumiLW + guvLWe(lr)*csLWMH(lr)
       enddo
-      sumi99 = sumi99*XILWST/XISTEP
+      sumiLW = sumiLW*XILWST/XISTEP
 #else
       do lr=1,NRAD
-         sumi99 = sumi99 + guveff(lr)*csMH99(lr)
+         sumiLW = sumiLW + guvEff(lr)*csMHLW(lr)
       enddo
 #endif  // RT_LWBANDS
-      sgpRate0(iptabCi99) = max(0.0,facPhot*sumi99*facLX)
+      sgpRate0(iptabCiLW) = max(0.0,facPhot*sumiLW*facLX)
 
 #endif  // RT_CHEMISTRY
 
@@ -1237,9 +1243,9 @@ C  Main tables
 C
 #if defined(RT_TABLES) && !defined(RT_DUST)
 
-      tauH1m = max(1.0,tauhat_xi(lrH1tr))
-      tauG1m = max(1.0,tauhat_xi(lrG1tr))
-      tauG2m = max(1.0,tauhat_xi(lrG2tr))
+      tauH1m = 1.0
+      tauG1m = 1.0
+      tauG2m = 1.0
 
       altH1m = log(tauH1m)
       altG1m = log(tauG1m)
@@ -1256,15 +1262,19 @@ C
 C  OT part
 C
       do j=1,iptabMax
+#ifdef RT_EXTERNAL_BACKGROUND
          pOT(j) = 0.0
+#endif
 #ifdef RT_TRANSFER
          sgpOT(j) = 0.0
 #endif
       enddo
 
 #ifdef RT_CHEMISTRY
+#ifdef RT_EXTERNAL_BACKGROUND
       call frtIntegrateRates_OT(iptabDim,wpTab,
      .     iptabOT,iptabMax,pOT)
+#endif
 #ifdef RT_TRANSFER
       call frtLocalIntegrateRates_OT(iptabDim,wpTab,
      .     iptabOT,iptabMax,sgpOT)
@@ -1280,7 +1290,9 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
       do lo1=1,NOPT1
 
          do j=1,iptabMax
+#ifdef RT_EXTERNAL_BACKGROUND
             pH1(j) = pOT(j)
+#endif
 #ifdef RT_TRANSFER
             sgpH1(j) = sgpOT(j)
 #endif
@@ -1289,9 +1301,11 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
          if(lo1 .lt. NOPT1) then
 
             tauH1l = tauH1m*acTAU(lo1)
+#ifdef RT_EXTERNAL_BACKGROUND
             call frtIntegrateRates_H1(iptabDim,wpTab,
      .           iptabH1,iptabMax,pH1,
      .           0.0,tauH1l)
+#endif
 #ifdef RT_TRANSFER
             call frtLocalIntegrateRates_H1(iptabDim,wpTab,
      .           iptabH1,iptabMax,sgpH1,
@@ -1307,7 +1321,9 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
          do lo2=1,NOPT1
 
             do j=1,iptabMax
+#ifdef RT_EXTERNAL_BACKGROUND
                pG1(j) = pH1(j)
+#endif
 #ifdef RT_TRANSFER
                sgpG1(j) = sgpH1(j)
 #endif
@@ -1316,9 +1332,11 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
             if(lo2 .lt. NOPT1) then
 
                tauG1l = tauG1m*acTAU(lo2)
+#ifdef RT_EXTERNAL_BACKGROUND
                call frtIntegrateRates_G1(iptabDim,wpTab,
      .              iptabG1,iptabMax,pG1,
      .              0.0,tauH1l,tauG1l)
+#endif
 #ifdef RT_TRANSFER
                call frtLocalIntegrateRates_G1(iptabDim,wpTab,
      .              iptabG1,iptabMax,sgpG1,
@@ -1336,7 +1354,9 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
             do lo3=1,NOPT1
 
                do j=1,iptabMax
+#ifdef RT_EXTERNAL_BACKGROUND
                   pG2(j) = pG1(j)
+#endif
 #ifdef RT_TRANSFER
                   sgpG2(j) = sgpG1(j)
 #endif
@@ -1345,9 +1365,11 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
                if(lo3 .lt. NOPT1) then
 
                   tauG2l = tauG2m*acTAU(lo3)
+#ifdef RT_EXTERNAL_BACKGROUND
                   call frtIntegrateRates_G2(iptabDim,wpTab,
      .                 iptabG2,iptabMax,pG2,
      .                 0.0,tauH1l,tauG1l,tauG2l)
+#endif
 #ifdef RT_TRANSFER
                   call frtLocalIntegrateRates_G2(iptabDim,wpTab,
      .                 iptabG2,iptabMax,sgpG2,
@@ -1359,11 +1381,13 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
                itind = lo3 + itind2
                do j=1,iptabMax
 #ifdef RT_INTERPOLLOG
+#ifdef RT_EXTERNAL_BACKGROUND
                   if(pG2(j) .gt. 0.0) then
                      pTab(j,itind) = log(1.0e-35+facPhot*pG2(j))
                   else
                      pTab(j,itind) = -1000.0
                   endif
+#endif
 #ifdef RT_TRANSFER
                   if(sgpG2(j) .gt. 0.0) then
                      sgpTab(j,itind) = log(1.0e-35+
@@ -1373,7 +1397,9 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
                   endif
 #endif
 #else  // RT_INTERPOLLOG
+#ifdef RT_EXTERNAL_BACKGROUND
                   pTab(j,itind) = max(0.0,facPhot*pG2(j))
+#endif
 #ifdef RT_TRANSFER
                   sgpTab(j,itind) = max(0.0,facLX*facPhot*sgpG2(j))
 #endif
@@ -1395,7 +1421,7 @@ C$OMP+ wpTab,facPhot,facLX,iptabMax)
 C
 C
 C     
-      subroutine frtPhotoRatesTable(par,rf,itab,y,pRate,jmax)
+      subroutine frtPhotoRatesTable(par,rf,itab,y,pRate,jmax1)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
@@ -1411,9 +1437,15 @@ C
       dimension pRateSE(istabDim), sgpRateSE(istabDim)
 #endif
 C
+C  This is just to placate ftnchek
+C
+      jmax = jmax1
+C
 C  Global field
 C
-#if defined(RT_TRANSFER) && !defined(RT_NO_BACKGROUND)
+#ifdef RT_EXTERNAL_BACKGROUND
+
+#if defined(RT_TRANSFER)
       tauH1l = rf(irfH1gf)
       tauG1l = rf(irfG1gf)
       tauG2l = rf(irfG2gf)
@@ -1470,8 +1502,16 @@ C
 #endif  // defined(RT_TABLES) && !defined(RT_DUST)
 
 #ifdef RT_CHEMISTRY
-      pRate(iptabCi99) = pRate0(iptabCi99)
+      pRate(iptabCiLW) = pRate0(iptabCiLW)
 #endif  // RT_CHEMISTRY
+
+#else   // RT_EXTERNAL_BACKGROUND
+
+      do j=1,iptabDim
+         pRate(j) = 0.0
+      enddo
+
+#endif  // RT_EXTERNAL_BACKGROUND
 C
 C  Local field
 C
@@ -1527,7 +1567,7 @@ C
 #endif  // defined(RT_TABLES) && !defined(RT_DUST)
 
 #ifdef RT_CHEMISTRY
-      sgpRate(iptabCi99) = sgpRate0(iptabCi99)
+      sgpRate(iptabCiLW) = sgpRate0(iptabCiLW)
 #endif  // RT_CHEMISTRY
 
 #endif  // RT_TRANSFER
@@ -1536,6 +1576,8 @@ C
 #ifdef RT_XRAYS
 
       call frtGetPhotoRatesSE(par,rf,itab,y,pRateSE,sgpRateSE)
+
+#ifdef RT_EXTERNAL_BACKGROUND
       pRate(iptabPiH1) = pRate(iptabPiH1) + 
      .     y(ieqXH1)*pRateSE(istabPiH1H1w1) +
      .     y(ieqXG1)*pRateSE(istabPiH1G1w1) +
@@ -1548,6 +1590,7 @@ C
      .     pRate(iptabPhH1)-pRateSE(istabPhH1w1))
       pRate(iptabPhG1) = max(0.0,
      .     pRate(iptabPhG1)-pRateSE(istabPhG1w1))
+#endif
 
 #ifdef RT_TRANSFER
       sgpRate(iptabPiH1) = sgpRate(iptabPiH1) + 
@@ -1571,6 +1614,7 @@ C
       par(iparCFG2) = 1.0
 
 #if (RT_CFI == 1)
+#ifdef RT_EXTERNAL_BACKGROUND
       ch = CHeat(par(iparRhoB),y)
       pRate(iptabPhH1) = pRate(iptabPhH1)*ch*par(iparBias)
       pRate(iptabPhG1) = pRate(iptabPhG1)*ch*par(iparBias)
@@ -1578,9 +1622,10 @@ C
       par(iparCFH1) = CIonH1(par(iparRhoB),y)
       par(iparCFG1) = CIonG1(par(iparRhoB),y)
       par(iparCFG2) = CIonG2(par(iparRhoB),y)
-      pRate(iptabPiH1) = pRate(iptabPiH1)*cf(1)*par(iparBias)
-      pRate(iptabPiG1) = pRate(iptabPiG1)*cf(2)*par(iparBias)
-      pRate(iptabPiG2) = pRate(iptabPiG2)*cf(3)*par(iparBias)
+      pRate(iptabPiH1) = pRate(iptabPiH1)*par(iparCFH1)*par(iparBias)
+      pRate(iptabPiG1) = pRate(iptabPiG1)*par(iparCFG1)*par(iparBias)
+      pRate(iptabPiG2) = pRate(iptabPiG2)*par(iparCFG2)*par(iparBias)
+#endif
 #endif
 
 #ifdef RT_TRANSFER
@@ -1588,8 +1633,8 @@ C
          pRate(j) = pRate(j) + rf(irfNorm)*sgpRate(j)
       enddo
 #ifdef RT_CHEMISTRY
-      pRate(iptabCi99) = pRate(iptabCi99) + rf(irfNorm)*
-     .     sgpRate(iptabCi99)
+      pRate(iptabCiLW) = pRate(iptabCiLW) + rf(irfNorm)*
+     .     sgpRate(iptabCiLW)
 #endif
 #endif  // RT_TRANSFER
 
@@ -1601,9 +1646,9 @@ C
       par(iparCFH1) = CIonH1(par(iparRhoB),y)
       par(iparCFG1) = CIonG1(par(iparRhoB),y)
       par(iparCFG2) = CIonG2(par(iparRhoB),y)
-      pRate(iptabPiH1) = pRate(iptabPiH1)*cf(1)*par(iparBias)
-      pRate(iptabPiG1) = pRate(iptabPiG1)*cf(2)*par(iparBias)
-      pRate(iptabPiG2) = pRate(iptabPig2)*cf(3)*par(iparBias)
+      pRate(iptabPiH1) = pRate(iptabPiH1)*par(iparCFH1)*par(iparBias)
+      pRate(iptabPiG1) = pRate(iptabPiG1)*par(iparCFG1)*par(iparBias)
+      pRate(iptabPiG2) = pRate(iptabPig2)*par(iparCFG2)*par(iparBias)
 #endif
 
       return
@@ -1621,14 +1666,14 @@ C
       dimension s(*), wi(nmax,*)
 
       do lr=1,lrmin-1
-         fac = ang(lr)
+         fac = angEff(lr)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
       enddo
 
       do lr=lrmax+1,NRAD
-         fac = ang(lr)
+         fac = angEff(lr)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1655,7 +1700,7 @@ C
 #endif
          taul = csH1l*tauH1l
 
-         fac = ang(lr)*QFhat(taul,lr)
+         fac = angEff(lr)*QFuni(taul)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1687,7 +1732,7 @@ C
          endif
          taul = taul + csG1n(lr)*tauG1l
 
-         fac = ang(lr)*QFhat(taul,lr)
+         fac = angEff(lr)*QFuni(taul)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1722,7 +1767,7 @@ C
          endif
          taul = taul + csG2n(lr)*tauG2l
 
-         fac = ang(lr)*QFhat(taul,lr)
+         fac = angEff(lr)*QFuni(taul)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1739,14 +1784,14 @@ C
       dimension s(*), wi(nmax,*)
 
       do lr=1,lrmin-1
-         fac = guveff(lr)
+         fac = guvEff(lr)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
       enddo
 
       do lr=lrmax+1,NRAD
-         fac = guveff(lr)
+         fac = guvEff(lr)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1773,7 +1818,7 @@ C
 #endif
          taul = csH1l*tauH1l
 
-         fac = guveff(lr)*QFsor(taul,lr)
+         fac = guvEff(lr)*QFloc(taul)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1805,7 +1850,7 @@ C
          endif
          taul = taul + csG1n(lr)*tauG1l
 
-         fac = guveff(lr)*QFsor(taul,lr)
+         fac = guvEff(lr)*QFloc(taul)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1840,7 +1885,7 @@ C
          endif
          taul = taul + csG2n(lr)*tauG2l
 
-         fac = guveff(lr)*QFsor(taul,lr)
+         fac = guvEff(lr)*QFloc(taul)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1856,8 +1901,6 @@ C
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension table(nmax,*), out(*)
-
-#if defined(RT_TABLES) && !defined(RT_DUST)
 
       if(tauH1l .lt. 0.0) then
          lH1tab = 2
@@ -1993,14 +2036,6 @@ C
          iOk = 0
          
       endif
-
-#else
-
-      do j=1,nout
-         out(j) = 0
-      enddo
-
-#endif // defined(RT_TABLES) && !defined(RT_DUST)
 
       return
       end

@@ -8,13 +8,6 @@
 /*
 // Global quantities 
 */
-
-struct rtArrayAverageData
-{
-  float Value;
-  float LevelSum[num_refinement_levels+1];
-};
-
 extern struct rtArrayAverageData rt_glob_Avg[2];
 
 #define rt_source_Avg     rt_glob_Avg[0]
@@ -28,11 +21,12 @@ extern struct rtArrayAverageData rt_glob_Avg[2];
 
 
 void rtInitRunTransfer();
-void rtUpdateTablesTransfer();
 void rtStepBeginTransfer();
 void rtStepEndTransfer();
 void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells);
 void rtLevelUpdateTransfer(int level, MPI_Comm local_comm);
+
+void rtUpdateTablesTransfer();
 void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc);
 
 

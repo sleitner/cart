@@ -16,7 +16,7 @@ C
       if(Yp .gt. 1.0e-10) then
          write(0,*) 'RT_Testing: fatal error, '
      .        'supported tests only work with Yp<1e-10.'
-         stop
+         call frtAbort
       endif
 
 #if (RT_TEST==1 || RT_TEST==11)
@@ -59,7 +59,7 @@ C
 C  Test #0
 C
       do lr = 1,NRAD
-         ang(lr) = 1.0e12/3e10*guv_G(lr)
+         angUni(lr) = 1.0e12/3e10*guv_G(lr)
       enddo
 
       EPSG_UV = 0.0
@@ -86,16 +86,14 @@ C
 #if (RT_TEST == -1)
       if(t0*tStep .gt. 0.7e5*(10**0.1-1.0)) then
          do lr = 1,NRAD
-            ang(lr) = 0.0
+            angUni(lr) = 0.0
          enddo
       endif
 
-
-      write(6,*) ang(lrH1tr)
-
+      write(6,*) angUni(lrH1tr)
 
       if(t0*tStep .gt. 4.0e7) then
-         stop
+         call frtAbort
       endif
 #endif
 

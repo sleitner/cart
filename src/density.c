@@ -29,6 +29,10 @@ void initialize_density( int level ) {
 
 	start_time( WORK_TIMER );
 
+#ifdef RT_VAR_SOURCE
+	rtInitSource(level);
+#endif	
+
 #ifdef PARTICLES
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_volume,cell_vars,level)
@@ -115,12 +119,14 @@ void assign_hydro_density( int level ) {
 #endif
 	}
 
+	end_time( WORK_TIMER );
+
 #ifdef RADIATIVE_TRANSFER
 	rtAfterAssignDensity2(level,num_level_cells,level_cells);
 #endif
 
+	start_time( WORK_TIMER );
 	cart_free( level_cells );
-
 	end_time( WORK_TIMER );
 }
 #endif /* HYDRO */

@@ -88,13 +88,13 @@ int global_timestep( double dt ) {
 		dtl[i] = 0.5*dtl[i-1];
 	}
 
+#ifdef RADIATIVE_TRANSFER
+	rtStepBegin();
+#else
 #ifdef COOLING
 	/* prepare for cooling timestep */
 	set_cooling_redshift( aexp[min_level] );
 #endif /* COOLING */
-
-#ifdef RADIATIVE_TRANSFER
-	rtStepBegin();
 #endif  /* RADIATIVE_TRANSFER */
 
 #ifdef STARFORM
@@ -134,11 +134,11 @@ int global_timestep( double dt ) {
 		/* now remap ids of stars created in this timestep */
 		remap_star_ids();
 #endif /* STARFORM */
-	}
 
 #ifdef RADIATIVE_TRANSFER
-	rtStepEnd();
+		rtStepEnd();
 #endif  /* RADIATIVE_TRANSFER */
+	}
 
 	return global_ret;
 }
@@ -170,23 +170,21 @@ int timestep( int level, MPI_Comm local_comm )
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
 
-        if ( local_proc_id == MASTER_NODE  ) {
-                cart_debug("timestep(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
 #ifdef DEBUG
+        if ( local_proc_id == MASTER_NODE  ) {
+                cart_debug("starting(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
 		for(i=min_level; i<=max_level; i++)
 		  {
 		    cart_debug("Level %d, # of cells: %d",i,num_cells_per_level[i-min_level]);
 		  }
-#endif
         }
-
+#endif
 
 	/* 
 	//  Create a child communicator
 	*/
 	refined = (level<max_level && level<max_level_now());
 	MPI_Comm_split(local_comm,refined,local_proc_id,&child_comm);
-
 
 #ifdef HYDRO
 	hydro_copy_vars( level, COPY_ZERO_REF, COPY_SPLIT_NEIGHBORS );	
@@ -361,6 +359,10 @@ int timestep( int level, MPI_Comm local_comm )
 		modify( level, 1 );
 	}
 #endif
+
+        if ( local_proc_id == MASTER_NODE  ) {
+                cart_debug("timestep(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
+        }
 
 	num_steps_on_level[level]++;
 

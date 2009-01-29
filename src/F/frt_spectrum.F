@@ -46,7 +46,7 @@ C
       if(IPOP.ne.2 .and. IPOP.ne.3) then
          write(0,*) 'RT_Spectrum: ',
      .        'fatal error, invalid IPOP value: ', IPOP
-         stop
+         call frtAbort
       endif
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
@@ -133,8 +133,8 @@ C
 
          if(abs(FESCSET) .lt. 1.0e-5) then
             write(0,*) 'RT_Spectrum: fatal error, FESCSET = ', FESCSET,
-     .           ';such a small an escape fraction makes no sense.'
-            stop
+     .           '; such a small an escape fraction makes no sense.'
+            call frtAbort
          endif
 
          iter = 0
@@ -191,7 +191,7 @@ C$OMP+ guv_G,guv_Q,lrH1tr,lrmax)
             if(iter .gt. 99) then
                write(0,*) 'RT_Spectrum: fatal error, FESC does not ',
      .              'converge ', fesc, iter
-               stop
+               call frtAbort
             endif
             goto 7777
 
@@ -221,7 +221,7 @@ C$OMP+ guv_G,guv_Q,lrH1tr)
 C
 C
 C
-      subroutine frtComputeSourceSpectrum(a,guv)
+      subroutine frtSetSourceSpectrum(a,guv)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_spectrum.inc'

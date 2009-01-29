@@ -71,7 +71,9 @@ C$OMP+ itloc2,pTabSE,sgpTabSE,pOT,sgpOT,wpTabSE,facPhot,facLX)
       do lo1=1,NOPT1
 
          do j=1,istabDim
+#ifdef RT_EXTERNAL_BACKGROUND
             pH1(j) = 0.0
+#endif
 #ifdef RT_TRANSFER
             sgpH1(j) = 0.0
 #endif
@@ -80,9 +82,11 @@ C$OMP+ itloc2,pTabSE,sgpTabSE,pOT,sgpOT,wpTabSE,facPhot,facLX)
          if(lo1 .lt. NOPT1) then
 
             tauH1l = tauH1m*acTAU(lo1)
+#ifdef RT_EXTERNAL_BACKGROUND
             call frtIntegrateRates_H1(istabDim,wpTabSE,
      .           istabH1,istabDim,pH1,
      .           0.0,tauH1l)
+#endif
 #ifdef RT_TRANSFER
             call frtLocalIntegrateRates_H1(istabDim,wpTabSE,
      .           istabH1,istabDim,sgpH1,
@@ -98,7 +102,9 @@ C$OMP+ itloc2,pTabSE,sgpTabSE,pOT,sgpOT,wpTabSE,facPhot,facLX)
          do lo2=1,NOPT1
 
             do j=1,istabDim
+#ifdef RT_EXTERNAL_BACKGROUND
                pG1(j) = pH1(j)
+#endif
 #ifdef RT_TRANSFER
                sgpG1(j) = sgpH1(j)
 #endif
@@ -107,9 +113,11 @@ C$OMP+ itloc2,pTabSE,sgpTabSE,pOT,sgpOT,wpTabSE,facPhot,facLX)
             if(lo2 .lt. NOPT1) then
 
                tauG1l = tauG1m*acTAU(lo2)
+#ifdef RT_EXTERNAL_BACKGROUND
                call frtIntegrateRates_G1(istabDim,wpTabSE,
      .              istabG1,istabDim,pG1,
      .              0.0,tauH1l,tauG1l)
+#endif
 #ifdef RT_TRANSFER
                call frtLocalIntegrateRates_G1(istabDim,wpTabSE,
      .              istabG1,istabDim,sgpG1,
@@ -129,7 +137,9 @@ C
 C  No heating and ionizing HeII
 C
                do j=1,istabDim
+#ifdef RT_EXTERNAL_BACKGROUND
                   pG2(j) = pG1(j)
+#endif
 #ifdef RT_TRANSFER
                   sgpG2(j) = sgpG1(j)
 #endif
@@ -138,9 +148,11 @@ C
                if(lo3 .lt. NOPT1) then
 
                   tauG2l = tauG2m*acTAU(lo3)
+#ifdef RT_EXTERNAL_BACKGROUND
                   call frtIntegrateRates_G2(istabDim,wpTabSE,
      .                 istabG2,istabDim,pG2,
      .                 0.0,tauH1l,tauG1l,tauG2l)
+#endif
 #ifdef RT_TRANSFER
                   call frtLocalIntegrateRates_G2(istabDim,wpTabSE,
      .                 istabG2,istabDim,sgpG2,
@@ -152,11 +164,13 @@ C
                itind = lo3 + itind2
                do j=1,istabDim
 #ifdef RT_INTERPOLLOG
+#ifdef RT_EXTERNAL_BACKGROUND
                   if(pG2(j) .gt. 0.0) then
                      pTabSE(j,itind) = log(1.0e-35+facPhot*pG2(j))
                   else
                      pTabSE(j,itind) = -1000.0
                   endif                     
+#endif
 #ifdef RT_TRANSFER
                   if(sgpG2(j) .gt. 0.0) then
                      sgpTabSE(j,itind) = log(1.0e-35+
@@ -166,7 +180,9 @@ C
                   endif
 #endif
 #else  // RT_INTERPOLLOG
+#ifdef RT_EXTERNAL_BACKGROUND
                   pTabSE(j,itind) = max(0.0,facPhot*pG2(j))
+#endif
 #ifdef RT_TRANSFER
                   sgpTabSE(j,itind) = max(0.0,facLX*facPhot*sgpG2(j))
 #endif
@@ -200,6 +216,7 @@ C
 C
 C  Global field
 C
+#ifdef RT_EXTERNAL_BACKGROUND
 #ifdef RT_TRANSFER
       tauH1l = rf(irfH1gf)
       tauG1l = rf(irfG1gf)
@@ -250,6 +267,7 @@ C
 #if defined(RT_TABLES) && !defined(RT_DUST)
       endif
 #endif
+#endif // RT_EXTERNAL_BACKGROUND
 C
 C  Local field
 C
@@ -308,7 +326,9 @@ C
       fg2 = se2fun(x,SE2G1A,SE2G1B,SE2G1C)
 
       do j=1,istabDim2
+#ifdef RT_EXTERNAL_BACKGROUND
          pRate(j) = fh1*pRate1(2*j-1) + fh2*pRate1(2*j)
+#endif
 #ifdef RT_TRANSFER
          sgpRate(j) = fh1*sgpRate1(2*j-1) + fh2*sgpRate1(2*j)
 #endif

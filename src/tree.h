@@ -119,6 +119,9 @@
 
                 #define rt_num_chem_species		6
 		#define RT_HVAR_OFFSET			(HVAR_ADVECTED_VARIABLES)
+                #define rtXH                            (1.0-Y_p)
+                #define rtXHe                           (0.25*Y_p)
+
 
                 #define cell_HI_density(c)		(cell_vars[c][RT_HVAR_OFFSET+0])
                 #define cell_HII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+1])
@@ -126,12 +129,12 @@
                 #define cell_HeII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+3])
                 #define cell_HeIII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+4])
                 #define cell_H2_density(c)		(cell_vars[c][RT_HVAR_OFFSET+5])
-                #define cell_HI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+0]/cell_gas_density(c))
-                #define cell_HII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+1]/cell_gas_density(c))
-                #define cell_HeI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+2]/cell_gas_density(c))
-                #define cell_HeII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+3]/cell_gas_density(c))
-                #define cell_HeIII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+4]/cell_gas_density(c))
-                #define cell_H2_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+5]/cell_gas_density(c))
+                #define cell_HI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+0]/cell_gas_density(c)/rtXH)
+                #define cell_HII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+1]/cell_gas_density(c)/rtXH)
+                #define cell_HeI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+2]/cell_gas_density(c)/rtXHe)
+                #define cell_HeII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+3]/cell_gas_density(c)/rtXHe)
+                #define cell_HeIII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+4]/cell_gas_density(c)/rtXHe)
+                #define cell_H2_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+5]/cell_gas_density(c)/(0.5*rtXH))
         #else
                 #define rt_num_chem_species		0
         #endif /* RADIATIVE_TRANSFER */

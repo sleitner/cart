@@ -13,7 +13,7 @@
 #define G	(6.67259e-8)
 #define clight	(2.99792458e10)	/* cm/s */
 
-#define Y_p	(0.245)	/* He mass fraction */
+#define Y_p	(0.24)	/* He mass fraction */
 #define wmu	(4.0/(8.0-5.0*Y_p)) /* mol weight */
 #define T_CMB0	(2.726)
 

@@ -8,6 +8,13 @@
 #define RT_METHOD_OTVET     1  /* Optically Thin Variable Eddington Tensor approximation */
 
 
+/*
+//  Currently implemented external backgrounds
+*/
+#define RT_BACKGROUND_SELFCONSISTENT         1
+#define RT_BACKGROUND_HAARDT_MADAU           2
+
+
 /* 
 // rt_defs.h file should only be included here 
 */
@@ -131,7 +138,9 @@
 //  If we are running several specific tests, remove the background
 */
 #if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==5 || RT_TEST==6 || RT_TEST==11 || RT_TEST==15 || RT_TEST==16)
-#define RT_NO_BACKGROUND
+#ifdef RT_EXTERNAL_BACKGROUND
+#undef RT_EXTERNAL_BACKGROUND
+#endif
 #endif
 
 

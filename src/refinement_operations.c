@@ -141,16 +141,22 @@ int split ( int cell ) {
 #endif /* HYDRO */
 
 #ifdef GRAVITY
-                cell_density(child_cell) = cell_interpolate_with_neighbors( cell, VAR_DENSITY, neighbors );
-		cell_potential(child_cell) = cell_interpolate_with_neighbors( cell, VAR_POTENTIAL, neighbors );
+			cell_density(child_cell) = cell_interpolate_with_neighbors( cell, VAR_DENSITY, neighbors );
+			cell_potential(child_cell) = cell_interpolate_with_neighbors( cell, VAR_POTENTIAL, neighbors );
 #ifdef PARTICLES
-		cell_first_species_mass(child_cell) = 0.0;
+			cell_first_species_mass(child_cell) = 0.0;
 #endif /* PARTICLES */
 
 #ifdef HYDRO
-		cell_potential_hydro(child_cell) = cell_interpolate_with_neighbors( cell, VAR_POTENTIAL_HYDRO, neighbors );
+			cell_potential_hydro(child_cell) = cell_interpolate_with_neighbors( cell, VAR_POTENTIAL_HYDRO, neighbors );
 #endif /* HYDRO */
 #endif /* GRAVITY */
+
+#ifdef RADIATIVE_TRANSFER
+			for ( j = 0; j < rt_num_vars; j++ ) {
+				cell_var(child_cell,rt_grav_vars_offset+j) = cell_interpolate_with_neighbors( cell, rt_grav_vars_offset+j, neighbors );
+			}
+#endif /* RADIATIVE_TRANSFER */
 		}
 
 #ifdef HYDRO

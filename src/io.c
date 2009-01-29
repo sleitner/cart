@@ -7273,7 +7273,6 @@ void read_grid_binary2( char *filename ) {
 	int page_count;
 	long count, start;
 	long total_cellrefined;
-	float *cell_work;
 	long total_cells[max_level-min_level+1];
 	int file_parent_proc[MAX_PROCS];
 	int proc_num_cells[MAX_PROCS];
@@ -7615,12 +7614,7 @@ void read_grid_binary2( char *filename ) {
 		}
 		
 		local_file_root_cells = size / sizeof(int);
-
-		if ( local_proc_id == MASTER_NODE ) {
-			cellrefinedbuffer = cart_alloc( num_root_cells * sizeof(int) );
-		} else {
-			cellrefinedbuffer = cart_alloc( local_file_root_cells * sizeof(int) );
-		}
+		cellrefinedbuffer = cart_alloc( local_file_root_cells * sizeof(int) );
 
 		num_read = fread( cellrefinedbuffer, sizeof(int), local_file_root_cells, input );
 
@@ -7647,8 +7641,6 @@ void read_grid_binary2( char *filename ) {
 				file_sfc_index[i] = cell_counts;
 				MPI_Recv( &file_sfc_index[i+1], 1, MPI_INT, file_parent_proc[i],
 					0, MPI_COMM_WORLD, &status );	
-				MPI_Recv( &cellrefinedbuffer[cell_counts], file_sfc_index[i+1],
-					MPI_INT, file_parent_proc[i], 0, MPI_COMM_WORLD, &status );
 				cell_counts += file_sfc_index[i+1];
 			}
 			file_sfc_index[num_output_files] = cell_counts;
@@ -7657,50 +7649,11 @@ void read_grid_binary2( char *filename ) {
 		} else {
 			/* send cellrefined array to MASTER_NODE */
 			MPI_Send( &local_file_root_cells, 1, MPI_INT, MASTER_NODE, 0, MPI_COMM_WORLD );
-			MPI_Send( cellrefinedbuffer, local_file_root_cells, MPI_INT, MASTER_NODE,
-				0, MPI_COMM_WORLD );
 		}
 	}
 
 	/* send block information */
 	MPI_Bcast( file_sfc_index, num_output_files+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-
-	/* load balancing is done serially on the MASTER_NODE */
-	if ( local_proc_id == MASTER_NODE ) {
-		/* do load balancing */
-		if ( num_procs > 1 ) {
-			total_cellrefined = 0;
-			for ( i = 0; i < num_root_cells; i++ ) {
-				total_cellrefined += cellrefinedbuffer[i];
-			}
-
-			cell_work = cart_alloc( num_root_cells * sizeof(float) );
-	
-			for ( i = 0; i < num_root_cells; i++ ) {
-				cell_work[i] = (float)cellrefinedbuffer[i];
-			}
-
-			load_balance_entire_volume( cell_work, cellrefinedbuffer, proc_sfc_index );	
-			cart_free( cell_work );
-		} else {
-			proc_sfc_index[0] = 0;
-			proc_sfc_index[1] = num_root_cells;
-		}
-
-		for ( proc = 0; proc < num_procs; proc++ ) {
-			total_cellrefined = 0;
-			for ( i = proc_sfc_index[proc]; i < proc_sfc_index[proc+1]; i++ ) {
-				total_cellrefined += cellrefinedbuffer[i];
-			}
-			cart_debug("proc_sfc_index[%u] = %u, num root cells = %u, total cells = %u", proc, 
-				proc_sfc_index[proc], proc_sfc_index[proc+1] - proc_sfc_index[proc],
-				 total_cellrefined );
-		}
-	}
-
-	/* let all other processors know what their new workload is */
-	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	init_tree();
 
 	/* determine how many cells to expect from each processor */
 	for ( proc = 0; proc < num_procs; proc++ ) {

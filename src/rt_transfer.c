@@ -14,13 +14,24 @@
 #include "rt_utilities.h"
 
 
-float rt_trad_on;
+#ifdef RT_VAR_SOURCE
+
+float rt_src_rate;
+
+
+void rtInitSource(int level)
+{
+  /* Time the source is on (20 Myr) */
+  const float ShiningTime = 2.0e7;
+
+  rt_src_rate = (t0*aexp[level]*aexp[level])/ShiningTime;
+}
 
 
 float rtSource(int ipart)
 {
   int istar;
-  float t1on, t2on;
+  float tPrev;
 
 #if defined(PARTICLES) && defined(STARFORM)
   if(!particle_is_star(ipart)) return 0.0;
@@ -50,12 +61,12 @@ float rtSource(int ipart)
   //
   // ******************************************************************
   */
-  t2on = (float)(particle_t[istar]-star_tbirth[istar]); if(t2on < 0.0) t2on = 0.0;
-  t1on = (float)(t2on-particle_dt[ipart]); if(t1on < 0.0) t1on = 0.0;
+  tPrev = (float)(particle_t[istar]-star_tbirth[istar]-particle_dt[ipart]);
+  if(tPrev < 0.0) tPrev = 0.0;
 
-  if(t1on < 100*rt_trad_on)
+  if(rt_src_rate*tPrev < 100)
     {
-      return (exp(-t1on/rt_trad_on)-exp(-t2on/rt_trad_on))/particle_dt[ipart];
+      return exp(-rt_src_rate*tPrev)*(1.0-exp(-rt_src_rate*particle_dt[ipart]))/particle_dt[ipart];
     }
   else
     {
@@ -66,45 +77,11 @@ float rtSource(int ipart)
 #endif /* defined(PARTICLES) && defined(STARFORM) */
 }
 
+#endif  /* RT_VAR_SOURCE */
 
-int rtIsThereWork()
-{
-  int num_local, num_global;
-
-#ifdef RT_TEST
-  return 1;
-#endif
-
-#if defined(PARTICLES) && defined(STARFORM)
-
-  if(num_particle_species > 1)
-    {
-      num_local = num_local_star_particles;
-    }
-  else
-    {
-      /*
-      //  This assumes that if we have just one particle species and
-      //  RADIATIVE_TRANSFER is on, then this species is sources
-      */
-      num_local = particle_species_num[0];
-    }
-
-  MPI_Allreduce(&num_local,&num_global,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
-
-  return (num_global > 0);
-
-#else
-
-  return 0;
-
-#endif /* defined(PARTICLES) && defined(STARFORM) */
-}
-
-
-/* ******************************************************* */
 
 #ifdef RT_TRANSFER
+
 
 #include "rt_transfer.h"
 
@@ -112,9 +89,7 @@ int rtIsThereWork()
 struct rtArrayAverageData rt_glob_Avg[2];
 
 void rtTransferSplitUpdate(int level);
-void rtTransferUpdateFields(int level1, int level2, int nvar, int var0, struct rtArrayAverageData *out); 
-void rtTransferUpdateFieldAverages(int nvar, struct rtArrayAverageData *out); 
-
+void rtTransferUpdateFields(int nvar, int var0, struct rtArrayAverageData *out); 
 void f2c_wrapper(frtinitruntransfer)(f2c_intg *nfreq);
 void f2c_wrapper(frtstepbegintransfer)();
 void f2c_wrapper(frtupdatetablestransfer)(f2c_real *rfAvg);
@@ -140,9 +115,44 @@ void rtTransferAssignSingleSourceDensity(int level);
 #endif
 
 
-#if RT_TRANSFER_METHOD == RT_METHOD_OTVET
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 #include "rt_otvet.h"
 #endif
+
+
+int rtIsThereWork(MPI_Comm local_comm)
+{
+  int num_local, num_global;
+
+#ifdef RT_TEST
+  return 1;
+#endif
+
+#if defined(PARTICLES) && defined(STARFORM)
+
+  if(num_particle_species > 1)
+    {
+      num_local = num_local_star_particles;
+    }
+  else
+    {
+      /*
+      //  This assumes that if we have just one particle species and
+      //  RADIATIVE_TRANSFER is on, then this species is sources
+      */
+      num_local = particle_species_num[0];
+    }
+
+  MPI_Allreduce(&num_local,&num_global,1,MPI_INT,MPI_MAX,local_comm);
+
+  return (num_global > 0);
+
+#else
+
+  return 0;
+
+#endif /* defined(PARTICLES) && defined(STARFORM) */
+}
 
 
 void rtInitRunTransfer()
@@ -152,21 +162,14 @@ void rtInitRunTransfer()
 
   f2c_wrapper(frtinitruntransfer)(&val);
 
-  for(i=0; i<rt_num_glob; i++)
-    {
-      rt_glob_Avg[i].Value = 0.0;
-      for(level=min_level; level<=max_level; level++)
-	{
-	  rt_glob_Avg[i].LevelSum[level] = 0.0;
-	}
-    }
+  rtuInitArrayAverage(rt_num_glob,rt_glob_Avg);
 
 #ifdef RT_SINGLE_SOURCE
   rtSingleSourceVal = 0.0;
   for(i=0; i<nDim; i++) rtSingleSourcePos[i] = 0.5*num_grid;
 #endif
 
-#if RT_TRANSFER_METHOD == RT_METHOD_OTVET
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
   rtInitRunTransferOtvet();
 
@@ -178,18 +181,15 @@ void rtStepBeginTransfer()
 {
   int level;
 
-  /* Time the source is on (20 Myr) */
-  rt_trad_on = 2.0e7/(t0*aexp[0]*aexp[0]);
-
   f2c_wrapper(frtstepbegintransfer)();
 
-#if RT_TRANSFER_METHOD == RT_METHOD_OTVET
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
   rtStepBeginTransferOtvet();
 
 #endif
 
-  rtTransferUpdateFields(min_level,max_level,rt_num_glob,RT_VAR_SOURCE,rt_glob_Avg);
+  rtTransferUpdateFields(rt_num_glob,RT_VAR_SOURCE,rt_glob_Avg);
 }
 
 
@@ -200,9 +200,12 @@ void rtStepEndTransfer()
 
 void rtLevelUpdateTransfer(int level, MPI_Comm local_comm)
 {
-  if(!rtIsThereWork()) return;
+  if(!rtIsThereWork(local_comm)) return;
 
-#if RT_TRANSFER_METHOD == RT_METHOD_OTVET
+  rtuUpdateArrayAverage(level,rt_num_glob,rt_glob_Avg,local_comm);
+
+
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
   rtLevelUpdateTransferOtvet(level,local_comm);
 
@@ -215,8 +218,7 @@ void rtLevelUpdateTransfer(int level, MPI_Comm local_comm)
 void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells)
 {
   int i;
-  double sum = 0.0;
-
+  double sum;
 
 #ifdef RT_VAR_SOURCE
 
@@ -247,18 +249,28 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
 
 #endif  // PARTICLES
 
-  //#pragma omp parallel for default(none), private(i), shared(level,num_level_cells,level_cells,cell_vars), reduction(+:sum)
-  for(i=0; i<num_level_cells; i++)
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
+  /* Need only local cells */
+  rtAfterAssignDensityTransferOtvet(level,num_cells_per_level[level],level_cells);
+#endif
+
+  sum = 0.0;
+#pragma omp parallel for default(none), private(i), shared(level,num_cells_per_level,level_cells,cell_vars,cell_child_oct), reduction(+:sum)
+  for(i=0; i<num_cells_per_level[level]; i++) if(cell_is_leaf(level_cells[i]))
     {
       sum += cell_rt_source(level_cells[i]);
     }
-  rt_glob_Avg[0].LevelSum[level] = sum;
- 
-  rtTransferUpdateFieldAverages(1,rt_glob_Avg);
+  rt_source_Avg.LocalLevelSum[level-min_level] = sum;
 
-#else
-
-  rtTransferUpdateUniformSource(&rt_glob_Avg[0]);  NOT IMPLEMENTED
+#ifdef RT_VAR_OT_FIELD
+  sum = 0.0;
+#pragma omp parallel for default(none), private(i), shared(level,num_cells_per_level,level_cells,cell_vars,cell_child_oct), reduction(+:sum)
+  for(i=0; i<num_cells_per_level[level]; i++) if(cell_is_leaf(level_cells[i]))
+    {
+      sum += cell_var(level_cells[i],RT_VAR_OT_FIELD);
+    }
+  rt_ot_field_Avg.LocalLevelSum[level-min_level] = sum;
+#endif // RT_VAR_OT_FIELD
 
 #endif // RT_VAR_SOURCE
 }
@@ -266,14 +278,16 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
 
 void rtUpdateTablesTransfer()
 {
-  int i;
+  int i, level;
   struct rtArrayAverageData tmp[rt_num_frequencies];
   f2c_real rfAvg[rt_num_frequencies];
   
+  rtuInitArrayAverage(rt_num_frequencies,tmp);
+
   /*
   //  Compute global properties for all frequencies 
   */
-  rtTransferUpdateFields(min_level,max_level,rt_num_frequencies,rt_freq_offset,tmp); 
+  rtTransferUpdateFields(rt_num_frequencies,rt_freq_offset,tmp); 
   for(i=0; i<rt_num_frequencies; i++)
     {
       rfAvg[i] = tmp[i].Value;
@@ -322,7 +336,7 @@ void rtTransferSplitUpdate(int level)
 }
 
 
-void rtTransferUpdateFields(int level1, int level2, int nvar, int var0, struct rtArrayAverageData *out)
+void rtTransferUpdateFields(int nvar, int var0, struct rtArrayAverageData *out)
 {
   int i;
   double buffer[rt_num_vars];
@@ -331,42 +345,26 @@ void rtTransferUpdateFields(int level1, int level2, int nvar, int var0, struct r
   /*
   //  Compute per-level averages
   */
-  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
+  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
 
   for(i=0; i<nvar; i++) buffer[i] = 0.0;
 
   /*#pragma omp parallel for default(none), private(_Index,cell,i), shared(_Num_level_cells,_Level_cells,level,nvar,var0,cell_vars), reduction(+:buffer) */
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
-  for(i=0; i<nvar; i++) buffer[i] += cell_var(cell,var0+i);
+  if(cell_is_leaf(cell))
+    {
+      for(i=0; i<nvar; i++) buffer[i] += cell_var(cell,var0+i);
+    }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
 
-  for(i=0; i<nvar; i++) out[i].LevelSum[level] = buffer[i];
+  for(i=0; i<nvar; i++) out[i].LocalLevelSum[level-min_level] = buffer[i];
   
   MESH_RUN_OVER_LEVELS_END;
 
-  rtTransferUpdateFieldAverages(nvar,out);
-}
-
-
-void rtTransferUpdateFieldAverages(int nvar, struct rtArrayAverageData *out)
-{
-  int i, level, num_levels = 1 + max_level_local();
-  double buffer[rt_num_vars];
-
-  /*
-  //  Compute local averages
-  */
-  for(i=0; i<nvar; i++)
+  for(level=min_level; level<=max_level; level++)
     {
-      buffer[i] = 0.0;
-      for(level=min_level; level<num_levels; level++) buffer[i] += out[i].LevelSum[level]*cell_volume[level];
+      rtuUpdateArrayAverage(level,nvar,out,MPI_COMM_WORLD);
     }
-
-  /*
-  //  Compute global averages
-  */
-  rtuGlobalAverage(nvar,buffer);  
-  for(i=0; i<nvar; i++) out[i].Value = buffer[i]/num_root_cells;
 }
 
 
@@ -429,12 +427,12 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 }
 
 
-void f2c_wrapper(rttransfergetglobalabs)(f2c_intg *nfields, f2c_intg *ifield, f2c_real *abcAvg)
+void f2c_wrapper(rtexttransfergetglobalabs)(f2c_intg *nfields, f2c_real *abcAvg)
 {
-  int i, n = *nfields;
+  int i, ifield, n = *nfields;
   double buffer[3*rt_num_frequencies];
   MESH_RUN_DECLARE(level,cell);
-  float *abc[2], *abc1;
+  float *abc[2], *abc1, w;
 
   for(i=0; i<3*n; i++) buffer[i] = 0.0;
   
@@ -449,6 +447,11 @@ void f2c_wrapper(rttransfergetglobalabs)(f2c_intg *nfields, f2c_intg *ifield, f2
 
   for(i=0; i<n; i++)
     {
+      /*
+      //  Average by weighting with the far field only
+      */
+      ifield = rt_freq_offset + rt_num_frequencies/2 + i;
+
       rtComputeAbsLevel(_Num_level_cells,_Level_cells,i,abc);
 #if (RT_CFI == 1)
       abc1 = abc[1];
@@ -456,16 +459,33 @@ void f2c_wrapper(rttransfergetglobalabs)(f2c_intg *nfields, f2c_intg *ifield, f2
       abc1 = abc[0];
 #endif
 
-  /*#pragma omp parallel for default(none), private(_Index,cell,i), shared(_Num_level_cells,_Level_cells,level,n,cell_vars), reduction(+:sum) */
+  /*#pragma omp parallel for default(none), private(_Index,cell,i,w), shared(_Num_level_cells,_Level_cells,level,n,cell_vars), reduction(+:sum) */
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
-
-      buffer[3*i+0] += abc1[_Index]*cell_volume[level];
-      buffer[3*i+1] += cell_var(cell,ifield[i])*cell_volume[level];
-      buffer[3*i+2] += cell_var(cell,ifield[i])*abc1[_Index]*cell_volume[level];
-  
+      if(cell_is_leaf(cell))
+	{
+	  w = cell_var(cell,ifield);
+	  buffer[3*i+0] += abc1[_Index]*cell_volume[level];
+	  buffer[3*i+1] += w*cell_volume[level];
+	  buffer[3*i+2] += w*abc1[_Index]*cell_volume[level];
+#ifdef RT_DEBUG
+	  if(w < 0.0) 
+	    {
+	      cart_debug("Oops: %d %d %d %d %g",i,ifield,_Index,cell,w);
+	      for(i=0; i<num_vars; i++)
+		{
+		  cart_debug("Var: %d %g",i,cell_var(cell,i));
+		}
+	      cart_error("Negative radiation field");
+	    }
+#endif
+	}
       MESH_RUN_OVER_CELLS_OF_LEVEL_END;
-
     }
+
+  cart_free(abc[0]);
+#if (RT_CFI == 1)
+  cart_free(abc[1]);
+#endif
 
   MESH_RUN_OVER_LEVELS_END;
 

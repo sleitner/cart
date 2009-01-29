@@ -23,30 +23,32 @@
 
 #include "F/frt_parameters.ch"
 
+#ifdef RT_DEBUG
+#include "rt_debug.h"
+#else
+int rt_debug = 0;  /* for OpenMP pragmas */
+#endif
 
-float rt_XH;
-float rt_XHe;
 
 float rt_TemScale;
 
-
-void rtCoolOff(int level, int cell, float *Ein, int thread);
+void rtPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField0, f2c_real **pRadField1);
+void rtUnPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField1);
 void rtGetSobolevFactors(int cell, int level, float *len, float *vel);
+float rtTemInK(int cell);
 
 
 /* 
 //  Fortran interface 
 */
-void f2c_wrapper(frtcooloff)(f2c_real *rPar, f2c_real *rRF0, f2c_real *rRF1, f2c_real *rTime, f2c_real *rVar, f2c_intg *iBuf);
+void f2c_wrapper(frtcooloff)(f2c_real *rPar, f2c_real *rRadField0, f2c_real *rRadField1, f2c_real *rTime, f2c_real *rVar, f2c_intg *info);
 void f2c_wrapper(frtinitrun)(f2c_real *Yp);
 void f2c_wrapper(frtstepbeginart)(f2c_real *aexp, f2c_real *daexp, f2c_real *dt, f2c_real *Om0, f2c_real *h100, f2c_real *r0, f2c_real *t0);
-void f2c_wrapper(frtstepend)(f2c_intg *id, f2c_real *vol, f2c_real *avg);
+void f2c_wrapper(frtstepend)(f2c_real *vol, f2c_real *avg);
 
 f2c_real f2c_wrapper(frtein)(f2c_real *tem, f2c_real *y);
 f2c_real f2c_wrapper(frttem)(f2c_real *Ein, f2c_real *y);
 f2c_real f2c_wrapper(frtgamma)(f2c_real *Ein, f2c_real *y);
-f2c_real f2c_wrapper(frtqueryxh)(void);
-f2c_real f2c_wrapper(frtqueryxhe)(void);
 f2c_real f2c_wrapper(frtlogwithunits)(f2c_real *val, f2c_intg *pDen, f2c_intg *pLen, f2c_intg *pTime);
 
 #ifdef RT_TEST
@@ -63,10 +65,26 @@ d//  This size must be maintained to be always consistent with the parameter ioD
 */
 void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 {
-  int i, j, icell, nchunk, thread;
-  float Efact, Escale = rt_TemScale/(aexp[level]*aexp[level]);
-  float vol = cell_volume[level];
-  float tmp, Ein;
+  int i, cell, nchunk;
+  float soblen, sobvel;
+
+  /* 
+  //  Specify types for the Fortran interface
+  */
+  f2c_real rTime, rVar[IVAR_DIM], rPar[IPAR_DIM];
+#ifdef RT_TRANSFER
+  f2c_real rBuffer[rt_num_frequencies];
+  f2c_real rRadField0[2];
+#else
+  f2c_real *rBuffer = 0, *rRadField0 = 0;
+#endif
+  f2c_real *rRadField1 = rBuffer;
+  f2c_intg info;
+
+  /*
+  //  The following may be a waste of time if the types are consistent, but compiler should take care of that 
+  */
+  rTime = dtl[level];
 
   /* 
   //  OpenMP chunk size 
@@ -77,28 +95,46 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
   /*
   //  Main loop
   */
-#pragma omp parallel for default(none), private(i,icell,Ein,Efact,tmp,j,thread), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,Escale,level,vol), schedule(dynamic,nchunk)
-  for(i=0; i<num_level_cells; i++) if(cell_is_leaf((icell = level_cells[i])) && cell_gas_density(icell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
+#pragma omp parallel for default(none), private(i,cell,rVar,rPar,rBuffer,rRadField0,rRadField1,soblen,sobvel,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,rTime,cell_size,rt_debug), schedule(dynamic,nchunk)
+  for(i=0; i<num_level_cells; i++) if(cell_is_leaf((cell = level_cells[i])) && cell_gas_density(cell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
     {
-      /*
-      //  Ein is the internal energy per baryon, = U/n_b = c_u*k_B*T/mu
-      */
-      Efact = Escale/cell_gas_density(icell);
-      Ein = max(T_min,Efact*cell_gas_internal_energy(icell));
-
-#ifdef _OPENMP
-      thread = omp_get_thread_num();
-#else
-      thread = 0;
-#endif /* _OPENMP */
+      
+      rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
 
       /*
-      //  Wrapper over an actual (Fortran) worker
+      //    Cell size for flux-conserving correction
       */
-      rtCoolOff(level,icell,&Ein,thread);
+#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+      rPar[IPAR_CELL] = cell_size[level];
+#endif  // defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
 
-      cell_gas_internal_energy(icell) = max(T_min,Ein)/Efact;
-      cell_gas_energy(icell) = cell_gas_kinetic_energy(icell) + cell_gas_internal_energy(icell);
+      /*
+      //    Sobolev length 
+      */
+#ifdef RT_CHEMISTRY
+      rtGetSobolevFactors(cell,level,&soblen,&sobvel);
+      rPar[IPAR_SOBL] = soblen;
+      rPar[IPAR_NUMF] = sobvel*rTime/cell_size[level];
+#endif
+
+#ifdef RT_DEBUG
+      if(rt_debug.Mode==1 && cell==cell_find_position(rt_debug.Pos))
+	{
+	  rPar[IPAR_DEB] = 1 + (rt_debug.Stop>1 ? 0.5 : 0.0);
+	  cart_debug("In cell-level debug for cell %d/%d",cell,cell_level(cell));
+	}
+      else
+	{
+	  rPar[IPAR_DEB] = 0.0;
+	}
+#endif
+
+      /*
+      //  Call the Fortran worker 
+      */
+      f2c_wrapper(frtcooloff)(rPar,rRadField0,rRadField1,&rTime,rVar,&info);
+
+      rtUnPackCellData(level,cell,rVar,rPar,rRadField1);
     }
 }
 
@@ -114,8 +150,6 @@ void rtInitRun()
   rtuInitRun();
   
   f2c_wrapper(frtinitrun)(&Yp);
-  rt_XH = f2c_wrapper(frtqueryxh)();
-  rt_XHe = f2c_wrapper(frtqueryxhe)();
 
 #ifdef RT_TRANSFER
   rtInitRunTransfer();
@@ -139,6 +173,12 @@ void rtUpdateTables()
 }
 
 
+void rtSetTemUnits()
+{
+  rt_TemScale = T0/wmu;
+}
+
+
 void rtStepBegin()
 {
   f2c_real rAStep = aexp[0];
@@ -149,7 +189,7 @@ void rtStepBegin()
   f2c_real rR0 = r0;
   f2c_real rT0 = t0;
 
-  rt_TemScale = T0/wmu; /* Need to set it here, since units may change after rtInitRun */
+  rtSetTemUnits();  /* Need to set it here, since units may change after rtInitRun */
 
 #ifdef COSMOLOGY
   rHStep = log(b2a(tl[0]+dtl[0])/b2a(tl[0]))/dtl[0];
@@ -165,14 +205,41 @@ void rtStepBegin()
 
   /* By default update tables once per step */
   rtUpdateTables();
+
+#ifdef RT_DEBUG
+  switch(rt_debug.Mode)
+    {
+    case 1:
+      {
+	int i, cell;
+	cell = cell_find_position(rt_debug.Pos);
+	cart_debug("In cell-level debug for cell %d/%d",cell,cell_level(cell));
+	cart_debug("RT_HVAR_OFFSET: %d",RT_HVAR_OFFSET);
+	cart_debug("RT_VAR_SOURCE: %d",RT_VAR_SOURCE);
+	cart_debug("rt_grav_vars_offset: %d",rt_grav_vars_offset);
+#ifdef RT_TRANSFER
+	cart_debug("rt_num_vars: %d",rt_num_vars);
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
+	cart_debug("RT_VAR_OT_FIELD: %d",RT_VAR_OT_FIELD);
+	cart_debug("rt_et_offset: %d",rt_et_offset);
+	cart_debug("rt_freq_offset: %d",rt_freq_offset);
+#endif
+#endif
+	for(i=0; i<num_vars; i++)
+	  {
+	    cart_debug("Var[%d] = %g",i,cell_var(cell,i));
+	  }
+	break;
+      }
+    }
+#endif  /* RT_DEBUG */
 }
 
 
 void rtStepEnd()
 {
   int i, n;
-  f2c_intg id;
-  f2c_real rVol = 1.0/num_root_cells;
+  f2c_real rVol = num_root_cells;
   f2c_real *glob, rAvg[3];
   double *buffer;
 
@@ -180,23 +247,24 @@ void rtStepEnd()
   double sumSrc, sumRho, sumRhoHI, sumRhoH2;
 
   /*
-  //    2. Averages over mesh variables and their derivatives
+  //    Averages over mesh variables and their derivatives
   */
   sumSrc = sumRho = sumRhoHI = sumRhoH2 = 0.0;
 
   MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
-  /*#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_vars,cell_volume), reduction(+:sumSrc,sumRho,sumRhoHI,sumRhoH2) */
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_vars,cell_volume,cell_child_oct), reduction(+:sumSrc,sumRho,sumRhoHI,sumRhoH2)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
-  
+  if(cell_is_leaf(cell))
+    {
 #ifdef RT_VAR_SOURCE
-  sumSrc += cell_vars[cell][RT_VAR_SOURCE]*cell_volume[level];
+      sumSrc += cell_vars[cell][RT_VAR_SOURCE]*cell_volume[level];
 #endif
 #ifdef RT_CHEMISTRY
-  sumRho += cell_gas_density(cell)*cell_volume[level];
-  sumRhoHI += cell_HI_density(cell)*cell_volume[level];
-  sumRhoH2 += cell_H2_density(cell)*cell_volume[level];
+      sumRho += cell_gas_density(cell)*cell_volume[level];
+      sumRhoHI += cell_HI_density(cell)*cell_volume[level];
+      sumRhoH2 += cell_H2_density(cell)*cell_volume[level];
 #endif
-
+    }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
   MESH_RUN_OVER_LEVELS_END;
 
@@ -218,12 +286,33 @@ void rtStepEnd()
 
   cart_free(buffer);
 
-  id = local_proc_id;
-  f2c_wrapper(frtstepend)(&id,&rVol,rAvg);
+  f2c_wrapper(frtstepend)(&rVol,rAvg);
 
 #ifdef RT_TRANSFER
   rtStepEndTransfer();
 #endif  /* RT_TRANSFER */
+
+#ifdef RT_DEBUG
+  switch(rt_debug.Mode)
+    {
+    case 1:
+      {
+	cell = cell_find_position(rt_debug.Pos);
+	cart_debug("In cell-level debug for cell %d/%d",cell,cell_level(cell));
+	for(i=0; i<num_vars; i++)
+	  {
+	    cart_debug("Var[%d] = %g",i,cell_var(cell,i));
+	  }
+	break;
+      }
+    }
+  if(rt_debug.Mode>0 && rt_debug.Stop)
+    {
+      cart_debug("Aborting on request...");
+      MPI_Abort(MPI_COMM_WORLD,0);
+      exit(0);
+    }
+#endif
 }
 
 
@@ -236,7 +325,7 @@ void rtAfterAssignDensity1(int level)
 
 #ifdef RT_TRANSFER
   /* assumes buffer gas density is up to date */
-  select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
+  select_level(level,CELL_TYPE_ANY,&num_level_cells,&level_cells);
   rtAfterAssignDensityTransfer(level,num_level_cells,level_cells);
   cart_free(level_cells);
 #endif
@@ -270,27 +359,16 @@ void rtLevelUpdate(int level, MPI_Comm local_comm)
 
 
 /*
-//  Follow cooling evolution of one resolution element - convenient wrapper over a Fortran routine
+//  Helper functions for Fortran workers
 */
-void rtCoolOff(int level, int cell, float *Ein, int thread)
+void rtPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField0, f2c_real **pRadField1)
 {
   int i;
-#ifdef RT_CHEMISTRY
-  float soblen, sobvel;
-#endif
+  float uTem = rt_TemScale/(aexp[level]*aexp[level]);
 
-  /* 
-  //  Specify types for the Fortran interface
+  /*
+  //  Default values of all parameters is 0
   */
-  f2c_real rTime, rVar[IVAR_DIM], rPar[IPAR_DIM];
-#ifdef RT_TRANSFER
-  f2c_real rBuffer[rt_num_frequencies];
-  f2c_real rRF0[2], *rRF1 = rBuffer;
-#else
-  f2c_real *rRF0 = 0, *rRF1 = 0;
-#endif
-  f2c_intg iBuffer = 1 + thread;
-
   for(i=0; i<IPAR_DIM; i++) rPar[i] = 0.0;
 
   /*
@@ -298,7 +376,13 @@ void rtCoolOff(int level, int cell, float *Ein, int thread)
   //
   //    Density in code units
   */
-  rPar[IPAR_RHOB] = cell_gas_density(cell);
+  rPar[IPAR_RHO] = cell_gas_density(cell);
+  /*
+  //    Cell volume in code units
+  */
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+  rPar[IPAR_VOL] = cell_volume[level];
+#endif
   /*
   //    Metallicity in units of solar
   */
@@ -307,49 +391,17 @@ void rtCoolOff(int level, int cell, float *Ein, int thread)
 #else
   rPar[IPAR_ZSOL] = 0.0;
 #endif
-  /*
-  //    Sobolev length 
-  */
-#ifdef RT_CHEMISTRY
-  rtGetSobolevFactors(cell,level,&soblen,&sobvel);
-  rPar[IPAR_SOBL] = soblen;
-  rPar[IPAR_NUMF] = sobvel*dtl[level]/cell_size[level];
-#endif
-
-#if defined(RT_DEBUG) && defined(RT_DEBUG_ONE_CELL_POSX) && defined(RT_DEBUG_ONE_CELL_POSY) && defined(RT_DEBUG_ONE_CELL_POSZ) && defined(RT_DEBUG_ONE_CELL_INFO)
-  double pos[3];
-  cell_position_double(cell,pos);
-  pos[0] = (pos[0]-RT_DEBUG_ONE_CELL_POSX)*cell_size_inverse[level];
-  pos[1] = (pos[1]-RT_DEBUG_ONE_CELL_POSY)*cell_size_inverse[level];
-  pos[2] = (pos[2]-RT_DEBUG_ONE_CELL_POSZ)*cell_size_inverse[level];
-  if(
-     -0.5<pos[0] && pos[0]<=0.5 &&
-     -0.5<pos[1] && pos[1]<=0.5 &&
-     -0.5<pos[2] && pos[2]<=0.5)
-    {
-      rPar[IPAR_DEB] = RT_DEBUG_ONE_CELL_INFO;
-    }
-  else
-    {
-      rPar[IPAR_DEB] = 0.0;
-    }
-#endif
-
-  /*
-  //  The following may be a waste of time if the types are consistent, but compiler should take care of that 
-  */
-  rTime = dtl[level];
 
   /* 
   //  Pack elemental abundances 
   */
-  rVar[IVAR_Ein] = *Ein;
-  rVar[IVAR_XHI] = cell_HI_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHII] = cell_HII_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHeI] = cell_HeI_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHeII] = cell_HeII_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHeIII] = cell_HeIII_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XH2] = cell_H2_density(cell)/rPar[IPAR_RHOB];
+  rVar[IVAR_Ein] = uTem*cell_gas_internal_energy(cell)/rPar[IPAR_RHO];
+  rVar[IVAR_XHI] = cell_HI_density(cell)/rPar[IPAR_RHO];
+  rVar[IVAR_XHII] = cell_HII_density(cell)/rPar[IPAR_RHO];
+  rVar[IVAR_XHeI] = cell_HeI_density(cell)/rPar[IPAR_RHO];
+  rVar[IVAR_XHeII] = cell_HeII_density(cell)/rPar[IPAR_RHO];
+  rVar[IVAR_XHeIII] = cell_HeIII_density(cell)/rPar[IPAR_RHO];
+  rVar[IVAR_XH2] = cell_H2_density(cell)/rPar[IPAR_RHO];
 #ifdef RT_8SPECIES
   rVar[IVAR_XH2p] = rVar[IVAR_XHm] = 0.0;
 #endif
@@ -358,40 +410,31 @@ void rtCoolOff(int level, int cell, float *Ein, int thread)
   //  Pack radiation field 
   */
 #ifdef RT_TRANSFER
-
   if(sizeof(f2c_real) != sizeof(float))  /* Optimization */
     {
-      rRF1 = rBuffer;
       for(i=0; i<rt_num_frequencies; i++)
 	{
-	  rRF1[i] = cell_var(cell,rt_freq_offset+i);
+	  (*pRadField1)[i] = cell_var(cell,rt_freq_offset+i);
 	}
     }
   else
     {
-      rRF1 = cell_vars[cell] + rt_freq_offset;
+      *pRadField1 = cell_vars[cell] + rt_freq_offset;
     }
-
 #ifdef RT_VAR_OT_FIELD  
-  rRF0[0] = cell_var(cell,RT_VAR_OT_FIELD);
-  rRF0[1] = rt_ot_field_Avg.Value;
+  rRadField0[0] = cell_var(cell,RT_VAR_OT_FIELD);
+  rRadField0[1] = rt_ot_field_Avg.Value;
 #else
-  rRF0[0] = rRF0[1] = 0.0;
+  rRadField0[0] = rRadField0[1] = 0.0;
 #endif
-
-  /*
-  //    Cell size for flux-conserving correction
-  */
-#ifdef RT_TRANSFER_FLUX_CONSERVING
-  rPar[IPAR_CELL] = cell_size[level];
-#endif
-
 #endif  // RT_TRANSFER
+}
 
-  /*
-  //  Call the Fortran worker 
-  */
-  f2c_wrapper(frtcooloff)(rPar,rRF0,rRF1,&rTime,rVar,&iBuffer);
+
+void rtUnPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField1)
+{
+  int i;
+  float uTem = rt_TemScale/(aexp[level]*aexp[level]);
 
   /*
   //  Unpack radiation field (if needed) 
@@ -401,7 +444,7 @@ void rtCoolOff(int level, int cell, float *Ein, int thread)
     {
       for(i=0; i<rt_num_frequencies; i++)
 	{
-	  cell_var(cell,rt_freq_offset+i) = rRF1[i];
+	  cell_var(cell,rt_freq_offset+i) = rRadField1[i];
 	}
     }
 #endif
@@ -409,13 +452,14 @@ void rtCoolOff(int level, int cell, float *Ein, int thread)
   /*
   //  Unpack elemental abundances 
   */
-  *Ein = rVar[IVAR_Ein];
-  cell_HI_density(cell) = rVar[IVAR_XHI]*rPar[IPAR_RHOB];
-  cell_HII_density(cell) = rVar[IVAR_XHII]*rPar[IPAR_RHOB];
-  cell_HeI_density(cell) = rVar[IVAR_XHeI]*rPar[IPAR_RHOB];
-  cell_HeII_density(cell) = rVar[IVAR_XHeII]*rPar[IPAR_RHOB];
-  cell_HeIII_density(cell) = rVar[IVAR_XHeIII]*rPar[IPAR_RHOB];
-  cell_H2_density(cell) = rVar[IVAR_XH2]*rPar[IPAR_RHOB];
+  cell_gas_internal_energy(cell) = max(T_min,rVar[IVAR_Ein])*rPar[IPAR_RHO]/uTem;
+  cell_gas_energy(cell) = cell_gas_kinetic_energy(cell) + cell_gas_internal_energy(cell);
+  cell_HI_density(cell) = rVar[IVAR_XHI]*rPar[IPAR_RHO];
+  cell_HII_density(cell) = rVar[IVAR_XHII]*rPar[IPAR_RHO];
+  cell_HeI_density(cell) = rVar[IVAR_XHeI]*rPar[IPAR_RHO];
+  cell_HeII_density(cell) = rVar[IVAR_XHeII]*rPar[IPAR_RHO];
+  cell_HeIII_density(cell) = rVar[IVAR_XHeIII]*rPar[IPAR_RHO];
+  cell_H2_density(cell) = rVar[IVAR_XH2]*rPar[IPAR_RHO];
 
 #ifndef RT_MONOATOMIC
 #ifdef RT_HIGH_DENSITY
@@ -496,7 +540,7 @@ void rtModifyTimeStep(double *dt)
 
 
 /*
-//  Helper function to get gas temperature 7 other properties
+//  Helper function to get gas temperature
 */
 float rtTem(int cell)
 {
@@ -523,109 +567,8 @@ float rtTem(int cell)
 float rtTemInK(int cell)
 {
   int level = cell_level(cell);
-  return rt_TemScale*rtTem(cell)/(aexp[level]*aexp[level]);
-}
-
-
-#ifdef RT_TRANSFER
-void f2c_wrapper(frttransferpackradiationfield)(f2c_real *par, f2c_real *y0, f2c_real *rawRF0, f2c_real *rawRF1, f2c_real *rf);
-#endif
-void f2c_wrapper(frtgetphotorates)(f2c_real *par, f2c_real *rf, f2c_intg *itab, f2c_real *y0, f2c_real *pRate);
-
-void rtGetPhotoRates(int cell, float ionRates[3], float heatRates[3])
-{
-  int i;
-  int level = cell_level(cell);
-  float Escale = rt_TemScale/(aexp[level]*aexp[level]);
-
-  /* 
-  //  Specify types for the Fortran interface
-  */
-  f2c_real rVar[IVAR_DIM], rPar[IPAR_DIM], pRate[999];
-#ifdef RT_TRANSFER
-  f2c_real rBuffer[rt_num_frequencies];
-  f2c_real rRF0[2], *rRF1 = rBuffer;
-  f2c_real rf[1+2*rt_num_frequencies];
-#else
-  f2c_real *rRF0 = 0, *rRF1 = 0;
-  f2c_real rf[1];
-#endif
-  f2c_intg iTab[2];
-
-  for(i=0; i<IPAR_DIM; i++) rPar[i] = 0.0;
-
-  /*
-  //  Set parameters:
-  //
-  //    Density in code units
-  */
-  rPar[IPAR_RHOB] = cell_gas_density(cell);
-  /*
-  //    Metallicity in units of solar
-  */
-#ifdef METALCOOLING            
-  rPar[IPAR_ZSOL] = cell_gas_metallicity(cell)/(0.02*cell_gas_density(cell));
-#else
-  rPar[IPAR_ZSOL] = 0.0;
-#endif
-
-  /* 
-  //  Pack elemental abundances 
-  */
-  rVar[IVAR_Ein] = max(T_min,Escale*cell_gas_internal_energy(cell)/cell_gas_density(cell));
-  rVar[IVAR_XHI] = cell_HI_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHII] = cell_HII_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHeI] = cell_HeI_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHeII] = cell_HeII_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XHeIII] = cell_HeIII_density(cell)/rPar[IPAR_RHOB];
-  rVar[IVAR_XH2] = cell_H2_density(cell)/rPar[IPAR_RHOB];
-#ifdef RT_8SPECIES
-  rVar[IVAR_XH2p] = rVar[IVAR_XHm] = 0.0;
-#endif
-
-  /* 
-  //  Pack radiation field 
-  */
-#ifdef RT_TRANSFER
-
-  if(sizeof(f2c_real) != sizeof(float))  /* Optimization */
-    {
-      rRF1 = rBuffer;
-      for(i=0; i<rt_num_frequencies; i++)
-	{
-	  rRF1[i] = cell_var(cell,rt_freq_offset+i);
-	}
-    }
-  else
-    {
-      rRF1 = cell_vars[cell] + rt_freq_offset;
-    }
-
-#ifdef RT_VAR_OT_FIELD  
-  rRF0[0] = cell_var(cell,RT_VAR_OT_FIELD);
-  rRF0[1] = rt_ot_field_Avg.Value;
-#else
-  rRF0[0] = rRF0[1] = 0.0;
-#endif
-
-#endif  // RT_TRANSFER
-
-  /*
-  //  Call the Fortran worker 
-  */
-#ifdef RT_TRANSFER
-  f2c_wrapper(frttransferpackradiationfield)(rPar,rVar,rRF0,rRF1,rf);
-#endif
-
-  f2c_wrapper(frtgetphotorates)(rPar,rf,iTab,rVar,pRate);
-
-  ionRates[0] = pRate[5];
-  ionRates[1] = pRate[3];
-  ionRates[2] = pRate[1];
-
-  heatRates[0] = pRate[4];
-  heatRates[1] = pRate[2];
-  heatRates[2] = pRate[0];
+  float uTem = rt_TemScale/(aexp[level]*aexp[level]);
+  return uTem*rtTem(cell);
 }
 
 
@@ -641,5 +584,44 @@ void rtPrintValue(const char *name, float val, int pDen, int pLen, int pTime)
   cart_debug("Checking: lg(%s) = %g",name,val);
 }
 #endif
+
+
+#ifdef RT_TRANSFER
+void f2c_wrapper(frttransferpackradiationfield)(f2c_real *par, f2c_real *y0, f2c_real *rawRF0, f2c_real *rawRF1, f2c_real *rf);
+#endif
+void f2c_wrapper(frtgetphotorates)(f2c_real *par, f2c_real *rf, f2c_intg *itab, f2c_real *y0, f2c_real *pRate);
+
+
+void rtGetPhotoRates(int cell, float rate[])
+{
+  int i;
+  int level = cell_level(cell);
+
+  /* 
+  //  Specify types for the Fortran interface
+  */
+  f2c_real rVar[IVAR_DIM], rPar[IPAR_DIM], pRate[IRATE_DIM];
+#ifdef RT_TRANSFER
+  f2c_real rBuffer[rt_num_frequencies];
+  f2c_real rRadField0[2];
+#else
+  f2c_real *rBuffer = 0, *rRadField0 = 0;
+#endif
+  f2c_real rf[1+2*rt_num_frequencies];
+  f2c_real *rRadField1 = rBuffer;
+  f2c_intg iTab[2];
+
+  rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
+
+  /*
+  //  Call Fortran workers
+  */
+#ifdef RT_TRANSFER
+  f2c_wrapper(frttransferpackradiationfield)(rPar,rVar,rRadField0,rRadField1,rf);
+#endif
+  f2c_wrapper(frtgetphotorates)(rPar,rf,iTab,rVar,pRate);
+
+  for(i=0; i<IRATE_DIM; i++) rate[i] = pRate[i];
+}
 
 #endif  /* RADIATIVE_TRANSFER */

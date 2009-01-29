@@ -4,21 +4,31 @@
 C
 C  Add one global contributions to a specific buffer
 C
-      subroutine frtIncrementGlobalFields(iBuf,avg,itab,info)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+      subroutine frtIncrementGlobalFields(avg,vol,itab,info)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_global.inc'
       dimension avg(iavgDim), itab(2)
 C
       real*8 dBremBuf(NRAD,RT_PARALLEL_NUM_OPENMP_BUFFERS)
-      real*8 dDataBuf(iavgMax1,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dDataBuf(iavgMax2,RT_PARALLEL_NUM_OPENMP_BUFFERS)
       real*8 dInfoBuf(infoDim,RT_PARALLEL_NUM_OPENMP_BUFFERS)
       common/RT_GLBBUF/ dBremBuf, dDataBuf, dInfoBuf
+C
+#if defined(_OPENMP) || defined(RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      integer OMP_GET_THREAD_NUM
+      external OMP_GET_THREAD_NUM
+
+      iBuf = 1 + OMP_GET_THREAD_NUM()
+#else
+      iBuf = 1
+#endif /* _OPENMP */
 
       if(iBuf .lt. 1) then
          write(0,*) 'RT_Global: fatal error, ',
      .        'invalid buffer ID; buffer ID must be > 0.'
-         stop
+         call frtAbort
       endif
 
       if(iBuf .gt. RT_PARALLEL_NUM_OPENMP_BUFFERS) then
@@ -26,27 +36,24 @@ C
      .        'not enough global buffers. Set the variable ',
      .        'RT_PARALLEL_NUM_OPENMP_BUFFERS in rt_defs.h ',
      .        'to at least ', iBuf
-         stop
+         call frtAbort
       endif
-
-#ifndef RT_NO_BACKGROUND
 C
 C  Bremstrahlung
 C
       do lr=1,NRAD
          teml = avg(iavgTemp)
-         if(teml .gt. 1.0e-2*Txi(lr)) then
-            dBremBuf(lr,iBuf) = dBremBuf(lr,iBuf) + 
+         if(teml .gt. 0.01*Txi(lr)) then
+            dBremBuf(lr,iBuf) = dBremBuf(lr,iBuf) + vol*
      .           avg(iavgBrem)*exp(-Txi(lr)/teml)/teml
          endif
       enddo
 C
 C Recombination photons and other quantities
 C
-      do j=1,iavgMax1
-         dDataBuf(j,iBuf) = dDataBuf(j,iBuf) + avg(j)
+      do j=1,iavgMax2
+         dDataBuf(j,iBuf) = dDataBuf(j,iBuf) + vol*avg(j)
       enddo
-#endif
 
 #ifdef RT_OUTPUT
 C
@@ -67,6 +74,7 @@ C
 
       return
       end
+#endif  // defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
 C
 C Initialize global field buffers
 C
@@ -76,7 +84,7 @@ C
       include 'frt_global.inc'
 C
       real*8 dBremBuf(NRAD,RT_PARALLEL_NUM_OPENMP_BUFFERS)
-      real*8 dDataBuf(iavgMax1,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dDataBuf(iavgMax2,RT_PARALLEL_NUM_OPENMP_BUFFERS)
       real*8 dInfoBuf(infoDim,RT_PARALLEL_NUM_OPENMP_BUFFERS)
       common/RT_GLBBUF/ dBremBuf, dDataBuf, dInfoBuf
 C
@@ -87,7 +95,7 @@ C$OMP+SHARED(dBremBuf,dDataBuf,dInfoBuf)
          do j=1,NRAD
             dBremBuf(j,i) = 0.0
          enddo
-         do j=1,iavgMax1
+         do j=1,iavgMax2
             dDataBuf(j,i) = 0.0
          enddo
          do j=1,infoDim
@@ -106,19 +114,17 @@ C
       include 'frt_global.inc'
 C
       real*8 dBremBuf(NRAD,RT_PARALLEL_NUM_OPENMP_BUFFERS)
-      real*8 dDataBuf(iavgMax1,RT_PARALLEL_NUM_OPENMP_BUFFERS)
+      real*8 dDataBuf(iavgMax2,RT_PARALLEL_NUM_OPENMP_BUFFERS)
       real*8 dInfoBuf(infoDim,RT_PARALLEL_NUM_OPENMP_BUFFERS)
       common/RT_GLBBUF/ dBremBuf, dDataBuf, dInfoBuf
 C
       real*8 s
       real*8 dBremBufLoc(NRAD)
-      real*8 dDataBufLoc(iavgMax1)
+      real*8 dDataBufLoc(iavgMax2)
       real*8 dInfoBufLoc(infoDim)
       real*8 dBremBufGlob(NRAD)
-      real*8 dDataBufGlob(iavgMax1)
+      real*8 dDataBufGlob(iavgMax2)
       real*8 dInfoBufGlob(infoDim)
-C
-      weight = vol/tStep
 C
 C  Bremstrahlung
 C
@@ -130,17 +136,17 @@ C$OMP+SHARED(dBremBufLoc,dBremBuf,weight)
          do ib=1,RT_PARALLEL_NUM_OPENMP_BUFFERS
             s = s + dBremBuf(lr,ib)
          enddo
-         dBremBufLoc(lr) = weight*s
+         dBremBufLoc(lr) = s
       enddo
 C
 C Recombination photons and other quantities
 C
-      do j=1,iavgMax1
+      do j=1,iavgMax2
          s = 0.0d0
          do ib=1,RT_PARALLEL_NUM_OPENMP_BUFFERS
             s = s + dDataBuf(j,ib)
          enddo
-         dDataBufLoc(j) = weight*s
+         dDataBufLoc(j) = s
       enddo
 C
 C  Diagnostics
@@ -162,22 +168,45 @@ C
 C  Final summation (if needed)
 C
       call frtGlobalAverage(0,NRAD,dBremBufLoc,dBremBufGlob)
-      call frtGlobalAverage(0,iavgMax1,dDataBufLoc,dDataBufGlob)
+      call frtGlobalAverage(0,iavgMax2,dDataBufLoc,dDataBufGlob)
       call frtGlobalAverage(0,infoMax1,dInfoBufLoc,dInfoBufGlob)
       call frtGlobalAverage(1,1,dInfoBufLoc(infoNMax),
      .     dInfoBufGlob(infoNMax))
+C
+C  Normalization
+C
+      if(dDataBufGlob(iavgNorm) .gt. 1.0e-35) then
+         weight = 1.0/dDataBufGlob(iavgNorm)
+      else
+         weight = 0.0
+      endif
 
       do lr=1,NRAD
-         gBrem(lr) = dBremBufGlob(lr)
+         gBrem(lr) = weight*dBremBufGlob(lr)
       enddo
 
-      do j=1,iavgMax1
-         gData(j) = dDataBufGlob(j)
+      do j=1,iavgMax2
+         gData(j) = weight*dDataBufGlob(j)
       enddo
 
       do j=1,infoDim
          gInfo(j) = dInfoBufGlob(j)
       enddo
+
+      if(vol .gt. 0.0) then
+         w = vol*tStep*weight
+#ifdef RT_DEBUG
+         call frtQueryId(id)
+         if(id .eq. 0) then
+            write(6,*) 'RT: internal vol*dt = ', dDataBufGlob(iavgNorm)
+            write(6,*) 'RT: external vol*dt = ', vol*tStep
+         endif
+#endif
+         if(abs(w-1.0) .gt. 1.0e-3) then
+            write(6,*) 'RT_Global: fatal error: <1> = ', w
+            call frtAbort
+         endif
+      endif
 
       return
       end

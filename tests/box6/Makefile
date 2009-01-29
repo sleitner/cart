@@ -8,8 +8,11 @@ compile: art
 
 run:
 
-art: .obj  $(OBJS) defs.h rt_defs.h start.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start.c -o art $(LIBS) $(EXTRALIBS)
+art: .obj  $(OBJS) defs.h rt_defs.h start.c .obj/extra/ifrit.o
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) .obj/extra/ifrit.o start.c -o art $(LIBS) $(EXTRALIBS)
+
+analysis: .obj $(OBJS) $(EXT_OBJS) defs.h rt_defs.h analysis.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) $(EXT_OBJS) analysis.c -o analysis $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf $(OBJS) .obj .obj/F *.il core start.o art
+	rm -rf $(OBJS) .obj .obj/F *.il core start.o art analysis

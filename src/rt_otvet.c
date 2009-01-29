@@ -34,10 +34,10 @@ const int Vars[] = { RT_VAR_OT_FIELD,
 		     rt_et_offset + 5 };
 
 DEFINE_LEVEL_ARRAY(float,BufferFactor);
-DEFINE_LEVEL_ARRAY(int,TensorsSet);
+
 
 void rtOtvetComputeGreenFunctions();
-void rtOtvetEddingtonTensor(int level);
+void rtOtvetEddingtonTensor(int level, int num_level_cells, int *level_cells);
 
 void rtOtvetMidPointAbsorptionCoefficients(int level, int iL, int *info, int *nb, float *abc, float *abcMid);
 
@@ -64,7 +64,6 @@ void rtInitRunTransferOtvet()
   for(i=min_level; i<=max_level; i++)
     {
       BufferFactor[i] = 1.5;
-      TensorsSet[i] = 0;
     }
 
   if(local_proc_id == MASTER_NODE)
@@ -76,6 +75,12 @@ void rtInitRunTransferOtvet()
 
 void rtStepBeginTransferOtvet()
 {
+}
+
+
+void rtAfterAssignDensityTransferOtvet(int level, int num_level_cells, int *level_cells)
+{
+  rtOtvetEddingtonTensor(level,num_level_cells,level_cells);
 }
 
 
@@ -126,51 +131,16 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
   work = (num_cells_per_level[level] > 0);
   if(work)
     {
-      /*
-      //  Insure that our tensors are up-to-date.
-      //  Also make sure our parent tensors have been set - they may not be set
-      //  if this is the first time we came here; for example, if the first 
-      //  stellar particle has just been formed.
-      */
-      for(j=min_level; j<level; j++) if(!TensorsSet[j])
-	{
-	  TensorsSet[j] = 1;
-	  rtOtvetEddingtonTensor(level);
-	}
-
-      TensorsSet[level] = 1;
-      rtOtvetEddingtonTensor(level);
-
       /* 
       //  Allocate memory for index arrays
       */
       indG2L = cart_alloc(num_cells*sizeof(int));  /* NG: I do not know how to avoid using this large array */
-      select_level(level,CELL_TYPE_LOCAL,&num_all_cells,&level_cells);
 
       /*
-      //  We got all cells, but we only need leaves!!!
-      //  (If we solve levels separately, we can never insure that 
-      //  light fronts on both levels propagate at the same speed,
-      //  even if I-fronts do.)
+      //  Find all leaves (if we solve levels separately, we can never insure that 
+      //  light fronts on both levels propagate at the same speed, even if I-fronts do.)
       */
-      info = (int *)cart_alloc(num_all_cells*sizeof(int));
-      num_level_cells = 0;
-      for(iL=0; iL<num_all_cells; iL++) if(cell_is_leaf(level_cells[iL]))
-	{
-	  info[num_level_cells++] = level_cells[iL];
-	}
-      cart_free(level_cells);
-
-      /*
-      // Are we wasting too much memory?
-      */
-      if(num_level_cells < num_all_cells/10)
-	{
-	  level_cells = (int *)cart_alloc(num_level_cells*sizeof(int));
-	  rtuCopyArraysInt(level_cells,info,num_level_cells);
-	  cart_free(info);
-	  info = level_cells;
-	}
+      select_level_with_condition(1,level,&num_level_cells,&info);
 
       /*
       // Allocate the rest of arrays
@@ -336,12 +306,20 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
       /*
       // Compute the range of the abc array(s)
       */
-      rtuGetLinearArrayMaxMin(num_total_cells,abc[0],&abcMax,&abcMin);
+      if(num_total_cells > 0)
+	{
+	  rtuGetLinearArrayMaxMin(num_total_cells,abc[0],&abcMax,&abcMin);
 #if (RT_CFI == 1)
-      rtuGetLinearArrayMaxMin(num_total_cells,abc[1],&abcMax1,&abcMin1);
-      if(abcMin > abcMin1) abcMin = abcMin1;
-      if(abcMax < abcMax1) abcMax = abcMax1;
+	  rtuGetLinearArrayMaxMin(num_total_cells,abc[1],&abcMax1,&abcMin1);
+	  if(abcMin > abcMin1) abcMin = abcMin1;
+	  if(abcMax < abcMax1) abcMax = abcMax1;
 #endif
+	}
+      else
+	{
+	  abcMin = 1.0e35;
+	  abcMax = 0.0;
+	}
 
       /*
       //  Make sure all procs have the same abcMin/Max
@@ -382,58 +360,60 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  if(nit > nit0) nit = nit0;
 #endif
 
-#ifdef RT_OUTPUT
-	  MPI_Comm_rank(local_comm,&index);
-	  if(index == 0)
-	    { 
-	      cart_debug("OTVET step: level=%2d, freq=%d, nit=%d, nit0=%d",level,ifreq,nit,nit0);
-	    }
-#endif
-
 #ifdef DEBUG
-	  rtuCheckGlobalValue(ifreq,"Otvet:ifreq");
-	  rtuCheckGlobalValue(nit0,"Otvet:nit0");
-	  rtuCheckGlobalValue(nit,"Otvet:nit");
+	  rtuCheckGlobalValue(ifreq,"Otvet:ifreq",local_comm);
+	  rtuCheckGlobalValue(nit0,"Otvet:nit0",local_comm);
+	  rtuCheckGlobalValue(nit,"Otvet:nit",local_comm);
 #endif
 
 	  /*
 	  // Update local field
 	  */
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rt_glob_Avg,rhs)
-	  for(iL=0; iL<num_level_cells; iL++)
+	  if(work)
 	    {
-	      rhs[iL] = srcL(iL);
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rt_glob_Avg,rhs)
+	      for(iL=0; iL<num_level_cells; iL++)
+		{
+		  rhs[iL] = srcL(iL);
+		}
 	    }
 
 	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,indL2G,neib,info,abc[0],rhs,jac,dd,nit,work,rtOtvetLaplacian_GenericTensor_SplitStencil_Diag,rtOtvetLaplacian_GenericTensor_SplitStencil_Full);
 
-#ifndef RT_NO_BACKGROUND
+#ifdef RT_EXTERNAL_BACKGROUND
 	  /*
 	  // Update global field
 	  */
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rt_glob_Avg,rhs)
-	  for(iL=0; iL<num_level_cells; iL++)
+	  if(work)
 	    {
-	      rhs[iL] = srcG(iL);
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rt_glob_Avg,rhs)
+	      for(iL=0; iL<num_level_cells; iL++)
+		{
+		  rhs[iL] = srcG(iL);
+		}
 	    }
 
 	  rtOtvetSolveFieldEquation(ivarG,level,num_level_cells,indL2G,neib,info,abc[1],rhs,jac,dd,nit,work,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full);
 
 #endif
+
 	  /*
 	  // Limit
 	  */
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rt_glob_Avg)
-	  for(iL=0; iL<num_level_cells; iL++)
+	  if(work)
 	    {
-	      if(varL(iL) < 0.0) varL(iL) = 0.0;
-	      if(varL(iL) > otfL(iL)) varL(iL) = otfL(iL);
-#ifndef RT_NO_BACKGROUND
-	      if(varG(iL) < 0.0) varG(iL) = 0.0;
-	      if(varG(iL) > otfG(iL)) varG(iL) = otfG(iL);
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rt_glob_Avg)
+	      for(iL=0; iL<num_level_cells; iL++)
+		{
+		  if(varL(iL) < 0.0) varL(iL) = 0.0;
+		  if(varL(iL) > otfL(iL)) varL(iL) = otfL(iL);
+#ifdef RT_EXTERNAL_BACKGROUND
+		  if(varG(iL) < 0.0) varG(iL) = 0.0;
+		  if(varG(iL) > otfG(iL)) varG(iL) = otfG(iL);
 #else
-	      varG(iL) = 0.0;
+		  varG(iL) = 0.0;
 #endif
+		}
 	    }
 	}
     }
@@ -452,18 +432,6 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
       cart_free(jac);
       cart_free(dd);
     }
-
-#ifdef RT_DEBUG
-  /* for(j=0; j<=4*num_grid/2; j++)
-    {
-      pos[0] = 0.25*(j+0.5);
-      pos[1] = pos[2] = 0.5*num_grid - 0.125;
-      iL = cell_find_position(pos);
-      cart_debug("%d %15g %15g %15g",j,cell_var(iL,rt_freq_offset+0),cell_var(iL,rt_freq_offset+1),cell_var(iL,rt_freq_offset+2));
-    }
-  /*   exit(0); */
-#endif
-
 }
 
 
@@ -572,9 +540,6 @@ C$OMP+SHARED(var,varL,ivar,indLG,nTotCells)
 	      if(var(iL) < 0.0) var(iL) = 0;
 	    }
 	}
-#ifdef DEBUG
-      rtuCheckGlobalValue(it,"Otvet:it");
-#endif
       update_buffer_level(level,&ivar,1);
     }
 

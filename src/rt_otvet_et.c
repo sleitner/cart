@@ -33,7 +33,7 @@ extern const int Vars[];
 
 
 void rtOtvetTopLevelEddingtonTensor(int id, fftw_complex *fft_source, fftw_complex *fft_output);
-void rtOtvetTreeEmulatorEddingtonTensor(int level);
+void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *level_cells);
 void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos);
 
 #ifdef RT_VAR_SOURCE
@@ -41,7 +41,7 @@ float rtSource(int ipart);
 #endif
 
 
-void rtOtvetEddingtonTensor(int level)
+void rtOtvetEddingtonTensor(int level, int num_level_cells, int *level_cells)
 {
 #ifdef RT_SINGLE_SOURCE
 
@@ -49,15 +49,13 @@ void rtOtvetEddingtonTensor(int level)
 
 #else
 
-  rtOtvetTreeEmulatorEddingtonTensor(level);
+  rtOtvetTreeEmulatorEddingtonTensor(level,num_level_cells,level_cells);
 
 #endif
-
-  rtTransferUpdateFields(level,level,1,RT_VAR_OT_FIELD,rt_glob_Avg+1);
 }
 
 
-void rtOtvetTreeEmulatorEddingtonTensor(int level)
+void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *level_cells)
 {
   const int NumSmooth = 2;
   const double S1 = 1.0;
@@ -65,7 +63,8 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
 
   int i, j, k, l, cell, parent, vars[rt_num_et_vars+1];
   int nb3[nDim], nb6[num_neighbors], nb18[rtuStencilSize];
-  int num_level_cells, *level_cells;
+  int num_parent_cells, *parent_cells;
+  int ioct, ichild;
   float norm, h2, eps2, *tmp;
   float ot, et[rt_num_et_vars], sor;
   double r2, q;
@@ -77,8 +76,6 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
       /*
       //  Normalize
       */
-      select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
-
 #pragma omp parallel for default(none), private(i,j,cell), shared(num_level_cells,level_cells,cell_vars)
       for(i=0; i<num_level_cells; i++)
 	{
@@ -121,7 +118,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
       /*
       // We start with interpolating from parents
       */
-      select_level(level-1,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
+      select_level_with_condition(0,level-1,&num_parent_cells,&parent_cells);
 
       h2 = cell_size[level]*cell_size[level];
       norm = cell_volume[level]/(4*M_PI*h2);
@@ -135,10 +132,10 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
 	  eps2 = 0.05;
 	}
 
-#pragma omp parallel for default(none), private(i,j,k,parent,cell,ot,et,nb3,nb18,sor,l,r2,q), shared(level,num_level_cells,level_cells,cell_vars,cell_child_oct,norm,h2,rtuStencilDist2,rtuStencilTensor,eps2)
-      for(i=0; i<num_level_cells; i++) if(!cell_is_leaf(level_cells[i]))
+#pragma omp parallel for default(none), private(i,j,k,parent,cell,ot,et,nb3,nb18,sor,l,r2,q), shared(level,num_parent_cells,parent_cells,cell_vars,cell_child_oct,norm,h2,rtuStencilDist2,rtuStencilTensor,eps2)
+      for(i=0; i<num_parent_cells; i++)
 	{
-	  parent = level_cells[i];
+	  parent = parent_cells[i];
 
 	  /*
 	  //  Loop over all children
@@ -186,17 +183,38 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
 		}
 
 	      cell_var(cell,RT_VAR_OT_FIELD) = ot;
-	      q = et[0] + et[2] + et[5];
-	      for(k=0; k<rt_num_et_vars; k++)
+	      if(ot > 0.0)
 		{
-		  //cell_var(cell,rt_et_offset+k) = min(1.0,et[k]/q);
-		  cell_var(cell,rt_et_offset+k) = et[k]/q;
+		  q = et[0]
+#if (nDim > 1)
+		    + et[2]
+#if (nDim > 2)
+		    + et[5]
+#endif /* nDim > 2 */
+#endif /* nDim > 1 */
+		    ;
+		  for(k=0; k<rt_num_et_vars; k++)
+		    {
+		      cell_var(cell,rt_et_offset+k) = et[k]/q;
+		    }
+		}
+	      else
+		{
+		  cell_var(cell,rt_et_offset+0) = 1.0/nDim;
+#if (nDim > 1)
+		  cell_var(cell,rt_et_offset+1) = 0.0;
+		  cell_var(cell,rt_et_offset+2) = 1.0/nDim;
+#if (nDim > 2)
+		  cell_var(cell,rt_et_offset+3) = 0.0;
+		  cell_var(cell,rt_et_offset+4) = 0.0;
+		  cell_var(cell,rt_et_offset+5) = 1.0/nDim;
+#endif /* nDim > 2 */
+#endif /* nDim > 1 */
 		}
 	    }
 	}
-
-      cart_free(level_cells);
-      select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
+      
+      cart_free(parent_cells);
     }
 
   update_buffer_level(level,Vars,NumVars);
@@ -246,8 +264,6 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level)
     }
 
   cart_free(tmp);
-  cart_free(level_cells);
-
 }
 
 

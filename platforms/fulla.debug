@@ -5,6 +5,6 @@ CFLAGS  = -g -Ktrap=fp -mcmodel=medium
 CC      = mpicc
 FFLAGS  = -g -Ktrap=fp -mcmodel=medium -Mbounds
 F77     = mpif77
-INCLUDES = -I/userhome/drudd/include
-EXTRALIBS = -pgf77libs -L/userhome/drudd/lib -lmpi_f77
+INCLUDES = -I/home/drudd/include
+EXTRALIBS = -pgf77libs -L/home/drudd/lib -lmpi_f77
 

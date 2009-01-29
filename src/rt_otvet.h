@@ -6,8 +6,8 @@
 
 void rtInitRunTransferOtvet();
 void rtStepBeginTransferOtvet();
+void rtAfterAssignDensityTransferOtvet(int level, int num_level_cells, int *level_cells);
 void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm);
-
 
 #endif
 

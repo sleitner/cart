@@ -1,5 +1,9 @@
 #ifdef __RT_INCLUDING_DEFS
 
+
+#define RT_DEBUG
+
+
 /*
 //  Radiative transfer switches: only have effect when RADIATIVE_TRANSFER
 //  switch in defs.h is switched on.
@@ -77,7 +81,7 @@
 //  Allow for heating by recoil in Lyman-alpha line using Tozzi et al formula.
 //  Jordi Miralda-Escude claims that the formula is incorrect.
 */
-#define RT_LYMAN_ALPHA_HEATING
+/* #define RT_LYMAN_ALPHA_HEATING */
 
 
 /*
@@ -90,7 +94,22 @@
 /*
 //  Keep the signal propagation speed equal c. 
 */
-#define RT_SIGNALSPEED_TO_C
+/* #define RT_SIGNALSPEED_TO_C */
+
+
+/*
+//  Set the floor for the gast-to-dust ratio. May be needed to force the
+//  switch from primordial, metal-free star formation to normal star
+//  formation if the resolution is not high enough to resolve first stars
+//  properly.
+*/
+#define RT_DUST_TO_GAS_FLOOR 0.001
+
+
+/*
+//  Enable computing the evolving cosmic background
+*/
+#define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_SELFCONSISTENT
 
 
 /*

@@ -1,10 +1,11 @@
+#include "defs.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
 #include <mpi.h>
 
-#include "defs.h"
 #include "auxiliary.h"
 #include "tree.h"
 #include "particle.h"
@@ -26,33 +27,77 @@
 #include "starformation.h"
 #include "io.h"
 
+#ifdef RADIATIVE_TRANSFER
 #include "rt_solver.h"
 #include "rt_utilities.h"
+#ifdef RT_DEBUG
+#include "rt_debug.h"
+#endif
+#endif
+
+#include "extra/ifrit.h"
+
+
+void FindMaxVar(int var, float *val, double *pos)
+{
+  MESH_RUN_DECLARE(level,cell);
+  float vMax = -1.0e35;
+  int cellMax = 0;
+
+  cart_assert(var>=0 && var<num_vars);
+
+  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  if(cell_is_leaf(cell) && vMax<cell_var(cell,var))
+    {
+      vMax = cell_var(cell,var);
+      cellMax = cell;
+    }
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+  MESH_RUN_OVER_LEVELS_END;
+  
+  *val = vMax;
+  if(pos != NULL) cell_position_double(cellMax,pos);
+}
 
 
 void run_output()
 {
   const int nbin1 = 256;
-  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC };
+#ifdef RADIATIVE_TRANSFER
+  int varid[] = { EXT_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, EXT_GAS_TEMPERATURE, EXT_FRACTION+RT_HVAR_OFFSET+5, EXT_CELL_LEVEL, EXT_LOCAL_PROC };
+#else
+  int varid[] = { HVAR_GAS_DENSITY, HVAR_PRESSURE };
+#endif
   int nbin[] = { nbin1, nbin1, nbin1 };
   int nvars = sizeof(varid)/sizeof(int);
-  double bb[6];
+  double bb[6], pos[3], dbb;
+  float dmax;
   char filename[99];
 
-  float dbb = 10.0;
-  float xCen = -0.0216;
-  float yCen = -0.6068;
-  float zCen =  0.1989;
+  bb[0] = 0.0;
+  bb[1] = num_grid;
+  bb[2] = 0.0;
+  bb[3] = num_grid;
+  bb[4] = 0.0;
+  bb[5] = num_grid;
 
-  bb[0] = num_grid*(0.5*(1+xCen)) - 0.5*dbb;
-  bb[1] = num_grid*(0.5*(1+xCen)) + 0.5*dbb;
-  bb[2] = num_grid*(0.5*(1+yCen)) - 0.5*dbb;
-  bb[3] = num_grid*(0.5*(1+yCen)) + 0.5*dbb;
-  bb[4] = num_grid*(0.5*(1+zCen)) - 0.5*dbb;
-  bb[5] = num_grid*(0.5*(1+zCen)) + 0.5*dbb;
+  sprintf(filename,"%s/out-box.%04d.bin",output_directory,(int)(aexp[0]*1.0e4));
+  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
 
-  sprintf(filename,"%s/out.%04d.bin",output_directory,(int)(aexp[0]*1.0e4));
-  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
+  FindMaxVar(HVAR_GAS_DENSITY,&dmax,pos);
+
+  dbb = nbin1*pow(0.5,(double)max_level);
+
+  bb[0] = pos[0] - 0.5*dbb;
+  bb[1] = pos[0] + 0.5*dbb;
+  bb[2] = pos[1] - 0.5*dbb;
+  bb[3] = pos[1] + 0.5*dbb;
+  bb[4] = pos[2] - 0.5*dbb;
+  bb[5] = pos[2] + 0.5*dbb;
+
+  sprintf(filename,"%s/out-zoom.%04d.bin",output_directory,(int)(aexp[0]*1.0e4));
+  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
 }
 
 void init_run()
@@ -81,6 +126,7 @@ void init_run()
 
   init_units();
 
+#ifdef RADIATIVE_TRANSFER
   float xH = 1.0 - Y_p;
   float xHe = 0.25*Y_p;
   float xInit[6];
@@ -95,6 +141,7 @@ void init_run()
     {
       for(j=0; j<6; j++) cell_vars[i][RT_HVAR_OFFSET+j] = xInit[j]*cell_gas_density(i);
     }
+#endif
 
   hydro_magic( min_level );
   hydro_eos( min_level );
@@ -189,5 +236,18 @@ void init_run()
     }
 
   run_output();
+
+  /*
+  //  Debugging parameters
+  */
+#ifdef RADIATIVE_TRANSFER
+#ifdef RT_DEBUG
+  rt_debug.Mode = 0;
+  rt_debug.Stop = 1;
+  rt_debug.Pos[0] = 29.619681;
+  rt_debug.Pos[1] = 14.352527;
+  rt_debug.Pos[2] = 32.880561;
+#endif
+#endif
 }
 

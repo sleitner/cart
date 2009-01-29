@@ -54,23 +54,22 @@ void rtuGlobalAverage(int n, double *buffer);
 void rtuGetStencil(int level, int cell, int nb[]);
 void rtuGetLinearArrayMaxMin(int n, float *arr, float *max, float *min);
 
+struct rtArrayAverageData
+{
+  float Value;
+  float LocalLevelSum[num_refinement_levels+1];
+  float GlobalLevelSum[num_refinement_levels+1];
+};
+
+void rtuInitArrayAverage(int n, struct rtArrayAverageData *out); 
+void rtuUpdateArrayAverage(int level, int n, struct rtArrayAverageData *out, MPI_Comm local_comm); 
+
 void rtuCopyArraysInt(int *dest, int *src, int size);
 void rtuCopyArraysFloat(float *dest, float *src, int size);
 
 #ifdef DEBUG
-void rtuCheckGlobalValue(int val, char *name);
+void rtuCheckGlobalValue(int val, char *name, MPI_Comm local_comm);
 #endif
-
-
-/*
-// Additional options for cell variables; used in binning on a uniform mesh.
-*/
-#define RTU_FRACTION            1000
-#define RTU_GAS_TEMPERATURE     2000
-#define RTU_CELL_LEVEL          2001
-#define RTU_LOCAL_PROC          2002
-
-int rtuWriteIfritFile(int level, int *nbinIn, double *bbIn, int nvars, int *varid, const char *filename);
 
 
 #endif  /* __RT_UTILITIES_H__ */

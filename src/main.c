@@ -185,6 +185,8 @@ int main ( int argc, char *argv[]) {
 	current_steps = 0;
 	last_restart_step = 0;
 
+	run_output();
+
 	while ( 1 ) {
 
 #ifdef COSMOLOGY
@@ -236,7 +238,15 @@ int main ( int argc, char *argv[]) {
 			load_balance();
 			end_time( RESTART_TIMER );
 
-			dt = 0.5*min( dtl[min_level], restart_dt );			
+			dt = 0.5*min( dtl[min_level], restart_dt );
+		
+#if defined(RADIATIVE_TRANSFER)
+			for ( level = min_level; level <= max_level; level++ ) {
+			  cart_debug("assigning density on level %u", level );
+			  assign_density( level );
+			}
+#endif /* defined(RADIATIVE_TRANSFER) */
+	
 		} else {
 			step++;
 			current_steps++;

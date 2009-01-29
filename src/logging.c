@@ -412,6 +412,7 @@ void log_diagnostics() {
 
 extern const char *timer_name[];
 double offset = 0.0;
+unsigned long record = 0;
 
 void log_in_debug(int timerid, int start, const char *file, int line)
 {
@@ -435,17 +436,17 @@ void log_in_debug(int timerid, int start, const char *file, int line)
 	{
 	case 0:
 	  {
-	    fprintf(f,"%s @ %d: %s done at %f sec.\n",file,line,timer_name[timerid],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu: %s @ %d: %s done at %f sec.\n",record++,file,line,timer_name[timerid],MPI_Wtime()-offset);
 	    break;
 	  }
 	case 1:
 	  {
-	    fprintf(f,"%s @ %d: %s started at %f sec.\n",file,line,timer_name[timerid],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu: %s @ %d: %s started at %f sec.\n",record++,file,line,timer_name[timerid],MPI_Wtime()-offset);
 	    break;
 	  }
 	default:
 	  {
-	    fprintf(f,"%s @ %d: marker #%d set at %f sec.\n",file,line,timerid,MPI_Wtime()-offset);
+	    fprintf(f,"%10lu: %s @ %d: marker #%d set at %f sec.\n",record++,file,line,timerid,MPI_Wtime()-offset);
 	  }
 	}
       fclose(f);

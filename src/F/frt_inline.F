@@ -11,54 +11,51 @@ C *********************************************************
 C
 C  Functions for frequency dependence fitting: direct functions
 C 
-      function QFhat(x,l)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
+      function QFuni(x)
 
 *      if(x .lt. 1.0e-8) then
-*         QFhat = 1.0
+*         QFuni = 1.0
 *      else
 *         y = sqrt(x)
-*         QFhat = (1.0-exp(-y))/y
+*         QFuni = (1.0-exp(-y))/y
 *      endif
-*      if(qfdhat_xi(l) .gt. 0.0) QFhat = QFhat/qfdhat_xi(l)
 
-      QFhat = exp(min(TAUMAX,tauhat_xi(l)-x))
+      QFuni = exp(-x)
 
       return
       end
 C
-      function QFsor(x,l)
+      function QFloc(x)
 
-      QFsor = exp(-x)
+      QFloc = exp(-x)
 
       return
       end
 C
 C  Inverse functions
 C
-      function QIhat(x)
-*      include 'frt_base.inc'
+      function QIuni(x)
+
 *      parameter(A = 3.970)
 *      parameter(B = 0.712)
 *      parameter(ALP = 0.994351)
 *      parameter(BET = 0.740)
 *      parameter(GAM = 0.6889336)
 *      if(x.le.0.0 .or. x.ge.1.0) then
-*         QIhat = 0.0
+*         QIuni = 0.0
 *      else
-*         QIhat = ((1-exp(-(1-x**GAM)/x*(1+A*x**ALP)/
+*         QIuni = ((1-exp(-(1-x**GAM)/x*(1+A*x**ALP)/
 *     .     (1+B*x**BET)))/x)**2
 *      endif
 
-      QIhat = -log(1.0e-35+x)
+      QIuni = -log(1.0e-35+x)
 
       return
       end
 C
-      function QIsor(x)
+      function QIloc(x)
 
-      QIsor = -log(1.0e-35+x)
+      QIloc = -log(1.0e-35+x)
 
       return
       end

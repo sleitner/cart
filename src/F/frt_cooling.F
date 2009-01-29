@@ -4,7 +4,7 @@
 C
 C  Follow cooling evolution of one resolution element
 C
-      subroutine frtCoolOff(par,rawRF0,rawRF1,tFin,y0,iBuf)
+      subroutine frtCoolOff(par,rawRF0,rawRF1,tFin,y0,info)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
@@ -29,7 +29,7 @@ C
 C
       dimension yf(ieqDim), rs(ieqDim)
       dimension w0(ieqDim), a0(ieqDim)
-#ifndef RT_NO_BACKGROUND
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       dimension avg(iavgDim), avg0(iavgMax1), avg1(iavgMax1)
 #endif
 C
@@ -50,7 +50,7 @@ C
 
       y0(ieqEin) = y0(ieqEin) + par(iparDTsh)*tFin
 
-#ifndef RT_NO_BACKGROUND
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       do j=1,iavgMax1
          avg(j) = 0.0
       enddo
@@ -100,7 +100,11 @@ C
       call frtAdjust(y0,nEqs)
 
 #ifdef RT_DEBUG
-      if(par(iparDeb) .gt. 0.5) then
+      idbmode = int(par(iparDeb))
+      idbpart = par(iparDeb) - idbmode 
+      if(idbmode .eq. 1) then
+         open(unit=81, file='rt-debug.log', access='append')
+         write(81,*) 'In cell-level debug: ', uDen*par(iparRhoB)
          write(6,*) 'In cell-level debug: ', uDen*par(iparRhoB)
       endif
 #endif
@@ -112,16 +116,8 @@ C
       call frtTransferPackRadiationField(par,y0,rawRF0,rawRF1,rf)
 #endif
 
-#if defined(RT_DEBUG) || !defined(RT_VARIABLE_PRATES)
+#ifndef RT_VARIABLE_PRATES
       call frtGetPhotoRates(par,rf,itab,y0,pRate)
-#endif
-
-#ifdef RT_DEBUG
-      if(par(iparDeb) .gt. 0.5) then
-         write(6,*) 'Photo rates: ', 
-     .        pRate(iptabPiH1), pRate(iptabPiG1), pRate(iptabPiG2),
-     .        pRate(iptabPhH1), pRate(iptabPhG1), pRate(iptabPhG2)
-      endif
 #endif
 C
       dt = tFin
@@ -132,22 +128,18 @@ C
       info = 9999
 
 #ifdef RT_DEBUG
-      if(par(iparDeb) .gt. 0.5) then
-         call frtDebugPrint(6,nStep,t,dt,tFin,y0,0) 
-         if(par(iparDeb) .gt. 1.5) then
-            if(par(iparDeb) .gt. 9.5) then
-               open(unit=81, file='debug.ini', form='unformatted')
-               write(81) nEqs
-               write(81) (y0(j),j=1,nEqs)
-               write(81) (par(j),j=1,iparDim)
-               write(81) (pRate(j),j=1,iptabDim)
-               close(81)
-               stop
-            endif
-            open(unit=81, file='debug.log', access='append')
-            call frtDebugPrint(81,nStep,t,dt,tFin,y0,1) 
-            call frtAdjust(y0,nEqs)
-         endif
+      if(idbmode .eq. 1) then
+#ifdef RT_VARIABLE_PRATES
+         call frtGetPhotoRates(par,rf,itab,y0,pRate)
+#endif
+         write(81,*) 'Photo rates: ', 
+     .        pRate(iptabPiH1), pRate(iptabPiG1), pRate(iptabPiG2),
+     .        pRate(iptabPhH1), pRate(iptabPhG1), pRate(iptabPhG2)
+#ifdef RT_CHEMISTRY
+         write(81,*) 'Chemistry rates:',
+     .        (pRate(j),j=iptabCi27,iptabCiLW)
+#endif
+         call frtDebugPrint1(81,nStep,t,dt,tFin,y0,1) 
       endif
 #endif
 
@@ -194,7 +186,7 @@ C
 
       else
 
-#ifndef RT_NO_BACKGROUND
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
          do j=1,iavgMax1
             avg(j) = avg(j) + dt*(d1*avg0(j)+(1-d1)*avg1(j))
          enddo
@@ -217,8 +209,8 @@ C
          enddo
 
 #ifdef RT_DEBUG
-         if(par(iparDeb) .gt. 2.5) then
-            call frtDebugPrint(81,nStep,t,dt,tFin,yf,ieqmax) 
+         if(idbmode .eq. 1) then
+            call frtDebugPrint1(81,nStep,t,dt,tFin,yf,ieqmax) 
          endif
 #endif
 
@@ -231,33 +223,29 @@ C
       endif
 
 #ifdef RT_DEBUG
-      if(par(iparDeb) .gt. 0.5) then
-         call frtDebugPrint(6,nStep,t,dt,tFin,yf,0) 
-         if(par(iparDeb) .gt. 1.5) then
-            call frtDebugPrint(81,nStep,t,dt,tFin,yf,ieqmax) 
-            close(81)
-            if(par(iparDeb) .gt. 8.5) stop
-         endif
+      if(idbmode .eq. 1) then
+         close(81)
+         if(idbpart .gt. 0.0) call frtAbort
       endif
 #endif
 
-#ifndef RT_NO_BACKGROUND
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       avg(iavgBrem) = avg(iavgBrem)*par(iparRhoB)
-      avg(iavgRAH2) = avg(iavgRAH2)*par(iparRhoB)
-      avg(iavgRAG2) = avg(iavgRAG2)*par(iparRhoB)
-      avg(iavgRAG3) = avg(iavgRAG3)*par(iparRhoB)
-      avg(iavgRBH2) = avg(iavgRBH2)*par(iparRhoB)
-      avg(iavgRBG2) = avg(iavgRBG2)*par(iparRhoB)
-      avg(iavgRBG3) = avg(iavgRBG3)*par(iparRhoB)
+
+      do j=1,iavgMax1
+         avg(j) = avg(j)*par(iparRhoB)
+      enddo
+
+      avg(iavgNorm) = tFin
 
 #ifdef RT_HIGH_DENSITY
       avg(iavgTemp) = frtTem(y0(ieqEin),y0,iLTE)
 #else
       avg(iavgTemp) = frtTem(y0(ieqEin),y0)
 #endif
-#endif
 
-      call frtIncrementGlobalFields(iBuf,avg,itab,info)
+      call frtIncrementGlobalFields(avg,par(iparVolB),itab,info)
+#endif
 
 #if defined(RT_TRANSFER) && defined(RT_VARIABLE_RFIELD)
       call frtTransferUnPackRadiationField(y0,rawRF0,rawRF1,rf)
@@ -267,32 +255,8 @@ C
       y0(ieqEin) = y0save
 #endif
 
-      iBuf = info
-
       return
       end
-C
-C
-C
-#ifdef RT_DEBUG
-      subroutine frtDebugPrint(io,nStep,t,dt,tFin,y,ieqmax)
-      include 'frt_base.inc'
-      dimension y(*)
-
-      if(ieqmax .gt. 0) then
-         write(io,9) nStep, t, dt, tFin, frtTem(y(ieqEin),y),
-     .        y(ieqXH1)/XH, y(ieqXH2)/XH, y(ieqXMH)/(0.5*XH), 
-     .        y(ieqmax), ieqmax
-      else
-         write(io,9) nStep, tFin, frtTem(y(ieqEin),y),
-     .        y(ieqXH1)/XH, y(ieqXH2)/XH, y(ieqXMH)/(0.5*XH)
-      endif
-
- 9    format(i4,1p,8(1x,e11.3),1x,i1)
-
-      return
-      end
-#endif
 C
 C ---------------------------------------------
 C
@@ -431,6 +395,14 @@ C
          RcG2l = aRate(irateRAcG2)
          RiG3l = aRate(irateRAiG3)
          RcG3l = aRate(irateRAcG3)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+         avg(iavgRAH2) = uRate*XH2ll*de*aRate(irateRAiH2)
+         avg(iavgRAG2) = uRate*XG2ll*de*aRate(irateRAiG2)
+         avg(iavgRAG3) = uRate*XG3ll*de*aRate(irateRAiG3)
+         avg(iavgRBH2) = 0.0
+         avg(iavgRBG2) = 0.0
+         avg(iavgRBG3) = 0.0
+#endif
       else if(modeAB .eq. 2) then
          RiH2l = aRate(irateRBiH2)
          RcH2l = aRate(irateRBcH2)
@@ -438,16 +410,38 @@ C
          RcG2l = aRate(irateRBcG2)
          RiG3l = aRate(irateRBiG3)
          RcG3l = aRate(irateRBcG3)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+         avg(iavgRAH2) = 0.0
+         avg(iavgRAG2) = 0.0
+         avg(iavgRAG3) = 0.0
+         avg(iavgRBH2) = uRate*XH2ll*de*aRate(irateRBiH2)
+         avg(iavgRBG2) = uRate*XG2ll*de*aRate(irateRBiG2)
+         avg(iavgRBG3) = uRate*XG3ll*de*aRate(irateRBiG3)
+#endif
       else
          call frtGetRecCaseH2(XH1ll,par(iparRecB),wa,wb)
          RiH2l = wa*aRate(irateRAiH2) + wb*aRate(irateRBiH2)
          RcH2l = wa*aRate(irateRAcH2) + wb*aRate(irateRBcH2)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+         avg(iavgRAH2) = uRate*XH2ll*de*wa*aRate(irateRAiH2)
+         avg(iavgRBH2) = uRate*XH2ll*de*wb*aRate(irateRBiH2)
+#endif
+
          call frtGetRecCaseG2(XG1ll,par(iparRecB),wa,wb)
          RiG2l = wa*aRate(irateRAiG2) + wb*aRate(irateRBiG2)
          RcG2l = wa*aRate(irateRAcG2) + wb*aRate(irateRBcG2)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+         avg(iavgRAG2) = uRate*XG2ll*de*wa*aRate(irateRAiG2)
+         avg(iavgRBG2) = uRate*XG2ll*de*wb*aRate(irateRBiG2)
+#endif
+
          call frtGetRecCaseG3(XG2ll,par(iparRecB),wa,wb)
          RiG3l = wa*aRate(irateRAiG3) + wb*aRate(irateRBiG3)
          RcG3l = wa*aRate(irateRAcG3) + wb*aRate(irateRBcG3)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+         avg(iavgRAG3) = uRate*XG3ll*de*wa*aRate(irateRAiG3)
+         avg(iavgRBG3) = uRate*XG3ll*de*wb*aRate(irateRBiG3)
+#endif
       endif
 C
 C  H ionization rates
@@ -481,19 +475,6 @@ C
       a(ieqXG3) = uTime*AG3
       w(ieqXG3) = uTime*XG2ll*BG2
 C
-C  Recombination photons
-C
-#ifndef RT_NO_BACKGROUND
-      avg(iavgRAH2) = uRate*XH2ll*Xfell*wa*aRate(irateRAiH2)
-      avg(iavgRBH2) = uRate*XH2ll*Xfell*wb*aRate(irateRBiH2)
-
-      avg(iavgRAG2) = uRate*XG2ll*Xfell*wa*aRate(irateRAiG2)
-      avg(iavgRBG2) = uRate*XG2ll*Xfell*wb*aRate(irateRBiG2)
-
-      avg(iavgRAG3) = uRate*XG3ll*Xfell*wa*aRate(irateRAiG3)
-      avg(iavgRBG3) = uRate*XG3ll*Xfell*wb*aRate(irateRBiG3)
-#endif
-C
 C  Cooling rates
 C
       CF_PPl = Xfell*(
@@ -507,7 +488,7 @@ C
 C
 C  Return parameters
 C
-#ifndef RT_NO_BACKGROUND
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       avg(iavgCXH1) = par(iparCFH1)*XH1ll
       avg(iavgCXG1) = par(iparCFG1)*XG1ll
       avg(iavgCXG2) = par(iparCFG2)*XG2ll
@@ -618,7 +599,7 @@ C
 
          aXMHl = cRate(irateMHi12)*XH2ll + cRate(irateMHi13)*Xfell + 
      .        cRate(irateMHi14)*Xfell + pRate(iptabCi29) + pRate32 + 
-     .        pRate(iptabCi99) +
+     .        pRate(iptabCiLW) +
 #ifdef RT_HIGH_DENSITY
      .        cRate(irateMHi11)*XH1ll/
      .        (1+cRate(irateMHi11)*XH1ll/hRate(irateHDi11)) +
@@ -633,7 +614,7 @@ C  Heating due to gas reactions
 C
          wEinll = wEinll + 
      .        uTime*sFact2*(T1eV*0.4*XMHll*(pRate(iptabCi29)+
-     .        pRate32+pRate(iptabCi99)))
+     .        pRate32+pRate(iptabCiLW)))
 C
 C  Cooling function
 C
@@ -742,13 +723,13 @@ C
 C
 C  4. PAHs (chi is in comoving units since de is!!!)
 C
-      chi = sFact1*pRate(iptabCi99)/3.3e-11
+      chi = sFact1*1.1e10*pRate(iptabCiLW)
       psi = chi*sqrt(tem)/(max(de,1.0e-6*den)*d_pPAH)
       eps = 4.9e-2/(1+4.0e-3*psi**0.73) + 
      .     3.7e-2*(1.0e-4*tem)**0.7/(1+2.0e-4*psi)
       
       pRatePAHh = par(iparSDp1)*285*eps*exp(-d_sPAH*cdDUl)*
-     .     pRate(iptabCi99)
+     .     pRate(iptabCiLW)
 C
 C  5. Cosmic rays heating and ionizations
 C
@@ -766,7 +747,7 @@ C  Final aseembly
 C
       aEinll = aEinll + facCool*par(iparRhoB)*(CF_MHl+CF_HEl)
 
-#ifndef RT_NO_BACKGROUND
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       avg(iavgDust) = par(iparDGas)*(XH1ll+2*XMHll)
 #endif
 
@@ -775,7 +756,7 @@ C
       a(ieqXMH) = 0.0
       w(ieqXMH) = 0.0
 
-#ifndef RT_NO_BACKGROUND
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       avg(iavgDust) = 0.0
 #endif
 
@@ -1260,8 +1241,24 @@ C
 
       return
       end
-
 #endif  // RT_MONOATOMIC
+#ifdef RT_DEBUG
+C
+C  Debug helpers
+C
+      subroutine frtDebugPrint1(io,nStep,t,dt,tFin,y,ieqmax)
+      include 'frt_base.inc'
+      dimension y(*)
+
+      write(io,9) nStep, t, dt, tFin, frtTem(y(ieqEin),y),
+     .     y(ieqXH1)/XH, y(ieqXH2)/XH, y(ieqXMH)/(0.5*XH), 
+     .     y(ieqmax), ieqmax
+
+ 9    format(i4,1p,8(1x,e11.3),1x,i1)
+
+      return
+      end
+#endif
 
 #endif
       subroutine frtDummyCooling(i)

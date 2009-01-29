@@ -78,6 +78,88 @@ void select_level( int level, int cell_types, int *num_cells_selected, int **sel
 	end_time( SELECT_LEVEL_TIMER );
 }
 
+void select_level_with_condition( int select_leaves, int level, int *num_cells_selected, int **selection )
+{
+  int i;
+  int num_selected, size;
+  int *level_cells;
+  int ioct, ichild;
+
+  start_time( SELECT_LEVEL_TIMER );
+
+  cart_assert( level >= min_level && level <= max_level );
+  cart_assert( select_leaves == 0 || select_leaves == 1 );
+
+  /*
+  //  Measure array size
+  */
+  size = 0;
+  if ( level == min_level )
+    {
+      for ( i = 0; i < num_cells_per_level[min_level]; i++ ) if(cell_is_leaf(i) == select_leaves) 
+	{
+	  size++;
+	}
+    }
+  else
+    {
+      ioct = local_oct_list[level];
+      while ( ioct != NULL_OCT )
+	{
+	  for ( ichild = 0; ichild < num_children; ichild++ )
+	    {
+	      i = oct_child(ioct,ichild);
+	      if(cell_is_leaf(i) == select_leaves) 
+		{
+		  size++;
+		}
+	    }
+	  ioct = oct_next[ioct];
+	}
+    }
+
+  if(size == 0)
+    {
+      *selection = NULL;
+      *num_cells_selected = 0;
+    }
+  else
+    {
+      level_cells = cart_alloc( size * sizeof(int) );
+      num_selected = 0;
+
+      if ( level == min_level )
+	{
+	  for ( i = 0; i < num_cells_per_level[min_level]; i++ ) if(cell_is_leaf(i) == select_leaves) 
+	    {
+	      level_cells[num_selected++] = i;
+	    }
+	}
+      else
+	{
+	  ioct = local_oct_list[level];
+	  while ( ioct != NULL_OCT )
+	    {
+	      for ( ichild = 0; ichild < num_children; ichild++ )
+		{
+		  i = oct_child(ioct,ichild);
+		  if(cell_is_leaf(i) == select_leaves) 
+		    {
+		      level_cells[num_selected++] = i;
+		    }
+		}
+	      ioct = oct_next[ioct];
+	    }
+	}
+
+      *selection = level_cells;
+      *num_cells_selected = num_selected;
+
+    }
+
+  end_time( SELECT_LEVEL_TIMER );
+}
+
 /*******************************************************
  * tree_traversal
  *******************************************************/
