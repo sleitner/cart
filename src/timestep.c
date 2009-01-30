@@ -12,7 +12,6 @@
 #include "parallel.h"
 #include "refinement.h"
 #include "iterators.h"
-#include "viewdump.h"
 #include "density.h"
 #include "timing.h"
 #include "gravity.h"

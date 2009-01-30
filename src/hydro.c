@@ -9,7 +9,6 @@
 #include "cell_buffer.h"
 #include "iterators.h"
 #include "timing.h"
-#include "viewdump.h"
 #include "gravity.h"
 #include "units.h"
 #include "sfc.h"

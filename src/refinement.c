@@ -8,7 +8,6 @@
 #include "refinement.h"
 #include "refinement_operations.h"
 #include "refinement_indicators.h"
-#include "viewdump.h"
 #include "timing.h"
 #include "auxiliary.h"
 

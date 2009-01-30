@@ -15,7 +15,6 @@
 #include "sfc.h"
 #include "iterators.h"
 #include "particle.h"
-#include "viewdump.h"
 #include "auxiliary.h"
 #include "timing.h"
 #include "hydro.h"

@@ -18,7 +18,6 @@
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
