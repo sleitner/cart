@@ -463,10 +463,9 @@ void move_particles( int level ) {
 
 #ifdef STARFORM
 				/* do feedback, enrichment, etc */
-				if ( particle_is_star(ipart) )
-				  {
+				if ( particle_is_star(ipart) ) {
 				    stellar_feedback(level,iter_cell,ipart,delta_t,edum,t_next,vx,vy,vz);
-				  }
+				}
 #endif /* STARFORM */
 
 				x += vx * delta_t;
@@ -475,25 +474,19 @@ void move_particles( int level ) {
 	
 				if ( x < 0.0 ) {
 					x += (double)(num_grid);		
-				}
-				
-				if ( x >= (double)(num_grid) ) {
+				} else if ( x >= (double)(num_grid) ) {
 					x -= (double)(num_grid);
 				}
 	
 				if ( y < 0.0 ) {
 					y += (double)(num_grid);
-				}
-	
-				if ( y >= (double)(num_grid) ) {
+				} else if ( y >= (double)(num_grid) ) {
 					y -= (double)(num_grid);
 				}
 	
 				if ( z < 0.0 ) {
 					z += (double)(num_grid);
-				}
-	
-				if ( z >= (double)(num_grid) ) {
+				} else if ( z >= (double)(num_grid) ) {
 					z -= (double)(num_grid);
 				}
 	

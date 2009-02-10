@@ -9,8 +9,8 @@ extern float diffusion_coefficient;
 extern float momentum_increment;
 
 void modify( int level, int derefine );
-void add_reaction( int cell );
-void diffusion_step( int cell );
+void add_reaction( int icell );
+void diffusion_step( int level, int icell );
 void refine( int level );
 void choose_cells_to_derefine( int cell ); 
 void derefine( int level ); 

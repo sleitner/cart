@@ -34,7 +34,12 @@ extern int level_sweep_dir[max_level-min_level+1];
 
 void hydro_step( int level );
 void hydro_copy_vars( int level, int direction, int cell_type );
-void compute_hydro_fluxes( int L2, int L1, int R1, int R2,  double f[num_hydro_vars-1] );
+void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[num_hydro_vars-1] );
+void hydro_sweep_1d( int level );
+#ifdef GRAVITY
+void hydro_apply_gravity( int level );
+#endif /* GRAVITY */
+void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] );
 void hydro_eos(int level);
 void hydro_magic(int level);
 void hydro_advance_internalenergy(int level);

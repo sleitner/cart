@@ -215,6 +215,8 @@ void read_restart( double aexpn ) {
 		restart = fopen( filename, "r" );
 
 		if ( restart == NULL ) {
+			cart_debug("Unable to locate restart.dat, trying default filenames!");
+
 			/* try generic names */
 			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
 			sprintf( filename1,  "%s/PMcrd.DAT", output_directory );
@@ -7363,7 +7365,7 @@ void read_grid_binary2( char *filename ) {
 		}
 
 		if ( input == NULL ) {
-			cart_error( "Unable to open file %s for reading!", filename );
+			cart_error( "read_grid_binary2: unable to open file %s for reading!", filename );
 		}
 	}
 

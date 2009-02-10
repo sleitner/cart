@@ -78,6 +78,55 @@ void select_level( int level, int cell_types, int *num_cells_selected, int **sel
 	end_time( SELECT_LEVEL_TIMER );
 }
 
+void select_level_octs( int level, int oct_types, int *num_octs_selected, int **selection ) {
+	int i;
+	int num_selected;
+	int *level_octs;
+	int ioct;
+
+	start_time( SELECT_LEVEL_TIMER );
+
+	cart_assert( level > min_level && level <= max_level );
+	cart_assert( oct_types == CELL_TYPE_LOCAL || oct_types == CELL_TYPE_BUFFER || oct_types == CELL_TYPE_ANY );
+
+	switch ( oct_types ) {
+		case CELL_TYPE_LOCAL:
+			*num_octs_selected = num_cells_per_level[level]/num_children;
+			break;
+		case CELL_TYPE_BUFFER:
+			*num_octs_selected = num_buffer_cells[level]/num_children;
+			break;
+		case CELL_TYPE_ANY:
+			*num_octs_selected = (num_cells_per_level[level] + num_buffer_cells[level])/num_children;
+			break;
+	}
+
+	level_octs = cart_alloc( *num_octs_selected * sizeof(int) );
+	num_selected = 0;
+
+	if ( oct_types == CELL_TYPE_LOCAL || oct_types == CELL_TYPE_ANY ) {
+		ioct = local_oct_list[level];
+		while ( ioct != NULL_OCT ) {
+			level_octs[num_selected++] = ioct;
+			ioct = oct_next[ioct];
+		}
+        }
+
+	if ( oct_types == CELL_TYPE_BUFFER || oct_types == CELL_TYPE_ANY ) {
+		ioct = buffer_oct_list[level];
+		while ( ioct != NULL_OCT ) {
+			level_octs[num_selected++] = ioct;
+			ioct = oct_next[ioct];
+		}
+	}
+
+	cart_assert( num_selected == *num_octs_selected );
+
+	*selection = level_octs;
+
+	end_time( SELECT_LEVEL_TIMER );
+}
+
 void select_level_with_condition( int select_leaves, int level, int *num_cells_selected, int **selection )
 {
   int i;

@@ -576,7 +576,7 @@ void smooth( int level ) {
 		if ( num_local_buffers[level][proc] > 0 ) {
 			cart_free( send_recv_indices[proc] );
 		}
-	}	
+	}
 
 	cart_free( ind );
 

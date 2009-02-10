@@ -13,6 +13,9 @@
 #include "auxiliary.h"
 #include "timing.h"
 
+#ifndef DENSITY_CHUNK_SIZE
+#define DENSITY_CHUNK_SIZE	16384
+#endif /* DENSITY_CHUNK_SIZE */
 
 #ifdef RADIATIVE_TRANSFER
 #include "rt_solver.h"
@@ -31,7 +34,7 @@ void initialize_density( int level ) {
 
 #ifdef RT_VAR_SOURCE
 	rtInitSource(level);
-#endif	
+#endif
 
 #ifdef PARTICLES
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -119,220 +122,198 @@ void assign_hydro_density( int level ) {
 #endif
 	}
 
-	end_time( WORK_TIMER );
-
 #ifdef RADIATIVE_TRANSFER
 	rtAfterAssignDensity2(level,num_level_cells,level_cells);
 #endif
 
-	start_time( WORK_TIMER );
 	cart_free( level_cells );
+
 	end_time( WORK_TIMER );
 }
 #endif /* HYDRO */
 
 #ifdef PARTICLES
+void find_single_particle_density( int level, double size2, double size_inverse, int ipart, 
+		int *cell_list, float *mass_assigned ) {
+        double corner[nDim];
+        double cornerx0, cornerx1, cornery0, cornery1, cornerz0, cornerz1;
+        double x, y, z;
+        double xs, ys, zs;
+        double dx0, dx1, dy0, dy1, dz0, dz1;
+        double d00, d01, d10, d11;
+
+	x = particle_x[ipart][0];
+	y = particle_x[ipart][1];
+	z = particle_x[ipart][2];
+
+	cornerx0 = x - size2;
+	cornerx1 = x + size2;
+	cornery0 = y - size2;
+	cornery1 = y + size2;
+	cornerz0 = z - size2;
+	cornerz1 = z + size2;
+
+	if ( cornerx0 < 0.0 ) cornerx0 += (double)num_grid;
+	if ( cornerx1 >= (double)num_grid ) cornerx1 -= (double)num_grid;
+	if ( cornery0 < 0.0 ) cornery0 += (double)num_grid;
+	if ( cornery1 >= (double)num_grid ) cornery1 -= (double)num_grid;
+	if ( cornerz0 < 0.0 ) cornerz0 += (double)num_grid;
+	if ( cornerz1 >= (double)num_grid ) cornerz1 -= (double)num_grid;
+
+	xs = x*size_inverse + 0.5;
+	ys = y*size_inverse + 0.5;
+	zs = z*size_inverse + 0.5;
+
+	dx1 = xs - floor(xs);
+	dy1 = ys - floor(ys);
+	dz1 = zs - floor(zs);
+
+	dx0 = 1.0 - dx1;
+	dy0 = 1.0 - dy1;
+	dz0 = 1.0 - dz1;
+
+	dx0 *= particle_mass[ipart];
+	dx1 *= particle_mass[ipart];
+
+	d00 = dx0*dy0;
+	d01 = dx0*dy1;
+	d10 = dx1*dy0;
+	d11 = dx1*dy1;
+
+	/* child 0 */
+	corner[0] = cornerx0;
+	corner[1] = cornery0;
+	corner[2] = cornerz0;
+
+	cell_list[0] = cell_find_position_level( level, corner );
+	mass_assigned[0] = d00*dz0;
+
+	/* child 1 */
+	corner[0] = cornerx1;
+
+	cell_list[1] = cell_find_position_level( level, corner );
+	mass_assigned[1] = d10*dz0;
+
+	/* child 2 */
+	corner[0] = cornerx0;
+	corner[1] = cornery1;
+
+	cell_list[2] = cell_find_position_level( level, corner );
+	mass_assigned[2] = d01*dz0;
+
+	/* child 3 */
+	corner[0] = cornerx1;
+
+	cell_list[3] = cell_find_position_level( level, corner );
+	mass_assigned[3] = d11*dz0;
+
+	/* child 4 */
+	corner[0] = cornerx0;
+	corner[1] = cornery0;
+	corner[2] = cornerz1;
+
+	cell_list[4] = cell_find_position_level( level, corner );
+	mass_assigned[4] = d00*dz1;
+
+	/* child 5 */
+	corner[0] = cornerx1;
+
+	cell_list[5] = cell_find_position_level( level, corner );
+	mass_assigned[5] = d10*dz1;
+
+	/* child 6 */
+	corner[0] = cornerx0;
+	corner[1] = cornery1;
+
+	cell_list[6] = cell_find_position_level( level, corner );
+	mass_assigned[6] = d01*dz1;
+
+	/* child 7 */
+	corner[0] = cornerx1;
+
+	cell_list[7] = cell_find_position_level( level, corner );
+	mass_assigned[7] = d11*dz1;
+}
+
 
 void assign_particle_density( int level ) {
-	int i, j;
-	int ipart;
-	int icell;
-	double corner[nDim];
+        int i, j, k;
+	int count;
+        int ipart;
+        int icell;
+        int is_first;
 	double size2, size_inverse;
-	float mass;
-	double cornerx0, cornerx1, cornery0, cornery1, cornerz0, cornerz1;
-	double x, y, z;
-	double xs, ys, zs;
-	double dx0, dx1, dy0, dy1, dz0, dz1;
-	double d00, d01, d10, d11;
-	int is_first;
 #ifdef RT_VAR_SOURCE
-	float sor;
+        float sor;
 #endif
+	int particle_list[DENSITY_CHUNK_SIZE];
+	int cell_list[num_children*DENSITY_CHUNK_SIZE];
+	float mass_assigned[num_children*DENSITY_CHUNK_SIZE];
 
-	start_time( WORK_TIMER );
+        start_time( WORK_TIMER );
 
-	size2 = 0.5*cell_size[level];
-	size_inverse = cell_size_inverse[level];
+        size2 = 0.5*cell_size[level];
+        size_inverse = cell_size_inverse[level];
+	count = 0;
 
-	for ( ipart = 0; ipart < num_particles; ipart++ ) {
-		if ( particle_level[ipart] >= level ) {
+        for ( i = 0; i < num_particles; i++ ) {
+		if ( particle_level[i] >= level ) {
+			particle_list[count++] = i;
+		}
+
+		if ( i == num_particles-1 || count == DENSITY_CHUNK_SIZE ) {
+#pragma omp parallel for default(none), private(j,ipart), shared(count,level,size2,size_inverse,particle_list,cell_list,mass_assigned)
+			for ( j = 0; j < count; j++ ) {
+				find_single_particle_density( level, size2, size_inverse, 
+					particle_list[j], &cell_list[num_children*j],
+					&mass_assigned[num_children*j] );
+			}
+
+			/* must execute serially! */
+			for ( j =  0; j < count; j++ ) {
+				ipart = particle_list[j];
+
 #ifdef STARFORM
-			is_first = ( particle_id[ipart] < particle_species_indices[1] || particle_is_star(ipart) );
+				is_first = ( particle_id[ipart] < particle_species_indices[1] || particle_is_star(ipart) );
 #else
-			is_first = ( particle_id[ipart] < particle_species_indices[1] );
+				is_first = ( particle_id[ipart] < particle_species_indices[1] );
 #endif /* STARFORM */
 
-			x = particle_x[ipart][0];
-			y = particle_x[ipart][1];
-			z = particle_x[ipart][2];
-
-			cornerx0 = x - size2;
-			cornerx1 = x + size2;
-			cornery0 = y - size2;
-			cornery1 = y + size2;
-			cornerz0 = z - size2;
-			cornerz1 = z + size2;
-		
-			if ( cornerx0 < 0.0 ) cornerx0 += (double)num_grid;
-			if ( cornerx1 >= (double)num_grid ) cornerx1 -= (double)num_grid;
-			if ( cornery0 < 0.0 ) cornery0 += (double)num_grid;
-			if ( cornery1 >= (double)num_grid ) cornery1 -= (double)num_grid;
-			if ( cornerz0 < 0.0 ) cornerz0 += (double)num_grid;
-			if ( cornerz1 >= (double)num_grid ) cornerz1 -= (double)num_grid;
-
-			xs = x*size_inverse + 0.5;
-			ys = y*size_inverse + 0.5;
-			zs = z*size_inverse + 0.5;
-
-			dx1 = xs - floor(xs);
-			dy1 = ys - floor(ys);
-			dz1 = zs - floor(zs);
-
-			dx0 = 1.0 - dx1;
-			dy0 = 1.0 - dy1;
-			dz0 = 1.0 - dz1;
-
-			dx0 *= particle_mass[ipart];
-			dx1 *= particle_mass[ipart];
-
-			d00 = dx0*dy0;
-			d01 = dx0*dy1;
-			d10 = dx1*dy0;
-			d11 = dx1*dy1;
-
 #ifdef RT_VAR_SOURCE
-			sor = rtSource(ipart);
+				sor = rtSource(ipart);
 #endif
-			/* child 0 */
-			corner[0] = cornerx0;
-			corner[1] = cornery0;
-			corner[2] = cornerz0;
 
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d00*dz0;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
 				if ( is_first ) {
-					cell_first_species_mass(icell) += mass;
+					for ( k = 0; k < num_children; k++ ) {
+						icell = cell_list[num_children*j+k];
+
+						if ( icell != -1 ) {
+							cell_density(icell) += mass_assigned[num_children*j+k];
+							cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
+#ifdef RT_VAR_SOURCE
+							cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
+#endif
+						}
+					}
+				} else {
+					for ( k = 0; k < num_children; k++ ) {
+						icell = cell_list[num_children*j+k];
+
+						if ( icell != -1 ) {
+							cell_density(icell) += mass_assigned[num_children*j+k];
+#ifdef RT_VAR_SOURCE
+							cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
+#endif
+						}
+					}
 				}
 			}
 
-			/* child 1 */
-			corner[0] = cornerx1;
-
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d10*dz0;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
-				if ( is_first ) {
-					cell_first_species_mass(icell) += mass;
-				}
-			}
-
-			/* child 2 */
-			corner[0] = cornerx0;
-			corner[1] = cornery1;
-
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d01*dz0;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
-				if ( is_first ) {
-					cell_first_species_mass(icell) += mass;
-				}
-			}
-
-			/* child 3 */
-			corner[0] = cornerx1;
-
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d11*dz0;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
-				if ( is_first ) {
-					cell_first_species_mass(icell) += mass;
-				}
-			}
-
-			/* child 4 */
-			corner[0] = cornerx0;
-			corner[1] = cornery0;
-			corner[2] = cornerz1;
-
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d00*dz1;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
-				if ( is_first ) {
-					cell_first_species_mass(icell) += mass;
-				}
-			}
-
-			/* child 5 */
-			corner[0] = cornerx1;
-
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d10*dz1;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
-                                if ( is_first ) {
-                                        cell_first_species_mass(icell) += mass;
-                                }
-			}
-
-                        /* child 6 */
-			corner[0] = cornerx0;
-			corner[1] = cornery1;
-
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d01*dz1;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
-				if ( is_first ) {
-					cell_first_species_mass(icell) += mass;
-				}
-			}
-
-                        /* child 7 */
-			corner[0] = cornerx1;
-
-			icell = cell_find_position_level( level, corner );
-			if ( icell != -1 ) {
-				mass = d11*dz1;
-				cell_density(icell) += mass;
-#ifdef RT_VAR_SOURCE
-				cell_rt_source(icell) += mass*sor;
-#endif	
-				if ( is_first ) {
-					cell_first_species_mass(icell) += mass;
-				}
-			}
+			count = 0;
 		}
 	}
 
-	end_time( WORK_TIMER );
+	end_time(WORK_TIMER);
 
 	/* now collect buffer densities (after this function we
 	 *  have correct densities on all cells/buffer cells) */

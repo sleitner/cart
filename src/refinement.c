@@ -59,7 +59,7 @@ void modify( int level, int op ) {
                 start_time( DIFFUSION_STEP_TIMER );
 
 		start_time( WORK_TIMER );
-#pragma omp parallel for default(none), private(icell), shared(num_level_cells,level_cells)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 			add_reaction( icell );
@@ -71,10 +71,10 @@ void modify( int level, int op ) {
 		end_time( DIFFUSION_UPDATE_TIMER );
 
 		start_time( WORK_TIMER );
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,level)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
-			diffusion_step( icell );
+			diffusion_step( level, icell );
 		}
 		end_time( WORK_TIMER );
 
@@ -82,6 +82,7 @@ void modify( int level, int op ) {
         }
 
 	/* check refinement mask */
+#pragma omp parallel for default(none), private(i,icell,pos,j) shared(refinement_volume_min,refinement_volume_max,cell_vars,num_level_cells,level_cells)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -110,18 +111,16 @@ void modify( int level, int op ) {
 	end_time( REFINEMENT_TIMER );
 }
 
-void add_reaction( int cell ) {
-	cart_assert( cell >= 0 && cell < num_cells );
-
+void add_reaction( int icell ) {
 	/* cells which need splitting become sources, add reaction_increment to them */
-	if ( refinement_indicator( cell, 0 ) >= split_tolerance ) {
-		refinement_indicator( cell, 0 ) = min( 1.0, refinement_indicator( cell, 0 ) + reaction_increment );
+	if ( refinement_indicator( icell, 0 ) >= split_tolerance ) {
+		refinement_indicator( icell, 0 ) = min( 1.0, refinement_indicator( icell, 0 ) + reaction_increment );
 	}
 
 	/* we'll use refinement_indicator[1] during the diffusion step since
 	 * we'll be changing refinement_indicator[0], and the diffusion step
 	 * must be handled atomically */
-	refinement_indicator( cell, 1 ) = refinement_indicator( cell, 0 );
+	refinement_indicator( icell, 1 ) = refinement_indicator( icell, 0 );
 }
 
 #ifdef MOMENTUM_DIFFUSION
@@ -134,35 +133,29 @@ const int dir[num_neighbors] = {
 };
 #endif
 
-void diffusion_step( int cell ) {
+void diffusion_step( int level, int icell ) {
 	int i;
-	int level;
 	int neighbors[num_neighbors];
-	float current_indicator = refinement_indicator( cell, 0 );
-	float new_indicator;
 
-	cart_assert( cell >= 0 && cell < num_cells );
+	float current_indicator = refinement_indicator( icell, 0 );
+	float new_indicator = 0.0;
 
-	level = cell_level(cell);
-	cell_all_neighbors( cell, neighbors );
+	cell_all_neighbors( icell, neighbors );
 
-	new_indicator = 0.0;
 	for ( i = 0; i < num_neighbors; i++ ) {
 		if ( cell_level( neighbors[i] ) == level ) {
 			new_indicator += ( refinement_indicator( neighbors[i], 1 ) - current_indicator );
 
-#ifdef MOMENTUM_DIFFUSION 
-#ifdef HYDRO
+#if defined(HYDRO) && defined(MOMENTUM_DIFFUSION)
 			if ( cell_is_refined( neighbors[i] ) && sign[i]*cell_momentum(neighbors[i],dir[i]) > 0.0  ) {
 				new_indicator += momentum_increment*refinement_indicator( neighbors[i], 1 );
 			}
-#endif
-#endif
+#endif /* defined(HYDRO) && defined(MOMENTUM_DIFFUSION) */
 		}
 	}
 
-	refinement_indicator( cell, 0 ) += diffusion_coefficient * new_indicator;
-	refinement_indicator( cell, 0 ) = min( 1.0, refinement_indicator( cell, 0 ) );
+	refinement_indicator( icell, 0 ) += diffusion_coefficient * new_indicator;
+	refinement_indicator( icell, 0 ) = min( 1.0, refinement_indicator( icell, 0 ) );
 }
 
 void refine( int level ) {

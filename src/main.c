@@ -33,6 +33,7 @@
 
 #ifdef _OPENMP
 #include <omp.h>
+#include <sys/utsname.h>
 #endif
 
 #ifdef RADIATIVE_TRANSFER
@@ -49,6 +50,10 @@ int main ( int argc, char *argv[]) {
 	int level;
 	double dt, restart_dt;
 
+	#ifdef _OPENMP
+	struct utsname uname_info;
+	#endif
+
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &num_procs );
 	MPI_Comm_rank( MPI_COMM_WORLD, &local_proc_id );
@@ -61,7 +66,12 @@ int main ( int argc, char *argv[]) {
 	cart_debug("my local pid = %u", getpid() );
 
 	#ifdef _OPENMP
-	printf("num openmp threads = %u\n", omp_get_max_threads() );
+	cart_debug("num openmp threads = %u", omp_get_max_threads() );
+
+	if ( num_procs > 1 ) {
+		uname(&uname_info);
+		cart_debug("node: %s", uname_info.nodename );
+	}
 	#endif
 
 	/* load configuration file */
