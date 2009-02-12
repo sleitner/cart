@@ -131,10 +131,15 @@ int split ( int cell ) {
 				cell_interpolate_function_with_neighbors( cell, cell_internal_energy, neighbors );
 			weights[4] += cell_gas_energy(child_cell);
 
+#ifdef	ELECTRON_ION_NONEQUILIBRIUM
+			cell_electron_internal_energy(child_cell) = cell_interpolate_with_neighbors( cell, HVAR_ELECTRON_INTERNAL_ENERGY, neighbors );
+			weights[5] += cell_electron_internal_energy(child_cell);
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 #ifdef ADVECT_SPECIES
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cell_advected_variable(child_cell,j) = cell_interpolate_with_neighbors( cell, HVAR_ADVECTED_VARIABLES+j, neighbors );
-				weights[5+j] += cell_advected_variable(child_cell,j);
+				weights[num_hydro_vars-num_chem_species-nDim+j] += cell_advected_variable(child_cell,j);
 			}
 #endif /* ADVECT_SPECIES */
 
@@ -171,9 +176,16 @@ int split ( int cell ) {
 		weights[3] = (weights[3] == 0.0) ? 0.0: (double)num_children * (double)cell_gas_internal_energy(cell) / weights[3];
 		weights[4] = (weights[4] == 0.0) ? 0.0: (double)num_children * (double)cell_gas_energy(cell) / weights[4];
 
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+		weights[5] = (weights[5] == 0.0) ? 0.0: (double)num_children * (double)cell_electron_internal_energy(cell) / weights[5];
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 #ifdef ADVECT_SPECIES
 		for ( j = 0; j < num_chem_species; j++ ) {
-			weights[5+j] = (weights[5+j] == 0.0) ? 0.0: (double)num_children * (double)cell_advected_variable(cell,j) / weights[5+j];
+			weights[num_hydro_vars-num_chem_species-nDim+j] = 
+				(weights[num_hydro_vars-num_chem_species-nDim+j] == 0.0) ? 0.0: 
+					(double)num_children * (double)cell_advected_variable(cell,j) / 
+					weights[num_hydro_vars-num_chem_species-nDim+j];
 		}
 #endif /* ADVECT_SPECIES */
 	
@@ -192,9 +204,13 @@ int split ( int cell ) {
 			cell_gas_internal_energy(child_cell) *= weights[3];
 			cell_gas_energy(child_cell) *= weights[4];
 
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+			cell_electron_internal_energy(child_cell) *= weights[5];
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 #ifdef ADVECT_SPECIES
 			for ( j = 0; j < num_chem_species; j++ ) {
-				cell_advected_variable(child_cell,j) *= weights[5+j];
+				cell_advected_variable(child_cell,j) *= weights[num_hydro_vars-num_chem_species-nDim+j];
 			}
 #endif /* ADVECT_SPECIES */
 

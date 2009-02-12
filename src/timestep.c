@@ -384,6 +384,10 @@ void choose_timestep( double *dt ) {
 
 #ifdef CONSTANT_TIMESTEP
 
+	if ( *dt == 0.0 ) {
+		*dt = max_dt;
+	}
+
 #ifdef RADIATIVE_TRANSFER
 	rtModifyTimeStep(dt);
 #endif  /* RADIATIVE_TRANSFER */

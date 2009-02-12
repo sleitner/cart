@@ -3769,6 +3769,10 @@ void read_gas_ic( char *filename ) {
 	/* set gas gamma on root level */
 	for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
 		cell_gas_gamma(i) = gamma;
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*wmu/wmu_e;
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 	}
 }
 
@@ -4053,6 +4057,10 @@ void write_grid_binary( char *filename ) {
 			cellhvars[i++] = cell_gas_gamma(icell);
 			cellhvars[i++] = cell_gas_internal_energy(icell);
 
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+			cellhvars[i++] = cell_electron_internal_energy(icell);
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 #ifdef ADVECT_SPECIES
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cellhvars[i++] = cell_advected_variable(icell,j);
@@ -4237,6 +4245,10 @@ void write_grid_binary( char *filename ) {
 					cellhvars[j++] = cell_gas_pressure(icell);
 					cellhvars[j++] = cell_gas_gamma(icell);
 					cellhvars[j++] = cell_gas_internal_energy(icell);
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+					cellhvars[j++] = cell_electron_internal_energy(icell);
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 #ifdef ADVECT_SPECIES
 					for ( m = 0; m < num_chem_species; m++ ) {
@@ -4601,8 +4613,8 @@ void read_grid_binary( char *filename ) {
 
 		if ( endian ) {
 			for ( i = 0; i < nDim; i++ ) {
-				reorder( (char *)&refinement_volume_min, sizeof(float) );
-				reorder( (char *)&refinement_volume_max, sizeof(float) );
+				reorder( (char *)&refinement_volume_min[i], sizeof(float) );
+				reorder( (char *)&refinement_volume_max[i], sizeof(float) );
 			}
 		}
 
@@ -4615,8 +4627,8 @@ void read_grid_binary( char *filename ) {
 
 		if ( endian ) {
 			for ( i = 0; i < nDim; i++ ) {
-				reorder( (char *)&star_formation_volume_min, sizeof(float) );
-				reorder( (char *)&star_formation_volume_max, sizeof(float) );
+				reorder( (char *)&star_formation_volume_min[i], sizeof(float) );
+				reorder( (char *)&star_formation_volume_max[i], sizeof(float) );
 			}
 		}
 #endif /* STARFORM */
@@ -4941,6 +4953,10 @@ void read_grid_binary( char *filename ) {
 				cell_gas_pressure(icell) = cellhvars[proc][i++];
 				cell_gas_gamma(icell) = cellhvars[proc][i++];
 				cell_gas_internal_energy(icell) = cellhvars[proc][i++];
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+				cell_electron_internal_energy(icell) = cellhvars[proc][i++];
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 #ifdef ADVECT_SPECIES
 				for ( m = 0; m < num_chem_species; m++ ) {
@@ -5563,6 +5579,10 @@ void read_grid_binary( char *filename ) {
 						cell_gas_pressure(icell) = cellhvars[proc][i++];
 						cell_gas_gamma(icell) = cellhvars[proc][i++];
 						cell_gas_internal_energy(icell) = cellhvars[proc][i++];
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+						cell_electron_internal_energy(icell) = cellhvars[proc][i++];
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 	
 #ifdef 	ADVECT_SPECIES
 						for ( m = 0; m < num_chem_species; m++ ) {
@@ -6022,8 +6042,8 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		if ( endian ) {
 			for ( i = 0; i < nDim; i++ ) {
-				reorder( (char *)&refinement_volume_min, sizeof(float) );
-				reorder( (char *)&refinement_volume_max, sizeof(float) );
+				reorder( (char *)&refinement_volume_min[i], sizeof(float) );
+				reorder( (char *)&refinement_volume_max[i], sizeof(float) );
 			}
 		}
 
@@ -6036,8 +6056,8 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		if ( endian ) {
 			for ( i = 0; i < nDim; i++ ) {
-				reorder( (char *)&star_formation_volume_min, sizeof(float) );
-				reorder( (char *)&star_formation_volume_max, sizeof(float) );
+				reorder( (char *)&star_formation_volume_min[i], sizeof(float) );
+				reorder( (char *)&star_formation_volume_max[i], sizeof(float) );
 			}
 		}
 #endif /* STARFORM */
@@ -6074,6 +6094,10 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 				varindex[i] = HVAR_GAMMA;
 			} else if ( strncmp( varname, "hydro_gas_internal_energy", 32 ) == 0 ) {
 				varindex[i] = HVAR_INTERNAL_ENERGY;
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+			} else if ( strncmp( varname, "hydro_electron_internal_energy", 32 ) == 0 ) {
+				varindex[i] = HVAR_ELECTRON_INTERNAL_ENERGY;
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 			} else if ( strncmp( varname, "hydro_momentum_x", 32 ) == 0 ) {
 				varindex[i] = HVAR_MOMENTUM;
 			} else if ( strncmp( varname, "hydro_momentum_y", 32 ) == 0 ) {
@@ -6723,10 +6747,15 @@ void write_grid_binary2( char *filename ) {
 	hydro_vars[5] = HVAR_PRESSURE;
 	hydro_vars[6] = HVAR_GAMMA;
 	hydro_vars[7] = HVAR_INTERNAL_ENERGY;
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+	hydro_vars[8] = HVAR_ELECTRON_INTERNAL_ENERGY;
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 #ifdef ADVECT_SPECIES
 	for(j=0; j<num_chem_species; j++)
 	  {
-	    hydro_vars[8+j] = num_grav_vars + rt_num_vars + 5 + nDim + j;
+	    hydro_vars[num_hydro_vars-num_chem_species+j] = HVAR_ADVECTED_VARIABLES+j;
 	  }
 #endif /* ADVECT_SPECIES */
 
@@ -7308,11 +7337,13 @@ void read_grid_binary2( char *filename ) {
         hydro_vars[5] = HVAR_PRESSURE;
         hydro_vars[6] = HVAR_GAMMA;
         hydro_vars[7] = HVAR_INTERNAL_ENERGY;
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+	hydro_vars[8] = HVAR_ELECTRON_INTERNAL_ENERGY;
+#endif
 #ifdef ADVECT_SPECIES
-        for(j=0; j<num_chem_species; j++)
-          {
-            hydro_vars[8+j] = num_grav_vars + rt_num_vars + 5 + nDim + j;
-          }
+	for(j=0; j<num_chem_species; j++) {
+		hydro_vars[8+j] = HVAR_ADVECTED_VARIABLES+j;
+	}
 #endif /* ADVECT_SPECIES */
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
@@ -7545,8 +7576,8 @@ void read_grid_binary2( char *filename ) {
 
 		if ( endian ) {
 			for ( i = 0; i < nDim; i++ ) {
-				reorder( (char *)&refinement_volume_min, sizeof(float) );
-				reorder( (char *)&refinement_volume_max, sizeof(float) );
+				reorder( (char *)&refinement_volume_min[i], sizeof(float) );
+				reorder( (char *)&refinement_volume_max[i], sizeof(float) );
 			}
 		}
 
@@ -7559,8 +7590,8 @@ void read_grid_binary2( char *filename ) {
 
 		if ( endian ) {
 			for ( i = 0; i < nDim; i++ ) {
-				reorder( (char *)&star_formation_volume_min, sizeof(float) );
-				reorder( (char *)&star_formation_volume_max, sizeof(float) );
+				reorder( (char *)&star_formation_volume_min[i], sizeof(float) );
+				reorder( (char *)&star_formation_volume_max[i], sizeof(float) );
 			}
 		}
 #endif /* STARFORM */

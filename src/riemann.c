@@ -171,7 +171,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	double rho, vu, pre, gam, xup_r, xup_l, vv, vw, fmass, predtx;
 	double pvu, vudtx;
 	double fu, fv, fw, fe;
-	double u, x0, x1, x2, fl, fr;
+	double fl, fr;
 	double dv[6][2];
 	double stl[5], str[5], sta[4];
 
@@ -188,8 +188,9 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 		dv11 = v[j][2] - v[j][0];
 		dv20 = v[j][3] - v[j][1];
 
-		dlq0 = ( 0.5 + sign( 0.5, dv1*dv0 ) ) * min( dv0a, dv1a );
-		dlq1 = ( 0.5 + sign( 0.5, dv1*dv2 ) ) * min( dv1a, dv2a );
+		dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : min( dv0a, dv1a );
+		dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : min( dv1a, dv2a );
+
 		dv00 = sign( min( 0.5*fabs(dv11), dlq0 ), dv11 ) * c[0];
 		dv01 = sign( min( 0.5*fabs(dv20), dlq1 ), dv20 ) * c[1];
 				  
@@ -212,7 +213,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	vw_l	= v[3][1] + x_l * dv[3][0];
 	ww_l	= v[4][1] + x_l * dv[4][0];
 	gamw_l	= v[5][1] + x_l * dv[5][0];
-	b_l	= ( sign( 0.5, cm_l ) + 0.5 ) * dtx2 * rhor_l * ( dv[1][0] / c_l - dv[2][0] );
+	b_l	= ( cm_l < 0.0 ) ? 0.0 : dtx2 * rhor_l * ( dv[1][0] / c_l - dv[2][0] );
 
 	x0_l	= 0.5 - dtx2 * v[2][1];
 	rho0_l	= v[0][1] + x0_l * dv[0][0];
@@ -225,9 +226,6 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 					- dv[1][0] / c2_l );
 	v_l	= xx1*v0_l + xx2*vw_l;
 	w_l	= xx1*w0_l + xx2*ww_l;
-
-	dv[0][0] = v_l;
-	dv[1][0] = w_l;
 
 	stl[0]	= max( small,(float)(rhow_l / ( 1.0 - ( b0_l + b_l ) * rhow_l ) ) );
 
@@ -262,7 +260,8 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	vw_r    = v[3][2] + x_r * dv[3][1];
 	ww_r    = v[4][2] + x_r * dv[4][1];
 	gamw_r  = v[5][2] + x_r * dv[5][1];
-	b_r     = ( sign( 0.5, cp_r ) - 0.5 ) * dtx2 * rhor_r * ( dv[1][1] / c_r + dv[2][1] );
+	b_r	= ( cp_r >= 0.0 ) ? 0.0 : dtx2 * rhor_r * ( dv[1][1] / c_r + dv[2][1] );
+
 	x0_r    = -(float)0.5*(1.0 + dtx * v[2][2]);
 	rho0_r  = v[0][2] + x0_r * dv[0][1];
 	v0_r    = v[3][2] + x0_r * dv[3][1];
@@ -274,9 +273,6 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 					- dv[0][1] / ( rhow_r * rho0_r ) );
 	v_r     = xx1*v0_r + xx2*vw_r;
 	w_r     = xx1*w0_r + xx2*ww_r;
-
-	dv[0][1] = v_r;
-	dv[1][1] = w_r;
 
 	str[0]  = max( small,(float)(rhow_r / ( 1.0 - ( b0_r + b_r ) * rhow_r ) ) );
 
@@ -300,18 +296,23 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	riemann( stl, str, sta );
 
 	/* compute fluxes of hydro variables */
-	v_l	= dv[0][0];
-	w_l	= dv[1][0];
-	v_r	= dv[0][1];
-	w_r	= dv[1][1];
 	rho	= sta[0];
 	vu	= sta[1];
 	pre	= sta[2];
 	gam	= sta[3];
-	xup_r	= 0.5 - sign( 0.5, vu );
-	xup_l	= 1.0 - xup_r;
-	vv	= xup_r * v_r + xup_l * v_l;
-	vw	= xup_r * w_r + xup_l * w_l;
+
+	if ( vu < 0.0 ) {
+		vv 	= v_r;
+		vw 	= w_r;
+	        xup_r   = 1.0;
+		xup_l   = 0.0;
+	} else {
+		vv 	= v_l;
+		vw	= w_l;
+		xup_r	= 0.0;
+		xup_l	= 1.0;
+	}
+
 	vudtx	= vu * dtx;
 	fmass	= rho*vudtx;
 	predtx	= pre * dtx;
@@ -329,27 +330,45 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	f[5]	= pvu;
 	f[6]	= vu;
 
+#ifdef ELECTRON_ION_NONEQUILIBRIUM 
+	dv0 = v[7][1] - v[7][0];
+	dv1 = v[7][2] - v[7][1];
+	dv2 = v[7][3] - v[7][2];
+	dv11 = v[7][2] - v[7][0];
+	dv20 = v[7][3] - v[7][1];
+
+	dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv0), fabs(dv1) );
+	dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv1), fabs(dv2) );
+
+	fl = v[7][1] + ( 0.5 - dtx2 * vu ) * sign( min( 0.5 * fabs(dv11), dlq0 ), dv11 ) * c[0];
+	fr = v[7][2] - ( 0.5 + dtx2 * vu ) * sign( min( 0.5 * fabs(dv20), dlq1 ), dv20 ) * c[1];
+
+	f[7] = vudtx * ( fl * xup_l + fr * xup_r );
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 	/* compute fluxes of advected species */
 #ifdef ADVECT_SPECIES
-	for ( j = 7; j < num_hydro_vars - 1; j++ ) {
-		u = sta[1];
-		x0 = 0.5 + sign( 0.5, u );
-		x1 = 1.0 - x0;
+	for ( j = num_hydro_vars-num_chem_species-1; j < num_hydro_vars - 1; j++ ) {
 		dv0 = v[j][1] - v[j][0];
 		dv1 = v[j][2] - v[j][1];
 		dv2 = v[j][3] - v[j][2];
 		dv11 = v[j][2] - v[j][0];
 		dv20 = v[j][3] - v[j][1];
-		dlq0 = ( 1.0 + sign( 1.0, dv1*dv0 ) ) * min( fabs(dv0), fabs(dv1) );
-		dlq1 = ( 1.0 + sign( 1.0, dv1*dv2 ) ) * min( fabs(dv1), fabs(dv2) );
-		fl = v[j][1] + ( 0.5 - dtx2 * u ) * sign( min( 0.5 * abs(dv11), dlq0 ), dv11 );
-		fr = v[j][2] - ( 0.5 + dtx2 * u ) * sign( min( 0.5 * abs(dv20), dlq1 ), dv20 );
-		f[j] = vudtx * ( fl * x0 + fr * x1 );
+
+		dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv0), fabs(dv1) );
+		dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv1), fabs(dv2) );
+
+		fl = v[j][1] + ( 0.5 - dtx2 * vu ) * sign( min( 0.5 * fabs(dv11), dlq0 ), dv11 ) * c[0];
+		fr = v[j][2] - ( 0.5 + dtx2 * vu ) * sign( min( 0.5 * fabs(dv20), dlq1 ), dv20 ) * c[1];
+
+		/* advected variables in v[j] must be in dimensionless units (var/density) */
+		f[j] = fmass * ( fl * xup_l + fr * xup_r );
 	}
 #endif /* ADVECT_SPECIES */
 }
 
-void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, int j5, double v[num_hydro_vars-1][4], double f[num_hydro_vars-1] ) {
+void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, int j5, 
+		double v[num_hydro_vars-1][4], double f[num_hydro_vars-1] ) {
 	int i, j;
 	double diffk;
 	double diff;
@@ -371,7 +390,7 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, 
 	dvisc = max( 0.0, dviscmax * ( xx - 1.0 ) / ( xx + 1.0 ) );
 #endif /* DENSGRADSMOOTH */
 
-	/* compute neighbors */
+	/* Compute neighbors */
 	cell_all_neighbors( L1, neighborsL1 );
 	cell_all_neighbors( R1, neighborsR1 );
 
@@ -408,9 +427,13 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, 
 	f[4] += diff * ( cell_gas_energy(L1) - cell_gas_energy(R1) );
 	f[5] += diff * ( cell_gas_internal_energy(L1) - cell_gas_internal_energy(R1) );
 
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+	f[7] += diff * ( cell_electron_internal_energy(L1) - cell_electron_internal_energy(R1) );
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 #ifdef ADVECT_SPECIES
 	for ( j = 0; j < num_chem_species; j++ ) {
-		f[j+7] += diff * ( cell_advected_variable(L1,j) - cell_advected_variable(R1,j) );
+		f[j+num_hydro_vars-num_chem_species-1] += diff * ( cell_advected_variable(L1,j) - cell_advected_variable(R1,j) );
 	}
 #endif /* ADVECT_SPECIES */
 

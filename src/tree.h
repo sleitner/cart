@@ -113,7 +113,12 @@
 #ifdef HYDRO
 
 #ifdef ADVECT_SPECIES
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+	#define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+6+nDim)
+#else
 	#define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+5+nDim)
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
         #ifdef RADIATIVE_TRANSFER /* radiative transfer block */
 
@@ -163,7 +168,7 @@
 		#define num_chem_species		 (rt_num_chem_species)
 	#endif /* METALCOOLING */
 
-	#define cell_advected_variable(c,v)	(cell_vars[c][num_grav_vars+rt_num_vars+5+nDim+v])
+	#define cell_advected_variable(c,v)	(cell_vars[c][HVAR_ADVECTED_VARIABLES+v])
 
 #else  /* ADVECT_SPECIES */
 
@@ -179,7 +184,6 @@
 
 #endif /* ADVECT_SPECIES */
 
-	#define	num_hydro_vars	        (5+nDim+num_chem_species)
 	#define HVAR_GAS_DENSITY	(num_grav_vars+rt_num_vars)
 	#define HVAR_GAS_ENERGY		(num_grav_vars+rt_num_vars+1)
 	#define HVAR_PRESSURE		(num_grav_vars+rt_num_vars+2)
@@ -194,6 +198,15 @@
 	#define cell_gas_internal_energy(c)	(cell_vars[c][HVAR_INTERNAL_ENERGY])
 
 	float cell_gas_kinetic_energy(int icell);
+
+	#ifdef ELECTRON_ION_NONEQUILIBRIUM
+		#define HVAR_ELECTRON_INTERNAL_ENERGY           (num_grav_vars+rt_num_vars+5+nDim)
+		#define cell_electron_internal_energy(c)	(cell_vars[c][HVAR_ELECTRON_INTERNAL_ENERGY])
+
+		#define num_hydro_vars          (6+nDim+num_chem_species)
+	#else
+		#define num_hydro_vars          (5+nDim+num_chem_species)
+	#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 	#define cell_momentum(c,d)		(cell_vars[c][HVAR_MOMENTUM+d])
 
@@ -301,11 +314,11 @@ int tree_num_cells( int c, int level );
 
 #define cell_is_leaf(c)			( cell_child_oct[c] == UNREFINED_CELL )
 #define cell_is_refined(c)		( !cell_is_leaf(c) )
-#define cell_is_root_cell(c)		( c < num_cells_per_level[min_level] + num_buffer_cells[min_level] )
+#define cell_is_root_cell(c)		((c)< num_cells_per_level[min_level] + num_buffer_cells[min_level] )
 #define root_cell_is_local(sfc)		( sfc >= proc_sfc_index[local_proc_id] && sfc < proc_sfc_index[local_proc_id+1] )
-#define cell_parent_oct(c)		( c >> nDim )
-#define oct_child( oct, j )		( oct * num_children + j )
-#define cell_child_number(c)		( c % num_children)
+#define cell_parent_oct(c)		((c)>> nDim )
+#define oct_child( oct, j )		((oct)*num_children + (j) )
+#define cell_child_number(c)		((c) % num_children)
 
 #ifndef min
 #define min(x,y)        (((x) < (y)) ? (x): (y))
