@@ -137,6 +137,8 @@ void set_hydro_tracers( int min_tracer_level ) {
 				id++;
 			}
 		}
+
+		cart_free( level_cells );
 	}
 
 	tracer_list_enabled = 1;
