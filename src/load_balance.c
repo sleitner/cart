@@ -740,6 +740,9 @@ void load_balance() {
 	/* MASTER_NODE determines new splitting of SFC curve */
 	if ( local_proc_id == MASTER_NODE ) {
 		load_balance_entire_volume( global_work, global_constraints, new_proc_sfc_index );
+
+		cart_free( global_work );
+		cart_free( global_constraints );
 	}
 
 	/* tell other processors which cells to expect */
