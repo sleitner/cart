@@ -7,6 +7,7 @@
 #include "timing.h"
 #include "top_level_fft.h"
 
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
 
 /* compute FFT on min_level (WILL BE REWRITTEN!) */
 void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_fft_op worker)
@@ -168,3 +169,5 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 
   cart_debug("done with fft");
 }
+
+#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
