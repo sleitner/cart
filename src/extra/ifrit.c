@@ -3,11 +3,13 @@
 
 #include <mpi.h>
 #include <stdio.h>
-//#include <string.h>
 
 #include "../auxiliary.h"
-//#include "../parallel.h"
 #include "../tree.h"
+
+#ifdef RADIATIVE_TRANSFER
+#include "rt_solver.h"
+#endif
 
 #include "ifrit.h"
 

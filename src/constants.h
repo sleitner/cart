@@ -4,14 +4,14 @@
 #define	year	(3.1558e7)	/* in seconds */
 #define myr	(1e6*year)
 #define gyr	(1e9*year)
-#define pc	(3.0856e18)	/* in cm */
+#define pc	(3.0856775813e18)	/* in cm */
 #define kpc	(1e3*pc)
 #define mpc	(1e6*pc)
 
-#define Msun	(1.991e33)	/* in grams */
-
 #define G	(6.67259e-8)
 #define clight	(2.99792458e10)	/* cm/s */
+
+#define Msun	(1.32712440018e26/G)	/* in grams */
 
 #define Y_p	(0.24)	/* He mass fraction */
 #define wmu	(4.0/(8.0-5.0*Y_p)) /* mol weight */

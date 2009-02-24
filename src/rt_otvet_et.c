@@ -7,6 +7,7 @@
 #include "cell_buffer.h"
 #include "top_level_fft.h"
 #include "tree.h"
+#include "timing.h"
 
 #include "rt_tree.h"
 #include "rt_utilities.h"
@@ -71,7 +72,9 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
 
   if(level == min_level)
     {
+      end_time( WORK_TIMER );
       top_level_fft(RT_VAR_SOURCE,NumVars-1,Vars+1,rtOtvetTopLevelEddingtonTensor);
+      start_time( WORK_TIMER );
 
       /*
       //  Normalize

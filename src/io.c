@@ -701,10 +701,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		}
 
 		/* write jobname to header desc (head of file) */
-		for ( i = 0; i < 45; i++ ) {
-			jobname[i] = " "; /* for fortran version */
-		}
 		snprintf( desc, 45, "%s", jobname );
+		for ( i = strlen(jobname); i < 45; i++ ) {
+			desc[i] = ' '; /* for fortran version */
+		}
+		desc[45] = 0;
 
 		size = sizeof(particle_header)+45;
 		fwrite( &size, sizeof(int), 1, output );
