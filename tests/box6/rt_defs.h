@@ -109,7 +109,7 @@
 /*
 //  Enable computing the evolving cosmic background
 */
-#define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_SELFCONSISTENT
+/* #define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_SELFCONSISTENT */
 
 
 /*

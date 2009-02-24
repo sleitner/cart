@@ -74,6 +74,10 @@ void run_output()
   float dmax;
   char filename[99];
 
+#ifdef RADIATIVE_TRANSFER
+  rtSetTemUnits();
+#endif
+
   bb[0] = 0.0;
   bb[1] = num_grid;
   bb[2] = 0.0;
