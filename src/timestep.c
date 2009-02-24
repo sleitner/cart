@@ -51,7 +51,7 @@ int max_steps = 0;
 int max_cfl_sync_level = min_level;
 
 double cfl = 0.6;
-double cfl_max = 0.8;     /* max allowed, re-do the timestep if that number is exceeded. */
+double cfl_max = 0.6;     /* max allowed, re-do the timestep if that number is exceeded. */
 double particle_cfl = 0.0;
 double max_time_inc = 1.1;
 double min_time_dec = 1.25;
