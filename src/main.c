@@ -40,8 +40,16 @@
 #include "rt_solver.h"
 #endif
 
+#ifdef DEBUG_MEMORY_USE
+void dmuPrintRegistryContents();
+#endif  /* DEBUG_MEMORY_USE */
+
 void init_run();
 void run_output();
+
+int num_options = 0;
+char **options = NULL;
+
 
 int main ( int argc, char *argv[]) {
 	int i, j;
@@ -76,15 +84,28 @@ int main ( int argc, char *argv[]) {
 
 	/* load configuration file */
 	if ( argc < 2 ) {
-		cart_error("Usage: cart configfile [restart flag]");
+		cart_error("Usage: art <config_file> [ restart_flag [ options ] ]");
 	}
 
 	read_config( argv[1] );	
 
 	if ( argc == 2 ) {
 		restart = 0;
+		/* skip config file name */
+		num_options = argc - 2;
+		options = argv + 2;
 	} else {
-		restart = atoi( argv[2] );
+	        if(strcmp(argv[2],"-restart")==0 || strcmp(argv[2],"-r")==0)
+		  {
+		    restart = 1;
+		  }
+		else
+		  {
+		    restart = atoi( argv[2] );
+		  }
+		/* skip config file name and restart flag */
+		num_options = argc - 3;
+		options = argv + 3;
 	}
 
 	/* set up mpi datatypes, timers, units, etc 
@@ -164,7 +185,7 @@ int main ( int argc, char *argv[]) {
 		check_map();
 
 		choose_timestep( &dtl[min_level] );
-		dtl[min_level] *= 0.8;
+		/* dtl[min_level] *= 0.8; */
 		dt = dtl[min_level];
 
 		for ( i = min_level+1; i <= max_level; i++ ) {

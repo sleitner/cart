@@ -4,9 +4,6 @@
 #include "defs.h"
 #include "tree.h"
 
-#ifndef T_max_feedback
-#define T_max_feedback		(1e8)
-#endif
 
 #ifdef STARFORM
 
@@ -63,6 +60,8 @@ extern double E_51;
 extern double t_fb;
 extern double T0_ml;
 extern double c0_ml;
+
+extern double T_max_feedback;
 
 #endif /* STARFORM */
 

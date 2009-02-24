@@ -71,8 +71,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 
 	start_time( IO_TIMER );
 
-#ifdef HYDRO
-	cart_debug("Writing gas restart...");
+	cart_debug("Writing grid restart...");
 	switch(gas_filename_flag)
 	  {
 	  case WRITE_SAVE:
@@ -95,6 +94,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	write_grid_binary2( filename_gas );
 	end_time( GAS_IO_TIMER );
 
+#ifdef HYDRO
 #ifdef HYDRO_TRACERS
 	cart_debug("Writing hydro tracer restart...");
 	switch(tracer_filename_flag)
@@ -165,9 +165,9 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 		sprintf( filename, "%s/restart.dat", output_directory );
 		restart = fopen( filename, "w" );
 
-#ifdef HYDRO
 		fprintf( restart, "%s\n", filename_gas );
 
+#ifdef HYDRO
 #ifdef HYDRO_TRACERS
 		fprintf( restart, "%s\n", filename_tracers );
 #endif /* HYDRO_TRACERS */
@@ -225,8 +225,8 @@ void read_restart( double aexpn ) {
 			sprintf( filename4, "%s/stars.dat", output_directory );
 			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
 		} else {
-#ifdef HYDRO
 			fscanf( restart, "%s\n", filename_gas );
+#ifdef HYDRO
 #ifdef HYDRO_TRACERS
 			fscanf( restart, "%s\n", filename_tracers );
 #endif /* HYDRO_TRACERS */
@@ -249,13 +249,13 @@ void read_restart( double aexpn ) {
 	}
 
 	/* do load balancing */
-	restart_load_balance( filename_gas, filename1, filename2 );	
+	restart_load_balance( filename_gas, filename1, filename2 );
 
-#ifdef HYDRO
-	cart_debug("Reading gas restart...");
+	cart_debug("Reading grid restart...");
 	read_grid_binary2( filename_gas );
 	init_units();
 
+#ifdef HYDRO
 #ifdef HYDRO_TRACERS
 	read_hydro_tracers( filename_tracers );
 #endif /* HYDRO_TRACERS */
@@ -269,17 +269,8 @@ void read_restart( double aexpn ) {
 #ifdef STARFORM
 	read_particles( filename1, filename2, filename3, filename4, 0, NULL );
 #else
-#ifdef HYDRO
 	read_particles( filename1, filename2, filename3, NULL, 0, NULL );
-#else
-	cart_debug("reading in files %s and %s", filename1, filename2 );
-	read_particles( filename1, filename2, NULL, NULL, 0, NULL );
-#endif /* HYDRO */
 #endif /* STARFORM */
-
-#ifndef HYDRO
-	init_units();
-#endif /* HYDRO */
 #endif /* PARTICLES */
 
 	/* ensure current output points to correct place in output array */
@@ -352,6 +343,7 @@ void save_check() {
 #endif /* HYDRO_TRACERS */
 	}
 }
+
 
 void restart_load_balance( char *grid_filename, char *particle_header_filename, char *particle_data ) {
 	int i, j;
@@ -3778,6 +3770,11 @@ void read_gas_ic( char *filename ) {
 		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*wmu/wmu_e;
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 	}
+
+	for ( i = 0; i < nDim; i++ ) {
+		refinement_volume_min[i] = 0.0;
+		refinement_volume_max[i] = num_grid;
+	}
 }
 
 void write_grid_binary( char *filename ) {
@@ -6696,6 +6693,7 @@ void write_hart_gas_binary( char *filename ) {
 	cart_free( cellvars );
 }
 
+#endif  /* HYDRO */
 
 
 /*
@@ -6736,10 +6734,11 @@ void write_grid_binary2( char *filename ) {
 	int proc_num_cells[MAX_PROCS*(max_level-min_level+1)];
 	int file_index, file_parent, file_num_procs;
 
-	int hydro_vars[num_hydro_vars];
+	int hydro_vars[num_hydro_vars+1];
 	int num_other_vars = 0;
 	int *other_vars = 0;
 
+#ifdef HYDRO
 	/*
 	// Maintain the same order as in a previous version
 	*/
@@ -6762,10 +6761,14 @@ void write_grid_binary2( char *filename ) {
 	    hydro_vars[num_hydro_vars-num_chem_species+j] = HVAR_ADVECTED_VARIABLES+j;
 	  }
 #endif /* ADVECT_SPECIES */
+#endif /* HYDRO */
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 #ifdef GRAVITY
-	num_other_vars += 2;
+	num_other_vars++;
+#ifdef HYDRO
+	num_other_vars++;
+#endif /* HYDRO */
 #endif
 #ifdef RADIATIVE_TRANSFER
 	num_other_vars += rt_num_disk_vars;
@@ -6775,8 +6778,11 @@ void write_grid_binary2( char *filename ) {
 
 #ifdef GRAVITY
 	other_vars[0] = VAR_POTENTIAL;
+	k = 1;
+#ifdef HYDRO
 	other_vars[1] = VAR_POTENTIAL_HYDRO;
 	k = 2;
+#endif /* HYDRO */
 #else
 	k = 0;
 #endif
@@ -6925,9 +6931,11 @@ void write_grid_binary2( char *filename ) {
 		/* iSO */
 		size = (maxlevel-minlevel+1) * sizeof(int);
 
+#ifdef HYDRO
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, output);
 		fwrite( &size, sizeof(int), 1, output );
+#endif /* HYDRO */
 
 		/* sfc ordering used */
 		sfc_order = SFC;
@@ -7325,11 +7333,11 @@ void read_grid_binary2( char *filename ) {
 	MPI_Request send_requests[MAX_PROCS];
 	MPI_Status status;
 
-        int hydro_vars[num_hydro_vars];
+        int hydro_vars[num_hydro_vars+1];
         int num_other_vars = 0;
         int *other_vars = 0;
 
-
+#ifdef HYDRO
         /*
         // Maintain the same order as in a previous version
         */
@@ -7349,10 +7357,14 @@ void read_grid_binary2( char *filename ) {
 		hydro_vars[8+j] = HVAR_ADVECTED_VARIABLES+j;
 	}
 #endif /* ADVECT_SPECIES */
+#endif /* HYDRO */
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 #ifdef GRAVITY
-        num_other_vars += 2;
+        num_other_vars++;
+#ifdef HYDRO
+        num_other_vars++;
+#endif /* HYDRO */
 #endif
 #ifdef RADIATIVE_TRANSFER
         num_other_vars += rt_num_disk_vars;
@@ -7362,8 +7374,11 @@ void read_grid_binary2( char *filename ) {
 
 #ifdef GRAVITY
         other_vars[0] = VAR_POTENTIAL;
+	k = 1;
+#ifdef HYDRO
         other_vars[1] = VAR_POTENTIAL_HYDRO;
         k = 2;
+#endif /* HYDRO */
 #else
         k = 0;
 #endif
@@ -7549,6 +7564,7 @@ void read_grid_binary2( char *filename ) {
 		}
 
 		/* iSO */
+#ifdef HYDRO
 		fread( &size, sizeof(int), 1, input );
 		fread( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
@@ -7558,6 +7574,7 @@ void read_grid_binary2( char *filename ) {
 				reorder( (char *)&level_sweep_dir[i], sizeof(int) );
 			}
 		}
+#endif /* HYDRO */
 
 		/* sfc ordering used */
 		fread( &size, sizeof(int), 1, input );
@@ -7628,8 +7645,9 @@ void read_grid_binary2( char *filename ) {
 	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( dtl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( dtl_old, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+#ifdef HYDRO
 	MPI_Bcast( level_sweep_dir, max_level-min_level+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-
+#endif /* HYDRO */
 	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
 
@@ -8539,7 +8557,4 @@ void read_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *inp
       fread( &size, sizeof(int), 1, input );
     }
 }
-
-
-#endif /* HYDRO */
 

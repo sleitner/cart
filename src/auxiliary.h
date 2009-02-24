@@ -17,9 +17,6 @@ int nearest_int( double x );
 
 double cart_rand();
 
-void *cart_alloc( size_t size );
-void cart_free( void *ptr );
-
 void cart_error( const char *fmt, ... );
 
 #ifndef NDEBUG
@@ -59,5 +56,14 @@ void qss_free( qss_system *sys );
 void qs1_step( qss_system *sys, double t, double dt, double yf[], void *params );
 void qsn_step( qss_system *sys, double t, double dt, double yf[], void *params );
 void qss_solve( qss_system *sys, double t_begin, double delta_t, double y[], const double err[], void *params );
+
+/*
+//  Macros for memory leak locating
+*/
+#define cart_alloc(size) cart_alloc_at_location(size,__FILE__,__LINE__)
+
+void *cart_alloc_at_location(size_t size, const char *file, int line);
+void cart_free( void *ptr );
+
 
 #endif

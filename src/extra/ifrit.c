@@ -140,10 +140,12 @@ void extUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, in
 			{
 			  buf[var][l] = cell_var(cell,varid[var]);
 			}
+#ifdef HYDRO
 		      else if(varid[var]>=EXT_FRACTION && varid[var]<EXT_FRACTION+num_vars)
 			{
 			  buf[var][l] = cell_var(cell,varid[var]-EXT_FRACTION)/cell_gas_density(cell);
 			}
+#endif  // HYDRO
 		      else switch(varid[var])
 			{
 #ifdef RADIATIVE_TRANSFER

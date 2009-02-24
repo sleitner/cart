@@ -87,13 +87,14 @@ void read_particles(  char *header_filename, char *data_filename, char *timestep
 void read_particle_header( char *header_filename, particle_header *header, int *endian, int *nbody_flag ); 
 #endif /* PARTICLES */
 
+void write_grid_binary2( char *filename );
+void read_grid_binary2( char *filename );
+
 #ifdef HYDRO
 void read_gas_ic( char *filename );
 void write_grid_binary( char *filename );
-void write_grid_binary2( char *filename );
 void write_hart_gas_binary( char *filename );
 void read_grid_binary( char *filename );
-void read_grid_binary2( char *filename );
 void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_level_to_read );
 
 #ifdef HYDRO_TRACERS

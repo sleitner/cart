@@ -1,7 +1,9 @@
 #ifndef __CONSTANTS_H__
 #define __CONSTANTS_H__
 
-#define	year	(3.1558e7)	/* in seconds */
+/* NG: definitions of pc and GMsun are from http://ssd.jpl.nasa.gov/?constants */
+
+#define	year	(365.25*86400)	/* Julian year in seconds */
 #define myr	(1e6*year)
 #define gyr	(1e9*year)
 #define pc	(3.0856775813e18)	/* in cm */

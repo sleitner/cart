@@ -26,6 +26,12 @@ FILE *dependency;
 FILE *star_log;
 #endif /* STARFORM */
 
+
+#ifdef DEBUG_MEMORY_USE
+unsigned long dmuReportAllocatedMemory();
+#endif  /* DEBUG_MEMORY_USE */
+
+
 void init_logging( int restart ) {
 	int i;
 	char mode[2];
@@ -112,6 +118,9 @@ void init_logging( int restart ) {
 		for ( i = min_level; i <= max_level; i++ ) {
 			fprintf( workload, " num_local_cells[%u] num_buffer_cells[%u]", i, i );
 		}
+#ifdef DEBUG_MEMORY_USE
+		fprintf( workload, " allocated_memory" );
+#endif  /* DEBUG_MEMORY_USE */
 		fprintf( workload, "\n" );
 		fflush(workload);
 	}
@@ -196,6 +205,9 @@ void log_diagnostics() {
 	for ( i = min_level; i <= max_level; i++ ) {
 		fprintf(workload, " %u %u", num_cells_per_level[i], num_buffer_cells[i] );
 	}
+#ifdef DEBUG_MEMORY_USE
+	fprintf( workload, " %lu",dmuReportAllocatedMemory());
+#endif  /* DEBUG_MEMORY_USE */
 	fprintf(workload, "\n");
 	fflush(workload);
 

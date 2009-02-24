@@ -65,6 +65,8 @@ double t_fb = 1000.0;
 double T0_ml = 5.0;
 double c0_ml = 0.05;
 
+double T_max_feedback = 1.0e8;  /* That used to be a define, but it really should be a var */
+
 double eps_SFH2 = 0.01;
 double fH2_SFH2 = 0.1;
 double den_SFH2_eff = 100.0;

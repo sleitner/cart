@@ -25,7 +25,9 @@ int oct_prev[num_octs];
 float oct_pos[num_octs][nDim];
 
 int all_vars[num_vars];
+#ifdef HYDRO
 int all_hydro_vars[num_hydro_vars];
+#endif
 
 /* level linked list variables */
 int num_cells_per_level[max_level-min_level+1];

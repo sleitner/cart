@@ -9,16 +9,6 @@
 #define gamma			(5.0/3.0)
 #define gamma_max		10.0
 
-#ifndef T_min
-#define T_min			( 3.0 )
-#endif
-
-#ifdef PRESSURE_FLOOR
-#ifndef MinL_Jeans
-#define MinL_Jeans		max_level
-#endif
-#endif
-
 #define COPY		0
 #define RESTORE		1
 #define COPY_ZERO_REF	2
@@ -27,10 +17,16 @@
 #define	COPY_SPLIT_NEIGHBORS	1
 #define COPY_NO_SPLIT_NEIGHBORS	2
 
+#ifdef PRESSURE_FLOOR
+extern int pressure_floor_min_level;
 extern float pressure_floor_factor;
+#endif
 
 extern float ref[num_cells];
 extern int level_sweep_dir[max_level-min_level+1];
+
+extern float gas_density_floor;
+extern float gas_temperature_floor;
 
 void hydro_step( int level );
 void hydro_copy_vars( int level, int direction, int cell_type );

@@ -26,9 +26,14 @@
 #define HYDRO_CHUNK_SIZE        65536
 #endif /* HYDRO_CHUNK_SIZE */
 
+#ifdef PRESSURE_FLOOR
+int pressure_floor_min_level = max_level; /* NG: that used to be MinL_Jeans define */
 float pressure_floor_factor = 10.0;
+#endif
 float pressure_floor;
+
 float gas_density_floor = 1e-6;
+float gas_temperature_floor = 3.0;        /* NG: that used ti be T_min define */
 
 float backup_hvars[num_cells][num_hydro_vars-2];
 float ref[num_cells];
@@ -70,7 +75,15 @@ void hydro_step( int level ) {
 	double f[num_hydro_vars-1];
 
 #ifdef PRESSURE_FLOOR
-	if ( level >= MinL_Jeans ) {
+	/*
+	//  Pressure floor modes:
+	//  1. fixed level (if positive)
+	//  2. global max_level_now if 0
+	//  3. global min(-pressure_floor_min_level,max_level_now) if negative
+	*/
+	if ( ( pressure_floor_min_level > 0 && level >= pressure_floor_min_level ) || 
+	     ( pressure_floor_min_level == 0 && level >= max_level_now_global() ) ||
+	     ( pressure_floor_min_level < 0 && level >= min(-pressure_floor_min_level,max_level_now_global()) ) ) {
 		/* artificial pressure floor */
 		pressure_floor = 0.47746 * pressure_floor_factor * aexp[level] * cell_size[max_level]*cell_size[max_level];
 	} else {
@@ -277,7 +290,7 @@ void hydro_magic( int level ) {
 	double kinetic_energy;
 	double thermal_energy;
 
-	Tminc = T_min * aexp[level]*aexp[level] / ( T0 * ( gamma - 1.0 ) );
+	Tminc = gas_temperature_floor * aexp[level]*aexp[level] / ( T0 * ( gamma - 1.0 ) );
 
 	start_time( WORK_TIMER );
 
@@ -456,7 +469,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 
 	fact_nH = log10( 1.12e-5 * hubble * hubble * Omega0 * ( 1.0 - Y_p ) * ai*ai*ai );
 	Tfact = T0 * ( gamma - 1.0 ) / 1e4;
-	e_min = T_min * a1 * a1  / T0 / ( gamma - 1.0 );
+	e_min = gas_temperature_floor * a1 * a1  / T0 / ( gamma - 1.0 );
 
 #pragma omp parallel for default(none), private(icell,i,rhogi,rhog2,rhogl,Zdum,Tfact_cell,e_small), shared(num_level_cells,level_cells,t_begin,t_end,fact_nH,Tfact,e_min,cell_child_oct,cell_vars,a1,afact)
 	for ( i = 0; i < num_level_cells; i++ ) {

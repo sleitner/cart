@@ -19,6 +19,7 @@ extern int grid_output_frequency;
 extern int tracer_output_frequency;
 
 extern double cfl;
+extern double cfl_max;
 extern double particle_cfl;
 extern double max_time_inc;
 extern double min_time_dec;

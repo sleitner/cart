@@ -1,10 +1,11 @@
+#include "defs.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
 
-#include "defs.h"
 #include "units.h"
 #include "timing.h"
 #include "timestep.h"
@@ -14,6 +15,8 @@
 #include "refinement_indicators.h"
 #include "auxiliary.h"
 #include "starformation.h"
+#include "hydro.h"
+
 
 void read_config( char *filename ) {
 	FILE *configfile;
@@ -196,6 +199,16 @@ void read_config( char *filename ) {
 				diffusion_coefficient = atof( value );
 			} else if ( strcmp( tag, "momentum_increment" ) == 0 ) {
 				momentum_increment = atof( value );
+#ifdef HYDRO
+			} else if ( strcmp( tag, "gas_temperature_floor" ) == 0 ) {
+				gas_temperature_floor = atof( value );
+			} else if ( strcmp( tag, "gas_density_floor" ) == 0 ) {
+				gas_density_floor = atof( value );
+#ifdef PRESSURE_FLOOR
+			} else if ( strcmp( tag, "pressure_floor_min_level" ) == 0 ) {
+				pressure_floor_min_level = atoi( value );
+#endif  /* PRESSURE_FLOOR */
+#endif  /* HYDRO */
 #ifdef STARFORM
 			} else if ( strcmp( tag, "alpha_sf" ) == 0 ) {
 				alpha_SF = atof( value );
@@ -237,6 +250,8 @@ void read_config( char *filename ) {
 				T0_ml = atof( value );
 			} else if ( strcmp( tag, "c0_ml" ) == 0 ) {
 				c0_ml = atof( value );
+			} else if ( strcmp( tag, "T_max_feedback" ) == 0 ) {
+				T_max_feedback = atof( value );
 #endif /* STARFORM */
 			} else if ( strcmp( tag, "" ) == 0 ) {
 				/* no tag, just ignore */

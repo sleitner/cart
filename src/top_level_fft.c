@@ -166,8 +166,6 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
   end_time( FFT_UPDATE_TIMER );
 
   end_time( FFT_TIMER );
-
-  cart_debug("done with fft");
 }
 
 #endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */

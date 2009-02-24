@@ -51,6 +51,7 @@ int max_steps = 0;
 int max_cfl_sync_level = min_level;
 
 double cfl = 0.6;
+double cfl_max = 0.8;     /* max allowed, re-do the timestep if that number is exceeded. */
 double particle_cfl = 0.0;
 double max_time_inc = 1.1;
 double min_time_dec = 1.25;
@@ -176,7 +177,7 @@ int timestep( int level, MPI_Comm local_comm )
 		  {
 		    cart_debug("Level %d, # of cells: %d",i,num_cells_per_level[i-min_level]);
 		  }
-        }
+	}
 #endif
 
 	/* 
@@ -260,10 +261,10 @@ int timestep( int level, MPI_Comm local_comm )
 	
 	/* test if timestep is still valid */
 	hydro_timestep( level, &courant_cell, &velocity );
-	dt_needed = cfl * cell_size[level] / velocity;
+	dt_needed = cfl_max * cell_size[level] / velocity;
 
 	/* check for cfl condition violation... */
-	if ( (dtl[level]-dt_needed) > 1e-12 ) {
+	if ( dtl[level] > dt_needed ) {
 		cart_debug("uh oh, violated cfl condition current dt: %0.25e needed %0.25e courant_cell = %u, velocity = %e", 
 			dtl[level], dt_needed, courant_cell, velocity );
 
@@ -421,7 +422,7 @@ void choose_timestep( double *dt ) {
 #endif /* HYDRO */
 
 #ifdef PARTICLES
-	if ( particle_cfl != 0.0 ) {
+	if ( particle_cfl > 0.0 ) {
 		for ( i = 0; i < num_particles; i++ ) {
 			if ( particle_level[i] != FREE_PARTICLE_LEVEL ) {
 				velocity = 0.0;

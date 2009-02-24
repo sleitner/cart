@@ -173,27 +173,6 @@ double cart_rand() {
 	return ret;
 }
 	
-void *cart_alloc( size_t size ) {
-	void *ptr;
-
-	if ( size > 0 ) {
-		ptr = malloc( size );
-
-		if ( ptr == NULL ) {
-			cart_error( "Failure allocating %d bytes", size );
-		}
-
-		return ptr;
-	} else {
-		return NULL;
-	}
-}
-
-void cart_free( void *ptr ) {
-	if ( ptr != NULL ) {
-		free( ptr );
-	}
-}
 
 void cart_error( const char *fmt, ... ) {
 	char message[256];
@@ -392,3 +371,154 @@ void qss_solve( qss_system *sys, double t_begin, double t_end, double y[], const
 		sys->adjust( t, y, params );
 	} while ( t < t_end ); 
 }
+
+
+/*
+//  Changed by Gnedin to catch memory leaks
+*/
+
+#ifdef DEBUG_MEMORY_USE
+void dmuRegister(void *ptr, unsigned long size, const char *file, int line);
+void dmuUnRegister(void *ptr);
+void dmuPrintRegistryContents();
+#endif
+
+
+void* cart_alloc_at_location(size_t size, const char *file, int line)
+{
+  void *ptr;
+
+  if(size > 0)
+    {
+      ptr = malloc( size );
+
+      if(ptr == NULL)
+	{
+#ifdef DEBUG_MEMORY_USE
+	  dmuPrintRegistryContents();
+#endif
+	  cart_error( "Failure allocating %d bytes", size );
+	}
+
+#ifdef DEBUG_MEMORY_USE
+      dmuRegister(ptr,size,file,line);
+#endif
+
+      return ptr;
+    }
+  else
+    {
+      return NULL;
+    }
+}
+
+
+void cart_free(void *ptr)
+{
+  if(ptr != NULL)
+    {
+      free(ptr);
+#ifdef DEBUG_MEMORY_USE
+      dmuUnRegister(ptr);
+#endif
+    }
+}
+
+#ifdef DEBUG_MEMORY_USE
+
+int dmuRegistrySize = 0;
+int dmuNumItems = 0;
+
+struct dmuItem
+{
+  void *Ptr;
+  unsigned long Size;
+  const char *File;
+  int Line
+};
+
+struct dmuItem *dmuRegistry = NULL;
+
+
+void dmuRegister(void *ptr, unsigned long size, const char *file, int line)
+{
+  struct dmuItem *tmp;
+
+  if(dmuNumItems == dmuRegistrySize)
+    {
+      /*
+      //  Extend registry
+      */
+      dmuRegistrySize += 1000;
+      tmp = malloc(dmuRegistrySize*sizeof(struct dmuItem));
+      if(tmp == NULL)
+	{
+	  cart_error( "DMU: failure extendion allocation registry to %d items, %d bytes",dmuRegistrySize,dmuRegistrySize*sizeof(struct dmuItem));
+	}
+      if(dmuNumItems > 0)
+	{
+	  memcpy(tmp,dmuRegistry,dmuNumItems*sizeof(struct dmuItem));
+	  free(dmuRegistry);
+	}
+      dmuRegistry = tmp;
+    }
+      
+  dmuRegistry[dmuNumItems].Ptr = ptr;
+  dmuRegistry[dmuNumItems].Size = size;
+  dmuRegistry[dmuNumItems].File = file;
+  dmuRegistry[dmuNumItems].Line = line;
+  dmuNumItems++;
+}
+
+
+void dmuUnRegister(void *ptr)
+{
+  int i, j;
+  
+  for(i=0; i<dmuNumItems; i++)
+    {
+      if(dmuRegistry[i].Ptr == ptr) break;
+    }
+
+  if(i == dmuNumItems)
+    {
+      cart_error("DMU: freeing unregistered pointer %x",ptr);
+    }
+
+  for(j=i; j<dmuNumItems-1; j++)
+    {
+      dmuRegistry[j] = dmuRegistry[j+1];
+    }
+  dmuNumItems--;
+}
+
+
+void dmuPrintRegistryContents()
+{
+  int i;
+  unsigned long tot = 0UL;
+
+  for(i=0; i<dmuNumItems; i++)
+    {
+      cart_debug("DMU: ptr=%p, size=%lu, file=%s, line=%d",dmuRegistry[i].Ptr,dmuRegistry[i].Size,dmuRegistry[i].File,dmuRegistry[i].Line);
+      tot += dmuRegistry[i].Size;
+    }
+
+  cart_debug("DMU: total allocated size=%lu",tot);
+}
+
+
+unsigned long dmuReportAllocatedMemory()
+{
+  int i;
+  unsigned long tot = 0UL;
+
+  for(i=0; i<dmuNumItems; i++)
+    {
+      tot += dmuRegistry[i].Size;
+    }
+
+  return tot;
+}
+
+#endif  /* DEBUG_MEMORY_USE */

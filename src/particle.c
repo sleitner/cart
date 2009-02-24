@@ -16,6 +16,8 @@
 #include "sfc.h"
 #include "units.h"
 #include "starformation.h"
+#include "refinement_indicators.h"
+
 
 #ifdef PARTICLES
 int num_row;
@@ -96,10 +98,12 @@ void init_particles() {
 	particle_list_enabled = 0;
 }
 
+
+double T_fact;  /* must be here to simply OpenMP directives */
 #ifdef STARFORM
 
 #ifdef FEEDBACK
-double cfbe, t_fb_code, T_fact, efact;
+double cfbe, t_fb_code, efact;
 #ifdef FEEDBACK_SNIa
 double t_SNIa_code, R_SNIa_fact, cfbeIa;
 #ifdef ENRICH_SNIa
@@ -1317,6 +1321,73 @@ int particle_specie( int id ) {
 	}
 
 	return specie;
+}
+
+
+void build_mesh() {
+	int i,j;
+	int level, cell;
+	int total_cells_per_level[max_level-min_level+1];
+	float refmin[nDim];
+        float refmax[nDim];
+
+	for ( i = 0; i < nDim; i++ ) {
+		refmin[i] = num_grid+1.0;
+		refmax[i] = -1.0;
+
+		for ( j = 0; j < num_local_particles; j++ ) {
+			if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
+					particle_id[j] < particle_species_indices[1] ) {
+				if ( particle_x[j][i] < refmin[i] ) {
+					refmin[i] = particle_x[j][i];
+				}
+
+				if ( particle_x[j][i] > refmax[i] ) {
+					refmax[i] = particle_x[j][i];
+				}
+			}
+		}
+
+		refmin[i] = floor(refmin[i]);
+		refmax[i] = ceil(refmax[i]);
+	}
+
+	MPI_Allreduce( refmin, refinement_volume_min, nDim, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD );
+	MPI_Allreduce( refmax, refinement_volume_max, nDim, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD );
+
+	for ( i = 0; i < nDim; i++ ) {
+		cart_debug("refinement_volume[%u] = %e %e", i, refinement_volume_min[i], refinement_volume_max[i] );
+	}
+
+	build_cell_buffer();
+	repair_neighbors();
+
+	/* do initial refinement */
+	level = min_level;
+	total_cells_per_level[min_level] = num_root_cells;
+	while ( level < max_level && total_cells_per_level[level] > 0 ) {
+		cart_debug("assigning density to level %u", level );
+		assign_density(level);
+		cart_debug("refining level %u, num_cells_per_level = %d", level, num_cells_per_level[level] );
+		modify( level, 0 );
+		cart_debug("done refining level %u, created %u new cells", 
+				level, num_cells_per_level[level+1] );
+		MPI_Allreduce( &num_cells_per_level[level+1], &total_cells_per_level[level+1], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
+		level++;
+	
+		if ( local_proc_id == MASTER_NODE ) {
+			cart_debug("level %u: %u cells", level, total_cells_per_level[level] );
+		}
+
+		for(j=0; j<num_local_particles; j++) if(particle_level[j] != FREE_PARTICLE_LEVEL)
+		  {
+		    cell = cell_find_position_above_level(level,particle_x[j]);
+		    cart_assert(cell > -1);
+		    particle_level[j] = cell_level(cell);
+		  }
+
+		load_balance();
+	}
 }
 
 #endif /* PARTICLES */

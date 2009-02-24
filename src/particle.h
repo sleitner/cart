@@ -62,6 +62,7 @@ void particle_list_free( int ihead );
 void particle_move( int ipart_old, int ipart_new );
 
 void init_particles();
+void build_mesh();
 
 void move_particles( int level );
 void update_particle_list( int level );

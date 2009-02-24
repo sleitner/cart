@@ -26,7 +26,7 @@ void init_run()
 {
   if(local_proc_id == MASTER_NODE)
     {
-      cart_error("This is the analysis utility. It must be run in restart mode.");
+      cart_error("This is the analysis utility. It must be run in a restart mode.");
     }
 }
 

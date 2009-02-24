@@ -231,7 +231,9 @@
 #define num_vars	(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
 
 extern int all_vars[num_vars];
+#ifdef HYDRO
 extern int all_hydro_vars[num_hydro_vars];
+#endif /* HYDRO */
 
 #define cell_var(c,v)	(cell_vars[c][v])
 

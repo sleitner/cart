@@ -452,7 +452,7 @@ void rtUnPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c
   /*
   //  Unpack elemental abundances 
   */
-  cell_gas_internal_energy(cell) = max(T_min,rVar[IVAR_Ein])*rPar[IPAR_RHO]/uTem;
+  cell_gas_internal_energy(cell) = max(gas_temperature_floor,rVar[IVAR_Ein])*rPar[IPAR_RHO]/uTem;
   cell_gas_energy(cell) = cell_gas_kinetic_energy(cell) + cell_gas_internal_energy(cell);
   cell_HI_density(cell) = rVar[IVAR_XHI]*rPar[IPAR_RHO];
   cell_HII_density(cell) = rVar[IVAR_XHII]*rPar[IPAR_RHO];

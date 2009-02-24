@@ -63,6 +63,10 @@ C
       call frtLW_ReadData(guvLW0)
 #endif
 #endif
+C
+C  Some extra initialization to avoid division by zero
+C
+      aStep = 1
 
       return
       end
@@ -434,33 +438,6 @@ C
       call frtAdvanceBackground(lshift,xib,axi,sxi,angLoc)
 #endif
 C
-C  Total
-C
-C$OMP PARALLEL DO DEFAULT(NONE),
-C$OMP+PRIVATE(lr),
-C$OMP+SHARED(angUni,angLoc,angAvg)
-      do lr=1,NRAD
-         angAvg(lr) = angUni(lr) + angLoc(lr)
-      enddo
-
-      axiH1tr = axi(lrH1tr)
-      angH1tr = angAvg(lrH1tr)
-
-#ifdef RT_DEBUG
-      call frtQueryId(id)
-      if(id .eq. 0) then
-         fac = 1.59e-17/aStep**3
-         write(6,*) 'RT: <abs_HI> = ', axiH1tr, axiH1tr/csH1tr/CRAD2
-         write(6,*) 'RT: <PIR_HI> = ', 
-     .        angUni(lrH1tr)*csH1tr*facPhot, 
-     .        angLoc(lrH1tr)*csH1tr*facPhot
-         write(6,*) 'RT: <Jnu_HI> = ', 
-     .        angUni(lrH1tr)*fac, angLoc(lrH1tr)*fac
-         write(6,*) 'RT: <Jnu_LW> = ', 
-     .        angUni(lrH1tr-1)*fac, angLoc(lrH1tr-1)*fac
-      endif
-#endif
-C
 C  Do Lyman-Werner bands separately
 C
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
@@ -519,13 +496,40 @@ C
 
 #else /* RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT */
 
-      call frtSetExternalBackground(aStep,ang)
+      call frtSetExternalBackground(aStep,angUni,angLoc)
 
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
       call frtSetExternalBackgroundLW(aStep,angLW)
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
 
 #endif /* RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT */
+C
+C  Total
+C
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(angUni,angLoc,angAvg)
+      do lr=1,NRAD
+         angAvg(lr) = angUni(lr) + angLoc(lr)
+      enddo
+
+      axiH1tr = axi(lrH1tr)
+      angH1tr = angAvg(lrH1tr)
+
+#ifdef RT_DEBUG
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         fac = 1.59e-17/aStep**3
+         write(6,*) 'RT: <abs_HI> = ', axiH1tr, axiH1tr/csH1tr/CRAD2
+         write(6,*) 'RT: <PIR_HI> = ', 
+     .        angUni(lrH1tr)*csH1tr*facPhot, 
+     .        angLoc(lrH1tr)*csH1tr*facPhot
+         write(6,*) 'RT: <Jnu_HI> = ', 
+     .        angUni(lrH1tr)*fac, angLoc(lrH1tr)*fac
+         write(6,*) 'RT: <Jnu_LW> = ', 
+     .        angUni(lrH1tr-1)*fac, angLoc(lrH1tr-1)*fac
+      endif
+#endif
 #endif /* RT_EXTERNAL_BACKGROUND */
 
       return
@@ -606,6 +610,30 @@ C
      .        iLen*log10(uLen) + iTime*log10(uTime)
       else
          frtLogWithUnits = -1000
+      endif
+
+      return
+      end
+C
+C
+C
+      subroutine frtQueryBackground(n,wlen,ajnu,aexp)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      dimension wlen(*), ajnu(*)
+
+      if(n .ne. NRAD) then
+         n = NRAD
+      else
+         if(aexp .lt. 1.0e-30) then
+            uJnu = 1.5808e-17/aStep**3
+         else
+            uJnu = 1.5808e-17/aexp**3
+         endif
+         do lr=1,NRAD
+            wlen(lr) = 911.75*exp(-xig(lr))
+            ajnu(lr) = uJnu*angAvg(lr)
+         enddo
       endif
 
       return
