@@ -19,7 +19,6 @@
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -28,6 +27,10 @@
 #include "density.h"
 #include "io.h"
 #include "auxiliary.h"
+
+#ifdef VIEWDUMP
+#include "extras/viewdump.h"
+#endif
 
 #define t_start		(-0.1)
 #define refine_radius	(4.5)
@@ -305,8 +308,10 @@ void run_output() {
 		fclose(SEDOV);
 	}
 
+#ifdef VIEWDUMP
 	sprintf(filename, "%s/%s_%04u.v", output_directory, jobname, step );
         viewdump( filename, max_level, ((float)(num_grid)/2.0)+0.5*cell_size[max_level], 2, DUMP_HVARS, CELL_TYPE_LOCAL );
+#endif
 
 #ifdef HYDRO_TRACERS
 	sprintf( filename, "%s/tracers_%04u.dat", output_directory, step );
