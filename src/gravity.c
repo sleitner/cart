@@ -919,15 +919,14 @@ void compute_accelerations_hydro( int level ) {
 	int *level_cells;
 
 	start_time( HYDRO_ACCEL_TIMER );
+	start_time( WORK_TIMER );
 
 #ifdef COSMOLOGY
 	a2half = b2a( tl[level] + 0.5*dtl[level] );
-	a2half = a2half*a2half * -0.5*dtl[level]*cell_size_inverse[level];
+	a2half = -0.5*dtl[level]*cell_size_inverse[level]*a2half*a2half;
 #else
-	a2half = 0.5 * dtl[level] * cell_size_inverse[level];
+	a2half = -0.5*dtl[level]*cell_size_inverse[level];
 #endif 
-
-	start_time( WORK_TIMER );
 
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half)
