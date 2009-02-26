@@ -32,7 +32,6 @@
 #include "extras/viewdump.h"
 #endif
 
-#define t_start		(-0.1)
 #define refine_radius	(4.5)
 #define r0		(1.0/((float)num_grid))
 #define sedov_radius	(cell_size[max_level]/(float)num_grid)
@@ -293,7 +292,7 @@ void run_output() {
 	MPI_Reduce( avgs, reduced_avgs, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
 
 	if ( local_proc_id == MASTER_NODE ) {
-		sprintf(filename, "%s/%s_[%5.4f].dat", output_directory, jobname, tl[min_level]-t_start );
+		sprintf(filename, "%s/%s_[%5.4f].dat", output_directory, jobname, tl[min_level]-t_init );
 
 		SEDOV = fopen(filename,"w");
 		for ( i = 0; i < num_bins/2; i++ ) {
@@ -327,14 +326,8 @@ void init_run() {
 	int ioct;
 	int num_level_cells;
 	int *level_cells;
-        int all_hydro_vars[num_hydro_vars];
 	char filename[128];
 	int min_index, max_index;
-
-        /* create array with all hydro variable indices */
-        for ( i = 0; i < num_hydro_vars; i++ ) {
-                all_hydro_vars[i] = HVAR_GAS_DENSITY + i;
-        }
 
 	for ( i = 0; i < nDim; i++ ) {
 		refinement_volume_min[i] = 0.0;
@@ -384,16 +377,10 @@ void init_run() {
 	cart_debug("done updating initial conditions");
 
 	/* set time variables */
-	tl[min_level] = t_start;
-
+	tl[min_level] = t_init;
 	dtl[min_level] = 0.0;
 	choose_timestep( &dtl[min_level] );
-
-#ifdef COSMOLOGY
-	aexp[min_level] = b2a( tl[min_level] );
-#else
 	aexp[min_level] = 1.0;
-#endif
 
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		dtl[level] = 0.5*dtl[level-1];
@@ -404,6 +391,4 @@ void init_run() {
 	cart_debug("done with initialization");
 
 	check_map();
-
-	run_output();
 }
