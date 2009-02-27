@@ -316,8 +316,8 @@ void hydro_magic( int level ) {
 				cart_error("aborting...");
 #endif
 
-				for ( i = 0; i < num_hydro_vars; i++ ) {
-					cart_debug("hydro var %u: %e", i, cell_hydro_variable( icell, i ) );
+				for ( j = 0; j < num_hydro_vars; j++ ) {
+					cart_debug("hydro var %u: %e", j, cell_hydro_variable( icell, j ) );
 				}	
 	
 				cell_gas_density(icell) = max( average_density/(float)num_neighbors, 
@@ -364,7 +364,7 @@ void hydro_eos( int level ) {
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,i,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
+#pragma omp parallel for default(none), private(i,icell,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 

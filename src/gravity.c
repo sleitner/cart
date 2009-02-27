@@ -929,7 +929,7 @@ void compute_accelerations_hydro( int level ) {
 #endif 
 
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half)
+#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half,local)
         for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
