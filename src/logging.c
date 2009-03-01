@@ -80,7 +80,7 @@ void init_logging( int restart ) {
 			cart_error("Unable to open %s for writing!", filename );
 		}
 
-		if ( !restart ) {
+		if ( !restart || restart == 2 ) {
 			fprintf(star_log, "# step t dt aexp t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
 		}
 #endif /* STARFORM */

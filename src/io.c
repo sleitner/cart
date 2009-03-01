@@ -2480,10 +2480,12 @@ void read_particles( char *header_filename, char *data_filename,
 
 			fread( &size, sizeof(int), 1, timestep_input );
 
-			if ( size != num_particles_total * sizeof(int) ) {
+			if ( num_particles_total > (1<<29) ) {
+				dt_endian = endian;
+			} else 	if ( size != num_particles_total * sizeof(int) ) {
 				reorder( (char *)&size, sizeof(int) );
 
-				if ( size != num_particles_total * sizeof(int) ) {
+				if ( num_particles_tosize != num_particles_total * sizeof(int) ) {
 					cart_error("Error: particle dt file %s is corrupt.", timestep_filename );
 				} else {
 					dt_endian = 1;
