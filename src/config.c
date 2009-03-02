@@ -98,10 +98,10 @@ void read_config( char *filename ) {
 				
 			} else if ( strcmp( tag, "a_init" ) == 0 ) {
 				a_init = atof( value );
-				t_init = b2a( a_init );	
+				t_init = a2b( a_init );	
 			} else if ( strcmp( tag, "a_end" ) == 0 ) {
 				a_end = atof( value );
-				t_end = b2a( a_end );
+				t_end = a2b( a_end );
 			} else if ( strcmp( tag, "t_init" ) == 0 ) {
 				t_init = atof( value );
 				#ifdef COSMOLOGY
