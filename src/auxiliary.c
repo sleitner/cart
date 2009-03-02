@@ -434,7 +434,7 @@ struct dmuItem
   void *Ptr;
   unsigned long Size;
   const char *File;
-  int Line
+  int Line;
 };
 
 struct dmuItem *dmuRegistry = NULL;
