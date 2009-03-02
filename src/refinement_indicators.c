@@ -132,7 +132,7 @@ float contact_discontinuity_indicator( int cell, int level ) {
                         	        cell_gas_pressure( neighbors[2*i+1] ) );
                                                                                              
 	                if ( dp < 10.0 && drho[i] >= 0.6 ) {
-        	                indicator = max( refinement_indicator_weight[SHOCK_INDICATOR], indicator );
+        	                indicator = max( refinement_indicator_weight[CONTACT_DISCONTINUITY_INDICATOR], indicator );
 	                }
 		}
         }
