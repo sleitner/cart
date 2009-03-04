@@ -576,9 +576,9 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 					cell_work[index] += cost_per_cell*cellrefined[j];
 					index++;
 				}
-			}
 
-			cart_free( cellrefined );
+				cart_free( cellrefined );
+			}
 		} else {
 			for ( index = 0; index < num_root_cells; index++ ) {
 				constrained_quantities[num_constraints*index] = 1;
@@ -724,7 +724,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 
 			output_times = cart_alloc( num_parts_per_page*sizeof(float) );
 
-			for ( i = 0; i < num_procs; i++ ) {
+			for ( i = 1; i < num_procs; i++ ) {
 				timestep_page[i] = cart_alloc( num_parts_per_proc_page*sizeof(float) );
 			}
 		}
@@ -957,7 +957,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			fclose( timestep_output );
 			cart_free( output_times );
 
-			for ( i = 0; i < num_procs; i++ ) {
+			for ( i = 1; i < num_procs; i++ ) {
 				cart_free( timestep_page[i] );
 			}
 		}
@@ -1971,7 +1971,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				first_star++;
 			}
 
-			star_page[local_proc_id] = cart_alloc( num_parts_per_page * sizeof(float) );
+			star_page[local_proc_id] = cart_alloc( num_parts_per_proc_page * sizeof(float) );
 
 			/* send stellar mass (pw) */
 			num_parts = first_star;

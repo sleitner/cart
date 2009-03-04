@@ -65,5 +65,9 @@ void qss_solve( qss_system *sys, double t_begin, double delta_t, double y[], con
 void *cart_alloc_at_location(size_t size, const char *file, int line);
 void cart_free( void *ptr );
 
+#ifdef DEBUG_MEMORY_USE
+void dmuPrintRegistryContents();
+unsigned long dmuReportAllocatedMemory();
+#endif
 
 #endif

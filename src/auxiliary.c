@@ -402,6 +402,14 @@ void* cart_alloc_at_location(size_t size, const char *file, int line)
 
 #ifdef DEBUG_MEMORY_USE
       dmuRegister(ptr,size,file,line);
+
+#ifdef DEBUG_MEMORY_USE_VERBOSE
+	/* if allocating significant chunk (i.e. not skiplist nodes, report it */
+	if ( size > 65536 ) {
+		cart_debug("allocated %d bytes, %ld total", size,
+			dmuReportAllocatedMemory() );
+	}
+#endif
 #endif
 
       return ptr;

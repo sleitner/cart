@@ -105,14 +105,14 @@ void read_config( char *filename ) {
 			} else if ( strcmp( tag, "t_init" ) == 0 ) {
 				t_init = atof( value );
 				#ifdef COSMOLOGY
-					a_init = a2b( t_init );
+					a_init = b2a( t_init );
 				#else
 					a_init = 1.0;
 				#endif
 			} else if ( strcmp( tag, "t_end" ) == 0 ) {
 				t_end = atof( value );
 				#ifdef COSMOLOGY
-					a_end = a2b( t_end );
+					a_end = b2a( t_end );
 				#else
 					a_end = 1.0;
 				#endif
