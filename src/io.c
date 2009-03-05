@@ -877,8 +877,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 								MPI_Get_count( &status, MPI_INT, &count[proc] );
 								MPI_Recv( page[proc], 2*nDim*num_parts_per_proc_page, 
 									MPI_PARTICLE_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
-								MPI_Recv( timestep_page[proc], num_parts_per_proc_page,
-									MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+
+								if ( timestep_filename != NULL ) {
+									MPI_Recv( timestep_page[proc], num_parts_per_proc_page,
+											MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+								}
 
 								pos[proc] = 0;
 								pages[proc]++;
@@ -1924,7 +1927,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		pages[local_proc_id] = 0;
 
 		if ( timestep_filename != NULL ) {
-			timestep_page[local_proc_id] = cart_alloc( num_parts_per_page*sizeof(float) );
+			timestep_page[local_proc_id] = cart_alloc( num_parts_per_proc_page*sizeof(float) );
 		}	
 
 		num_parts = 0;

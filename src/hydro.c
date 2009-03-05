@@ -199,8 +199,9 @@ void hydro_sweep_1d( int level ) {
 				count++;
 			}
 
-			if ( L1 != -1 && cell_level(L1) == level - 1 &&
-					( cell_is_local(icell) || cell_is_local(L1) ) ) {
+			if ( ( level == min_level && !cell_is_local(L1) ) || 
+					( L1 != -1 && cell_level(L1) == level - 1 && 
+					( cell_is_local(icell) || cell_is_local(L1) ) ) ) {
 
 				L2 = cell_neighbor( L1, reverse_direction[sweep_direction] );
 
