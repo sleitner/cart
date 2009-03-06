@@ -567,7 +567,7 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 
 				if ( endian ) {
 					for ( j = 0; j < size; j++ ) {
-						reorder( (char *)&cellrefined, sizeof(int) );
+						reorder( (char *)&cellrefined[j], sizeof(int) );
 					}
 				}
 
@@ -6213,7 +6213,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 			if ( endian ) {
 				for ( level = minlevel; level <= maxlevel; level++ ) {
-					reorder( (char *)&cells_per_level, sizeof(int) );
+					reorder( (char *)&cells_per_level[level], sizeof(int) );
 				}
 			}
 
