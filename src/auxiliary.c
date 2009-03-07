@@ -457,7 +457,7 @@ void dmuRegister(void *ptr, unsigned long size, const char *file, int line)
       /*
       //  Extend registry
       */
-      dmuRegistrySize += 1000;
+      dmuRegistrySize *= 2;
       tmp = malloc(dmuRegistrySize*sizeof(struct dmuItem));
       if(tmp == NULL)
 	{
