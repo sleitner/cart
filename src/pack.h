@@ -27,6 +27,7 @@ typedef struct PACK {
 
 pack *pack_init( int cell_type );
 void pack_destroy( pack *p );
+void pack_add_root_trees( pack *p, int *new_proc_sfc_index, int sfc1, int sfc2 );
 void pack_add_root_tree( pack *p, int proc, int sfc );
 void pack_apply( pack *p );
 void pack_communicate( pack *p );

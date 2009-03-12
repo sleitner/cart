@@ -69,10 +69,57 @@ int cell_count_with_pruning( int c ) {
 	return count;
 }
 
+void pack_add_root_trees( pack *p, int *new_proc_sfc_index, int sfc1, int sfc2 ) {
+	int j;
+	int proc;
+	int block_count;
+	int a, b, c;
+	int sfc = sfc1;
+
+	cart_assert( sfc1 <= sfc2 );
+
+	/* find processor for sfc1 */
+	if ( sfc < new_proc_sfc_index[local_proc_id] ) {
+		a = 0;
+		b = local_proc_id-1;
+	} else if ( sfc >= new_proc_sfc_index[local_proc_id+1] ) {
+		a = local_proc_id + 1;
+		b = num_procs-1;
+	} else {
+		cart_error("pack_add_root_trees called with new local sfc index!");
+	}
+
+	/* do binary search between procs a & b */
+	while ( a != b ) {
+		c = ( a + b + 1) / 2;
+
+		if ( sfc < new_proc_sfc_index[c] ) {
+			b = c-1;
+		} else {
+			a = c;
+		}
+	}
+
+	proc = a;
+
+	while ( sfc < sfc2 ) {
+		block_count = min( sfc2, new_proc_sfc_index[proc+1] ) - sfc;
+		
+		for ( j = sfc; j < sfc+block_count; j++ ) {
+			pack_add_root_tree(p, proc, j);
+		}
+
+		sfc += block_count;
+		proc++;
+	}
+
+	cart_assert( sfc == sfc2 );
+}
+
 
 void pack_add_root_tree( pack *p, int proc, int sfc ) {
 	cart_assert( p != NULL );
-	cart_assert( proc >= 0 && proc < num_procs );
+	cart_assert( proc >= 0 && proc < num_procs && proc != local_proc_id );
 	cart_assert( sfc >= 0 && sfc < max_sfc_index );
 
 	if ( skiplist_insert( p->tree_list[proc], sfc ) ) {

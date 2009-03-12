@@ -586,10 +586,10 @@ void load_balance_entire_volume( float *global_work,
 		}
 
 		total_work += current_work;
-		cart_debug("new_proc_sfc_index[%u] = %u, %u, %u, work = %e %d %d", i, 
+		cart_debug("new_proc_sfc_index[%u] = %u, %u, %u, work = %e %d", i, 
 				new_proc_sfc_index[i], new_proc_sfc_index[i+1], 
 				new_proc_sfc_index[i+1]-new_proc_sfc_index[i],
-				current_work, sum_constraints[0], sum_constraints[1] );
+				current_work, sum_constraints[0] );
 	}
 
 	cart_debug("total work = %e", total_work );
@@ -764,18 +764,22 @@ void load_balance() {
 	transfer_cells = pack_init( CELL_TYPE_LOCAL );
 
 	/* pack cells to move */
-	for ( i = proc_sfc_index[local_proc_id]; i < proc_sfc_index[local_proc_id+1]; i++ ) {
-		/* find where root cell is now */
-		for ( j = -1; j < num_procs - 1; j++ ) {
-			if ( i < new_proc_sfc_index[j+1] ) {
-				break;
-			}
+	if ( new_proc_sfc_index[local_proc_id] <= proc_sfc_index[local_proc_id] ) {
+		if ( new_proc_sfc_index[local_proc_id+1] < proc_sfc_index[local_proc_id+1] ) {
+			pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
+				max( proc_sfc_index[local_proc_id], new_proc_sfc_index[local_proc_id+1] ),
+				proc_sfc_index[local_proc_id+1] );
+				
 		}
+	} else {
+		pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
+			proc_sfc_index[local_proc_id], 
+			min( new_proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1] ) );
 
-		cart_assert( j >= 0 && j < num_procs );
-
-		if ( j != local_proc_id ) {
-			pack_add_root_tree( transfer_cells, j, i );
+		if ( new_proc_sfc_index[local_proc_id+1] < proc_sfc_index[local_proc_id+1] ) {
+			pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
+				new_proc_sfc_index[local_proc_id+1],
+				proc_sfc_index[local_proc_id+1] );
 		}
 	}
 
@@ -790,7 +794,7 @@ void load_balance() {
 	}
 
         /* make transfer official */
-	for ( i = 0; i <= num_procs+1; i++ ) {
+	for ( i = 0; i < num_procs+1; i++ ) {
 		old_proc_sfc_index[i] = proc_sfc_index[i];
 		proc_sfc_index[i] = new_proc_sfc_index[i];
 	}
