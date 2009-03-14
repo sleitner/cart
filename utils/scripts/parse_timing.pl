@@ -52,18 +52,14 @@ while ( $line = <FILE> ) {
 
 	print "Step: $step total time: $current_step\n";
 
-	#	for $timer ( 0 .. $num_timers-1 ) {
-	#		$current_timers[$level*$num_timers + $timer] -=
-	#			$current_timers[($level+1)*$num_timers + $timer];
-	#	}
-	#}
-
 	for $timer ( 0 .. $num_timers-1 ) {
 		printf "%30s", $timer_labels[$timer];
+		$sum = 0;
 		for $level ( 0 .. $num_levels-1 ) {
-			printf " %7.3f", $current_timers[$level*$num_timers + $timer];
+			printf " %10.3f", $current_timers[$level*$num_timers + $timer];
+			$sum += $current_timers[$level*$num_timers + $timer];
 		}
-		print "\n";
+		printf "%10.3f %6.2f\n", $sum, 100.0*$sum/$current_step;
 	}
 }
 

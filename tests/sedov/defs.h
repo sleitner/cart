@@ -8,8 +8,7 @@
 #define MOMENTUM_DIFFUSION
 
 #define num_root_grid_refinements	6
-#define num_refinement_levels		0
-#define num_octs			500000	/* suitable for no refinement */
-#define T_min				(0.0)
+#define num_refinement_levels		3
+#define num_octs			2000000	/* suitable for no refinement */
 
 #endif

@@ -8,10 +8,14 @@ include $(TOP_DIR)/Make.config
 
 compile:	sedov
 
-run:
+run: dumps sedov
+	mpirun -np 1 ./sedov sedov.cfg
+	
+dumps:
+	@mkdir dumps
 
 sedov: .obj $(OBJS) defs.h start_sedov.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_sedov.c -o sedov $(LIBS) $(EXTRALIBS)
 
 clean:
-	@rm -f $(OBJS) sedov core
+	@rm -rf $(OBJS) dumps sedov core

@@ -65,22 +65,18 @@ void refine_level( int cell, int level ) {
 	}
 }
 	
-double sedov_function( double r ) {
-	return exp( -r*r / (2.0*sedov_radius*sedov_radius ) );
-}
-
-void sedov_initial_conditions( int cell ) {
+void sedov_initial_conditions( int icell ) {
 	float r;
 	float pos[nDim];
 	
-	cell_gas_density(cell) = 1.0/rho0;
-	cell_momentum(cell,0) = 0.0;
-	cell_momentum(cell,1) = 0.0;
-	cell_momentum(cell,2) = 0.0;
-	cell_gas_gamma(cell) = (5.0/3.0);
+	cell_gas_density(icell) = 1.0/rho0;
+	cell_momentum(icell,0) = 0.0;
+	cell_momentum(icell,1) = 0.0;
+	cell_momentum(icell,2) = 0.0;
+	cell_gas_gamma(icell) = gamma;
 
 	/* now add some energy  */
-	cell_position(cell, pos);
+	cell_position(icell, pos);
 
 	pos[0] -= ((float)num_grid/2.0);
 	pos[1] -= ((float)num_grid/2.0);
@@ -89,34 +85,23 @@ void sedov_initial_conditions( int cell ) {
 	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2])*r0;
 
 	if ( r <= 4.0*r0*cell_size[min_level] ) {
-		cell_gas_pressure(cell) = sedov_function(r);
+		cell_gas_pressure(icell) = exp( -r*r / (2.0*sedov_radius*sedov_radius ) );
 	} else {
-		cell_gas_pressure(cell) = 0.0;
+		cell_gas_pressure(icell) = 0.0;
 	}
 
-	cell_gas_internal_energy(cell) = cell_gas_pressure(cell) / (cell_gas_gamma(cell)-1.0);
-	cell_gas_energy(cell) = cell_gas_internal_energy(cell);
+	cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (gamma-1.0);
+	cell_gas_energy(icell) = cell_gas_internal_energy(icell);
 }
 
-double scale_energy;
-void sedov_scale_initial_conditions( int cell ) {
-	cell_gas_internal_energy(cell) = cell_gas_internal_energy(cell)*scale_energy + (p0) / ( (cell_gas_gamma(cell)-1.0) );
-	cell_gas_pressure(cell) = cell_gas_internal_energy(cell) * ( (cell_gas_gamma(cell)-1.0) );
-	cell_gas_energy(cell) = cell_gas_internal_energy(cell);		
-}
-
-void sedov_sum_energy( int cell, int level ) {
-	if ( cell_is_leaf(cell) ) {
-		scale_energy += cell_gas_internal_energy(cell)*cell_volume[level];
-	}
-}
-
-void set_sedov_initial_conditions(void) {
+void set_sedov_initial_conditions() {
 	int i;
+	int icell;
 	int level;
 	int num_level_cells;
 	int *level_cells;
 	double scale;
+	double scale_energy;
 
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -130,7 +115,11 @@ void set_sedov_initial_conditions(void) {
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 		for ( i = 0; i < num_level_cells; i++ ) {
-			sedov_sum_energy( level_cells[i], level );
+			icell = level_cells[i];
+
+			if ( cell_is_leaf(icell) ) {
+				scale_energy += cell_gas_internal_energy(icell)*cell_volume[level];
+			}
 		}
 		cart_free( level_cells );
 	}
@@ -142,8 +131,14 @@ void set_sedov_initial_conditions(void) {
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 		for ( i = 0; i < num_level_cells; i++ ) {
-			sedov_scale_initial_conditions( level_cells[i] );
+			icell = level_cells[i];
+
+			cell_gas_internal_energy(icell) = cell_gas_internal_energy(icell)*scale_energy + 
+								p0 / ( (cell_gas_gamma(icell)-1.0) );
+			cell_gas_pressure(icell) = cell_gas_internal_energy(icell) * ( (cell_gas_gamma(icell)-1.0) );
+			cell_gas_energy(icell) = cell_gas_internal_energy(icell);
 		}
+	
 		cart_free( level_cells );
 	}
 
@@ -152,9 +147,10 @@ void set_sedov_initial_conditions(void) {
 	}
 }
 
+/* radial binning for analysis */
 #define num_bins        (num_grid*(1<<(max_level-min_level)))
 #define bin_width       ((float)num_grid/((float)num_bins))
-                                                                                                                                                            
+
 float radii[num_bins];
 float vel[num_bins];
 float pressure[num_bins];
@@ -214,8 +210,6 @@ void radial_average( int cell, int level ) {
         }
 }
 
-
-
 void run_output() {
 	int i, j;
 	char filename[128];
@@ -231,43 +225,11 @@ void run_output() {
 	int cell;
 	int min_index, max_index;
 
-	for ( level = min_level+1; level <= max_level; level++ ) {
-		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-		min_index = num_octs;
-		max_index = 0;
-
-		for ( i = 0; i < num_level_cells; i++ ) {
-			min_index = min( min_index, cell_parent_oct( level_cells[i] ) );
-			max_index = max( max_index, cell_parent_oct( level_cells[i] ) );
-		}
-
-		if ( num_level_cells > 0 ) {
-			cart_debug("level %u: %u to %u, min = %u, max = %u", level, 
-				cell_parent_oct( level_cells[0] ), 
-				cell_parent_oct( level_cells[num_level_cells-1] ),
-				min_index, max_index );
-		}
-		cart_free( level_cells );
-
-		select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
-
-		min_index = num_octs;
-		max_index = 0;
-
-		for ( i = 0; i < num_level_cells; i++ ) {
-			min_index = min( min_index, cell_parent_oct( level_cells[i] ) );
-			max_index = max( max_index, cell_parent_oct( level_cells[i] ) );
-		}
-
-		if ( num_level_cells > 0 ) {
-			cart_debug("buffer level %u: %u to %u, min = %u, max = %u", level,
-				cell_parent_oct( level_cells[0] ),
-				cell_parent_oct( level_cells[num_level_cells-1] ),
-				min_index, max_index );
-		}
-
-		cart_free( level_cells );
-	}
+	int icell, sfc, size;
+	float value;
+	float *slice;
+	FILE *output;
+	int coords[nDim];
 
 	/* now dump the radial profiles */
 	for ( i = 0; i < num_bins; i++ ) {
@@ -316,9 +278,151 @@ void run_output() {
 	sprintf( filename, "%s/tracers_%04u.dat", output_directory, step );
 	write_hydro_tracers( filename );
 #endif /* HYDRO_TRACERS */
-	
-}
 
+	/* output a 2-d slice through the center of the box */
+	if ( local_proc_id == MASTER_NODE ) {
+		sprintf( filename, "%s/%s_slice_%04u.dat", output_directory, jobname, step );
+		output = fopen( filename, "w" );
+
+		size = num_grid;
+		fwrite( &size, sizeof(int), 1, output );
+		size = num_grid;
+		fwrite( &size, sizeof(int), 1, output );
+
+		slice = cart_alloc( num_grid*num_grid*sizeof(float) );
+
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_gas_density(icell);
+				} else {
+					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
+							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				}
+
+				slice[ coords[2]*num_grid + coords[0] ] = value;
+			}
+		}
+
+		fwrite( slice, sizeof(float), num_grid*num_grid, output );
+
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_gas_internal_energy(icell)/cell_gas_density(icell);
+				} else {
+					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
+							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				}
+
+				slice[ coords[2]*num_grid + coords[0] ] = value;
+			}
+		}
+
+		fwrite( slice, sizeof(float), num_grid*num_grid, output );
+
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_momentum(icell,0)/cell_gas_density(icell);
+				} else {
+					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
+							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				}
+
+				slice[ coords[2]*num_grid + coords[0] ] = value;
+			}
+		}
+
+		fwrite( slice, sizeof(float), num_grid*num_grid, output );
+
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_momentum(icell,2)/cell_gas_density(icell);
+				} else {
+					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
+							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				}
+
+				slice[ coords[2]*num_grid + coords[0] ] = value;
+			}
+		}
+
+		fwrite( slice, sizeof(float), num_grid*num_grid, output );
+
+		cart_free( slice );
+		fclose(output);
+	} else {
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_gas_density(icell);
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+				}
+			}
+		}
+
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_gas_internal_energy(icell)/cell_gas_density(icell);
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+				}
+			}
+		}
+
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_momentum(icell,0)/cell_gas_density(icell);
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+				}
+			}
+		}
+
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+					value = cell_momentum(icell,1)/cell_gas_density(icell);
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+				}
+			}
+		}
+	}
+}
 
 void init_run() {
 	int i;

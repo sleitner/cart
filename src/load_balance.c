@@ -914,6 +914,7 @@ void load_balance() {
 			/* check which processor this particle now belongs to */
 			for ( i = 0; i < nDim; i++ ) {
 				coords[i] = (int)(particle_x[ipart][i]);
+				cart_assert( coords[i] >= 0 && coords[i] < num_grid );
 			}
 
 			proc = processor_owner( sfc_index( coords ) );
