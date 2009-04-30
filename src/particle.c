@@ -1335,7 +1335,7 @@ void build_mesh() {
 		refmin[i] = num_grid+1.0;
 		refmax[i] = -1.0;
 
-		for ( j = 0; j < num_local_particles; j++ ) {
+		for ( j = 0; j < num_particles; j++ ) {
 			if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
 					particle_id[j] < particle_species_indices[1] ) {
 				if ( particle_x[j][i] < refmin[i] ) {
@@ -1379,12 +1379,14 @@ void build_mesh() {
 			cart_debug("level %u: %u cells", level, total_cells_per_level[level] );
 		}
 
-		for(j=0; j<num_local_particles; j++) if(particle_level[j] != FREE_PARTICLE_LEVEL)
-		  {
-		    cell = cell_find_position_above_level(level,particle_x[j]);
-		    cart_assert(cell > -1);
-		    particle_level[j] = cell_level(cell);
-		  }
+		for( j = 0; j < num_particles; j++) {
+			if ( particle_level[j] != FREE_PARTICLE_LEVEL ) {
+				cell = cell_find_position_above_level(level,particle_x[j]);
+				cart_assert(cell > -1);
+				particle_level[j] = cell_level(cell);
+				particle_dt[j] = dtl[cell_level(cell)];
+			}
+		}
 
 		load_balance();
 	}
