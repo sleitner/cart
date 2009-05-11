@@ -63,7 +63,7 @@ void init_tree()
 	for ( i = min_level; i <= max_level; i++ ) {
 		cell_size_inverse[i-min_level] = (float)(1<<i);
 		cell_size[i-min_level] = 1.0 / cell_size_inverse[i-min_level];
-		cell_volume_inverse[i-min_level] = (float)(1 << (3*i));
+		cell_volume_inverse[i-min_level] = pow(2.,3*i);
 		cell_volume[i-min_level] = 1.0 / cell_volume_inverse[i-min_level];
 
 		num_cells_per_level[i] = 0;
