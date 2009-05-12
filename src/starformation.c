@@ -292,7 +292,7 @@ void star_formation( int level, int time_multiplier ) {
 					fH2_cell = 2*cell_H2_density(icell)/(2*cell_H2_density(icell)+cell_HI_density(icell));
 #else /* RADIATIVE_TRANSFER */
 #ifdef ENRICH
-					zSol_cell = cell_gas_metallicity(icell);
+					zSol_cell = cell_gas_metallicity(icell)/(0.02*cell_gas_density(icell));
 #else
 					zSol_cell = 0.0;
 #endif /* ENRICH */

@@ -1285,7 +1285,7 @@ C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lo1,lo2,lo3,tauH1l,tauG1l,tauG2l,itind,itind2,j,
 C$OMP+ pH1,pG1,pG2,sgpH1,sgpG1,sgpG2)
 C$OMP+SHARED(tauH1m,acTAU,csH1tr,csG1tr,csG2tr,tauG1m,tauG2m,
-C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,iptabOT,iptabH1,iptabG1,
+C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,
 C$OMP+ wpTab,facPhot,facLX,iptabMax)
       do lo1=1,NOPT1
 
