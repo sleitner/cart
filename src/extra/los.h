@@ -29,7 +29,7 @@ losSegment;
 //  Traverse a segment of a LOS located on a single processor,
 //  for a LOS starting at pos0, in the direction (theta,phi), 
 //  of maximum length len, not deeper than floor_level, and call
-//  worker(cell,r1,r2,data) at each step inside this processor domain.
+//  worker(id,cell,r1,r2,data) at each step inside this processor domain.
 //  Worker arguments:
 //    id:    integer id of this LOS (to distinguish different LOS
 //           inside an OpenMP loop)
@@ -49,10 +49,18 @@ void losTraverseSegment(int id, double pos0[3], double theta, double phi, double
 //  Collect all LOS segments from different processors on the master node
 //  and broadcast their buffer data into back into result. A user-supplied 
 //  function collector is used to assemble separate segments into a single LOS.
+//  This function calls MPI inside and is manifestly thread-unsafe.
 */
 void losCollectSegments(losBuffer *result, losSegment *segment, void (*collector)(losBuffer *result, losSegment *next));
 
 
+/*
+//  A useful wrapper over the two previous functions: samples the sky using 
+//  HealPIX binning with nside bins per section (total number of rays is 
+//  12*nside^2) with common origin pos0, of maximum length len, not deeper 
+//  than floor_level. The user-supplied functions worker and collector are
+//  described above. The final result is returned in lines[].
+*/
 void losTraverseSky(int nside, double pos0[3], double len, int floor_level, losBuffer *lines, int (*worker)(int id, int cell, double r1, double r2, losBuffer data), void (*collector)(losBuffer *result, losSegment *next));
 
 #endif  /* __EXT_LOS_H__ */
