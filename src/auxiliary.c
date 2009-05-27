@@ -31,7 +31,7 @@ void init_auxiliary() {
 	cart_random_generator = gsl_rng_alloc (gsl_rng_mt19937);
 
 	/* attempt to reload state information (just use natural seeding otherwise) */
-	sprintf( filename, "%s/rng_state_%03u.dat", output_directory, local_proc_id );
+	sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
 	state = fopen( filename, "r" );
 	if ( state != NULL ) {
 		gsl_rng_fread( state, cart_random_generator );
