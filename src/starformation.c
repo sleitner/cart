@@ -14,13 +14,6 @@
 
 #ifdef STARFORM
 
-/*
-//  NG: fall back to the old-style recipe if this is not set
-*/
-#ifndef SF_RECIPE
-#define SF_RECIPE 1
-#endif
-
 int num_local_star_particles;
 int last_star_id;
 int num_new_stars;
@@ -44,10 +37,12 @@ float star_formation_volume_max[nDim];
 int star_formation_frequency[max_level-min_level+1];
 
 /* star formation parameters */
+int sf_recipe = 0;   /* default to the old-style recipe */
+
 double alpha_SF	= 1.5;
 double eps_SF = 1.5;
 double dtmin_SF = 1e6;
-double tau_SF = 1e7;
+double tau_SF = 3.0e7;
 double dm_star_min = 0.0;
 double rho_SF = 1e-1;
 double T_SF = 2e4;
@@ -67,15 +62,16 @@ double c0_ml = 0.05;
 
 double T_max_feedback = 1.0e8;  /* That used to be a define, but it really should be a var */
 
-double eps_SFH2 = 0.01;
+double eps_SFH2 = 0.005;
 double fH2_SFH2 = 0.1;
 double den_SFH2_eff = 100.0;
+double den_PRIM_eff = 1.0e6;
 
 double C_SFR;
 double C_fb;
 double C_fbIa;
 double fmass_met;
-double rho_SF_fact, rho_SFH2_eff, den_SFH2_fact;
+double rho_SF_fact, rho_SFH2_eff, rho_PRIM_eff, den_SFH2_fact;
 double aMSN_ave;
 double fmass_SN;
 double RIaf;
@@ -130,11 +126,11 @@ void init_star_formation() {
 	double Aprime;
 	double aN_SNII, An_IMF;
 
-#if (SF_RECIPE == 1)
-	C_SFR = eps_SF * 2.5*pow(10.0, 6.0 - 16.0*alpha_SF) * t0 * pow(rho0,alpha_SF-1.0);
-#else
-	C_SFR = 49.53*2.5e-18*t0*sqrt(rho0);  /* This is from Kostas */
-#endif
+	if ( sf_recipe == 0 )
+	  C_SFR = eps_SF * 2.5*pow(10.0, 6.0 - 16.0*alpha_SF) * t0 * pow(rho0,alpha_SF-1.0);
+	else
+	  C_SFR = 49.53 * 2.5e-18 * t0 * sqrt(rho0);  /* This is from Kostas */
+
 	/*
 	// Code units
 	*/  
@@ -213,7 +209,7 @@ void init_star_formation() {
 
 	C_fb = 1e51 * E_51 * Aprime * aM0 / E0;
 	C_fbIa = 1e51 * E_51 / E0;
-	rho_SF_fact = rho_SF * 8.9e4 / (hubble*hubble) / Omega0 / ( 1.0 - Y_p );
+	rho_SF_fact = rho_SF * 8.9e4 / cosmology->Omh2 / ( 1.0 - Y_p );
 
 	/*
 	//  NG: This limit is very obscure, disable by default
@@ -248,24 +244,27 @@ void star_formation( int level, int time_multiplier ) {
 	double dm_star;
 	double rho_SF_min;
 	double tau_SF_code;
-	double tau_SF_eff;
 	double dt_eff;
-	double P_SF, fH2_cell, zSol_cell;
+	double P_SF, fH2_cell;
+#ifndef RADIATIVE_TRANSFER
+        double zSol_cell;
+#endif
 
 	cell_fraction = 0.667 * cell_volume[level];
 
-	T_SF_max = T_SF / T0 * aexp[level]*aexp[level];
-	rho_SF_min = max( rho_SF_fact * aexp[level]*aexp[level]*aexp[level], 200.0 * Omegab0 / Omega0 );
-	tau_SF_code = tau_SF / ( t0 * aexp[level]*aexp[level] );
+	T_SF_max = T_SF / T0 * abox[level] * abox[level];
+	rho_SF_min = max( rho_SF_fact * abox[level]*abox[level]*abox[level], 200.0 * cosmology->OmegaB / cosmology->OmegaM );
+	tau_SF_code = tau_SF / ( t0 * abox[level]*abox[level] );
 	dt_eff = dtl[level] * time_multiplier;
 
-#if (SF_RECIPE == 1)
-	fmass = pow(aexp[level], (5.0 - 3.0*alpha_SF)) * C_SFR * cell_volume[level] * tau_SF_code;
-#else
-	den_SFH2_fact = (1.123e-5*Omega0*hubble*hubble)/(aexp[level]*aexp[level]*aexp[level]);
+	if ( sf_recipe == 0 )
+	  fmass = pow(abox[level], (5.0 - 3.0*alpha_SF)) * C_SFR * cell_volume[level] * tau_SF_code;
+	else
+	  fmass = eps_SFH2 * sqrt(abox[level]) * C_SFR * cell_volume[level] * tau_SF_code;
+
+	den_SFH2_fact = 1.123e-5*cosmology->Omh2/(abox[level]*abox[level]*abox[level]);
 	rho_SFH2_eff = den_SFH2_eff/den_SFH2_fact;
-	fmass = eps_SFH2 * sqrt(aexp[level]) * C_SFR * cell_volume[level] * tau_SF_code;
-#endif
+	rho_PRIM_eff = den_PRIM_eff/den_SFH2_fact;
 
 	/* probability of forming a star is Poisson with <t> = tau_SF */
 	P_SF = exp( -dt_eff / tau_SF_code );
@@ -298,35 +297,47 @@ void star_formation( int level, int time_multiplier ) {
 #endif /* ENRICH */
 					fH2_cell = (max(1.0e-3,zSol_cell)*den_SFH2_fact*cell_gas_density(icell) > 30.0) ? 1.0 : 0.0;
 #endif /* RADIATIVE_TRANSFER */
-					if ( Tcell < T_SF_max
-#if (SF_RECIPE != 1)
-					     && fH2_cell > fH2_SFH2
-#endif
- ) {
+
+					if(cell_gas_density(icell) > rho_PRIM_eff) fH2_cell = 1.0;
+
+					if ( Tcell < T_SF_max && ( sf_recipe == 0 || fH2_cell > fH2_SFH2 ) ) {
 						/* randomly generate particle on timescale tau_SF_eff */
-						if ( cart_rand() > P_SF ) {
-							/* how big of a star particle to create? */
-#if (SF_RECIPE == 1)
-						        dm_star = fmass * pow( cell_gas_density(icell), alpha_SF );
-#else /* SF_RECIPE == 1 */
-							dm_star = 0.0;  /* compiler will remove this if the setting is correct */
-#if (SF_RECIPE == 2)
-							dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(rho_SFH2_eff);
-#endif
-#if (SF_RECIPE == 3)
-							dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(max(cell_gas_density(icell),rho_SFH2_eff));
-#endif
-#if (SF_RECIPE == 4)
-							dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(cell_gas_density(icell));
-#endif
+						if ( cart_rand() > P_SF )
+						  {
+						    /* how big of a star particle to create? */
+						    switch(sf_recipe)
+						      {
+						      case 0:
+							{
+							  dm_star = fmass * pow( cell_gas_density(icell), alpha_SF );
+							  break;
+							}
+						      case 1:
+							{
+							  dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(rho_SFH2_eff);
+							  break;
+							}
+						      case 2:
+							{
+							  dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(max(cell_gas_density(icell),rho_SFH2_eff));
+							  break;
+							}
+						      case 3:
+							{
+							  dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(cell_gas_density(icell));
+							  break;
+							}
+						      default:
+							{
+							  cart_error("Invalid sf_recipe value: %d",sf_recipe);
+							}
+						      }
 
-#endif /* SF_RECIPE == 1 */
+						    dm_star = min( max(dm_star,dm_star_min), cell_fraction * cell_gas_density(icell) );
 
-							dm_star = min( max(dm_star,dm_star_min), cell_fraction * cell_gas_density(icell) );
-
-							/* create the new star */
-							create_star_particle( icell, dm_star );
-						}
+						    /* create the new star */
+						    create_star_particle( icell, dm_star );
+						  }
 					}
 				}
 			}
@@ -435,7 +446,7 @@ void remap_star_ids() {
 
 	if ( total_new_stars > 0 ) {
 		/* create lists of indices for each block */
-		block_ids = cart_alloc( max_stars * sizeof(int) );
+		block_ids = cart_alloc(int, max_stars );
 
 		block_ids[0] = 0;
 		for ( block = 1; block < max_stars; block++ ) {

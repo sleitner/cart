@@ -12,9 +12,10 @@
 #include "units.h"
 
 
-#ifdef RADIATIVE_TRANSFER
 #include "rt_solver.h"
 #include "rt_utilities.h"
+
+#ifdef RADIATIVE_TRANSFER
 #include "F/frt_parameters.ch"
 #ifdef RT_DEBUG
 #include "rt_debug.h"
@@ -22,20 +23,25 @@
 #endif
 
 
-
-#ifdef RADIATIVE_TRANSFER
-void rtGetSobolevFactors(int cell, int level, float *len, float *vel);
 void extDumpChemicalState(int level1, int level2)
 {
-  const int nout = 8;
+  const int nout = 9;
   int i, j, size, rank;
   MESH_RUN_DECLARE(level,cell);
   float uDen, uLen, uColumn;
   FILE *f;
-  float *buffer, *ptr, soblen, sobvel, rate[IRATE_DIM];
+  float *buffer, *ptr, soblen, sobvel;
+#ifdef RADIATIVE_TRANSFER
+  float rate[IRATE_DIM];
+#else
+  float rate;
+#endif
   int ntot = 0;
 
+#ifdef RADIATIVE_TRANSFER
   rtStepBegin();
+  rtUpdateTables();
+#endif
 
   /*
   //  Count number of cells
@@ -52,7 +58,7 @@ void extDumpChemicalState(int level1, int level2)
   /*
   //  Create the buffer
   */
-  buffer = (float *)cart_alloc(ntot*nout*sizeof(float));
+  buffer = cart_alloc(float, ntot*nout );
 
   /*
   //  Fill in the buffer
@@ -60,8 +66,8 @@ void extDumpChemicalState(int level1, int level2)
   ntot = 0;
   MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
 
-  uDen = 1.123e-5*Omega0*hubble*hubble/pow(aexp[level],3.0);
-  uLen = 3.086e24*r0/hubble*aexp[level];
+  uDen = 1.123e-5*Omega0*hubble*hubble/pow(abox[level],3.0);
+  uLen = 3.086e24*r0/hubble*abox[level];
 
 #pragma omp parallel for default(none), private(_Index,cell,soblen,sobvel,ptr,rate), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,uDen,uLen,buffer,ntot)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
@@ -69,22 +75,25 @@ void extDumpChemicalState(int level1, int level2)
     {
       ptr = buffer + nout*(ntot+_Index);
 
-#ifdef RT_CHEMISTRY
       rtGetSobolevFactors(cell,level,&soblen,&sobvel);
-#else
-      soblen = 0.0;
-#endif
-
-      rtGetPhotoRates(cell,rate);
 
       ptr[0] = uDen*cell_gas_density(cell);
       ptr[1] = rtTemInK(cell);
       ptr[2] = ptr[0]*uLen*soblen;
       ptr[3] = cell_gas_metallicity(cell)/(0.02*cell_gas_density(cell));
+
+#ifdef RADIATIVE_TRANSFER
+      rtGetPhotoRates(cell,rate);
       ptr[4] = cell_HI_fraction(cell);
       ptr[5] = cell_HII_fraction(cell);
       ptr[6] = cell_H2_fraction(cell);
-      ptr[7] = rate[12]*1.1e10;  /* UV field at 1000A in units of Draine field */
+      ptr[7] = rate[12]*1.84e9;  /* UV field at 12.0eV in units of Draine field (1.0e6 phot/cm^2/s/ster/eV) */
+      ptr[8] = ptr[3];
+#ifdef RT_DUST_TO_GAS_FLOOR
+      if(ptr[8] < RT_DUST_TO_GAS_FLOOR) ptr[8] = RT_DUST_TO_GAS_FLOOR;
+#endif
+#endif  /* RADIATIVE_TRANSFER */
+
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
 
@@ -108,7 +117,11 @@ void extDumpChemicalState(int level1, int level2)
 	  for(j=0; j<ntot; j++)
 	    {
 	      ptr = buffer + nout*j;
-	      fprintf(f,"%9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e\n",ptr[0],ptr[1],ptr[2],ptr[3],ptr[4],ptr[5],ptr[6],ptr[7]);
+#ifdef RADIATIVE_TRANSFER
+	      fprintf(f,"%9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e\n",ptr[0],ptr[1],ptr[2],ptr[3],ptr[4],ptr[5],ptr[6],ptr[7],ptr[8]);
+#else
+	      fprintf(f,"%9.3e %9.3e %9.3e %9.3e\n",ptr[0],ptr[1],ptr[2],ptr[3]);
+#endif
 	    }
 	  fclose(f);
 	}
@@ -117,7 +130,6 @@ void extDumpChemicalState(int level1, int level2)
   cart_free(buffer);
 
 }
-#endif
 
 
 #if defined(PARTICLES) && defined(STARFORM)
@@ -130,7 +142,7 @@ void extDumpKennicuttLaw(float spatialScale, float timeScale)
 
   timeScale *= 1.0e6;  /* turn Myr into years */
 
-  uLen = r0*aexp[0]/hubble*1.0e3; /* phys pc */
+  uLen = r0*abox[min_level]/hubble*1.0e3; /* phys pc */
   level = nearest_int(-log(spatialScale/uLen)/log(2.0));
   if(local_proc_id == MASTER_NODE)
     {
@@ -142,16 +154,16 @@ void extDumpKennicuttLaw(float spatialScale, float timeScale)
   /*
   // Units
   */
-  uLen = r0*aexp[level]/hubble*1.0e3;         /* phys kpc */
-  uDen = rho0/pow(aexp[level],3.0)*1.0e-9;    /* Msun/kpc^3 */
-  uTime = t0*aexp[level]*aexp[level];         /* yr */
+  uLen = r0*abox[level]/hubble*1.0e3;         /* phys kpc */
+  uDen = rho0/pow(abox[level],3.0)*1.0e-9;    /* Msun/kpc^3 */
+  uTime = t0*abox[level]*abox[level];         /* yr */
   uRate = uDen/timeScale;                     /* Msun/kpc^3/yr */
 
   /*
   //  Prepare forward and backward indicies
   */
   select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
-  index = cart_alloc(num_cells*sizeof(int));
+  index = cart_alloc(int, num_cells );
 
 #pragma omp parallel for default(none), private(i), shared(index)
   for(i=0; i<num_cells; i++)
@@ -168,7 +180,7 @@ void extDumpKennicuttLaw(float spatialScale, float timeScale)
   /*
   //  Prepare the SFR buffer array
   */
-  sfr = (float *)cart_alloc(num_level_cells*sizeof(float));
+  sfr = cart_alloc(float, num_level_cells );
 
 #pragma omp parallel for default(none), private(i), shared(num_level_cells,sfr)
   for(i=0; i<num_level_cells; i++)
@@ -179,7 +191,7 @@ void extDumpKennicuttLaw(float spatialScale, float timeScale)
   /*
   //  Measure time-averaged SFR
   */
-  for(j=0; j<num_local_star_particles; j++)
+  for(j=0; j<num_particles; j++) if(particle_level[j]>=level && particle_is_star(j))
     {
       dt = uTime*(tl[level]-star_tbirth[j]);
       if(dt < timeScale)

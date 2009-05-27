@@ -24,14 +24,14 @@
 int rtOtvetMaxNumIter = 10;
 
 
-const int NumVars = 1 + rt_num_et_vars;
-const int Vars[] = { RT_VAR_OT_FIELD,
-		     rt_et_offset + 0,
-		     rt_et_offset + 1,
-		     rt_et_offset + 2,
-		     rt_et_offset + 3,
-		     rt_et_offset + 4,
-		     rt_et_offset + 5 };
+int NumVars = 1 + rt_num_et_vars;
+int Vars[] = { RT_VAR_OT_FIELD,
+		       rt_et_offset + 0,
+		       rt_et_offset + 1,
+		       rt_et_offset + 2,
+		       rt_et_offset + 3,
+		       rt_et_offset + 4,
+		       rt_et_offset + 5 };
 
 DEFINE_LEVEL_ARRAY(float,BufferFactor);
 
@@ -59,11 +59,11 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *in
 
 void rtInitRunTransferOtvet()
 {
-  int i, j;
+  int i;
 
   for(i=min_level; i<=max_level; i++)
     {
-      BufferFactor[i] = 1.5;
+      BufferFactor[i] = 2.0;
     }
 
   if(local_proc_id == MASTER_NODE)
@@ -105,23 +105,20 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
   // Extra arrays
   */
   int *indL2G, *indG2L, *neib, *info, *tmp;
-  float *abc[2], *dd, *jac, *rhs, *lim;
+  float *abc[2], *dd, *jac, *rhs;
 
   /*
   // Work variables
   */
-  int work, *level_cells;
+  int work;
   int num_level_cells, num_all_cells, num_total_cells, *nb;
   int iL, iG, j, offset, index;
-  int nit, nit0, ifreq, ivarL, ivarG;
+  int nit, ifreq, ivarL, ivarG;
   float abcMin, abcMax;
   float abcMin1, abcMax1;
 #ifdef RT_SIGNALSPEED_TO_C
+  int nit0;
   float xiUnit;
-#endif
-
-#ifdef RT_DEBUG
-  double pos[3];
 #endif
 
 
@@ -134,7 +131,7 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
       /* 
       //  Allocate memory for index arrays
       */
-      indG2L = cart_alloc(num_cells*sizeof(int));  /* NG: I do not know how to avoid using this large array */
+      indG2L = cart_alloc(int, num_cells );  /* NG: I do not know how to avoid using this large array */
 
       /*
       //  Find all leaves (if we solve levels separately, we can never insure that 
@@ -145,10 +142,9 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
       /*
       // Allocate the rest of arrays
       */
-      neib = (int *)cart_alloc(rtuStencilSize*num_level_cells*sizeof(int));
-
-      num_all_cells = 1 + (int)(BufferFactor[level]*num_level_cells);
-      indL2G = (int *)cart_alloc(num_all_cells*sizeof(int));
+      neib = cart_alloc(int, rtuStencilSize*num_level_cells );
+      num_all_cells = 100 + (int)(BufferFactor[level]*num_level_cells);
+      indL2G = cart_alloc(int, num_all_cells );
       rtuCopyArraysInt(indL2G,info,num_level_cells);
 
       /*
@@ -214,11 +210,11 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
 		    {
 		      nit = num_all_cells;
 		      BufferFactor[level] *= 1.5;
-		      num_all_cells = 1 + (int)(BufferFactor[level]*num_level_cells);
+		      num_all_cells = 100 + (int)(BufferFactor[level]*num_level_cells);
 		      
 		      cart_debug("Extending local-to-global index buffer (%d -> %d) to margin %f",nit,num_all_cells,BufferFactor[level]);
 		      
-		      tmp = (int *)cart_alloc(num_all_cells*sizeof(int));
+		      tmp = cart_alloc(int, num_all_cells );
 		      rtuCopyArraysInt(tmp,indL2G,nit);
 		      cart_free(indL2G);
 		      indL2G = tmp;
@@ -236,15 +232,15 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
       //  It is not needed any more
       */
       cart_free(indG2L);
-      
-      rhs = (float *)cart_alloc(num_level_cells*sizeof(float));
-      jac = (float *)cart_alloc(num_level_cells*sizeof(float));
-      dd = (float *)cart_alloc(num_level_cells*sizeof(float));
+
+      rhs = cart_alloc(float, num_level_cells );
+      jac = cart_alloc(float, num_level_cells );
+      dd  = cart_alloc(float, num_level_cells );
 
       /*
       // Are we using too much memory?
       */
-      if(num_total_cells<0.5*num_all_cells && BufferFactor[level]>1.5/0.8)
+      if(num_total_cells<0.5*num_all_cells && BufferFactor[level]>2.0/0.8)
 	{
 	  BufferFactor[level] *= 0.8;
 	}
@@ -282,9 +278,9 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
   /*
   // Allocate memory for absorption coefficient and other arrays
   */
-  abc[0] = (float *)cart_alloc(num_total_cells*sizeof(float));
+  abc[0] = cart_alloc(float, num_total_cells );
 #if (RT_CFI == 1)
-  abc[1] = (float *)cart_alloc(num_total_cells*sizeof(float));
+  abc[1] = cart_alloc(float, num_total_cells );
 #else
   abc[1] = abc[0];
 #endif
@@ -349,23 +345,24 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  /*
 	  //  Number of iterations
 	  */
-	  nit = nit0 = rtOtvetMaxNumIter;
+	  nit = rtOtvetMaxNumIter;
 
 #ifdef RT_SIGNALSPEED_TO_C
 	  /*
 	  // Number of iterations needed for the signal propagation speed to less or equal c.
 	  */
-	  xiUnit = (mpc/clight/year)*r0/hubble/(t0*aexp[level]);
+	  xiUnit = (mpc/clight/year)*r0/hubble/(t0*abox[level]);
 	  nit0 = 1 + (int)(dtl[level]/xiUnit/cell_size[level]);
 	  if(nit > nit0) nit = nit0;
 #endif
 
 #ifdef DEBUG
 	  rtuCheckGlobalValue(ifreq,"Otvet:ifreq",local_comm);
+#ifdef RT_SIGNALSPEED_TO_C
 	  rtuCheckGlobalValue(nit0,"Otvet:nit0",local_comm);
+#endif
 	  rtuCheckGlobalValue(nit,"Otvet:nit",local_comm);
 #endif
-
 	  /*
 	  // Update local field
 	  */
@@ -396,7 +393,6 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  rtOtvetSolveFieldEquation(ivarG,level,num_level_cells,indL2G,neib,info,abc[1],rhs,jac,dd,nit,work,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full);
 
 #endif
-
 	  /*
 	  // Limit
 	  */
@@ -505,7 +501,6 @@ C$OMP+SHARED(var,varL,ivar,indLG,nTotCells)
 
   for(it=0; it<nit; it++)
     {
-
       if(work)
 	{
 

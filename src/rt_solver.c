@@ -1,7 +1,92 @@
 #include "defs.h"      
-#ifdef RADIATIVE_TRANSFER
 
 #include <math.h>
+
+#include "hydro.h"
+#include "timestep.h"
+#include "units.h"
+
+
+float rt_TemScale;
+
+float rtTem(int cell);
+
+
+void rtSetTemUnits()
+{
+#ifdef RADIATIVE_TRANSFER
+  rt_TemScale = T0/wmu;
+#else
+  rt_TemScale = T0;
+#endif
+}
+
+
+float rtTemInK(int cell)
+{
+  int level = cell_level(cell);
+  float uTem = rt_TemScale/(abox[level]*abox[level]);
+#ifdef RADIATIVE_TRANSFER
+  return uTem*rtTem(cell);
+#else
+  return uTem*cell_gas_internal_energy(cell)/cell_gas_density(cell);
+#endif
+}
+
+
+/*
+//  Sobolev approximation factors
+*/
+void rtGetSobolevFactors(int cell, int level, float *len, float *vel)
+{
+  int i, j, nb[num_neighbors];
+  float s, d;
+  float vc[nDim];
+  
+  cell_all_neighbors(cell,nb);
+
+  /*
+  //  Length factor
+  */
+  s = 0.0;
+  for(i=0; i<nDim; i++)
+    {
+      d = cell_gas_density(nb[2*i+1]) - cell_gas_density(nb[2*i]);
+      s += d*d;
+    }
+
+  /* 
+  //  Factor of 1.0 is empirical, from detailed comparison of Sobolev
+  //  approximation with a ray-tracer
+  */
+  *len = cell_size[level]*cell_gas_density(cell)/(1.0e-30+sqrt(s));
+  if(*len > num_grid) *len = num_grid;
+
+  /*
+  //  Velocity factor
+  */
+  for(i=0; i<nDim; i++)
+    {
+      vc[i] = cell_var(cell,HVAR_MOMENTUM+i)/cell_gas_density(cell);
+    }
+
+  s = 0.0;
+  for(j=0; j<num_neighbors; j++)
+    {
+      for(i=0; i<nDim; i++)
+	{
+	  d = cell_var(nb[j],HVAR_MOMENTUM+i)/cell_gas_density(nb[j]) - vc[i];
+	  s += d*d;
+	}
+    }
+  *vel = sqrt(s/num_neighbors);
+}
+
+
+/*
+//  RT-dependent code
+*/
+#ifdef RADIATIVE_TRANSFER
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -9,11 +94,7 @@
 
 
 #include "auxiliary.h"
-#include "constants.h"
-#include "hydro.h"
-#include "timestep.h"
 #include "timing.h"
-#include "units.h"
 
 #include "rt_c2f.h"
 #include "rt_utilities.h"
@@ -30,12 +111,8 @@ int rt_debug = 0;  /* for OpenMP pragmas */
 #endif
 
 
-float rt_TemScale;
-
 void rtPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField0, f2c_real **pRadField1);
 void rtUnPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField1);
-void rtGetSobolevFactors(int cell, int level, float *len, float *vel);
-float rtTemInK(int cell);
 
 
 /* 
@@ -43,8 +120,9 @@ float rtTemInK(int cell);
 */
 void f2c_wrapper(frtcooloff)(f2c_real *rPar, f2c_real *rRadField0, f2c_real *rRadField1, f2c_real *rTime, f2c_real *rVar, f2c_intg *info);
 void f2c_wrapper(frtinitrun)(f2c_real *Yp);
-void f2c_wrapper(frtstepbeginart)(f2c_real *aexp, f2c_real *daexp, f2c_real *dt, f2c_real *Om0, f2c_real *h100, f2c_real *r0, f2c_real *t0);
+void f2c_wrapper(frtstepbeginart)(f2c_real *astep, f2c_real *dstep, f2c_real *dt, f2c_real *Om0, f2c_real *h100, f2c_real *r0, f2c_real *t0);
 void f2c_wrapper(frtstepend)(f2c_real *vol, f2c_real *avg);
+void f2c_wrapper(frtupdatetables)();
 
 f2c_real f2c_wrapper(frtein)(f2c_real *tem, f2c_real *y);
 f2c_real f2c_wrapper(frttem)(f2c_real *Ein, f2c_real *y);
@@ -54,10 +132,6 @@ f2c_real f2c_wrapper(frtlogwithunits)(f2c_real *val, f2c_intg *pDen, f2c_intg *p
 #ifdef RT_TEST
 void f2c_wrapper(frttestmodifytimestep)(f2c_real *dt, f2c_intg *ns);
 #endif
-
-/*
-d//  This size must be maintained to be always consistent with the parameter ioDim from file F/frt_base.inc
-*/
 
 
 /*
@@ -95,7 +169,7 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
   /*
   //  Main loop
   */
-#pragma omp parallel for default(none), private(i,cell,rVar,rPar,rBuffer,rRadField0,rRadField1,soblen,sobvel,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,rTime,cell_size,rt_debug), schedule(dynamic,nchunk)
+#pragma omp parallel for default(none), private(i,cell,rVar,rPar,rBuffer,rRadField0,rRadField1,soblen,sobvel,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,rTime,cell_size,rt_debug,nchunk), schedule(dynamic,nchunk)
   for(i=0; i<num_level_cells; i++) if(cell_is_leaf((cell = level_cells[i])) && cell_gas_density(cell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
     {
       
@@ -121,7 +195,7 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
       if(rt_debug.Mode==1 && cell==cell_find_position(rt_debug.Pos))
 	{
 	  rPar[IPAR_DEB] = 1 + (rt_debug.Stop>1 ? 0.5 : 0.0);
-	  cart_debug("In cell-level debug for cell %d/%d",cell,cell_level(cell));
+	  cart_debug("In cell-level debug for cell %d#%d",cell,cell_level(cell));
 	}
       else
 	{
@@ -162,49 +236,36 @@ void rtUpdateTables()
 {
   start_time(RT_TABLES_TIMER);
 
-#ifdef RT_TRANSFER
-  rtUpdateTablesTransfer();
-#endif
-
   /* Fill in the tables */
-  f2c_wrapper(frtfillradiationtables)();
+  f2c_wrapper(frtupdatetables)();
 
   end_time(RT_TABLES_TIMER);
 }
 
 
-void rtSetTemUnits()
-{
-  rt_TemScale = T0/wmu;
-}
-
-
 void rtStepBegin()
 {
-  f2c_real rAStep = aexp[0];
-  f2c_real rHStep = aexp[0] - aexp_old[0];
+  f2c_real rAStep = abox[0];
+  f2c_real rHStep = abox[0] - abox_old[0];
   f2c_real rTStep = dtl[0];
-  f2c_real rOm0 = Omega0;
-  f2c_real rH100 = hubble;
+  f2c_real rOmegaM = cosmology->OmegaM;
+  f2c_real rHubble = cosmology->h;
   f2c_real rR0 = r0;
   f2c_real rT0 = t0;
 
   rtSetTemUnits();  /* Need to set it here, since units may change after rtInitRun */
 
 #ifdef COSMOLOGY
-  rHStep = log(b2a(tl[0]+dtl[0])/b2a(tl[0]))/dtl[0];
+  rHStep = log(abox_from_tcode(tl[0]+dtl[0])/abox_from_tcode(tl[0]))/dtl[0];
 #else
   rHStep = 0.0;
 #endif
 
-  f2c_wrapper(frtstepbeginart)(&rAStep,&rHStep,&rTStep,&rOm0,&rH100,&rR0,&rT0);
+  f2c_wrapper(frtstepbeginart)(&rAStep,&rHStep,&rTStep,&rOmegaM,&rHubble,&rR0,&rT0);
 
 #ifdef RT_TRANSFER
   rtStepBeginTransfer();
 #endif
-
-  /* By default update tables once per step */
-  rtUpdateTables();
 
 #ifdef RT_DEBUG
   switch(rt_debug.Mode)
@@ -238,9 +299,9 @@ void rtStepBegin()
 
 void rtStepEnd()
 {
-  int i, n;
+  int i;
   f2c_real rVol = num_root_cells;
-  f2c_real *glob, rAvg[3];
+  f2c_real rAvg[3];
   double *buffer;
 
   MESH_RUN_DECLARE(level,cell);
@@ -268,7 +329,7 @@ void rtStepEnd()
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
   MESH_RUN_OVER_LEVELS_END;
 
-  buffer = (double *)cart_alloc(4*sizeof(double));
+  buffer = cart_alloc(double, 4 );
   
   buffer[0] = sumSrc;
   buffer[1] = sumRho;
@@ -364,7 +425,7 @@ void rtLevelUpdate(int level, MPI_Comm local_comm)
 void rtPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField0, f2c_real **pRadField1)
 {
   int i;
-  float uTem = rt_TemScale/(aexp[level]*aexp[level]);
+  float uTem = rt_TemScale/(abox[level]*abox[level]);
 
   /*
   //  Default values of all parameters is 0
@@ -433,13 +494,13 @@ void rtPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_r
 
 void rtUnPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_real *rRadField1)
 {
-  int i;
-  float uTem = rt_TemScale/(aexp[level]*aexp[level]);
+  float uTem = rt_TemScale/(abox[level]*abox[level]);
 
   /*
   //  Unpack radiation field (if needed) 
   */
 #if defined(RT_TRANSFER) && defined(RT_VARIABLE_RFIELD)
+  int i;
   if(sizeof(f2c_real) != sizeof(float))  /* Optimization */
     {
       for(i=0; i<rt_num_frequencies; i++)
@@ -468,55 +529,6 @@ void rtUnPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c
   cell_gas_gamma(cell) = f2c_wrapper(frtgamma)(Ein,rVar);
 #endif
 #endif
-}
-
-
-/*
-//  Sobolev approximation factors
-*/
-void rtGetSobolevFactors(int cell, int level, float *len, float *vel)
-{
-  int i, j, nb[num_neighbors];
-  float s, d;
-  float vc[nDim];
-  
-  cell_all_neighbors(cell,nb);
-
-  /*
-  //  Length factor
-  */
-  s = 0.0;
-  for(i=0; i<nDim; i++)
-    {
-      d = cell_gas_density(nb[2*i+1]) - cell_gas_density(nb[2*i]);
-      s += d*d;
-    }
-
-  /* 
-  //  Factor of 1.0 is empirical, from detailed comparison of Sobolev
-  //  approximation with a ray-tracer
-  */
-  *len = cell_size[level]*cell_gas_density(cell)/(1.0e-30+sqrt(s));
-  if(*len > num_grid) *len = num_grid;
-
-  /*
-  //  Velocity factor
-  */
-  for(i=0; i<nDim; i++)
-    {
-      vc[i] = cell_var(cell,HVAR_MOMENTUM+i)/cell_gas_density(cell);
-    }
-
-  s = 0.0;
-  for(j=0; j<num_neighbors; j++)
-    {
-      for(i=0; i<nDim; i++)
-	{
-	  d = cell_var(nb[j],HVAR_MOMENTUM+i)/cell_gas_density(nb[j]) - vc[i];
-	  s += d*d;
-	}
-    }
-  *vel = sqrt(s/num_neighbors);
 }
 
 
@@ -564,14 +576,6 @@ float rtTem(int cell)
 }
 
 
-float rtTemInK(int cell)
-{
-  int level = cell_level(cell);
-  float uTem = rt_TemScale/(aexp[level]*aexp[level]);
-  return uTem*rtTem(cell);
-}
-
-
 #ifdef RT_DEBUG
 void rtPrintValue(const char *name, float val, int pDen, int pLen, int pTime)
 {
@@ -590,6 +594,8 @@ void rtPrintValue(const char *name, float val, int pDen, int pLen, int pTime)
 void f2c_wrapper(frttransferpackradiationfield)(f2c_real *par, f2c_real *y0, f2c_real *rawRF0, f2c_real *rawRF1, f2c_real *rf);
 #endif
 void f2c_wrapper(frtgetphotorates)(f2c_real *par, f2c_real *rf, f2c_intg *itab, f2c_real *y0, f2c_real *pRate);
+void f2c_wrapper(frtquerybackground)(f2c_intg *n, f2c_real *wlen, f2c_real *nxi);
+f2c_real f2c_wrapper(frtgetradiationfield)(f2c_real *rf, f2c_intg *lr);
 
 
 void rtGetPhotoRates(int cell, float rate[])
@@ -619,9 +625,91 @@ void rtGetPhotoRates(int cell, float rate[])
 #ifdef RT_TRANSFER
   f2c_wrapper(frttransferpackradiationfield)(rPar,rVar,rRadField0,rRadField1,rf);
 #endif
-  f2c_wrapper(frtgetphotorates)(rPar,rf,iTab,rVar,pRate);
 
-  for(i=0; i<IRATE_DIM; i++) rate[i] = pRate[i];
+  if(sizeof(f2c_real) == sizeof(float))
+    {
+      f2c_wrapper(frtgetphotorates)(rPar,rf,iTab,rVar,(f2c_real *)rate);
+    }
+  else
+    {
+      f2c_wrapper(frtgetphotorates)(rPar,rf,iTab,rVar,pRate);
+      for(i=0; i<IRATE_DIM; i++) rate[i] = pRate[i];
+    }
+}
+
+
+void rtGetRadiationBackground(int *nPtr, float **wlenPtr, float **ngxiPtr)
+{
+  int i, n;
+  float *wlen, *ngxi;
+  f2c_intg iNum;
+  f2c_real *pWlen, *pNgxi;
+
+  iNum = 0;
+  f2c_wrapper(frtquerybackground)(&iNum,NULL,NULL);
+  *nPtr = n = iNum;
+
+  cart_assert(n > 0);
+
+  *wlenPtr = wlen = cart_alloc(float,n);
+  *ngxiPtr = ngxi = cart_alloc(float,n);
+
+  if(sizeof(f2c_real) == sizeof(float))
+    {
+      f2c_wrapper(frtquerybackground)(&iNum,(f2c_real *)wlen,(f2c_real *)ngxi);
+    }
+  else
+    {
+      pWlen = cart_alloc(f2c_real,n);
+      pNgxi = cart_alloc(f2c_real,n);
+
+      f2c_wrapper(frtquerybackground)(&iNum,pWlen,pNgxi);
+
+      for(i=0; i<n; i++)
+	{
+	  wlen[i] = pWlen[i];
+	  ngxi[i] = pNgxi[i]; 
+	}
+
+      cart_free(pWlen);
+      cart_free(pNgxi);
+    }
+}
+
+
+void rtGetRadiationField(int cell, int n, int lxi[], float ngxi[])
+{
+  int i;
+  int level = cell_level(cell);
+
+  /* 
+  //  Specify types for the Fortran interface
+  */
+  f2c_real rVar[IVAR_DIM], rPar[IPAR_DIM], pRate[IRATE_DIM];
+#ifdef RT_TRANSFER
+  f2c_real rBuffer[rt_num_frequencies];
+  f2c_real rRadField0[2];
+#else
+  f2c_real *rBuffer = 0, *rRadField0 = 0;
+#endif
+  f2c_real rf[1+2*rt_num_frequencies];
+  f2c_real *rRadField1 = rBuffer;
+  f2c_intg lr;
+
+  rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
+
+  /*
+  //  Call Fortran workers
+  */
+#ifdef RT_TRANSFER
+  f2c_wrapper(frttransferpackradiationfield)(rPar,rVar,rRadField0,rRadField1,rf);
+#endif
+
+  for(i=0; i<n; i++)
+    {
+      lr = lxi[i] + 1;  /* C-Fortran conversion!!! */
+      ngxi[i] = f2c_wrapper(frtgetradiationfield)(rf,&lr);
+    }
 }
 
 #endif  /* RADIATIVE_TRANSFER */

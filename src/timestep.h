@@ -6,8 +6,8 @@
 
 #define min_courant_velocity    1e-6
 
-extern double a_init;
-extern double a_end;
+extern double auni_init;
+extern double auni_end;
 extern double t_init;
 extern double t_end;
 
@@ -18,7 +18,9 @@ extern int particle_output_frequency;
 extern int grid_output_frequency;
 extern int tracer_output_frequency;
 
-extern double cfl;
+extern int max_cfl_sync_level;
+
+extern double cfl_run;
 extern double cfl_max;
 extern double particle_cfl;
 extern double max_time_inc;
@@ -40,8 +42,10 @@ extern double dtl[max_level-min_level+1];
 extern double dtl_old[max_level-min_level+1];
 extern double tl[max_level-min_level+1];
 extern double tl_old[max_level-min_level+1];
-extern double aexp[max_level-min_level+1];
-extern double aexp_old[max_level-min_level+1];
+
+extern double abox[max_level-min_level+1];
+extern double abox_old[max_level-min_level+1];
+extern double auni[max_level-min_level+1];
 
 extern int num_steps_on_level[max_level-min_level+1];
 

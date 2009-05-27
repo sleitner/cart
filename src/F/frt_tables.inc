@@ -21,7 +21,6 @@ C
 C
 C  Radiation mesh
 C
-	parameter (NRADL = NRAD+1)
 	parameter (TXI0 = 1.0e+4)
 	parameter (XISTEP = 15.0/NRAD)
 C
@@ -154,17 +153,17 @@ C
 C
 C  Radiation mesh
 C
-	common/RT_TAB_M/ xig(NRADL), Txi(NRADL), guvEff(NRADL),
-     .                   tauLoc(NRADL)
-	common/RT_TAB_N/ angUni(NRADL), angLoc(NRADL),
-     .	                 angAvg(NRADL), angEff(NRADL)
+	common/RT_TAB_M/ xig(NRAD), Txi(NRAD), guvEff(NRAD),
+     .                   tauLoc(NRAD)
+	common/RT_TAB_N/ angUni(NRAD), angLoc(NRAD),
+     .	                 angAvg(NRAD), angEff(NRAD)
 C
 C  Cross sections: atomic & dust
 C
-	common/RT_TAB_O/ csH1(NRADL),  csG1(NRADL),  csG2(NRADL),
-     .                   csH1n(NRADL), csG1n(NRADL), csG2n(NRADL),
-     .			 csLyS(NRADL), csLySn(NRADL),
-     .	                 csDust(NRADL), csDustn(NRADL),
+	common/RT_TAB_O/ csH1(NRAD),  csG1(NRAD),  csG2(NRAD),
+     .                   csH1n(NRAD), csG1n(NRAD), csG2n(NRAD),
+     .			 csLyS(NRAD), csLySn(NRAD),
+     .	                 csDust(NRAD), csDustn(NRAD),
      .			 csH1tr, csG1tr, csG2tr,
      .                   csH1AB, csG1AB, csG2AB
 	common/RT_TAB_P/ lrH1tr, lrG1tr, lrG2tr,
@@ -174,8 +173,8 @@ C
 C  Cross sections: chemistry 
 C  (LW = LW bands, 31 = 32 para, 32 = 32 ortho)
 C
-	common/RT_TAB_Q/ csMH27(NRADL), csMH28(NRADL), csMH29(NRADL),
-     .                   csMH30(NRADL), csMH31(NRADL), csMH32(NRADL),
-     .                   csMHLW(NRADL)
+	common/RT_TAB_Q/ csMH27(NRAD), csMH28(NRAD), csMH29(NRAD),
+     .                   csMH30(NRAD), csMH31(NRAD), csMH32(NRAD),
+     .                   csMHLW(NRAD)
 	common/RT_TAB_R/ lr27tr, lr28tr, lr29tr, 
      .                   lr30tr, lr31tr, lr32tr, lrLWtr

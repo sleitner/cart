@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "auxiliary.h"
+#include "logging.h"
 #include "particle.h"
 #include "starformation.h"
 #include "timestep.h"
@@ -24,7 +25,7 @@ void rtInitSource(int level)
   /* Time the source is on (20 Myr) */
   const float ShiningTime = 2.0e7;
 
-  rt_src_rate = (t0*aexp[level]*aexp[level])/ShiningTime;
+  rt_src_rate = (t0*abox[level]*abox[level])/ShiningTime;
 }
 
 
@@ -92,7 +93,7 @@ void rtTransferSplitUpdate(int level);
 void rtTransferUpdateFields(int nvar, int var0, struct rtArrayAverageData *out); 
 void f2c_wrapper(frtinitruntransfer)(f2c_intg *nfreq);
 void f2c_wrapper(frtstepbegintransfer)();
-void f2c_wrapper(frtupdatetablestransfer)(f2c_real *rfAvg);
+void f2c_wrapper(frtpreparetablestransfer)(f2c_real *rfAvg);
 #if (RT_CFI == 1)
 void f2c_wrapper(frttransfercomputecellabs)(f2c_intg *L, f2c_real *Zsol, f2c_real *denB, f2c_real *denH1, f2c_real *denG1, f2c_real *denG2, f2c_real *denMH, f2c_real *abc, f2c_real *abc1);
 #else
@@ -157,7 +158,9 @@ int rtIsThereWork(MPI_Comm local_comm)
 
 void rtInitRunTransfer()
 {
-  int i, level;
+#ifdef RT_SINGLE_SOURCE
+  int i;
+#endif
   f2c_intg val = rt_num_frequencies;
 
   f2c_wrapper(frtinitruntransfer)(&val);
@@ -179,8 +182,6 @@ void rtInitRunTransfer()
 
 void rtStepBeginTransfer()
 {
-  int level;
-
   f2c_wrapper(frtstepbegintransfer)();
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
@@ -203,7 +204,6 @@ void rtLevelUpdateTransfer(int level, MPI_Comm local_comm)
   if(!rtIsThereWork(local_comm)) return;
 
   rtuUpdateArrayAverage(level,rt_num_glob,rt_glob_Avg,local_comm);
-
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
@@ -273,27 +273,6 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
 #endif // RT_VAR_OT_FIELD
 
 #endif // RT_VAR_SOURCE
-}
-
-
-void rtUpdateTablesTransfer()
-{
-  int i, level;
-  struct rtArrayAverageData tmp[rt_num_frequencies];
-  f2c_real rfAvg[rt_num_frequencies];
-  
-  rtuInitArrayAverage(rt_num_frequencies,tmp);
-
-  /*
-  //  Compute global properties for all frequencies 
-  */
-  rtTransferUpdateFields(rt_num_frequencies,rt_freq_offset,tmp); 
-  for(i=0; i<rt_num_frequencies; i++)
-    {
-      rfAvg[i] = tmp[i].Value;
-    }
-
-  f2c_wrapper(frtupdatetablestransfer)(rfAvg);
 }
 
 
@@ -376,17 +355,16 @@ void rtTransferUpdateFields(int nvar, int var0, struct rtArrayAverageData *out)
 void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 {
   int i, cell;
-  float rho, Zsol;
+  float Zsol;
   f2c_real buffer[5];
 
   /* turn ifreq into a fortran index */
   ifreq++;
 
-#pragma omp parallel for default(none), private(cell,i,rho,Zsol,buffer), shared(ncells,cells,ifreq,abc,cell_vars)
+#pragma omp parallel for default(none), private(cell,i,Zsol,buffer), shared(ncells,cells,ifreq,abc,cell_vars)
   for(i=0; i<ncells; i++)
     {
       cell = cells[i];
-      rho = cell_gas_density(cell);
 
 #ifdef RT_DUST
 #ifdef ENRICH
@@ -394,7 +372,7 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 #ifdef ENRICH_SNIa
       Zsol += cell_gas_metallicity_Ia(cell);
 #endif
-      Zsol /= (0.02*rho);
+      Zsol /= (0.02*cell_gas_density(cell));
 #else
       Zsol = 0.0;
 #endif
@@ -427,6 +405,26 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 }
 
 
+void f2c_wrapper(rtexttransfergetaveragefields)(f2c_intg *nfields, f2c_real *rfAvg)
+{
+  int i;
+  struct rtArrayAverageData tmp[rt_num_frequencies];
+  
+  cart_assert(rt_num_frequencies == (*nfields));
+
+  rtuInitArrayAverage(rt_num_frequencies,tmp);
+
+  /*
+  //  Compute global properties for all frequencies 
+  */
+  rtTransferUpdateFields(rt_num_frequencies,rt_freq_offset,tmp); 
+  for(i=0; i<rt_num_frequencies; i++)
+    {
+      rfAvg[i] = tmp[i].Value;
+    }
+}
+
+
 void f2c_wrapper(rtexttransfergetglobalabs)(f2c_intg *nfields, f2c_real *abcAvg)
 {
   int i, ifield, n = *nfields;
@@ -438,9 +436,9 @@ void f2c_wrapper(rtexttransfergetglobalabs)(f2c_intg *nfields, f2c_real *abcAvg)
   
   MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
 
-  abc[0] = (float *)cart_alloc(_Num_level_cells*sizeof(float));
+  abc[0] = cart_alloc(float, _Num_level_cells );
 #if (RT_CFI == 1)
-  abc[1] = (float *)cart_alloc(_Num_level_cells*sizeof(float));
+  abc[1] = cart_alloc(float, _Num_level_cells );
 #else
   abc[1] = 0;
 #endif

@@ -64,7 +64,10 @@ struct gicLevelHeader
   int ind;
 };
 
-  
+
+int gicReadRecordHelper(FILE *f, long size, void* buffer, int *wrong_order);
+
+
 int gicReadManifest(struct gicFile *f, struct gicManifest *manifest);
 int gicReadFileHeader(struct gicFile *f, struct gicFileHeader *header);
 int gicReadLevelHeader(struct gicFile *f, struct gicLevelHeader *header);

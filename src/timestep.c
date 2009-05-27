@@ -21,6 +21,7 @@
 #include "io.h"
 #include "auxiliary.h"
 #include "cooling.h"
+#include "logging.h"
 
 
 #ifdef RADIATIVE_TRANSFER
@@ -32,14 +33,15 @@ double tl[max_level-min_level+1];
 double tl_old[max_level-min_level+1];
 double dtl[max_level-min_level+1];
 double dtl_old[max_level-min_level+1];
-double aexp[max_level-min_level+1];
-double aexp_old[max_level-min_level+1];
+double abox[max_level-min_level+1];
+double abox_old[max_level-min_level+1];
+double auni[max_level-min_level+1];
 
 int num_steps_on_level[max_level-min_level+1];
 
-double a_init;
-double a_end = 1.0;
-double t_init;
+double auni_init = 0.0;
+double auni_end = 1.0;
+double t_init = 0.0;
 double t_end = 0.0;
 
 int output_frequency = 0;
@@ -50,7 +52,7 @@ int grid_output_frequency = 0;
 int max_steps = 0;
 int max_cfl_sync_level = min_level;
 
-double cfl = 0.6;
+double cfl_run = 0.6;
 double cfl_max = 0.6;     /* max allowed, re-do the timestep if that number is exceeded. */
 double particle_cfl = 0.0;
 double max_time_inc = 1.1;
@@ -75,7 +77,7 @@ int global_timestep( double dt ) {
 	for ( i = min_level; i <= max_level; i++ ) {
 		tl_old[i] = tl[i];
 		dtl_old[i] = dtl[i];
-		aexp_old[i] = aexp[i];
+		abox_old[i] = abox[i];
 		num_steps_on_level[i] = 0;
 	}
 
@@ -84,16 +86,19 @@ int global_timestep( double dt ) {
 	/* ensure consistency of time variables */
 	for ( i = min_level+1; i <= max_level; i++ ) {
 		tl[i] = tl[min_level];
-		aexp[i] = aexp[min_level];
 		dtl[i] = 0.5*dtl[i-1];
+		abox[i] = abox[min_level];
+		auni[i] = auni[min_level];
 	}
 
 #ifdef RADIATIVE_TRANSFER
 	rtStepBegin();
+	/* By default update tables once per step */
+	rtUpdateTables();
 #else
 #ifdef COOLING
 	/* prepare for cooling timestep */
-	set_cooling_redshift( aexp[min_level] );
+	set_cooling_redshift( auni[min_level] );
 #endif /* COOLING */
 #endif  /* RADIATIVE_TRANSFER */
 
@@ -103,7 +108,7 @@ int global_timestep( double dt ) {
 
 	/* compute frequency of star formation calls */
 	for ( i = min_level; i <= max_level; i++ ) {
-		dtratio = max( dtmin_SF / ( t0 * aexp[i] * aexp[i] * dtl[i] ), 1e-30 );
+		dtratio = max( dtmin_SF / ( t0 * abox[i] * abox[i] * dtl[i] ), 1e-30 );
 		sf = max( 0, nearest_int( log(dtratio)/log(2.0) ) );
 		sf = min( sf, i );
 		star_formation_frequency[i] = 1 << sf;
@@ -156,9 +161,6 @@ int timestep( int level, MPI_Comm local_comm )
 	double dt_needed;
 	MPI_Comm child_comm;
 	int refined;
-#ifdef DEBUG
-	int i;
-#endif
 
 	cart_assert( level >= min_level && level <= max_level );
 
@@ -169,16 +171,14 @@ int timestep( int level, MPI_Comm local_comm )
 
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
-
-#ifdef DEBUG
-        if ( local_proc_id == MASTER_NODE  ) {
-                cart_debug("starting(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
-		for(i=min_level; i<=max_level; i++)
-		  {
-		    cart_debug("Level %d, # of cells: %d",i,num_cells_per_level[i-min_level]);
-		  }
-	}
-#endif
+	
+        if(mpi_customization_mode & MPI_CUSTOM_SYNC)
+          {
+            /*
+            //  Sync all procs at this level before creating a new communicator
+            */
+            MPI_Barrier(local_comm);
+          }
 
 	/* 
 	//  Create a child communicator
@@ -235,8 +235,9 @@ int timestep( int level, MPI_Comm local_comm )
 				tl[nlevel] += dtl[nlevel];
 
 #ifdef COSMOLOGY
-			        aexp_old[nlevel] = aexp[nlevel];
-			        aexp[nlevel] = b2a( tl[nlevel] );
+			        abox_old[nlevel] = abox[nlevel];
+			        abox[nlevel] = abox_from_tcode( tl[nlevel] );
+			        auni[nlevel] = auni_from_tcode( tl[nlevel] );
 #endif
 
 				num_steps_on_level[nlevel]++;
@@ -294,7 +295,7 @@ int timestep( int level, MPI_Comm local_comm )
 #endif  /* RADIATIVE_TRANSFER */
 
 	/* do hydro step */
-	hydro_step( level );
+	hydro_step( level, local_comm );
 
 #endif /* HYDRO */
 
@@ -336,8 +337,9 @@ int timestep( int level, MPI_Comm local_comm )
 	tl[level] += dtl[level];
 
 #ifdef COSMOLOGY
-	aexp_old[level] = aexp[level];
-	aexp[level] = b2a( tl[level] );
+	abox_old[level] = abox[level];
+	abox[level] = abox_from_tcode( tl[level] );
+	auni[level] = auni_from_tcode( tl[level] );
 #endif
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
@@ -360,9 +362,7 @@ int timestep( int level, MPI_Comm local_comm )
 	}
 #endif
 
-        if ( local_proc_id == MASTER_NODE  ) {
-                cart_debug("timestep(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
-        }
+	cart_debug("timestep(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
 
 	num_steps_on_level[level]++;
 
@@ -380,7 +380,7 @@ void choose_timestep( double *dt ) {
 	double velocity;
 	double level_velocity;
 	int courant_cell, level_courant_cell;
-        double adum1, adum2, dda;
+        double adum1, dda;
 	double dt_new, dt_min;
 
 #ifdef CONSTANT_TIMESTEP
@@ -415,9 +415,9 @@ void choose_timestep( double *dt ) {
 	cart_assert( velocity > 0.0 );
 
 	if ( dt_new > 0.0 ) {
-		dt_new = min( dt_new, cfl *cell_size[min_level] / velocity );
+		dt_new = min( dt_new, cfl_run *cell_size[min_level] / velocity );
 	} else {
-		dt_new = cfl *cell_size[min_level] / velocity;
+		dt_new = cfl_run *cell_size[min_level] / velocity;
 	}
 #endif /* HYDRO */
 
@@ -456,19 +456,17 @@ void choose_timestep( double *dt ) {
 		}
 
 #ifdef COSMOLOGY
-	        adum1 = b2a ( tl[min_level] );
+	        adum1 = abox_from_tcode( tl[min_level] );
 
 		if ( dt_new > 0.0 ) {
-			adum2 = b2a ( min( tl[min_level] + dt_new, 0.0 )  );
-			dda = min( (adum2 - adum1)/adum1 , max_frac_da );
-			
+			dda = abox_from_tcode( min( tl[min_level] + dt_new, tcode_from_abox(adum1*(1+max_frac_da)) ) ) - adum1;  /* dt_new could be very large, it can break cosmology module */
 			if ( max_da > 0.0 ) {
-				dda = min( dda*adum1 , max_da );
+				dda = min( dda , max_da );
 			}
 
-			dt_new = min( dt_new, a2b(adum1+dda)-tl[min_level] );
+			dt_new = min( dt_new, tcode_from_abox(adum1+dda)-tl[min_level] );
 		} else {
-			dt_new = a2b(adum1+max_da)-tl[min_level];
+			dt_new = tcode_from_abox(adum1+max_da) - tl[min_level];
 		}
 #endif /* COSMOLOGY */
 

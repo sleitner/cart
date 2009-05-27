@@ -35,6 +35,8 @@ void create_star_particle( int icell, float mass );
 void remap_star_ids();
 
 /* global parameters */
+extern int sf_recipe;
+
 extern double C_fb;
 extern double fmass_met;
 extern double C_fbIa;

@@ -58,7 +58,7 @@ void init_logging( int restart ) {
 		}
 
 		if ( !restart || restart == 2 ) {
-			fprintf(steptimes,"# step tl dtl aexp daexp\n");
+			fprintf(steptimes,"# step tl dtl auni abox dabox\n");
 		}
 
                 sprintf(filename, "%s/energy.log", logfile_directory );
@@ -69,7 +69,7 @@ void init_logging( int restart ) {
                 }
 
 		if ( !restart || restart == 2 ) {
-			fprintf(energy, "# step tl aexp gas_thermal gas_kinetic gas_potential total_gas_energy baryon_mass particle_kinetic particle_potential total_particle_energy error\n");
+			fprintf(energy, "# step tl a gas_thermal gas_kinetic gas_potential total_gas_energy baryon_mass particle_kinetic particle_potential total_particle_energy error\n");
 		}
 
 #ifdef STARFORM
@@ -81,7 +81,7 @@ void init_logging( int restart ) {
 		}
 
 		if ( !restart || restart == 2 ) {
-			fprintf(star_log, "# step t dt aexp t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
+			fprintf(star_log, "# step t dt a t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
 		}
 #endif /* STARFORM */
 	}
@@ -96,7 +96,7 @@ void init_logging( int restart ) {
 	if ( !restart || restart == 2 ) {
 		/* write header for timing file (total time treated specially) */
 		fprintf( timing, "# %u levels %u timers\n", num_refinement_levels+1, NUM_TIMERS-1 );
-		fprintf( timing, "# step t aexp total_time" );
+		fprintf( timing, "# step t a total_time" );
 		for ( i = 1; i < NUM_TIMERS; i++ ) {
 			fprintf( timing, " %s", timer_name[i] );
 		}
@@ -114,7 +114,7 @@ void init_logging( int restart ) {
 	if ( !restart || restart == 2 ) {
 		/* write header for workload file */
 		fprintf( workload, "# %u levels\n", num_refinement_levels+1 );
-		fprintf( workload, "# step t aexp num_local_particles max_level" );
+		fprintf( workload, "# step t a num_local_particles max_level" );
 		for ( i = min_level; i <= max_level; i++ ) {
 			fprintf( workload, " num_local_cells[%u] num_buffer_cells[%u]", i, i );
 		}
@@ -176,8 +176,8 @@ void log_diagnostics() {
 
 #ifdef PARTICLES
 #ifdef COSMOLOGY
-	ap1 = b2a( tl[min_level] - 0.5*dtl[min_level] );
-	da = aexp[min_level] - aexp_old[min_level];
+	ap1 = abox_from_tcode( tl[min_level] - 0.5*dtl[min_level] );
+	da = abox[min_level] - abox_old[min_level];
 #else
 	ap1 = 1.0;
 	ap0 = 0.0;
@@ -186,7 +186,7 @@ void log_diagnostics() {
 #endif
 	
 	/* log profiling information */
-	fprintf( timing, "%u %e %e %e", step, tl[min_level], aexp[min_level], current_time( TOTAL_TIME, min_level ) );
+	fprintf( timing, "%u %e %e %e", step, tl[min_level], auni[min_level], current_time( TOTAL_TIME, min_level ) );
 	for ( level = min_level; level <= max_level; level++ ) {
 		for ( i = 1; i < NUM_TIMERS; i++ ) {
 			fprintf( timing, " %e", total_time(i, level) );
@@ -197,9 +197,9 @@ void log_diagnostics() {
 
 	/* log workload information */
 #ifdef PARTICLES
-	fprintf( workload, "%u %e %e %u %u", step, tl[min_level], aexp[min_level], num_local_particles, max_level_now() );
+	fprintf( workload, "%u %e %e %u %u", step, tl[min_level], auni[min_level], num_local_particles, max_level_now() );
 #else
-	fprintf( workload, "%u %e %e 0 %u", step, tl[min_level], aexp[min_level], max_level_now() );
+	fprintf( workload, "%u %e %e 0 %u", step, tl[min_level], auni[min_level], max_level_now() );
 #endif /* PARTICLES */
 
 	for ( i = min_level; i <= max_level; i++ ) {
@@ -212,7 +212,7 @@ void log_diagnostics() {
 	fflush(workload);
 
 	/* log dependency information */
-	fprintf( dependency, "%u %e %e", step, tl[min_level], aexp[min_level] );
+	fprintf( dependency, "%u %e %e", step, tl[min_level], auni[min_level] );
 	for ( level = min_level; level <= max_level; level++ ) {
 		for ( i = 0; i < num_procs; i++ ) {
 			if ( level == min_level ) {
@@ -275,9 +275,12 @@ void log_diagnostics() {
 #endif /* GRAVITY */
 
 #ifdef STARFORM
-	dtyears = dtl[min_level] * t0 * aexp[min_level]*aexp[min_level];
-	current_age = age(aexp[min_level]);
-	
+	dtyears = dtl[min_level] * t0 * abox[min_level] * abox[min_level];
+#ifdef COSMOLOGY
+	current_age = tphys_from_abox(abox[min_level]);
+#else
+	current_age = tl[min_level];
+#endif
 	old_stellar_mass = total_stellar_mass;
 	old_stellar_initial_mass = total_stellar_initial_mass;
 
@@ -331,7 +334,7 @@ void log_diagnostics() {
 		}
 
 		fprintf( star_log, "%u %e %e %e %e %e %u %e %e %e %e %e\n", step, tl[min_level],
-			dtl[min_level], aexp[min_level], current_age, dtyears, 
+			dtl[min_level], auni[min_level], current_age, dtyears, 
 			particle_species_num[num_particle_species-1],
 			total_stellar_mass*aM0, d_stellar_mass*aM0,
 			total_stellar_initial_mass*aM0, d_stellar_initial_mass*aM0,
@@ -373,15 +376,15 @@ void log_diagnostics() {
 
 #ifdef COSMOLOGY
 		if ( step == 1 ) {
-			au0 = aexp_old[min_level]*total_particle_potential;
-			aeu0 = au0 + aexp_old[min_level]*total_particle_kinetic;
+			au0 = abox_old[min_level]*total_particle_potential;
+			aeu0 = au0 + abox_old[min_level]*total_particle_kinetic;
 			tintg = 0.0;
 			error = 0.0;
 		} else {
-			tintg += 2.0*(aexp_old[min_level] - ap0)*ekin;
+			tintg += 2.0*(abox_old[min_level] - ap0)*ekin;
 			kinetic_energy = (ekin*(ap1-ap0-0.5*da) + ekin1*0.5*da)/(ap1-ap0);
-			error = ( aexp_old[min_level]*(kinetic_energy+total_particle_potential) - aeu0 + tintg ) /
-					( aexp_old[min_level]*total_particle_potential - au0 );
+			error = ( abox_old[min_level]*(kinetic_energy+total_particle_potential) - aeu0 + tintg ) /
+					( abox_old[min_level]*total_particle_potential - au0 );
 		}
 #else
 		if ( step == 1 ) {
@@ -398,7 +401,7 @@ void log_diagnostics() {
 #endif /* PARTICLES */
 
 		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e %e\n",
-			step, tl[min_level], aexp[min_level], 
+			step, tl[min_level], auni[min_level], 
 			total_gas_thermal, total_gas_kinetic, total_gas_potential, 
 			total_gas_thermal+total_gas_kinetic+total_gas_potential,
 			total_gas_mass,
@@ -407,8 +410,8 @@ void log_diagnostics() {
 			error );
 		fflush(energy);
 
-		fprintf(steptimes, "%u %e %e %e %e\n", step, tl[min_level], dtl[min_level], aexp[min_level],
-			aexp[min_level]-aexp_old[min_level] );
+		fprintf(steptimes, "%u %e %e %e %e %e\n", step, tl[min_level], dtl[min_level], auni[min_level], abox[min_level],
+			abox[min_level]-abox_old[min_level] );
 		fflush(steptimes);
         }
 

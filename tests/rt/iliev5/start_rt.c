@@ -18,7 +18,6 @@
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -30,6 +29,8 @@
 
 #include "rt_solver.h"
 #include "rt_utilities.h"
+
+#include "extra/ifrit.h"
 
 
 #define N50             0.05
@@ -79,14 +80,14 @@ void rt_initial_conditions( int cell )
   cell_momentum(cell,2) = 0.0;
   cell_gas_gamma(cell) = (5.0/3.0);
 
-  cell_gas_internal_energy(cell) = T_i*wmu/T0*aexp[0]*aexp[0]/(gamma-1)*(rt_XH+rt_XHe);
+  cell_gas_internal_energy(cell) = T_i*wmu/T0*auni[0]*auni[0]/(gamma-1)*(rtXH+rtXHe);
 
   cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell);
 
-  cell_HI_density(cell) = rt_XH;
+  cell_HI_density(cell) = rtXH;
   cell_HII_density(cell) = 0.0;
-  cell_HeI_density(cell) = rt_XHe;
+  cell_HeI_density(cell) = rtXHe;
   cell_HeII_density(cell) = 0.0;
   cell_HeIII_density(cell) = 0.0;
   cell_H2_density(cell) = 0.0;
@@ -116,7 +117,7 @@ void run_output()
 {
   const int nvars = 5;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC };
+  int varid[] = { EXT_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, EXT_GAS_TEMPERATURE, EXT_CELL_LEVEL, EXT_LOCAL_PROC };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -127,12 +128,12 @@ void run_output()
   bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.25);
 
   sprintf(filename,"OUT/out.%05d.bin",step);
-  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
+  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
 
   done = 0;
   if(local_proc_id == MASTER_NODE)
     {
-      tPhys = 1.0e-6*pow(aexp[0],2)*t0*(tl[0]-tStart);
+      tPhys = 1.0e-6*pow(auni[0],2)*t0*(tl[0]-tStart);
       printf("Output: %d,  Time: %lg\n",step,tPhys);
       if(tPhys > 499.0) done = 1;
     }
@@ -157,12 +158,13 @@ void init_run()
 
    /* set units */
    astart = 0.1;
-   hubble = 1.0;
+   cosmology_set(h,1.0);
    Lbox = 4*15e-3/(astart*hubble);
-   Omega0 = 1.0e-3*pow(astart,3)/(1.123e-5*hubble*hubble);
-   Omegab0 = Omega0;
-   OmegaL0 = 0.0;
-   aexp[min_level] = astart;
+   cosmology_set(OmegaM,1.0e-3*pow(astart,3)/(1.123e-5*cosmology->h*cosmology->h));
+   cosmology_set(OmegaB,cosmology->OmegaM);
+   cosmology_set(OmegaL,0.0);
+   auni[min_level] = astart;
+   abox[min_level] = astart;
 
    init_units();
 
@@ -231,13 +233,6 @@ void init_run()
    dtl[min_level] = 1.0e7/(t0*astart*astart);
    choose_timestep( &dtl[min_level] );
 
-   for ( level = min_level+1; level <= max_level; level++ )
-     {
-       dtl[level] = 0.5*dtl[level-1];
-       tl[level] = tl[min_level];
-       aexp[level] = aexp[min_level];		
-     }
-
    /* source */
    rtSingleSourceVal = N50*t0*pow(astart,2)/(1.05e11*Omega0/hubble*pow(r0,3));
    rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.375*num_grid;
@@ -245,6 +240,4 @@ void init_run()
    cart_debug("done with initialization");
    
    check_map();
-   
-   run_output();
 }

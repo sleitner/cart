@@ -16,6 +16,7 @@
 #include "auxiliary.h"
 #include "starformation.h"
 #include "hydro.h"
+#include "parallel.h"
 
 
 void read_config( char *filename ) {
@@ -76,14 +77,16 @@ void read_config( char *filename ) {
 				i--;
 			}
 
-			if ( strcmp( tag, "omega0" ) == 0 ) {
-				Omega0 = atof( value );
-			} else if ( strcmp( tag, "omegal0" ) == 0 ) {
-				OmegaL0 = atof( value );
-			} else if ( strcmp( tag, "omegab0" ) == 0 ) {
-                                Omegab0 = atof( value );
-			} else if ( strcmp( tag, "hubble" ) == 0 ) {
-				hubble = atof( value );
+			if ( strcmp( tag, "omega0" ) == 0 || strcmp( tag, "omegam" ) == 0 ) {
+			        cosmology_set(OmegaM,atof( value ));
+			} else if ( strcmp( tag, "omegal0" ) == 0 || strcmp( tag, "omegal" ) == 0 ) {
+			        cosmology_set(OmegaL,atof( value ));
+			} else if ( strcmp( tag, "omegab0" ) == 0 || strcmp( tag, "omegab" ) == 0 ) {
+			        cosmology_set(OmegaB,atof( value ));
+			} else if ( strcmp( tag, "hubble" ) == 0 || strcmp( tag, "h" ) == 0 ) {
+			        cosmology_set(h,atof( value ));
+			} else if ( strcmp( tag, "deltadc" ) == 0 ) {
+			        cosmology_set(DeltaDC,atof( value ));
 			} else if ( strcmp( tag, "lbox" ) == 0 ) {
 				Lbox = atof( value );
 			} else if ( strcmp( tag, "output_directory" ) == 0 ) {
@@ -96,25 +99,29 @@ void read_config( char *filename ) {
 				strcpy( requeue_command, value );
 			} else if( strcmp( tag, "stopfile" ) == 0 ) {
 				
-			} else if ( strcmp( tag, "a_init" ) == 0 ) {
-				a_init = atof( value );
-				t_init = a2b( a_init );	
-			} else if ( strcmp( tag, "a_end" ) == 0 ) {
-				a_end = atof( value );
-				t_end = a2b( a_end );
+			} else if ( strcmp( tag, "a_init" ) == 0 || strcmp( tag, "auni_init" ) == 0 ) {
+				auni_init = atof( value );
+				#ifdef COSMOLOGY
+				t_init = tcode_from_auni( auni_init );
+				#endif
+			} else if ( strcmp( tag, "a_end" ) == 0 || strcmp( tag, "auni_end" ) == 0 ) {
+				auni_end = atof( value );
+				#ifdef COSMOLOGY
+				t_end = tcode_from_auni( auni_end );
+				#endif
 			} else if ( strcmp( tag, "t_init" ) == 0 ) {
 				t_init = atof( value );
 				#ifdef COSMOLOGY
-					a_init = b2a( t_init );
+					auni_init = auni_from_tcode(t_init);
 				#else
-					a_init = 1.0;
+					auni_init = 0.0;
 				#endif
 			} else if ( strcmp( tag, "t_end" ) == 0 ) {
 				t_end = atof( value );
 				#ifdef COSMOLOGY
-					a_end = b2a( t_end );
+					auni_end = auni_from_tcode(t_end);
 				#else
-					a_end = 1.0;
+					auni_end = 1.0e35;
 				#endif
 			} else if ( strcmp( tag, "timelimit" ) == 0 ) {
 				timelimit = atof(value);
@@ -138,6 +145,12 @@ void read_config( char *filename ) {
 				cost_per_cell = atof(value);
 			} else if ( strcmp( tag, "cost_per_particle" ) == 0 ) {
 				cost_per_particle = atof(value);
+			} else if ( strcmp( tag, "mpi_customization_mode" ) == 0 ) {
+				mpi_customization_mode = atoi(value);
+#ifdef _OPENMP
+			} else if ( strcmp( tag, "omp_num_threads" ) == 0 ) {
+			        omp_set_num_threads(atoi(value));
+#endif
 			} else if ( strcmp( tag, "outputs" ) == 0 ) {
 				output = strtok( value, " " );
 				while ( output != NULL && num_outputs < MAX_OUTPUTS ) {
@@ -145,7 +158,15 @@ void read_config( char *filename ) {
 					output = strtok( NULL, " " );
 				}
 			} else if ( strcmp( tag, "cfl" ) == 0 ) {
-				cfl = atof( value );
+				cfl_run = cfl_max = atof( value );
+			} else if ( strcmp( tag, "cfl_run" ) == 0 ) {
+				cfl_run = atof( value );
+				if(cfl_max < cfl_run) cfl_max = cfl_run;
+			} else if ( strcmp( tag, "cfl_max" ) == 0 ) {
+				cfl_max = atof( value );
+				if(cfl_max < cfl_run) cfl_max = cfl_run;
+			} else if ( strcmp( tag, "max_cfl_sync_level" ) == 0 ) {
+				max_cfl_sync_level = atoi( value );
 			} else if ( strcmp( tag, "particle_cfl" ) == 0 ) {
 				particle_cfl = atof( value );
 			} else if ( strcmp( tag, "max_time_inc" ) == 0 ) {
@@ -210,6 +231,8 @@ void read_config( char *filename ) {
 #endif  /* PRESSURE_FLOOR */
 #endif  /* HYDRO */
 #ifdef STARFORM
+			} else if ( strcmp( tag, "sf_recipe" ) == 0 ) {
+				sf_recipe = atoi( value );
 			} else if ( strcmp( tag, "alpha_sf" ) == 0 ) {
 				alpha_SF = atof( value );
 			} else if ( strcmp( tag, "eps_sf" ) == 0 ) {

@@ -484,12 +484,21 @@ void init_run() {
 	tl[min_level] = t_init;
 	dtl[min_level] = 0.0;
 	choose_timestep( &dtl[min_level] );
-	aexp[min_level] = 1.0;
+<<<<<<< .working
+=======
+
+#ifdef COSMOLOGY
+	auni[min_level] = auni_from_tcode( tl[min_level] );
+#else
+>>>>>>> .merge-right.r225
+	auni[min_level] = 1.0;
+	abox[min_level] = auni[min_level];
 
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		dtl[level] = 0.5*dtl[level-1];
 		tl[level] = tl[min_level];
-		aexp[level] = aexp[min_level];		
+		auni[level] = auni[min_level];		
+		abox[level] = abox[min_level];		
 	}
 
 	cart_debug("done with initialization");

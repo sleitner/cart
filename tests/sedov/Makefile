@@ -2,20 +2,20 @@ TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
 NO_RT = 1
 
-include $(TOP_DIR)/Make.config
-
 .phony: compile run clean
 
 compile:	sedov
 
 run: dumps sedov
 	mpirun -np 1 ./sedov sedov.cfg
-	
+
 dumps:
 	@mkdir dumps
 
-sedov: .obj $(OBJS) defs.h start_sedov.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_sedov.c -o sedov $(LIBS) $(EXTRALIBS)
+include $(TOP_DIR)/Make.config
+
+sedov: .obj $(OBJS) defs.h start_sedov.c .obj/extra/viewdump.o
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_sedov.c -o sedov .obj/extra/viewdump.o $(LIBS) $(EXTRALIBS)
 
 clean:
-	@rm -rf $(OBJS) dumps sedov core
+	@rm -rf .obj sedov core

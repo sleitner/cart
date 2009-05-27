@@ -33,7 +33,7 @@ void select_level( int level, int cell_types, int *num_cells_selected, int **sel
 			break;
 	}
 
-	level_cells = cart_alloc( *num_cells_selected * sizeof(int) );
+	level_cells = cart_alloc(int, *num_cells_selected );
 	num_selected = 0;
 
 	if ( cell_types == CELL_TYPE_LOCAL || cell_types == CELL_TYPE_ANY ) {
@@ -79,7 +79,6 @@ void select_level( int level, int cell_types, int *num_cells_selected, int **sel
 }
 
 void select_level_octs( int level, int oct_types, int *num_octs_selected, int **selection ) {
-	int i;
 	int num_selected;
 	int *level_octs;
 	int ioct;
@@ -101,7 +100,7 @@ void select_level_octs( int level, int oct_types, int *num_octs_selected, int **
 			break;
 	}
 
-	level_octs = cart_alloc( *num_octs_selected * sizeof(int) );
+	level_octs = cart_alloc(int, *num_octs_selected );
 	num_selected = 0;
 
 	if ( oct_types == CELL_TYPE_LOCAL || oct_types == CELL_TYPE_ANY ) {
@@ -174,7 +173,7 @@ void select_level_with_condition( int select_leaves, int level, int *num_cells_s
     }
   else
     {
-      level_cells = cart_alloc( size * sizeof(int) );
+      level_cells = cart_alloc(int, size );
       num_selected = 0;
 
       if ( level == min_level )

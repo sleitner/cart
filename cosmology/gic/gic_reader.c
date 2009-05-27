@@ -1,5 +1,5 @@
 /*
-//  Helper functions for reading GIC files
+//  Wrapper functions for reading GIC files
 */
 #include <stdio.h>
 #include <string.h>

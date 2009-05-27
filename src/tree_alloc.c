@@ -25,8 +25,6 @@ void cell_free( int c )
  */
 {
 	int i;
-	int oct;
-	int neighbors[num_neighbors];
 	
 	cart_assert( c >= 0 && c < num_cells );
 
@@ -128,7 +126,7 @@ int oct_alloc()
  * 	octs.
  */
 {
-	int ioct, i;
+	int ioct;
 
 	/* pull from the free_oct_list linked list 
 	 * first, so we continually 

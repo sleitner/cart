@@ -26,7 +26,7 @@ void poisson( int id, fftw_complex *fft_density, fftw_complex *dummy ) {
 	double lambda;
 	double trphi;
 
-	trphi = -6.0 / (4.0 * aexp[min_level] * (double)(num_grid*num_grid*num_grid) );
+	trphi = -6.0 / (4.0 * abox[min_level] * (double)(num_grid*num_grid*num_grid) );
 
 	/* precompute G(k) */
 	lambda = M_PI/(double)num_grid;

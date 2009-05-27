@@ -65,14 +65,8 @@ const int momentum_permute[2*nDim][nDim] = {  { 0, 1, 2 }, { 0, 1, 2 },
 	{ 1, 0, 2 }, { 1, 0, 2 },
 	{ 2, 1, 0 }, { 2, 1, 0 } };
 
-void hydro_step( int level ) {
+void hydro_step( int level, MPI_Comm local_comm ) {
 	int dir;
-	int L1, L2, R1, R2;
-	double gravadd;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
-	double f[num_hydro_vars-1];
 
 #ifdef PRESSURE_FLOOR
 	/*
@@ -82,10 +76,10 @@ void hydro_step( int level ) {
 	//  3. global min(-pressure_floor_min_level,max_level_now) if negative
 	*/
 	if ( ( pressure_floor_min_level > 0 && level >= pressure_floor_min_level ) || 
-	     ( pressure_floor_min_level == 0 && level >= max_level_now_global() ) ||
-	     ( pressure_floor_min_level < 0 && level >= min(-pressure_floor_min_level,max_level_now_global()) ) ) {
+	     ( pressure_floor_min_level == 0 && level >= max_level_now_global(local_comm) ) ||
+	     ( pressure_floor_min_level < 0 && level >= min(-pressure_floor_min_level,max_level_now_global(local_comm)) ) ) {
 		/* artificial pressure floor */
-		pressure_floor = 0.47746 * pressure_floor_factor * aexp[level] * cell_size[max_level]*cell_size[max_level];
+		pressure_floor = 0.47746 * pressure_floor_factor * abox[level] * cell_size[max_level]*cell_size[max_level];
 	} else {
 		pressure_floor = 0.0;
 	}
@@ -291,7 +285,7 @@ void hydro_magic( int level ) {
 	double kinetic_energy;
 	double thermal_energy;
 
-	Tminc = gas_temperature_floor * aexp[level]*aexp[level] / ( T0 * ( gamma - 1.0 ) );
+	Tminc = gas_temperature_floor * abox[level] * abox[level] / ( T0 * ( gamma - 1.0 ) );
 
 	start_time( WORK_TIMER );
 
@@ -459,9 +453,9 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	t_end = tl[level] + dtl[level];
 
 #ifdef COSMOLOGY
-	ai = 1.0 / aexp[level];
-	a1 = aexp[level];
-	a2 = b2a( t_end );
+	ai = 1.0 / abox[level];
+	a1 = abox[level];
+	a2 = abox_from_tcode( t_end );
 	afact = ( a2 - a1 ) / dtl[level];
 #else
 	a1 = a2 = ai = 1.0;
@@ -512,10 +506,10 @@ void heating_rates ( double t, double *y, void *params, double *w, double *a) {
 	double e_init = ((double *)params)[2];
 	double a1 = ((double *)params)[3];
 	double afact = ((double *)params)[4];
-	double aexp_curr = a1 + afact*t;
+	double abox_curr = a1 + afact*t;
 	double e_curr = max( e_init, y[0] );
 
-	a[0] = dEfact*aexp_curr*aexp_curr*pow(e_curr,-1.5);
+	a[0] = dEfact*abox_curr*abox_curr*pow(e_curr,-1.5);
 	w[0] = a[0]*e_equil;
 }
 
@@ -548,9 +542,9 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	t_end = tl[level] + dtl[level];
 
 #ifdef COSMOLOGY
-	ai = 1.0 / aexp[level];
-	a1 = aexp[level];
-	a2 = b2a( t_end );
+	ai = 1.0 / abox[level];
+	a1 = abox[level];
+	a2 = abox_from_tcode( t_end );
 	afact = ( a2 - a1 ) / dtl[level];
 #else
 	a1 = a2 = ai = 1.0;

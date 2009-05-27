@@ -1,14 +1,18 @@
 #include "defs.h"      
 
 
+#include <math.h>
 #include <mpi.h>
 #include <stdio.h>
 
 #include "../auxiliary.h"
+#include "../timestep.h"
 #include "../tree.h"
+#include "../units.h"
+#include "../rt_utilities.h"
 
 #ifdef RADIATIVE_TRANSFER
-#include "rt_solver.h"
+#include "../rt_solver.h"
 #endif
 
 #include "ifrit.h"
@@ -119,6 +123,7 @@ void extUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, in
   int i, j, k, var, cell;
   long offset, l;
   double pos[3];
+  double uDen = den0/pow(abox[min_level],3.0);
 
   l = 0;
   for(k=0; k<nbin[2]; k++)
@@ -165,6 +170,11 @@ void extUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, in
 			    buf[var][l] = local_proc_id;
 			    break;
 			  }
+			case EXT_GAS_NUMBER_DENSITY:
+			  {
+			    buf[var][l] = uDen*cell_gas_density(cell);
+			    break;
+			  }
 			default:
 			  {
 			    buf[var][l] = 0.0;
@@ -182,19 +192,19 @@ void extUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, in
 
 float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int *varid)
 {
-  int i, ip, done;
+  int i, ip;
   long l, ncells;
   float **vars, **buf;
   long *loc;
 
-  buf = cart_alloc(nvars*sizeof(float*));
+  buf = cart_alloc(float*, nvars );
 
   if(local_proc_id == MASTER_NODE)
     {
-      vars = cart_alloc(nvars*sizeof(float*));
+      vars = cart_alloc(float*, nvars );
       for(i=0; i<nvars; i++)
 	{
-	  vars[i] = cart_alloc(nbin[0]*nbin[1]*nbin[2]*sizeof(float));
+	  vars[i] = cart_alloc(float, nbin[0]*nbin[1]*nbin[2] );
 	}
 
       for(ip=0; ip<num_procs; ip++)
@@ -214,8 +224,8 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
 	  /*
 	  //  Allocate buffers
 	  */
-	  for(i=0; i<nvars; i++) buf[i] = cart_alloc(ncells*sizeof(float));
-	  loc = cart_alloc(ncells*sizeof(long));
+	  for(i=0; i<nvars; i++) buf[i] = cart_alloc(float, ncells );
+	  loc = cart_alloc(long, ncells );
 
 	  /*
 	  //  Fill/transfer buffers
@@ -262,8 +272,8 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
       /*
       //  Allocate buffers
       */
-      for(i=0; i<nvars; i++) buf[i] = cart_alloc(ncells*sizeof(float));
-      loc = cart_alloc(ncells*sizeof(long));
+      for(i=0; i<nvars; i++) buf[i] = cart_alloc(float, ncells );
+      loc = cart_alloc(long, ncells );
 
       /*
       //  Fill & transfer buffers
@@ -285,3 +295,44 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
   return vars;
 }
 
+
+/*
+//  Helper functions
+*/
+void extFindMaxVar(int var, float *val, double *pos)
+{
+  MESH_RUN_DECLARE(level,cell);
+  float vMax = -1.0e35;
+  int cellMax = 0;
+  struct
+  {
+    float val;
+    int rank;
+  } in, out;
+
+  cart_assert(var>=0 && var<num_vars);
+
+  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  if(cell_is_leaf(cell) && vMax<cell_var(cell,var))
+    {
+      vMax = cell_var(cell,var);
+      cellMax = cell;
+    }
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+  MESH_RUN_OVER_LEVELS_END;
+  
+  in.val = vMax;
+  MPI_Comm_rank(MPI_COMM_WORLD,&in.rank);
+  MPI_Allreduce(&in,&out,1,MPI_FLOAT_INT,MPI_MAXLOC,MPI_COMM_WORLD);
+
+  *val = out.val;
+  if(pos != NULL)
+    {
+      if(local_proc_id == out.rank)
+	{
+	  cell_position_double(cellMax,pos);
+	}
+      MPI_Bcast(pos,3,MPI_DOUBLE,out.rank,MPI_COMM_WORLD);
+    }
+}

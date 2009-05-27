@@ -97,7 +97,7 @@ C
       clight=3.e10   ![cm s-1]
       Atocm=1.e-8
       
-      open (unit=81,file='lwbands.dat', status='old')
+      open(unit=81, file='drt_lwbands.dat', status='old')
       do i=1,n_lines_file
          read(81,*) lambd,ttpop3 ![erg s-1 A-1] 
          nu=clight/lambd/Atocm

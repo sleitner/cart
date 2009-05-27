@@ -37,29 +37,6 @@
 #include "extra/ifrit.h"
 
 
-void FindMaxVar(int var, float *val, double *pos)
-{
-  MESH_RUN_DECLARE(level,cell);
-  float vMax = -1.0e35;
-  int cellMax = 0;
-
-  cart_assert(var>=0 && var<num_vars);
-
-  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
-  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
-  if(cell_is_leaf(cell) && vMax<cell_var(cell,var))
-    {
-      vMax = cell_var(cell,var);
-      cellMax = cell;
-    }
-  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
-  MESH_RUN_OVER_LEVELS_END;
-  
-  *val = vMax;
-  if(pos != NULL) cell_position_double(cellMax,pos);
-}
-
-
 void run_output()
 {
   const int nbin1 = 256;
@@ -85,10 +62,10 @@ void run_output()
   bb[4] = 0.0;
   bb[5] = num_grid;
 
-  sprintf(filename,"%s/out-box.%04d.bin",output_directory,(int)(aexp[0]*1.0e4));
+  sprintf(filename,"%s/out-box.%04d.bin",output_directory,(int)(auni[0]*1.0e4));
   extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
 
-  FindMaxVar(HVAR_GAS_DENSITY,&dmax,pos);
+  extFindMaxVar(HVAR_GAS_DENSITY,&dmax,pos);
 
   dbb = nbin1*pow(0.5,(double)max_level);
 
@@ -99,22 +76,23 @@ void run_output()
   bb[4] = pos[2] - 0.5*dbb;
   bb[5] = pos[2] + 0.5*dbb;
 
-  sprintf(filename,"%s/out-zoom.%04d.bin",output_directory,(int)(aexp[0]*1.0e4));
+  sprintf(filename,"%s/out-zoom.%04d.bin",output_directory,(int)(auni[0]*1.0e4));
   extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
+
+#ifdef DEBUG_MEMORY_USE
+  dmuPrintRegistryContents();
+#endif
+
 }
 
 void init_run()
 {
-  int i,j;
-  int level;
-  int total_cells_per_level[max_level-min_level+1];
-  float refmin[nDim];
-  float refmax[nDim];
+  int i, j;
   char filename[256], filename2[256];
 
 #ifdef PARTICLES
-  sprintf( filename, "../IC/PMcrd.DAT", output_directory );
-  sprintf( filename2, "../IC/PMcrs0.DAT", output_directory );
+  sprintf( filename, "../IC/PMcrd.DAT" );
+  sprintf( filename2, "../IC/PMcrs0.DAT" );
 
   restart_load_balance( NULL, filename, filename2 );
 
@@ -123,7 +101,7 @@ void init_run()
 #endif
 
 #ifdef HYDRO
-  sprintf( filename, "../IC/tr_ic.dat", output_directory );
+  sprintf( filename, "../IC/tr_ic.dat" );
   read_gas_ic(filename);
   cart_debug("read in gas");
 
@@ -138,7 +116,7 @@ void init_run()
   xInit[0] = xH - xInit[1];
   xInit[4] = xInit[3] = 1.0e-10;
   xInit[2] = xHe - xInit[3] - xInit[4];
-  xInit[5] = (aexp[min_level] < 0.0125) ? 7.0e-7/xH : 2.0e-6/xH;
+  xInit[5] = (auni[min_level] < 0.0125) ? 7.0e-7/xH : 2.0e-6/xH;
 
   for(i=0; i<num_cells_per_level[min_level]; i++)
     {
@@ -151,7 +129,7 @@ void init_run()
 #endif /* HYDRO */
 
   cart_debug("tl[min_level] = %f", tl[min_level] );
-  cart_debug("aexp[min_level] = %f", aexp[min_level] );
+  cart_debug(" a[min_level] = %f", auni[min_level] );
 
   dtl[min_level] = 0.0;
   choose_timestep( &dtl[min_level] );
@@ -173,12 +151,6 @@ void init_run()
       cart_debug("building cell buffer");
       build_cell_buffer();
       repair_neighbors();
-    }
-
-  for(j=min_level+1; j<=max_level; j++)
-    {
-      tl[j] = tl[min_level];
-      aexp[j] = aexp[min_level];
     }
 
   /*

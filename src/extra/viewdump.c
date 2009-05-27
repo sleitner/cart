@@ -291,12 +291,11 @@ void viewdump( const char *filename, int max_level_dumped, float slice, int d, i
 }
 
 void viewdump_serial( const char *filename, int max_level_dumped, float slice, int d, int vars, int cell_type ) {
-	int i, j, p;
+	int i, j;
 	int num_cells_intersected;
 	int total_intersected;
 	int num_level_cells;
 	int *level_cells;
-	int cell_count[MAX_PROCS];
 
 	lev = max_level_dumped;
 	dimension = d;

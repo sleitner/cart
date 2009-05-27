@@ -26,7 +26,6 @@ void rtStepEndTransfer();
 void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells);
 void rtLevelUpdateTransfer(int level, MPI_Comm local_comm);
 
-void rtUpdateTablesTransfer();
 void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc);
 
 

@@ -38,15 +38,6 @@ C
 #ifdef RT_LWBANDS
       read(iunit,err=20) (angLW(j),j=1,NRLW)
 #endif
-C
-C  Total
-C
-C$OMP PARALLEL DO DEFAULT(NONE),
-C$OMP+PRIVATE(lr),
-C$OMP+SHARED(angUni,angLoc,angAvg)
-      do lr=1,NRAD
-         angAvg(lr) = angUni(lr) + angLoc(lr)
-      enddo
 
       return
 

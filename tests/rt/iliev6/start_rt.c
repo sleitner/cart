@@ -18,7 +18,6 @@
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -27,6 +26,8 @@
 #include "density.h"
 #include "io.h"
 #include "auxiliary.h"
+
+#include "extra/ifrit.h"
 
 #include "rt_solver.h"
 #include "rt_utilities.h"
@@ -100,14 +101,14 @@ void rt_initial_conditions( int cell )
   cell_momentum(cell,2) = 0.0;
   cell_gas_gamma(cell) = (5.0/3.0);
 
-  cell_gas_internal_energy(cell) = T_i*wmu/T0*aexp[0]*aexp[0]/(gamma-1)*(rt_XH+rt_XHe)*rho;
+  cell_gas_internal_energy(cell) = T_i*wmu/T0*abox[0]*abox[0]/(gamma-1)*(rtXH+rtXHe)*rho;
 
   cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell);
 
-  cell_HI_density(cell) = rt_XH*rho;
+  cell_HI_density(cell) = rtXH*rho;
   cell_HII_density(cell) = 0.0;
-  cell_HeI_density(cell) = rt_XHe*rho;
+  cell_HeI_density(cell) = rtXHe*rho;
   cell_HeII_density(cell) = 0.0;
   cell_HeIII_density(cell) = 0.0;
   cell_H2_density(cell) = 0.0;
@@ -137,7 +138,7 @@ void run_output()
 {
   const int nvars = 8;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2 };
+  int varid[] = { EXT_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, EXT_GAS_TEMPERATURE, EXT_CELL_LEVEL, EXT_LOCAL_PROC, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2 };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -150,13 +151,13 @@ void run_output()
   bb[1] = bb[3] = bb[5] = num_grid*(0.5+1/ExtraScale);
  
   sprintf(filename,"OUT/out.%05d.bin",step);
-  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
+  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
 
   done = 0;
   if(local_proc_id == MASTER_NODE)
     {
 
-      tPhys = 1.0e-6*pow(aexp[0],2)*t0*(tl[0]-tStart);
+      tPhys = 1.0e-6*pow(abox[0],2)*t0*(tl[0]-tStart);
       printf("Output: %d,  Time: %lg\n",step,tPhys);
       if(tPhys > 24.9) done = 1;
     }
@@ -181,12 +182,12 @@ void init_run()
 
    /* set units */
    astart = 0.1;
-   hubble = 1.0;
+   cosmology_set(h,1.0);
    Lbox = ExtraScale*0.8e-3/(astart*hubble);
-   Omega0 = 3.2*pow(astart,3)/(1.123e-5*hubble*hubble);
-   Omegab0 = Omega0;
-   OmegaL0 = 0.0;
-   aexp[min_level] = astart;
+   cosmology_set(OmegaM,3.2*pow(astart,3)/(1.123e-5*hubble*hubble));
+   cosmology_set(OmegaB,Omega0);
+   cosmology_set(OmegaL,0.0);
+   abox[min_level] = auni[min_level] = astart;
 
    init_units();
 
@@ -259,7 +260,7 @@ void init_run()
      {
        dtl[level] = 0.5*dtl[level-1];
        tl[level] = tl[min_level];
-       aexp[level] = aexp[min_level];		
+       abox[level] = auni[level] = abox[min_level];		
      }
 
    /* source */

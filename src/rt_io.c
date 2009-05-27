@@ -3,12 +3,14 @@
 
 #include <mpi.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "auxiliary.h"
 #include "tree.h"
 
 #include "rt_c2f.h"
 #include "rt_tree.h"
+#include "rt_utilities.h"
 #include "rt_transfer.h"
 
 
@@ -61,7 +63,6 @@ int rtReadRFHelper(FILE *f, f2c_intg n, f2c_real *data, int fortran_style)
 void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 {
   FILE *f;
-  int ret;
   f2c_intg n;
   f2c_real *data;
   char *filename;
@@ -76,7 +77,7 @@ void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 	  cart_error("Unable to pack Radiation Field data.");
 	}
 
-      filename = cart_alloc((strlen(fileroot)+2)*sizeof(char));
+      filename = cart_alloc(char, (strlen(fileroot)+2) );
       strcpy(filename,fileroot);
       strcat(filename,"rf");
 
@@ -86,7 +87,7 @@ void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 	  cart_error("Unable to open file %s for writing.",filename);
 	}
 
-      data = cart_alloc(n*sizeof(f2c_real));
+      data = cart_alloc(f2c_real, n );
       f2c_wrapper(frtpackradiationfields)(&n,data);
 
       if(rtWriteRFHelper(f,n,data,fortran_style))
@@ -101,10 +102,9 @@ void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 }
 
 
-int rtReadRadiationFieldData(const char *fileroot, int fortran_style)
+void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
 {
   FILE *f;
-  int size;
   f2c_intg n;
   f2c_real *data;
   char *filename;
@@ -117,11 +117,11 @@ int rtReadRadiationFieldData(const char *fileroot, int fortran_style)
       cart_error("Unable to unpack Radiation Field data.");
     }
 
-  data = cart_alloc(n*sizeof(f2c_real));
+  data = cart_alloc(f2c_real, n );
 
   if(local_proc_id == MASTER_NODE)
     {
-      filename = cart_alloc((strlen(fileroot)+2)*sizeof(char));
+      filename = cart_alloc(char, (strlen(fileroot)+2) );
       strcpy(filename,fileroot);
       strcat(filename,"rf");
 

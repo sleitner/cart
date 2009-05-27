@@ -19,15 +19,15 @@ c     ----------------------------------------------------------------
       parameter ( ncold  = nrow**3   )           !
       parameter ( npage  = nrow**2   )           !
       parameter ( nrecl  = npage * 6 )           !
-      parameter ( ngrid  = 128  )           ! # of grid cells in 1D
+      parameter ( ngrid  = 64  )           ! # of grid cells in 1D
       parameter ( nll    = 128 )           ! # of chain mesh cells in 1D
       parameter ( ncell  = ngrid**3  )           ! total # of grid cells
       parameter ( ncell0 = ngrid**3  )           ! # of 0-level cells in the original sim.
       parameter ( h      = 0.002     )           ! resolution in grid units
       parameter ( nh     = 400000   )           ! max # of haloes
       parameter ( nhlimit= 1000000   )           ! limit to the # of potential halos
-      parameter ( nspec  = 1         )           ! # of particle species
-      parameter ( nbyteword = 4      )  
+      parameter ( nspec  = 3         )           ! # of particle species
+      parameter ( nbyteword = 1      )  
 
       parameter ( wpar = ((1.0*ngrid))**3/ncold )! particle weight
       parameter ( rhoaver= 1.0       )           ! average density of particles
@@ -39,8 +39,8 @@ c     ----------------------------------------------------------------
 c.... relative weights of species (sum should be equal to one)
 
       dimension wsp(nspec)
-c      data wsp / 0.8 , 0.1 , 0.1 /       
-      data wsp / 1.0 / 
+      data wsp / 1.339286e-02, 1.071429e-01, 8.571429e-01 / 
+c      data wsp / 1.0 / 
 
 c.... grid arrays 
       common / GRID1 / iCL(nll,nll,nll)
@@ -125,7 +125,12 @@ c
       DIMENSION         RECDAT(NRECL)  ,wspecies(10),lspecies(10)
       EQUIVALENCE    (RECDAT(1),XPAR(1)),
      +               (wspecies(1),extras(1)),
-     +               (lspecies(1),extras(11))
+     +               (lspecies(1),extras(11)),
+     +               (zero1,extras(21)),
+     +               (DelDC,extras(22)),
+     +               (abox,extras(23)),
+     +               (Hbox,extras(24)),
+     +               (zero2,extras(25))
 
       CHARACTER*45      HEADER
       COMMON / HEADDR/  HEADER

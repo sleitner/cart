@@ -31,7 +31,18 @@ c     ------------------------------------------------------------
       character*10 chaexp
 
       alpha = 1.5
+C
+C  Normalize wsp
+C
+      s = 0.0
+      do i=1,nspec
+         s = s + wsp(i)
+      enddo
 
+      do i=1,nspec
+         wsp(i) = wsp(i)/s
+      enddo
+C
       if (IARGC().lt.4) then
         write (*,*)
      &'usage: exe aexp[e.g. 0.999] Dmin Dvir r_find[/h comoving kpc]'
@@ -285,7 +296,8 @@ c
       do ic2 = 0 , nbins
         call FindIBin ( ic2 , ibtype, rmind, rmaxd, drd,
      &                  rd1, rm, rd2, volr, voli ) 
-        write(*,88) ic2, rd1*rg2kpc, rm*rg2kpc, rd2*rg2kpc, volr, voli
+        write(*,88) ic2, 0, 
+     &       rd1*rg2kpc, rm*rg2kpc, rd2*rg2kpc, volr, voli
       enddo
       endif
 
@@ -349,9 +361,9 @@ C$OMP+PRIVATE(rd,dv,vesc,resc,ibin,irmaxflag,dex)
 C$OMP+PRIVATE(rnp,vmn,rd1,rd2,rm,volr,voli,rld1,rld2,dil1,dil2,rvir)
 C$OMP+PRIVATE(rhdum,ntot,ph,rvmax,vmax,imaxflag,irsflag,nrg,er,rr,dir)
 C$OMP+PRIVATE(vr,a,ae,b,be,csq,q,hmassi,rcirc,rcircd,pdum,ptotd)
-C$OMP+PRIVATE(ph1,ph2,irflag,pl1,pl2,ah,bh)
+C$OMP+PRIVATE(ph1,ph2,irflag,pl1,pl2,ah,bh), schedule(dynamic,10)
       do ic1 = 1 , min(nhalo,nhlimit)
-        if ( mod(ic1,1) .eq. 1000 ) then 
+        if ( mod(ic1-1,100) .eq. 0 ) then 
           write(*,*) 'processing halo',ic1,'...',nhalo-ic1,' left'
         endif
 
@@ -1169,7 +1181,8 @@ c
       else
         vg2kms = 100.0*boxh0 / (aexpn*ngridc)
       endif
-      write(*,*) 'vg2kms =',vg2kms
+
+      write(*,*) 'aexp =',aexpn
       
       write(*,*) 'Lbox =',boxh0,' [/h Mpc]'
       write(*,*) 'M0 =',pmmsun,' [/h Msun]'
@@ -1205,6 +1218,7 @@ c.... construct linked list
            write(*,*) 'ip = ', ip, jp, kp
            write(*,*) 'nll = ', nll
            write(*,*) 'ngrid = ', ngrid
+           stop
         endif
         iLL(ic1)      = iCL(ip,jp,kp)
         iCL(ip,jp,kp) = ic1        
@@ -1839,8 +1853,6 @@ c     copy halo variables from nold to nnew location
 c     -----------------------------------------------
       include 'hfind.h'
 c
-          write(*,*) nnew, nold
- 
           hc(nnew)  = hc(nold)
           xh(nnew)  = xh(nold) 
           yh(nnew)  = yh(nold) 
@@ -1991,6 +2003,10 @@ c.... read control information and check whether it has proper structure
       if ( ret .ne. 0 ) then
        write(*,*) 'Error reading from header file!'
        stop
+      endif
+
+      if(zero1.eq.0.0 .and. zero2.eq.0.0 .and.DelDC.ne.0.0) then
+         AEXPN = abox
       endif
 
       write (*,100) HEADER,

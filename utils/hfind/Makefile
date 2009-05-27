@@ -6,9 +6,13 @@ OBJS =	hfind.o
 
 LIBS =	
 
-FC = ifort
-FFLAGS = -O2 -w -mcmodel=medium -i_dynamic 
-LDFLAGS = -O2 -w -mcmodel=medium -i_dynamic 
+FC = pgf77
+FFLAGS = -fast -mp -mcmodel=medium
+LDFLAGS = -fast -mp -mcmodel=medium
+
+#FC = ifort
+#FFLAGS = -O2 -w -mcmodel=medium -i_dynamic 
+#LDFLAGS = -O2 -w -mcmodel=medium -i_dynamic 
 
 all: $(PROG)
 

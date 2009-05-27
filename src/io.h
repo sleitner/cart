@@ -28,8 +28,8 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 
 #ifdef PARTICLES
 typedef struct {
-	float aexpn;
-	float aexp0;
+	float aunin;
+	float auni0;
 	float amplt;
 	float astep;
 	int   istep;
@@ -44,20 +44,25 @@ typedef struct {
 	int   Ngrid;
 	int   Nspecies;
 	int   Nseed;
-	float Om0;
-	float Oml0;
-	float hubble;
+	float OmM0;
+	float OmL0;
+	float h100;
 	float Wp5;
-	float Ocurv;
-	float Omb0;  
+	float OmK0;
+	float OmB0;  
 	float mass[10];
 	unsigned int   num[10];
-	float fill[80];
+        float zero1;
+        float DelDC;
+        float abox;   /* Scale factor in the box */
+        float Hbox;   /* Hubble constant in the box */
+        float zero2;
+	float fill[75];
 } particle_header;
 
 typedef struct {
-	float aexpn;
-	float aexp0;
+	float aunin;
+	float auni0;
 	float amplt;
 	float astep;
 	int   istep;
@@ -72,14 +77,19 @@ typedef struct {
 	int   Ngrid;
 	int   Nspecies;
 	int   Nseed;
-	float Om0;
-	float Oml0;
-	float hubble;
+	float OmM0;
+	float OmL0;
+	float h100;
 	float Wp5;
-	float Ocurv;
+	float OmK0;
 	float mass[10];
 	unsigned int   num[10];
-	float fill[80];
+        float zero1;
+        float DelDC;
+        float abox;   /* Scale factor in the box */
+        float Hbox;   /* Hubble constant in the box */
+        float zero2;
+	float fill[75];
 } nbody_particle_header;
 
 void write_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename );

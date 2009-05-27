@@ -1,0 +1,41 @@
+#ifndef __DEFS_H__
+#define __DEFS_H__
+
+
+--#define HYDRO
+--#define GRAVITY
+--#define COOLING
+--#define STARFORM
+--#define COSMOLOGY
+--#define PARTICLES
+--#define REFINEMENT
+--#define RADIATIVE_TRANSFER
+--#define CLOUDY_COOLING
+
+--#define LAPIDUS
+--#define DENSGRADSMOOTH
+--#define PRESSURE_FLOOR
+--#define ADVECT_SPECIES
+
+--#define METALCOOLING
+--#define ENRICH
+--#define ENRICH_SNIa
+--#define FEEDBACK
+--#define FEEDBACK_SNIa
+--#define STELLARMASSLOSS
+
+
+--#define DEBUG
+--#define DEBUG_MEMORY_USE
+
+--#define OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION 
+--#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
+
+
+--#define num_root_grid_refinements	<set value here>
+--#define num_refinement_levels		<set value here>
+--#define num_octs			<set value here>
+--#define num_particles		        <set value here>
+--#define num_star_particles            <set value here>
+
+#endif

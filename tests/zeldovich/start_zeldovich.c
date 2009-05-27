@@ -19,7 +19,7 @@
 #include "timestep.h"
 #include "refinement.h"
 #include "refinement_operations.h"
-#include "viewdump.h"
+#include "extra/viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -149,7 +149,7 @@ void output_cell( int cell, int level ) {
 	double kq;
 	double rho, v, g, phi;
 	double x, x_a;
-	double aexp_a, dgrowth_a;
+	double abox_a, dgrowth_a;
 
 #ifdef PARTICLES
 	int ipart;
@@ -168,17 +168,17 @@ void output_cell( int cell, int level ) {
 		kq = ak*q;
 
 		if ( tl_old[min_level] == 0.0 ) {
-			aexp_a = b2a( tl[level] - 0.5*dtl[level] );
+			abox_a = abox_from_tcode( tl[level] - 0.5*dtl[level] );
 		} else {
-			aexp_a = b2a( tl[level] + 0.5*dtl[level] );
+			abox_a = abox_from_tcode( tl[level] + 0.5*dtl[level] );
 		}
-		dgrowth_a = growth(aexp_a);
+		dgrowth_a = growth(abox_a);
 
 		x_a = q + dgrowth_a*ampl*sin(kq);
                                                                                                                                                             
 		rho = Omega0 / ( 1.0 + ak*dgrowth*ampl*cos(kq) );
 		v = ddgrowthdt*ampl*sin(kq);
-		g = -6.0*aexp_a*( rhogas0*q - x_a );
+		g = -6.0*abox_a*( rhogas0*q - x_a );
 
 		phi = c1*(c2*(0.5*kq*kq + c3*(kq*sin(kq)+cos(kq)-1.0)) - 0.5*(x0*x0)) + phi0;
 
@@ -212,8 +212,8 @@ void output_cell( int cell, int level ) {
 /*
 		ipart = cell_particle_list[cell];
 
-		dgrowth = growth(aexp[min_level]);
-		ddgrowthdt = dgrowthdt( b2a( tl[min_level] - 0.5*dtl[min_level] ) );
+		dgrowth = growth(abox[min_level]);
+		ddgrowthdt = dgrowthdt( abox_from_tcode( tl[min_level] - 0.5*dtl[min_level] ) );
 
 		while ( ipart != NULL_PARTICLE ) {
 			x0 = particle_x[ipart][0];
@@ -252,16 +252,16 @@ void run_output() {
 	int num_level_cells;
 	int *level_cells;
 
-	sprintf(filename, "dumps/zeldovich_[%5.4f]_%03d.dat", aexp[min_level], local_proc_id );
+	sprintf(filename, "dumps/zeldovich_[%5.4f]_%03d.dat", abox[min_level], local_proc_id );
 	output = fopen(filename, "w");
 
-	sprintf(filename, "dumps/zeldovich_particles_[%5.4f]_%03d.dat", aexp[min_level], local_proc_id );
+	sprintf(filename, "dumps/zeldovich_particles_[%5.4f]_%03d.dat", abox[min_level], local_proc_id );
 	particles = fopen(filename, "w");
 
-	dgrowth = growth(aexp[min_level]);
-        ddgrowthdt = dgrowthdt(aexp[min_level]);
+	dgrowth = growth(abox[min_level]);
+        ddgrowthdt = dgrowthdt(abox[min_level]);
 
-	c1 = 6.0/aexp[min_level];
+	c1 = 6.0/abox[min_level];
 	c2 = 1.0 / (ak*ak);
 	c3 = dgrowth*ampl*ak;
 
@@ -301,7 +301,7 @@ void run_output() {
 	x_rms = x_norm = 0.0;
 	v_rms = v_norm = 0.0;
 
-	ddgrowthdt = dgrowthdt( b2a( tl[min_level] - 0.5*dtl[min_level] ) );
+	ddgrowthdt = dgrowthdt( abox_from_tcode( tl[min_level] - 0.5*dtl[min_level] ) );
 
 	for ( i = 0; i < num_particles; i++ ) {
 		if ( particle_level[i] != FREE_PARTICLE_LEVEL ) {
@@ -343,7 +343,7 @@ void run_output() {
 		v_rms_total = sqrt(v_rms_total);
 
 		particles = fopen("dumps/particle_rms.dat", "a");
-		fprintf(particles, "%e %e %e %e %e\n", aexp[min_level], x_rms_total, v_rms_total, x_norm_total, v_norm_total );
+		fprintf(particles, "%e %e %e %e %e\n", abox[min_level], x_rms_total, v_rms_total, x_norm_total, v_norm_total );
 		fclose(particles);
 	}
 }
@@ -370,12 +370,12 @@ void init_run() {
         build_cell_buffer();
         repair_neighbors();
 
-	a = a_init;
-	t = a2b( a_init );
+	a = auni_init;
+	t = tcode_from_auni( auni_init );
 
 	for ( i = min_level; i <= max_level; i++ ) {
                 tl[i] = t;
-                aexp[i] = a;
+                abox[i] = auni[i] = a;
 	}
 
 	rhogas0 = Omegab0/Omega0;
@@ -431,7 +431,7 @@ void init_run() {
 	cart_debug("particle weight = %e", pw );
 
 	xcons = dgrowth*ampl;
-	a_vel = b2a( t - 0.5*dtl[min_level] );
+	a_vel = abox_from_tcode( t - 0.5*dtl[min_level] );
 	vcons = ampl * dgrowthdt( a_vel );
 
 	ipart = 0;

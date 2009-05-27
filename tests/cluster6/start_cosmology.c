@@ -17,7 +17,7 @@
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "viewdump.h"
+#include "extra/viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -57,7 +57,7 @@ void init_run() {
 #endif /* HYDRO */
 
 	cart_debug("tl[min_level] = %f", tl[min_level] );
-	cart_debug("aexp[min_level] = %f", aexp[min_level] );
+	cart_debug(" a[min_level] = %f", auni[min_level] );
 
 	dtl[min_level] = 0.0;
         choose_timestep( &dtl[min_level] );

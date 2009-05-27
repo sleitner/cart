@@ -1,0 +1,22 @@
+#ifndef __DEFS_H__
+#define __DEFS_H__
+
+
+#define GRAVITY
+#define COSMOLOGY
+#define PARTICLES
+#define REFINEMENT
+
+
+#define DEBUG_MEMORY_USE
+
+#define OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION 
+#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
+
+
+#define num_root_grid_refinements	<set value here>
+#define num_refinement_levels		<set value here>
+#define num_octs			<set value here>
+#define num_particles		        <set value here>
+
+#endif

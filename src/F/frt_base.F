@@ -106,7 +106,8 @@ C
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
-      dimension guv(NRADL)
+      dimension guv(NRAD)
+      include 'frt_inline.inc'
 C
 C  Parameters of the step
 C
@@ -207,7 +208,7 @@ C
       do lr=1,NRAD
          guvEff(lr) = fac*guv(lr)
       enddo
-
+C
 #ifdef RT_CHEMISTRY
 #ifdef RT_LWBANDS
 
@@ -260,6 +261,70 @@ C
 C  Reset global field counters
 C
       call frtInitGlobalFields
+
+#ifdef RT_EXTERNAL_BACKGROUND
+#if (RT_EXTERNAL_BACKGROUND != RT_BACKGROUND_SELFCONSISTENT)
+
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(angLoc)
+      do lr=1,NRAD
+         angLoc(lr) = 0.0
+      enddo
+
+      call frtSetExternalBackground(aStep,angUni,angLW)
+
+#endif /* RT_EXTERNAL_BACKGROUND != RT_BACKGROUND_SELFCONSISTENT */
+#endif /* RT_EXTERNAL_BACKGROUND */
+
+      call frtSetGlobalRadiationFields
+
+      return
+      end
+C
+C
+C
+      subroutine frtSetGlobalRadiationFields
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      include 'frt_inline.inc'
+
+#ifdef RT_TRANSFER
+      call frtSetGlobalRadiationFieldsTransfer
+#endif
+
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
+      do lr=1,NRAD
+         angEff(lr) = angUni(lr) + angLoc(lr)*QFuni(tauLoc(lr))
+         angAvg(lr) = angUni(lr) + angLoc(lr)
+      enddo
+
+#ifdef RT_OUTPUT
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         write(6,*) 'RT: properties of global radiation fields:'
+         write(6,*) '  nu_H1: ', angUni(lrH1tr), angAvg(lrH1tr), 
+     .        angEff(lrH1tr), facLX*guvEff(lrH1tr)
+         write(6,*) '  nu_G1: ', angUni(lrG1tr), angAvg(lrG1tr), 
+     .        angEff(lrG1tr), facLX*guvEff(lrG1tr)
+         write(6,*) '  nu_G2: ', angUni(lrG2tr), angAvg(lrG2tr), 
+     .        angEff(lrG2tr), facLX*guvEff(lrG2tr)
+      endif
+#endif
+
+      return
+      end
+C
+C
+C
+      subroutine frtUpdateTables
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+
+      call frtSetGlobalRadiationFields
+      call frtFillRadiationTables
 
       return
       end
@@ -317,7 +382,7 @@ C
 #endif
 
 #ifdef RT_EXTERNAL_BACKGROUND
-#if (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+#if (RT_EXTERNAL_BACKGROUND == RT_BACKGROUND_SELFCONSISTENT)
 C
 C  Unpack global quantities
 C
@@ -359,9 +424,9 @@ C$OMP+SHARED(axi,CRAD2,csDust,lrmin,lrmax,csLyS,gData)
          axi(lr) = axi(lr) + CRAD2*csDust(lr)*gData(iavgDust)
 #endif
       enddo
-
+ 
 #ifdef RT_TRANSFER
-      
+     
       call frtTransferComputeAverageAbs(axi)
 
 #else
@@ -469,18 +534,18 @@ C$OMP+PRIVATE(lr,lbl,lbr,anbl,xibl,anbr,xibr),
 C$OMP+SHARED(lshift,angLW,anbLW,xibLW,xigLW,angH1tr,XILWST)
       do lr=1,NRLW
          lbl = lr + lshift
-         lbr = lbl+1
+         lbr = lbl + 1
          if(lbl .gt. NRLW) then
             angLW(lr) = 0.0
          else 
             anbl = anbLW(lbl)
-            xibl = XILWST*(real(lbl)-1.0)
+            xibl = xigLW(lbl)
             if(lbr .gt. NRLW) then
                anbr = angH1tr
             else
                anbr = anbLW(lbr)
             endif
-            xibr = xibl+XILWST
+            xibr = xibl + XILWST
             angLW(lr) = ((xibLW(lr)-xibl)*anbr+(xibr-xibLW(lr))*anbl)/
      .           XILWST
          endif
@@ -494,15 +559,9 @@ C
 
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
 
-#else /* RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT */
+      axiH1tr = axi(lrH1tr)
 
-      call frtSetExternalBackground(aStep,angUni,angLoc)
-
-#if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
-      call frtSetExternalBackgroundLW(aStep,angLW)
-#endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
-
-#endif /* RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT */
+#endif /* RT_EXTERNAL_BACKGROUND == RT_BACKGROUND_SELFCONSISTENT */
 C
 C  Total
 C
@@ -513,7 +572,6 @@ C$OMP+SHARED(angUni,angLoc,angAvg)
          angAvg(lr) = angUni(lr) + angLoc(lr)
       enddo
 
-      axiH1tr = axi(lrH1tr)
       angH1tr = angAvg(lrH1tr)
 
 #ifdef RT_DEBUG
@@ -537,16 +595,16 @@ C$OMP+SHARED(angUni,angLoc,angAvg)
 C
 C
 C
-      subroutine frtAdvanceBackground(lshift,xib,axi,sxi,ang1)
+      subroutine frtAdvanceBackground(lshift,xib,axi,sxi,ang)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-      dimension xib(NRAD), axi(NRAD), sxi(NRAD), ang1(NRADL)
+      dimension xib(NRAD), axi(NRAD), sxi(NRAD), ang(NRAD)
 C
       dimension anb(NRAD)
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,t12,p12,q12),
-C$OMP+SHARED(axi,tStep,anb,ang1,sxi)
+C$OMP+SHARED(axi,tStep,anb,ang,sxi)
       do lr=1,NRAD
 
          t12 = axi(lr)*tStep
@@ -561,18 +619,18 @@ C$OMP+SHARED(axi,tStep,anb,ang1,sxi)
             q12 = (1.0-p12)/axi(lr)
          endif
 
-         anb(lr) = ang1(lr)*p12 + sxi(lr)*q12 
+         anb(lr) = ang(lr)*p12 + sxi(lr)*q12 
 
       enddo
 
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,lbl,lbr,anbl,xibl,anbr,xibr),
-C$OMP+SHARED(lshift,ang1,anb,xib,xig)
+C$OMP+SHARED(lshift,ang,anb,xib,xig)
       do lr=1,NRAD
          lbl = lr + lshift
-         lbr = lbl+1
+         lbr = lbl + 1
          if(lbl .gt. NRAD) then
-            ang1(lr) = 0.0
+            ang(lr) = 0.0
          else 
             anbl = anb(lbl)
             xibl = xig(lbl)
@@ -582,7 +640,7 @@ C$OMP+SHARED(lshift,ang1,anb,xib,xig)
                anbr = anb(lbr)
             endif
             xibr = xibl + XISTEP
-            ang1(lr) = ((xib(lr)-xibl)*anbr+(xibr-xib(lr))*anbl)/XISTEP
+            ang(lr) = ((xib(lr)-xibl)*anbr+(xibr-xib(lr))*anbl)/XISTEP
          endif
       enddo
 C
@@ -590,9 +648,9 @@ C  This is just in case...
 C
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(ang1)
+C$OMP+SHARED(ang)
       do lr=1,NRAD
-         ang1(lr) = max(0.0,ang1(lr))
+         ang(lr) = max(0.0,ang(lr))
       enddo
 
       return
@@ -617,24 +675,113 @@ C
 C
 C
 C
-      subroutine frtQueryBackground(n,wlen,ajnu,aexp)
+      subroutine frtQueryBackground(n,wlen,anxi)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-      dimension wlen(*), ajnu(*)
+      dimension wlen(*), anxi(*)
 
       if(n .ne. NRAD) then
          n = NRAD
       else
-         if(aexp .lt. 1.0e-30) then
-            uJnu = 1.5808e-17/aStep**3
-         else
-            uJnu = 1.5808e-17/aexp**3
-         endif
          do lr=1,NRAD
             wlen(lr) = 911.75*exp(-xig(lr))
-            ajnu(lr) = uJnu*angAvg(lr)
+            anxi(lr) = angAvg(lr)
          enddo
       endif
+
+      return
+      end
+C
+C
+C     
+      function frtGetRadiationField(rf,lr)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_TRANSFER
+      include 'frt_transfer.inc'
+#endif
+      dimension rf(*)
+      include 'frt_inline.inc'
+
+      if(lr.ge.1 .and. lr.le.NRAD) then
+
+#ifdef RT_EXTERNAL_BACKGROUND
+#ifdef RT_TRANSFER
+         tauH1l = rf(irfH1gf)
+         tauG1l = rf(irfG1gf)
+         tauG2l = rf(irfG2gf)
+#else
+         tauH1l = 0.0
+         tauG1l = 0.0
+         tauG2l = 0.0
+#endif
+         if(tauH1l .gt. 0.0) then
+#ifdef RT_DUST
+            csH1l = zdust*csDustn(lr) + csLySn(lr) + csH1n(lr)
+#else
+            csH1l = csLySn(lr) + csH1n(lr)
+#endif
+            taul = csH1l*tauH1l
+         else
+            taul = 0.0
+         endif
+         if(tauG1l .gt. 0.0) then
+            taul = taul + csG1n(lr)*tauG1l
+         endif
+         if(tauG2l .gt. 0.0) then
+            taul = taul + csG2n(lr)*tauG2l
+         endif
+
+         if(
+     .        (tauH1l.lt.0 .and. lr.ge.lrmin .and. lr.lt.lrG1tr) .or.
+     .        (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr) .or.
+     .        (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+            anxi = 0.0
+         else
+            anxi = angEff(lr)*QFuni(taul)
+         endif
+#else
+         anxi = 0.0
+#endif
+
+#ifdef RT_TRANSFER
+         tauH1l = rf(irfH1lf)
+         tauG1l = rf(irfG1lf)
+         tauG2l = rf(irfG2lf)
+
+         if(tauH1l .gt. 0.0) then
+#ifdef RT_DUST
+            csH1l = zdust*csDustn(lr) +  csH1n(lr)
+#else
+            csH1l = csH1n(lr)
+#endif
+            taul = csH1l*tauH1l
+         else
+            taul = 0.0
+         endif
+         if(tauG1l .gt. 0.0) then
+            taul = taul + csG1n(lr)*tauG1l
+         endif
+         if(tauG2l .gt. 0.0) then
+            taul = taul + csG2n(lr)*tauG2l
+         endif
+
+         if(
+     .        (tauH1l.lt.0 .and. lr.ge.lrmin .and. lr.lt.lrG1tr) .or.
+     .        (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr) .or.
+     .        (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+         else
+            anxi = anxi + facLX*rf(irfNorm)*guvEff(lr)*QFloc(taul)
+         endif
+#endif
+
+      else
+
+         anxi = 0.0
+
+      endif
+
+      frtGetRadiationField = anxi
 
       return
       end

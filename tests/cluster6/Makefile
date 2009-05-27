@@ -1,12 +1,11 @@
-TOP_DIR = ../../
+TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
-
-include $(TOP_DIR)/Make.config
+NO_RT = 1
 
 compile:	cart
 
-run:
-	
+include $(TOP_DIR)/Make.config
+
 cart: .obj $(OBJS) defs.h start_cosmology.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_cosmology.c -o cart $(LIBS) $(EXTRALIBS)
 

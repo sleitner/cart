@@ -14,6 +14,8 @@ int num_procs;
 int local_proc_id;
 int proc_sfc_index[MAX_PROCS+1];
 
+unsigned int mpi_customization_mode = MPI_CUSTOM_NONE;
+
 /*******************************************************  
  * init_parallel_grid
  ******************************************************/

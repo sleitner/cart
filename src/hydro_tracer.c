@@ -512,8 +512,8 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 		if ( ( trade_level == -1 && proc != local_proc_id ) ||
 				( trade_level != -1 &&
 				( num_remote_buffers[trade_level][proc] > 0 || num_local_buffers[trade_level][proc] > 0 ) ) ) {
-			recv_id[proc] = cart_alloc( page_size * sizeof(unsigned int) );
-			recv_tracers[proc] = cart_alloc( tracers_page_size * sizeof(double) );
+			recv_id[proc] = cart_alloc(unsigned int, page_size );
+			recv_tracers[proc] = cart_alloc(double, tracers_page_size );
 
 			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0, 
 					MPI_COMM_WORLD, &recv_id_requests[proc] );
@@ -544,9 +544,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 	}
 
 	/* allocate space for the pages */
-	send_id = cart_alloc( num_pages_to_send * page_size * sizeof(int) );
-	send_tracers = cart_alloc( num_pages_to_send * tracers_page_size * sizeof(double) );
-	send_requests = cart_alloc( 2*num_pages_to_send * sizeof(MPI_Request) );
+	send_id = cart_alloc(unsigned int, num_pages_to_send * page_size );
+	send_tracers = cart_alloc(double, num_pages_to_send * tracers_page_size );
+	send_requests = cart_alloc(MPI_Request, 2*num_pages_to_send );
 	
 	num_pages_sent = 0;
 	num_send_requests = 0;

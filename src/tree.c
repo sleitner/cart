@@ -4,11 +4,11 @@
 
 #include "defs.h"
 #include "tree.h"
+#include "particle.h"
 #include "sfc.h"
 #include "parallel.h"
 #include "cell_buffer.h"
 #include "iterators.h"
-#include "particle.h"
 #include "timing.h"
 #include "auxiliary.h"
 
@@ -47,8 +47,7 @@ void init_tree()
  *   needs to be called before a restart
  */
 {
-	int i, j;
-	int neighbors[num_dependent_neighbors];
+	int i;
 
 	for ( i = 0; i < num_vars; i++ ) {
 		all_vars[i] = i;
@@ -93,21 +92,14 @@ void init_tree()
 	free_oct_list = NULL_OCT;
 }
 
-int max_level_now_global() {
-	int i;
+int max_level_now_global(MPI_Comm local_comm) {
 	int level, max;
 
-	level = max_level;
-	for ( i = min_level+1; i <= max_level; i++ ) {
-		if ( num_cells_per_level[i] == 0 ) {
-			level = i-1;
-			break;
-		}
-	}
+	level = max_level_local();
 
 	start_time( COMMUNICATION_TIMER );
 	start_time( MAX_LEVEL_TIMER );
-	MPI_Allreduce( &level, &max, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD );
+	MPI_Allreduce( &level, &max, 1, MPI_INT, MPI_MAX, local_comm );
 	end_time( MAX_LEVEL_TIMER );
 	end_time( COMMUNICATION_TIMER );
 
@@ -307,7 +299,6 @@ int root_cell_sfc_index( int icell ) {
 }
 
 int cell_parent_root_sfc( int c ) {
-	int hash;
 
 	cart_assert( c >= 0 && c < num_cells ); 
 

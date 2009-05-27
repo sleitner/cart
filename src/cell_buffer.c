@@ -88,8 +88,6 @@ int cell_buffer_local_index( int sfc )
  * 	otherwise it returns the local index 
  */
 {
-	int h;
-
 	cart_assert( sfc >= 0 && sfc < max_sfc_index );
 
 	if ( root_buffer_enabled ) {
@@ -100,10 +98,10 @@ int cell_buffer_local_index( int sfc )
 }
 
 void cell_buffer_add_remote_octs( int level, int processor, int *local_octs, int num_local_octs ) {
-	int i, j;
+	int i;
 	int *new_buffer;
 
-	new_buffer = cart_alloc( (num_remote_buffers[level][processor] + num_local_octs) * sizeof(int) );
+	new_buffer = cart_alloc(int, (num_remote_buffers[level][processor] + num_local_octs) );
 
 	/* add local_octs to end of array */
 	for ( i = 0; i < num_remote_buffers[level][processor]; i++ ) {
@@ -123,7 +121,7 @@ void cell_buffer_add_local_octs( int level, int processor, int *local_octs, int 
 	int i;
 	int *new_buffer;
 
-	new_buffer = cart_alloc( (num_local_buffers[level][processor] + num_new_octs) * sizeof(int) );
+	new_buffer = cart_alloc(int, (num_local_buffers[level][processor] + num_new_octs) );
 
 	/* add at end (like remote octs) */
 	for ( i = 0; i < num_local_buffers[level][processor]; i++ ) {
@@ -169,7 +167,7 @@ void cell_buffer_delete_local_oct( int local_oct, int processor ) {
 	index_hash_delete( buffer_oct_reverse_hash[processor], remote_oct );
 	index_hash_delete( buffer_oct_hash[processor], local_oct );
 
-	new_buffer = cart_alloc( num_local_buffers[level][processor] * sizeof(int) );
+	new_buffer = cart_alloc(int, num_local_buffers[level][processor] );
 	for ( i = 0; i < num_local_buffers[level][processor]; i++ ) {
 		new_buffer[i] = local_buffers[level][processor][i];
 	}
@@ -201,7 +199,7 @@ void cell_buffer_delete_remote_oct( int level, int processor, int local_oct ) {
 		cart_error("cell_buffer_delete_remote_oct: %u was not found in list %u long", local_oct, num_remote_buffers[level][processor] );
 	} else {
 		num_remote_buffers[level][processor]--;
-		new_buffer = cart_alloc( num_remote_buffers[level][processor] * sizeof(int) );
+		new_buffer = cart_alloc(int, num_remote_buffers[level][processor] );
 		for ( i = 0; i < num_remote_buffers[level][processor]; i++ ) {
 			new_buffer[i] = remote_buffers[level][processor][i];
 		}
@@ -326,8 +324,7 @@ void build_root_cell_buffer() {
 	int neighbors[num_dependent_neighbors];
 	skiplist *buffer_list;
 	int *buffer_indices;
-	int index, hash;
-	int count;
+	int index;
 
 	if ( num_procs > 1 ) {
                 buffer_list = skiplist_init();
@@ -351,8 +348,8 @@ void build_root_cell_buffer() {
 			cart_error("Ran out of cells allocating root buffer");
 		}
 
-		buffer_cell_sfc_index  = cart_alloc( num_buffer_cells[min_level] * sizeof(int) );
-		buffer_indices = cart_alloc( num_buffer_cells[min_level] * sizeof(int) );
+		buffer_cell_sfc_index = cart_alloc(int, num_buffer_cells[min_level] );
+		buffer_indices = cart_alloc(int, num_buffer_cells[min_level] );
 
 		index = 0;
 		skiplist_iterate( buffer_list );
@@ -386,17 +383,13 @@ void build_cell_buffer()
  *      so each processor has a local copy of the needed cells.
  */
 {
-	int sfc, i, j;
+	int sfc, i;
 	int proc, level;
 	int processor;
 	int neighbors[num_dependent_neighbors];
 	int count[max_level-min_level+1];
-	int icell, ioct;
+	int ioct;
 	int num_hash_octs;
-	int num_vars_packed;
-	int num_cells_packed;
-	int *local_index;
-	index_hash *hash;
 
 	pack *buffer_list;
 
@@ -449,10 +442,10 @@ void build_cell_buffer()
 
 		for ( level = min_level; level <= max_level; level++ ) {
 			cart_assert( num_remote_buffers[level][proc] >= 0 );
-			remote_buffers[level][proc] = cart_alloc( num_remote_buffers[level][proc] * sizeof(int) );
+			remote_buffers[level][proc] = cart_alloc(int, num_remote_buffers[level][proc] );
 			count[level] = 0;
 
-			local_buffers[level][proc] = cart_alloc( num_local_buffers[level][proc] * sizeof(int) );
+			local_buffers[level][proc] = cart_alloc(int, num_local_buffers[level][proc] );
 		}
 
 		for ( i = 0; i < buffer_list->num_sending_cells[proc][min_level]; i++ ) {
@@ -592,7 +585,7 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 		}
 	}
 
-	buffer = cart_alloc( buffer_size * sizeof(float) );
+	buffer = cart_alloc(float, buffer_size );
 
 	/* set up receives */
 	buffer_ptr = 0;
@@ -708,7 +701,7 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 void merge_buffer_cell_densities( int level ) {
 	int i;
 	int index, child;
-	int icell, ioct, proc;
+	int icell, proc;
 
 #ifdef RT_VAR_SOURCE
 	const int vars_per_cell = 3;
@@ -759,7 +752,7 @@ void merge_buffer_cell_densities( int level ) {
 	}
 
 	/* set up receives */
-	recv_buffer = cart_alloc( total_recv_vars * sizeof(float) );
+	recv_buffer = cart_alloc(float, total_recv_vars );
 
 	recv_count = 0;
 	for ( proc = 0; proc < num_procs; proc++ ) {
@@ -774,7 +767,7 @@ void merge_buffer_cell_densities( int level ) {
 	}	
 
 	/* pack cell ids and densities */
-	send_buffer = cart_alloc( total_send_vars * sizeof(float) );
+	send_buffer = cart_alloc(float, total_send_vars );
 
 	send_offset = send_count = 0;
 	for ( proc = 0; proc < num_procs; proc++ ) {
@@ -954,7 +947,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 
 			cart_assert( buffer_size >= 0 );
 
-			buffer_cells_to_split[proc] = cart_alloc( info_per_cell*buffer_size * sizeof(int) );
+			buffer_cells_to_split[proc] = cart_alloc(int, info_per_cell*buffer_size );
 
 			MPI_Irecv( buffer_cells_to_split[proc], info_per_cell*buffer_size, MPI_INT,
 					proc, 0, MPI_COMM_WORLD, &receives[proc] );
@@ -988,7 +981,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 			num_cells_to_send = 0;
 
 			/* create and sort remote_buffer_list (since order in remote_buffers must be preserved) */
-			remote_buffer_list = cart_alloc( num_remote_buffers[level][proc] * sizeof(int) );
+			remote_buffer_list = cart_alloc(int, num_remote_buffers[level][proc] );
 
 			for ( i = 0; i < num_remote_buffers[level][proc]; i++ ) {
 				remote_buffer_list[i] = remote_buffers[level][proc][i];
@@ -1032,11 +1025,11 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 			}
 
 			/* now allocate space to store these cells */
-			cells_split[proc] = cart_alloc( info_per_cell*num_cells_to_send * sizeof(int) );
-			new_cell_vars[proc] = cart_alloc( num_vars*num_children*num_cells_to_send*sizeof(float) );
+			cells_split[proc] = cart_alloc(int, info_per_cell*num_cells_to_send );
+			new_cell_vars[proc] = cart_alloc(float, num_vars*num_children*num_cells_to_send );
 
 			/* save up oct list to add to remote_buffers array all at once */
-			new_octs = cart_alloc( num_cells_to_send * sizeof(int) );
+			new_octs = cart_alloc(int, num_cells_to_send );
 			num_new_octs = 0;
 
 			new_cell_count = 0;
@@ -1128,7 +1121,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 
 			num_cells_to_recv = buffer_size / info_per_cell;
 
-			new_buffer_cell_vars = cart_alloc( num_children*num_vars*num_cells_to_recv * sizeof(float) );
+			new_buffer_cell_vars = cart_alloc(float, num_children*num_vars*num_cells_to_recv );
 
 			MPI_Recv( new_buffer_cell_vars, num_children*num_vars*num_cells_to_recv, MPI_FLOAT,
 				proc, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
@@ -1136,8 +1129,8 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 			num_new_octs = 0;
 			num_cell_vars = 0;
 
-			remote_octs = cart_alloc( num_cells_to_recv * sizeof(int) );
-			local_octs = cart_alloc( num_cells_to_recv * sizeof(int) );
+			remote_octs = cart_alloc(int, num_cells_to_recv );
+			local_octs = cart_alloc(int, num_cells_to_recv );
 
 			if ( level == min_level ) {
 				for ( j = 0; j < num_cells_to_recv; j++ ) {
@@ -1241,7 +1234,7 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 	/* set up receives */
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( num_local_buffers[level+1][i] > 0 ) {
-			buffer_octs_to_join[i] = cart_alloc( num_local_buffers[level+1][i] * sizeof(int) );
+		  buffer_octs_to_join[i] = cart_alloc(int, num_local_buffers[level+1][i] );
 			MPI_Irecv( buffer_octs_to_join[i], num_local_buffers[level+1][i], 
 					MPI_INT, i, 0, MPI_COMM_WORLD, &receives[i] );
 		} else {
@@ -1249,7 +1242,7 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 		}
 	}
 
-	order = cart_alloc( num_octs_to_join*sizeof(int) );
+	order = cart_alloc(int, num_octs_to_join );
 	for ( i = 0; i < num_octs_to_join; i++ ) {
 		order[i] = i;
 	}
@@ -1259,10 +1252,10 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 
         for ( i = 0; i < num_procs; i++ ) {
                 if ( num_remote_buffers[level+1][i] > 0 ) {
-                        octs_joined[i] = cart_alloc( num_remote_buffers[level+1][i] * sizeof(int) );
+		        octs_joined[i] = cart_alloc(int, num_remote_buffers[level+1][i] );
                         num_octs_to_send = 0;
                 
-			remote_buffer_list = cart_alloc( num_remote_buffers[level+1][i] * sizeof(int) );
+			remote_buffer_list = cart_alloc(int, num_remote_buffers[level+1][i] );
 			for ( j = 0; j < num_remote_buffers[level+1][i]; j++ ) {
 				remote_buffer_list[j] = remote_buffers[level+1][i][j];
 			}

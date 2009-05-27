@@ -59,14 +59,14 @@ index_hash *index_hash_create( int size )
 	index_hash *hash;
 
 	/* allocate space for the new hash */
-	hash = cart_alloc( sizeof( index_hash ) );
+	hash = cart_alloc(index_hash, 1 );
 	
 	/* select a prime size larger than 2*size (leaving room for refinement) */
 	hash->hash_size = next_largest_prime( 2*size );
 	hash->num_entries = 0;
 	
 	/* allocate space for the actual hash array */
-	hash->hash_array = cart_alloc( hash->hash_size * sizeof( index_hash_entry ) );
+	hash->hash_array = cart_alloc(index_hash_entry, hash->hash_size );
 
 	/* initialize the hash array to empty entries */
 	for ( i = 0; i < hash->hash_size; i++ ) {
@@ -103,8 +103,8 @@ void index_hash_resize( index_hash *hash, int new_size ) {
 
 	cart_assert( hash->hash_size < new_size );
 
-	old_remote = cart_alloc( hash->num_entries * sizeof(int) );
-	old_local = cart_alloc( hash->num_entries * sizeof(int) );
+	old_remote = cart_alloc(int, hash->num_entries );
+	old_local = cart_alloc(int, hash->num_entries );
 	old_hash = hash->hash_array;
 
 	count = 0;
@@ -121,7 +121,7 @@ void index_hash_resize( index_hash *hash, int new_size ) {
 	cart_free( hash->hash_array );
 
 	hash->hash_size = next_largest_prime( new_size );
-	hash->hash_array = cart_alloc( hash->hash_size * sizeof( index_hash_entry ) );
+	hash->hash_array = cart_alloc(index_hash_entry, hash->hash_size );
 
 	/* initialize the hash array to empty entries */
 	for ( i = 0; i < hash->hash_size; i++ ) {

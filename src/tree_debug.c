@@ -29,21 +29,8 @@ void check_map() {
 	int sfc;
 	float max_var[num_vars];
 	float min_var[num_vars];
-
-#ifdef GRAVITY
-	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
-#endif /* GRAVITY */
-
 	int specie_count[100];
 	int specie_count_total[100];
-
-	const int color[num_children] = {
-		#if nDim == 3
-			0, 1, 1, 0, 1, 0, 0, 1
-		#else
-			#error "Unknown nDim in color (smooth)"
-		#endif
-	};
 
 	/* test root cells */
 	cart_assert( num_cells_per_level[min_level] == proc_sfc_index[local_proc_id+1] - proc_sfc_index[local_proc_id] );

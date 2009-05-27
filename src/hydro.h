@@ -28,7 +28,7 @@ extern int level_sweep_dir[max_level-min_level+1];
 extern float gas_density_floor;
 extern float gas_temperature_floor;
 
-void hydro_step( int level );
+void hydro_step( int level, MPI_Comm local_comm );
 void hydro_copy_vars( int level, int direction, int cell_type );
 void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[num_hydro_vars-1] );
 void hydro_sweep_1d( int level );

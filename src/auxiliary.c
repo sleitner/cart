@@ -74,7 +74,7 @@ double integrate( double (*f)(double), double a, double b, double epsrel, double
 	w = gsl_integration_workspace_alloc(1000);
 
         F.function = gsl_function_wrapper;
-        F.params = f;
+        F.params = (void *)f;  /* NG: BAD!!! Unsafe type cast */
 
 	gsl_integration_qag(&F, a, b, epsrel, epsabs, 1000, 6,
                 w, &result, &error);
@@ -94,7 +94,7 @@ double root_finder( double (*f)(double), double a, double b, double epsrel, doub
         gsl_function F;
                                                                                                                                                             
         F.function = gsl_function_wrapper;
-        F.params = f;
+        F.params = (void *)f;
                                                                                                                                                             
         T = gsl_root_fsolver_brent;
         s = gsl_root_fsolver_alloc (T);
@@ -154,10 +154,11 @@ int nearest_int( double x ) {
 }
 
 double cart_rand() {
-	int proc;
 	double ret;
 
 #ifdef UNIQUE_RAND
+	int proc;
+
 	/* ensure unique random number sequence generated on each proc */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( proc == local_proc_id ) {
@@ -176,6 +177,8 @@ double cart_rand() {
 
 void cart_error( const char *fmt, ... ) {
 	char message[256];
+	char filename[256];
+	FILE *f;
 
 	va_list args;
 
@@ -184,6 +187,15 @@ void cart_error( const char *fmt, ... ) {
 	fprintf(stderr, "%u: %s\n", local_proc_id, message );
 	fflush(stderr);
 	va_end( args );
+
+	sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+	f = fopen(filename,"a");
+	if(f != 0)
+	  {
+	    fprintf(f,"ERROR: %s\n",message);
+	    fclose(f);
+	  }
+
 	MPI_Abort( MPI_COMM_WORLD, 1 );
 }
 
@@ -192,6 +204,9 @@ void cart_debug( const char *fmt, ... ) {
         int i;
 	char message[256], prompt[256];
 	va_list args;
+	static int first_time = 1;
+	char filename[256];
+	FILE *f;
 
 	/* prompt */
 	if(current_step_level > -1)
@@ -211,6 +226,19 @@ void cart_debug( const char *fmt, ... ) {
 	vsnprintf( message, 256, fmt, args );
 	fprintf( stdout, "%u: %s%s\n", local_proc_id, prompt, message );
 	va_end(args);
+
+	sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+	if(first_time)
+	  {
+	    first_time = 0;
+	    f = fopen(filename,"w");
+	  }
+	else f = fopen(filename,"a");
+	if(f != 0)
+	  {
+	    fprintf(f,"%s%s\n",prompt,message);
+	    fclose(f);
+	  }
 }
 #endif
 
@@ -218,8 +246,8 @@ qss_system *qss_alloc( size_t num_eqn,
 		void (* rates)(double, double *, void *, double *, double *),
 		void (* adjust)(double, double *, void *) ) {
 
-	qss_system *sys = (qss_system *)cart_alloc( sizeof(qss_system) );
-	sys->buf = cart_alloc( 7*num_eqn*sizeof(double) );
+	qss_system *sys = cart_alloc(qss_system, 1 );
+	sys->buf = cart_alloc(double, 7*num_eqn );
 	sys->y0 = sys->buf;
 	sys->y1 = &sys->buf[num_eqn];
 	sys->rs = &sys->buf[2*num_eqn];
@@ -373,18 +401,58 @@ void qss_solve( qss_system *sys, double t_begin, double t_end, double y[], const
 }
 
 
+const char* check_option0(const char* option, const char* name)
+{
+  static const char *empty = "";
+
+  int len = strlen(name);
+
+  if(option[0]!='-' || strcmp(option+1,name)!=0) return NULL;
+
+  return empty;
+}
+
+
+const char* check_option1(const char* option, const char* name, const char *default_value)
+{
+  int len = strlen(name);
+
+  if(option[0]!='-' || strncmp(option+1,name,len)!=0) return NULL;
+
+  if(strlen(option+1) == len)
+    {
+      if(default_value == NULL)
+	{
+	  cart_error("Option %s has no default value; a value must be set as -%s=<value>",name,name);
+	  return NULL;
+	}
+      return default_value;
+    }
+
+  if(option[len+1]!='=' || strlen(option)<len+3)
+    {
+      cart_error("Valid format for option %s is: -%s[=<value>]",name,name);
+      return NULL;
+    }
+  else
+    {
+      return option + len + 2;
+    }
+}
+
+
 /*
 //  Changed by Gnedin to catch memory leaks
 */
 
 #ifdef DEBUG_MEMORY_USE
 void dmuRegister(void *ptr, unsigned long size, const char *file, int line);
-void dmuUnRegister(void *ptr);
+void dmuUnRegister(void *ptr, const char *file, int line);
 void dmuPrintRegistryContents();
 #endif
 
 
-void* cart_alloc_at_location(size_t size, const char *file, int line)
+void* cart_alloc_worker(size_t size, const char *file, int line)
 {
   void *ptr;
 
@@ -397,7 +465,7 @@ void* cart_alloc_at_location(size_t size, const char *file, int line)
 #ifdef DEBUG_MEMORY_USE
 	  dmuPrintRegistryContents();
 #endif
-	  cart_error( "Failure allocating %d bytes", size );
+	  cart_error( "Failure allocating %d bytes in file %s, line %d", size, file, line );
 	}
 
 #ifdef DEBUG_MEMORY_USE
@@ -421,21 +489,19 @@ void* cart_alloc_at_location(size_t size, const char *file, int line)
 }
 
 
-void cart_free(void *ptr)
+void cart_free_worker(void *ptr, const char *file, int line)
 {
   if(ptr != NULL)
     {
       free(ptr);
 #ifdef DEBUG_MEMORY_USE
-      dmuUnRegister(ptr);
+      dmuUnRegister(ptr,file,line);
 #endif
     }
 }
 
 #ifdef DEBUG_MEMORY_USE
 
-int dmuRegistrySize = 0;
-int dmuNumItems = 0;
 
 struct dmuItem
 {
@@ -445,85 +511,183 @@ struct dmuItem
   int Line;
 };
 
-struct dmuItem *dmuRegistry = NULL;
+
+struct dmuRegistry
+{
+  int Size;
+  int NumItems;
+  struct dmuItem *Data;
+};
+
+int dmuSmallLimit = 100;
+int dmuMaxSmallChunk = 0;
+unsigned long dmuNumChunks[2] = { 0UL, 0UL };
+
+struct dmuRegistry dmuSmall = { 0, 0, NULL};
+struct dmuRegistry dmuLarge = { 0, 0, NULL};
 
 
-void dmuRegister(void *ptr, unsigned long size, const char *file, int line)
+void dmuCheckRegistry(struct dmuRegistry *registry)
 {
   struct dmuItem *tmp;
 
-  if(dmuNumItems == dmuRegistrySize)
+  cart_assert(registry);
+
+  /*
+  //  Create registry initially
+  */
+  if(registry->Size == 0)
     {
-      /*
-      //  Extend registry
-      */
-      if(dmuRegistrySize < 1000) dmuRegistrySize = 1000; else dmuRegistrySize *= 2;
-      tmp = malloc(dmuRegistrySize*sizeof(struct dmuItem));
-      if(tmp == NULL)
-	{
-	  cart_error( "DMU: failure extendion allocation registry to %d items, %d bytes",dmuRegistrySize,dmuRegistrySize*sizeof(struct dmuItem));
-	}
-      if(dmuNumItems > 0)
-	{
-	  memcpy(tmp,dmuRegistry,dmuNumItems*sizeof(struct dmuItem));
-	  free(dmuRegistry);
-	}
-      dmuRegistry = tmp;
+      registry->Size = 1000;
+      registry->Data = (struct dmuItem *)malloc(registry->Size*sizeof(struct dmuItem));
+      cart_assert(registry->Data != NULL);
     }
       
-  dmuRegistry[dmuNumItems].Ptr = ptr;
-  dmuRegistry[dmuNumItems].Size = size;
-  dmuRegistry[dmuNumItems].File = file;
-  dmuRegistry[dmuNumItems].Line = line;
-  dmuNumItems++;
+  /*
+  //  Extend registry if needed
+  */
+  if(registry->NumItems == registry->Size)
+    {
+      registry->Size *= 2;
+      tmp = (struct dmuItem *)malloc(registry->Size*sizeof(struct dmuItem));
+      if(tmp == NULL)
+	{
+	  dmuPrintRegistryContents();
+	  cart_error( "DMU: failure extendion allocation registry to %d items, %d bytes",registry->Size,registry->Size*sizeof(struct dmuItem));
+	}
+      memcpy(tmp,registry->Data,registry->NumItems*sizeof(struct dmuItem));
+      free(registry->Data);
+      registry->Data = tmp;
+    }
+}
+
+      
+void dmuRegister(void *ptr, unsigned long size, const char *file, int line)
+{
+  int i;
+
+  if(size > dmuSmallLimit)
+    {
+      dmuCheckRegistry(&dmuLarge);
+
+      dmuLarge.Data[dmuLarge.NumItems].Ptr = ptr;
+      dmuLarge.Data[dmuLarge.NumItems].Size = size;
+      dmuLarge.Data[dmuLarge.NumItems].File = file;
+      dmuLarge.Data[dmuLarge.NumItems].Line = line;
+      dmuLarge.NumItems++;
+    }
+  else
+    {
+      dmuCheckRegistry(&dmuSmall);
+
+      if(size > dmuMaxSmallChunk) dmuMaxSmallChunk = size;
+
+      for(i=0; i<dmuSmall.NumItems; i++)
+	{
+	  if(strcmp(dmuSmall.Data[i].File,file)==0 && dmuSmall.Data[i].Line==line)
+	    {
+	      break;
+	    }
+	}
+      if(i == dmuSmall.NumItems)
+	{
+	  dmuSmall.Data[i].Ptr = NULL;
+	  dmuSmall.Data[i].Size = 0UL;
+	  dmuSmall.Data[i].File = file;
+	  dmuSmall.Data[i].Line = line;
+	  dmuSmall.NumItems++;
+	}
+
+      dmuSmall.Data[0].Size++;
+    }
+
+  dmuNumChunks[0]++;
+  if(dmuNumChunks[0] > dmuNumChunks[1]) dmuNumChunks[1] = dmuNumChunks[0];
 }
 
 
-void dmuUnRegister(void *ptr)
+void dmuUnRegister(void *ptr, const char *file, int line)
 {
   int i, j;
   
-  for(i=0; i<dmuNumItems; i++)
+  /*
+  //  Check large buffer registry first
+  */
+  for(i=0; i<dmuLarge.NumItems; i++)
     {
-      if(dmuRegistry[i].Ptr == ptr) break;
+      if(dmuLarge.Data[i].Ptr == ptr) break;
     }
 
-  if(i == dmuNumItems)
+  if(i < dmuLarge.NumItems)
     {
-      cart_error("DMU: freeing unregistered pointer %x",ptr);
+      dmuLarge.NumItems--;
+      for(j=i; j<dmuLarge.NumItems; j++)
+	{
+	  dmuLarge.Data[j] = dmuLarge.Data[j+1];
+	}
+    }
+  else
+    {
+      /*
+      //  Assume it was a small-size allocation
+      */
+      if(dmuSmall.Data[0].Size == 0)
+	{
+	  cart_error("DMU: freeing unregistered pointer %p, file %s, line %d",ptr,file,line);
+	}
+      else
+	{
+	  dmuSmall.Data[0].Size--;
+	}
     }
 
-  for(j=i; j<dmuNumItems-1; j++)
-    {
-      dmuRegistry[j] = dmuRegistry[j+1];
-    }
-  dmuNumItems--;
+  dmuNumChunks[0]--;
 }
 
 
 void dmuPrintRegistryContents()
 {
   int i;
-  unsigned long tot = 0UL;
+  unsigned long tot = dmuLarge.Size*sizeof(struct dmuItem) + dmuSmall.Size*sizeof(struct dmuItem);
 
-  for(i=0; i<dmuNumItems; i++)
+  cart_debug("DMU: Large allocated chunks:");
+  for(i=0; i<dmuLarge.NumItems; i++)
     {
-      cart_debug("DMU: ptr=%p, size=%lu, file=%s, line=%d",dmuRegistry[i].Ptr,dmuRegistry[i].Size,dmuRegistry[i].File,dmuRegistry[i].Line);
-      tot += dmuRegistry[i].Size;
+      cart_debug("DMU: ptr=%p, size=%lu, file=%s, line=%d",dmuLarge.Data[i].Ptr,dmuLarge.Data[i].Size,dmuLarge.Data[i].File,dmuLarge.Data[i].Line);
+      tot += dmuLarge.Data[i].Size;
     }
 
-  cart_debug("DMU: total allocated size=%lu",tot);
+  if(dmuSmall.Data[0].Size > 0)
+    {
+      cart_debug("DMU: There are also %lu small allocated chunks (of size at most %d), created in files:",dmuSmall.Data[0].Size,dmuMaxSmallChunk);
+      for(i=0; i<dmuSmall.NumItems; i++)
+	{
+	  cart_debug("DMU: file=%s, line=%d",dmuSmall.Data[i].File,dmuSmall.Data[i].Line);
+	}
+      cart_debug("DMU: total allocated memory does not exceed %lu",tot+dmuMaxSmallChunk*dmuSmall.Data[0].Size);
+    }
+  else
+    {
+      cart_debug("DMU: total allocated memory is %lu",tot);
+    }
+  cart_debug("DMU: current number of chunks is %lu",dmuNumChunks[0]);
+  cart_debug("DMU: maximum number of chunks is %lu",dmuNumChunks[1]);
 }
 
 
 unsigned long dmuReportAllocatedMemory()
 {
   int i;
-  unsigned long tot = 0UL;
+  unsigned long tot = dmuLarge.Size*sizeof(struct dmuItem) + dmuSmall.Size*sizeof(struct dmuItem);
 
-  for(i=0; i<dmuNumItems; i++)
+  for(i=0; i<dmuLarge.NumItems; i++)
     {
-      tot += dmuRegistry[i].Size;
+      tot += dmuLarge.Data[i].Size;
+    }
+
+  if(dmuSmall.NumItems > 0)
+    {
+      tot += dmuMaxSmallChunk*dmuSmall.Data[0].Size;
     }
 
   return tot;

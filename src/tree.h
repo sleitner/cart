@@ -260,7 +260,7 @@ extern float cell_volume[max_level-min_level+1];
 extern float cell_volume_inverse[max_level-min_level+1];
 
 void init_tree();
-int max_level_now_global();
+int max_level_now_global(MPI_Comm local_comm);
 int max_level_now();
 int max_level_local();
 int max_level_buffer();

@@ -74,7 +74,7 @@ C
 
       return
       end
-#endif  // defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+#endif  /* defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) */
 C
 C Initialize global field buffers
 C

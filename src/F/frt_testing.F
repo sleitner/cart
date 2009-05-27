@@ -14,7 +14,7 @@ C  Check that Yp is set to 0
 C
       Yp = 4*XG
       if(Yp .gt. 1.0e-10) then
-         write(0,*) 'RT_Testing: fatal error, '
+         write(0,*) 'RT_Testing: fatal error, ',
      .        'supported tests only work with Yp<1e-10.'
          call frtAbort
       endif
@@ -144,8 +144,43 @@ C
   
       return
       end
+#ifdef RT_EXTERNAL_BACKGROUND
+C
+C
+C
+      subroutine frtTestOutputBackground(z)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
+      include 'frt_tablesLW.inc'
+#endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
+      character*99 str
 
-#endif  // RT_TEST
+      aa = 1.0/(1.0+z)
+      call frtSetExternalBackground(aa,angAvg,angLW)
+
+      uJnu = 1.5808e-17/aa**3
+      
+      write(str,'(f4.2)') z
+      is = index(str,' ') - 1
+      open(unit=81, file='test-bkg-'//str(1:is)//'.res')
+      do lr=1,NRAD
+         write(81,*) 911.75*exp(-xig(lr)), angAvg(lr)*uJnu
+      enddo
+      close(81)
+
+#if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
+      open(unit=81, file='test-bkgLW-'//str(1:is)//'.res')
+      do lr=1,NRLW
+         write(81,*) 911.75*exp(-xigLW(lr)), angLW(lr)*uJnu
+      enddo
+      close(81)
+#endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
+
+      return
+      end
+#endif  /* RT_EXTERNAL_BACKGROUND */
+#endif  /* RT_TEST */
 #endif
 
       subroutine frtDummyTesting(i)

@@ -1,15 +1,13 @@
 TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
-NO_RT = 
-
-include $(TOP_DIR)/Make.config
+NO_RT = 1
 
 compile:	zeldovich
 
-run:
-	
+include $(TOP_DIR)/Make.config
+
 zeldovich: .obj $(OBJS) defs.h start_zeldovich.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(LIBS) $(OBJS) start_zeldovich.c -o zeldovich
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_zeldovich.c -o zeldovich $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -f $(OBJS) *.il core start_seldovich.o zeldovich
+	rm -rf .obj *.il core start_seldovich.o zeldovich

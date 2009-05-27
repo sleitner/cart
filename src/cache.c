@@ -27,8 +27,12 @@ void cache_reorder_tree() {
 	int *oct_index;
 	int *oct_order;
 	float *cell_scratch_vars;
+#ifdef PARTICLES
 	int *scratch_particle_list;
+#endif
+#ifdef HYDRO_TRACERS
 	int *scratch_tracer_list;
+#endif
 	int *scratch_cell_child_oct;
 	int num_local_octs;
 	int oct_count;
@@ -48,12 +52,12 @@ void cache_reorder_tree() {
 	}
 
 	/* since oct_index is last to be freed, allocate early */
-	oct_index = cart_alloc( num_octs * sizeof(int) );
+	oct_index = cart_alloc(int, num_octs );
         for ( ioct = 0; ioct < num_octs; ioct++ ) {
                 oct_index[ioct] = NULL_OCT;
         }
 
-	oct_order = cart_alloc( num_local_octs * sizeof(int) );
+	oct_order = cart_alloc(int, num_local_octs );
 
 	/* create mapping of new oct index to old oct index */
 	oct_count = 0;
@@ -96,7 +100,7 @@ void cache_reorder_tree() {
 		}
 	}
 
-	scratch_cell_child_oct = cart_alloc( num_children * num_local_octs * sizeof(int) );
+	scratch_cell_child_oct = cart_alloc(int, num_children * num_local_octs );
 
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		ioct = local_oct_list[level];
@@ -135,7 +139,7 @@ void cache_reorder_tree() {
 	cart_free( scratch_cell_child_oct );
 
 	/* copy over variables one at a time (could do more, this ensures low memory usage) */
-	cell_scratch_vars = cart_alloc( num_children * num_local_octs * sizeof(float) );
+	cell_scratch_vars = cart_alloc(float, num_children * num_local_octs );
 
 	for ( ivar = 0; ivar < num_vars; ivar++ ) {
 		/* copy variable to scratch */
@@ -169,7 +173,7 @@ void cache_reorder_tree() {
 	cart_free( cell_scratch_vars );
 
 #ifdef PARTICLES
-	scratch_particle_list = cart_alloc( num_children * num_local_octs * sizeof(int) );
+	scratch_particle_list = cart_alloc(int, num_children * num_local_octs );
 
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		ioct = local_oct_list[level];
@@ -206,7 +210,7 @@ void cache_reorder_tree() {
 #endif /* PARTICLES */
 
 #ifdef HYDRO_TRACERS
-	scratch_tracer_list = cart_alloc( num_children * num_local_octs * sizeof(int) );
+	scratch_tracer_list = cart_alloc(int, num_children * num_local_octs );
 
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		ioct = local_oct_list[level];
@@ -238,7 +242,7 @@ void cache_reorder_tree() {
 	cart_free( scratch_tracer_list );
 
 	for ( icell = num_children * ( first_oct + num_local_octs ); icell < num_cells; icell++ ) {
-		cell_tracer_list[icell] = NULL_PARTICLE;
+		cell_tracer_list[icell] = -1;
 	}
 #endif /* HYDRO_TRACERS */
 
@@ -349,8 +353,8 @@ void cache_reorder_particles() {
 
 	cart_debug("beginning cache optimization for particles");
 
-	old_particle_index = cart_alloc( num_particles * sizeof(int) );
-	particle_parent_cell = cart_alloc( num_particles * sizeof(int) );
+	old_particle_index = cart_alloc(int, num_particles );
+	particle_parent_cell = cart_alloc(int, num_particles );
 
 	for ( index = 0; index < num_particles; index++ ) {
 		old_particle_index[index] = -1;
@@ -358,8 +362,8 @@ void cache_reorder_particles() {
 
 #ifdef STARFORM
 	num_normal_particles = num_local_particles-num_local_star_particles;
-	star_particle_order = cart_alloc( num_local_star_particles * sizeof(int) );
-	particle_order = cart_alloc( num_normal_particles*sizeof(int) );
+	star_particle_order = cart_alloc(int, num_local_star_particles );
+	particle_order = cart_alloc(int, num_normal_particles );
 
 	index = 0;
 	star_index = 0;
@@ -427,7 +431,7 @@ void cache_reorder_particles() {
 	next_free_star_particle = num_local_star_particles;
 	free_star_particle_list = NULL_PARTICLE;
 #else
-	particle_order = cart_alloc( num_local_particles*sizeof(int) );
+	particle_order = cart_alloc(int, num_local_particles );
 
 	index = 0;
 	for ( level = min_level; level <= max_level; level++ ) {
@@ -463,7 +467,7 @@ void cache_reorder_particles() {
 #endif /* STARFORM */
 
 	/* now put particles into proper order */
-	backup_floats = cart_alloc( num_particles * sizeof(float) );
+	backup_floats = cart_alloc(float, num_particles );
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
@@ -502,7 +506,7 @@ void cache_reorder_particles() {
 	}
 
 #ifdef STARFORM
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_floats[ipart] = star_tbirth[ old_particle_index[ipart] ];
 		} else {
@@ -510,11 +514,11 @@ void cache_reorder_particles() {
 		}
 	}
 
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		star_tbirth[ipart] = backup_floats[ipart];
 	}
 
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_floats[ipart] = star_initial_mass[ old_particle_index[ipart] ];
 		} else {
@@ -522,12 +526,12 @@ void cache_reorder_particles() {
 		}
 	}
 
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		star_initial_mass[ipart] = backup_floats[ipart];
 	}
 
 #ifdef ENRICH
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_floats[ipart] = star_metallicity_II[ old_particle_index[ipart] ];
 		} else {
@@ -535,13 +539,13 @@ void cache_reorder_particles() {
 		}
 	}
 
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		star_metallicity_II[ipart] = backup_floats[ipart];
 	}
 #endif /* ENRICH */
 
 #ifdef ENRICH_SNIa
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_floats[ipart] = star_metallicity_Ia[ old_particle_index[ipart] ];
 		} else {
@@ -549,7 +553,7 @@ void cache_reorder_particles() {
 		}
 	}
 
-	for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		star_metallicity_Ia[ipart] = backup_floats[ipart];
 	}
 #endif /* ENRICH_SNIa */
@@ -558,7 +562,7 @@ void cache_reorder_particles() {
 
 	cart_free( backup_floats );
 
-	backup_ints = cart_alloc( num_particles * sizeof(int) );
+	backup_ints = cart_alloc(int, num_particles );
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
@@ -586,7 +590,7 @@ void cache_reorder_particles() {
 
 	cart_free( backup_ints );
 
-	backup_doubles = cart_alloc( num_particles * sizeof(double) );
+	backup_doubles = cart_alloc(double, num_particles );
 
 	for ( d = 0; d < nDim; d++ ) {
 		for ( ipart = 0; ipart < num_particles; ipart++ ) {

@@ -5,6 +5,7 @@
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "sfc.h"
 #include "top_level_fft.h"
 #include "tree.h"
 #include "timing.h"
@@ -29,8 +30,8 @@
 
 fftw_complex *rtGreenET[] = { 0, 0, 0, 0, 0, 0 };
 
-extern const int NumVars;
-extern const int Vars[];
+extern int NumVars;
+extern int Vars[];
 
 
 void rtOtvetTopLevelEddingtonTensor(int id, fftw_complex *fft_source, fftw_complex *fft_output);
@@ -62,10 +63,9 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
   const double S1 = 1.0;
   const double S2 = (S1-1)/nDim;
 
-  int i, j, k, l, cell, parent, vars[rt_num_et_vars+1];
-  int nb3[nDim], nb6[num_neighbors], nb18[rtuStencilSize];
+  int i, j, k, l, cell, parent;
+  int nb3[nDim], nb18[rtuStencilSize];
   int num_parent_cells, *parent_cells;
-  int ioct, ichild;
   float norm, h2, eps2, *tmp;
   float ot, et[rt_num_et_vars], sor;
   double r2, q;
@@ -225,7 +225,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
   /*
   // Smooth a few times
   */
-  tmp = (float *)cart_alloc(num_level_cells*sizeof(float)*rt_num_et_vars);
+  tmp = cart_alloc(float, num_level_cells*rt_num_et_vars);
 
   for(l=0; l<NumSmooth; l++)
     {
@@ -276,12 +276,12 @@ void rtOtvetComputeGreenFunctions()
   long offset;
   float dx, dy, dz, r[6], r2, q;
   float norm;
-  fftwnd_plan forward, backward;
+  fftwnd_plan forward;
   fftw_real *gf[6];
 
   for(m=0; m<6; m++)
     {
-      rtGreenET[m] = (fftw_complex *)cart_alloc(GREEN_SIZE*sizeof(fftw_complex));
+      rtGreenET[m] = cart_alloc(fftw_complex, GREEN_SIZE );
       gf[m] = (fftw_real *)rtGreenET[m];
     }
 

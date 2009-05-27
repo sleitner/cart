@@ -40,9 +40,9 @@ type *const name = name##_buffer - min_level
 
 
 #define rtuStencilSize     (2*nDim*nDim)
-extern double rtuStencilDist2[];
-extern double rtuStencilDelPos[][nDim];
-extern double rtuStencilTensor[][nDim*(nDim+1)/2];
+extern double rtuStencilDist2[rtuStencilSize];
+extern double rtuStencilDelPos[rtuStencilSize][nDim];
+extern double rtuStencilTensor[rtuStencilSize][nDim*(nDim+1)/2];
 
 
 void rtuInitRun();

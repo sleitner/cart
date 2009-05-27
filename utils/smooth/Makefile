@@ -1,9 +1,9 @@
 #
 # Makefile for smooth.
 #
-CC = gcc
-CFLAGS	= -O2 -lm
-LIBS	= 
+CC = pgcc
+CFLAGS	= -O0 -Ktrap=fp 
+LIBS	= -lm
 
 default:	smooth
 

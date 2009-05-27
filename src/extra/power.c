@@ -98,11 +98,11 @@ void compute_power_spectrum( char *filename, int power_type ) {
 #endif /* HYDRO */
 	}
 
-	local_mesh = cart_alloc(num_power_mesh*sizeof(float) );
+	local_mesh = cart_alloc(float, num_power_mesh );
 
 	if ( local_proc_id == MASTER_NODE ) {
-		global_mesh = cart_alloc(num_power_mesh*sizeof(float) );
-		density_fft = cart_alloc(power_mesh_size*power_mesh_size*(power_mesh_size/2+1)*sizeof(fftw_complex));
+		global_mesh = cart_alloc(float, num_power_mesh );
+		density_fft = cart_alloc(fftw_complex, power_mesh_size*power_mesh_size*(power_mesh_size/2+1) );
 
 		forward = rfftw3d_create_plan(power_mesh_size, power_mesh_size, power_mesh_size,
 				FFTW_REAL_TO_COMPLEX, FFTW_ESTIMATE | FFTW_OUT_OF_PLACE );

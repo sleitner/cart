@@ -1,9 +1,6 @@
 #ifdef __RT_INCLUDING_DEFS
 
 
-#define RT_DEBUG
-
-
 /*
 //  Radiative transfer switches: only have effect when RADIATIVE_TRANSFER
 //  switch in defs.h is switched on.
@@ -109,7 +106,7 @@
 /*
 //  Enable computing the evolving cosmic background
 */
-/* #define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_SELFCONSISTENT */
+#define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_HAARDT_MADAU
 
 
 /*

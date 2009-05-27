@@ -57,13 +57,18 @@ void qs1_step( qss_system *sys, double t, double dt, double yf[], void *params )
 void qsn_step( qss_system *sys, double t, double dt, double yf[], void *params );
 void qss_solve( qss_system *sys, double t_begin, double delta_t, double y[], const double err[], void *params );
 
+const char* check_option0(const char* option, const char* name);
+const char* check_option1(const char* option, const char* name, const char *default_value);
+
 /*
 //  Macros for memory leak locating
 */
-#define cart_alloc(size) cart_alloc_at_location(size,__FILE__,__LINE__)
+#define cart_alloc_bytes(size)     cart_alloc_worker(size,__FILE__,__LINE__)
+#define cart_alloc(type,size)      (type *)cart_alloc_worker((size)*sizeof(type),__FILE__,__LINE__)   /* A properly cast version for strict type checking */
+#define cart_free(ptr)             { cart_free_worker(ptr,__FILE__,__LINE__); ptr = NULL; }
 
-void *cart_alloc_at_location(size_t size, const char *file, int line);
-void cart_free( void *ptr );
+void *cart_alloc_worker(size_t size, const char *file, int line);
+void cart_free_worker(void *ptr, const char *file, int line);
 
 #ifdef DEBUG_MEMORY_USE
 void dmuPrintRegistryContents();

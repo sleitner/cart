@@ -124,7 +124,7 @@ void prolongate( int level ) {
 
 void smooth( int level ) {
 	int iter;
-	int i, j, k, m, n;
+	int i, j, k;
 	int num_local_blocks;
 	int num_direct_blocks;
 	int num_indirect_blocks;
@@ -136,7 +136,6 @@ void smooth( int level ) {
 	int *ext_red, *ext_black;
 	double phi_ext_neighbors;
 	int coords[nDim], coords_neighbor[nDim];
-	int neighbors[num_neighbors];
 	int neighbor, direction, direct;
 	int oct_count;
 	int num_level_cells;
@@ -152,7 +151,6 @@ void smooth( int level ) {
 	int *send_indices[MAX_PROCS];
 	int *recv_indices[MAX_PROCS];
 	int *send_recv_indices[MAX_PROCS];
-	int *block_size;
 	double *buffer_red[MAX_PROCS];
 	double *buffer_black[MAX_PROCS];
 	double *packed_red[MAX_PROCS];
@@ -190,7 +188,7 @@ void smooth( int level ) {
 	/* create list of cell blocks */
 	list_size = num_buffer_cells[level-1] + num_cells_per_level[level-1];
 
-	oct_list = cart_alloc( list_size*sizeof(int) );
+	oct_list = cart_alloc(int, list_size );
 
 	oct_count = 0;
 	num_local_blocks = 0;
@@ -201,15 +199,15 @@ void smooth( int level ) {
 		num_recv_octs[proc] = 0;
 		
 		if ( num_local_buffers[level][proc] > 0 ) {
-			recv_indices[proc] = cart_alloc( num_local_buffers[level][proc]*sizeof(int) );
-			send_recv_indices[proc] = cart_alloc( num_local_buffers[level][proc]*sizeof(int) );
+			recv_indices[proc] = cart_alloc(int, num_local_buffers[level][proc] );
+			send_recv_indices[proc] = cart_alloc(int, num_local_buffers[level][proc] );
 		}
 
 		num_send_octs[proc] = num_remote_buffers[level][proc];
 
 		/* recieve send list (yeah, I know...) */
 		if ( num_send_octs[proc] > 0 ) {
-			send_indices[proc] = cart_alloc( num_send_octs[proc]*sizeof(int) );
+			send_indices[proc] = cart_alloc(int, num_send_octs[proc] );
 
 			MPI_Irecv( send_indices[proc], num_send_octs[proc], MPI_INT,
 				proc, 0, MPI_COMM_WORLD, &requests[proc] );
@@ -218,7 +216,7 @@ void smooth( int level ) {
 		}
 	}
 
-	ind = cart_alloc( num_octs * sizeof(int) );
+	ind = cart_alloc(int, num_octs );
 
 #pragma omp parallel for default(none), private(i), shared(ind)
 	for ( i = 0; i < num_octs; i++ ) {
@@ -349,8 +347,8 @@ void smooth( int level ) {
 	num_red_border_cells = 0;
 	num_black_border_cells = 0;
 	
-	ext_red = cart_alloc( 4*oct_count*nDim * sizeof(int) );
-	ext_black = cart_alloc( 4*oct_count*nDim * sizeof(int) );
+	ext_red = cart_alloc(int, 4*oct_count*nDim );
+	ext_black = cart_alloc(int, 4*oct_count*nDim );
 	
 	/* compute neighbors for local blocks */	
 	for ( i = 0; i < num_local_blocks; i++ ) {
@@ -434,8 +432,8 @@ void smooth( int level ) {
 	}
 
 	/* now allocate space for cell values (since we know the size exactly) */
-        phi_red = cart_alloc( (4*num_blocks + num_red_border_cells) * sizeof(double) );
-        phi_black = cart_alloc( (4*num_blocks + num_black_border_cells) * sizeof(double) );
+        phi_red = cart_alloc(double, (4*num_blocks + num_red_border_cells) );
+        phi_black = cart_alloc(double, (4*num_blocks + num_black_border_cells) );
 
 	num_red_border_cells = 0;
 	num_black_border_cells = 0;
@@ -505,8 +503,8 @@ void smooth( int level ) {
 		}
 	}
 
-	rho_red = cart_alloc( 4*num_blocks * sizeof(double) );
-	rho_black = cart_alloc( 4*num_blocks * sizeof(double) );
+	rho_red = cart_alloc(double, 4*num_blocks );
+	rho_black = cart_alloc(double, 4*num_blocks );
 
 	/* pack cell_blocks */
 #pragma omp parallel for default(none), private(i,j,child), shared(num_blocks,oct_list,phi_red,phi_black,cell_vars,rho_red,rho_black)
@@ -585,8 +583,8 @@ void smooth( int level ) {
 	num_recvrequests = 0;
         for ( proc = 0; proc < num_procs; proc++ ) {
                 if ( num_send_octs[proc] > 0 ) {
-			packed_red[proc] = cart_alloc( (num_children/2)*num_send_octs[proc]*sizeof(double) );
-			packed_black[proc] = cart_alloc( (num_children/2)*num_send_octs[proc]*sizeof(double) );
+			packed_red[proc] = cart_alloc(double, (num_children/2)*num_send_octs[proc] );
+			packed_black[proc] = cart_alloc(double, (num_children/2)*num_send_octs[proc] );
 
 			MPI_Send_init( packed_red[proc], (num_children/2)*num_send_octs[proc], MPI_DOUBLE, proc, 0,
 				MPI_COMM_WORLD, &send_requests[num_sendrequests++] );
@@ -595,8 +593,8 @@ void smooth( int level ) {
                 }
                                                                                                                                                             
                 if ( num_recv_octs[proc] > 0 ) {
-			buffer_red[proc] = cart_alloc( (num_children/2)*num_recv_octs[proc]*sizeof(double) );
-			buffer_black[proc] = cart_alloc( (num_children/2)*num_recv_octs[proc]*sizeof(double) );
+			buffer_red[proc] = cart_alloc(double, (num_children/2)*num_recv_octs[proc] );
+			buffer_black[proc] = cart_alloc(double, (num_children/2)*num_recv_octs[proc] );
 			
                         MPI_Recv_init( buffer_red[proc], (num_children/2)*num_recv_octs[proc], MPI_DOUBLE,
                                 proc, 0, MPI_COMM_WORLD, &recv_requests[num_recvrequests++] );
@@ -611,7 +609,7 @@ void smooth( int level ) {
 	/* work loop */
 	wsor = 2.0; /* done for wsor_(1/2) calc, really == 1.0 */
 	wsor6 = 1.0 / 6.0;
-	trfi2 = cell_size_inverse[level] / aexp[level]; 
+	trfi2 = cell_size_inverse[level] / abox[level]; 
 
 	for ( iter = 0; iter < MAX_SOR_ITERS; iter++ ) {
 		if ( iter > 0 ) {
@@ -720,7 +718,7 @@ void smooth( int level ) {
 		/* chebyshev acceleration */
 		wsor = 1.0 / ( 1.0 - 0.25 * rhoJ*rhoJ*wsor );
 		wsor6 = wsor / 6.0;
-		trfi2 = wsor * cell_size_inverse[level] / aexp[level]; 
+		trfi2 = wsor * cell_size_inverse[level] / abox[level]; 
 
 		/* black (just local black cells) */
 #pragma omp parallel for default(none), private(i,block,phi0,phi3,phi5,phi6,phi_ext_neighbors,icell), shared(num_local_blocks,phi_red,ext_black,phi_black,wsor6,trfi2,rho_black)
@@ -772,7 +770,7 @@ void smooth( int level ) {
 		/* chebyshev acceleration */
 		wsor = 1.0 / ( 1.0 - 0.25 * rhoJ*rhoJ*wsor );
 		wsor6 = wsor / 6.0;
-		trfi2 = wsor * cell_size_inverse[level] / aexp[level]; 
+		trfi2 = wsor * cell_size_inverse[level] / abox[level]; 
 
 		end_time( WORK_TIMER );
 
@@ -909,10 +907,12 @@ void potential() {
 void compute_accelerations_hydro( int level ) {
 	int i, j;
 	double a2half;
-	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
 	int neighbors[num_neighbors];
 	int L1, R1;
 	double phi_l, phi_r;
+#ifdef GRAVITY_IN_RIEMANN
+	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
+#endif
 
 	int icell;
 	int num_level_cells;
@@ -922,7 +922,7 @@ void compute_accelerations_hydro( int level ) {
 	start_time( WORK_TIMER );
 
 #ifdef COSMOLOGY
-	a2half = b2a( tl[level] + 0.5*dtl[level] );
+	a2half = abox_from_tcode( tl[level] + 0.5*dtl[level] );
 	a2half = -0.5*dtl[level]*cell_size_inverse[level]*a2half*a2half;
 #else
 	a2half = -0.5*dtl[level]*cell_size_inverse[level];
@@ -987,7 +987,7 @@ void compute_accelerations_particles( int level ) {
 	start_time( WORK_TIMER );
 
 #ifdef COSMOLOGY
-	a2half = -0.5*aexp[level]*aexp[level]*cell_size_inverse[level];
+	a2half = -0.5*abox[level]*abox[level]*cell_size_inverse[level];
 #else
 	a2half = -0.5 * cell_size_inverse[level];
 #endif

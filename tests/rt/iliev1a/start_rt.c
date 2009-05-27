@@ -18,7 +18,6 @@
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -32,6 +31,8 @@
 
 #include "rt_solver.h"
 #include "rt_utilities.h"
+
+#include "extra/ifrit.h"
 
 
 #define N50             0.05
@@ -83,14 +84,14 @@ void rt_initial_conditions( int cell )
   cell_momentum(cell,2) = 0.0;
   cell_gas_gamma(cell) = (5.0/3.0);
 
-  cell_gas_internal_energy(cell) = T_i*wmu/T0*aexp[0]*aexp[0]/(gamma-1)*(rt_XH+rt_XHe);
+  cell_gas_internal_energy(cell) = T_i*wmu/T0*aUni[0]*aUni[0]/(gamma-1)*(rtXH+rtXHe);
 
   cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell);
 
-  cell_HI_density(cell) = (1.0-1.2e-3)*rt_XH;
-  cell_HII_density(cell) = 1.2e-3*rt_XH;
-  cell_HeI_density(cell) = rt_XHe;
+  cell_HI_density(cell) = (1.0-1.2e-3)*rtXH;
+  cell_HII_density(cell) = 1.2e-3*rtXH;
+  cell_HeI_density(cell) = rtXHe;
   cell_HeII_density(cell) = 0.0;
   cell_HeIII_density(cell) = 0.0;
   cell_H2_density(cell) = 0.0;
@@ -152,7 +153,7 @@ void FindIFront(float val, float *riAvg, float *riMin, float *riMax)
   double theta, phi, ravg, rmin, rmax;
   int navg;
   double ra, rb, rc, pos[3], e[3];
-  float f, fa, fb, fc, f0 = val*rt_XH;
+  float f, fa, fb, fc, f0 = val*rtXH;
 
   ravg = 0.0;
   navg = 0;
@@ -203,9 +204,9 @@ void FindIFront(float val, float *riAvg, float *riMin, float *riMax)
 
   if(navg > 0)
     {
-      *riAvg = 1.0e3/hubble*r0*aexp[0]*ravg/navg;
-      *riMin = 1.0e3/hubble*r0*aexp[0]*rmin;
-      *riMax = 1.0e3/hubble*r0*aexp[0]*rmax;
+      *riAvg = 1.0e3/hubble*r0*aUni[0]*ravg/navg;
+      *riMin = 1.0e3/hubble*r0*aUni[0]*rmin;
+      *riMax = 1.0e3/hubble*r0*aUni[0]*rmax;
     }
   else
     {
@@ -219,7 +220,7 @@ void run_output()
 {
   const int nvars = 15;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { RTU_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, RTU_GAS_TEMPERATURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC, RT_VAR_OT_FIELD, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2, rt_et_offset+0, rt_et_offset+1, rt_et_offset+2, rt_et_offset+3, rt_et_offset+4, rt_et_offset+5 };
+  int varid[] = { EXT_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, EXT_GAS_TEMPERATURE, EXT_CELL_LEVEL, EXT_LOCAL_PROC, RT_VAR_OT_FIELD, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2, rt_et_offset+0, rt_et_offset+1, rt_et_offset+2, rt_et_offset+3, rt_et_offset+4, rt_et_offset+5 };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -228,13 +229,13 @@ void run_output()
   char filename[99];
   FILE *f;
 
-  tPhys = 1.0e-6*pow(aexp[0],2)*t0*(tl[0]-tStart);
+  tPhys = 1.0e-6*pow(aUni[0],2)*t0*(tl[0]-tStart);
 
   bb[0] = bb[2] = bb[4] = num_grid*(0.5-0.25);
   bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.25);
 
   sprintf(filename,"OUT/out.%05d.bin",step);
-  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
+  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
 
   FindIFront(0.01,riAvg+2,&riMin,&riMax);
   FindIFront(0.1,riAvg+1,&riMin,&riMax);
@@ -280,12 +281,12 @@ void init_run()
 
    /* set units */
    astart = 1;
-   hubble = 1.0;
+   cosmology_set(h,1.0);
    Lbox = 4*6.6e-3/(astart*hubble);
-   Omega0 = 1.0e-3*pow(astart,3)/(1.123e-5*hubble*hubble);
-   Omegab0 = Omega0;
-   OmegaL0 = 0.0;
-   aexp[min_level] = astart;
+   cosmology_set(OmegaM,1.0e-3*pow(astart,3)/(1.123e-5*hubble*hubble));
+   cosmology_set(OmegaB,Omega0);
+   cosmology_set(OmegaL,0.0);
+   aUni[min_level] = astart;
 
    init_units();
 
@@ -358,7 +359,7 @@ void init_run()
      {
        dtl[level] = 0.5*dtl[level-1];
        tl[level] = tl[min_level];
-       aexp[level] = aexp[min_level];		
+       aUni[level] = aUni[min_level];		
      }
 
    /* source */

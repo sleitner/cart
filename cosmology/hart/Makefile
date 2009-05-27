@@ -1,14 +1,16 @@
 TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
 
-include $(TOP_DIR)/Make.config
-
 compile:	cart
 
-run:
-	
-cart: .obj $(OBJS) .obj/extra/viewdump.o defs.h start_cosmology.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_cosmology.c -o cart $(LIBS) $(EXTRALIBS)
+include $(TOP_DIR)/Make.config
+
+hart_init.o: $(DEFS) hart_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -c hart_init.c
+
+cart: .obj $(DEFS) $(OBJS) hart_init.o start_cosmology.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) hart_init.o start_cosmology.c -o cart $(LIBS) $(EXTRALIBS)
 
 clean:
-	@rm -rf $(OBJS) .obj *.il core start_cosmology.o cart
+	rm -rf .obj *.il core start_cosmology.o hart_init.o cart
+

@@ -30,13 +30,12 @@ double ccl_rs[nlzmax][nldmax][nltmax];
 double f_ion[nrsmax][nlzmax][nldmax][nltmax];
 
 void init_cooling() {
-	int i;
+#ifdef CLOUDY_COOLING
+
 	FILE *data;
 	int irs, ilz, ild, ilt;
 	double d[9];
 	double cdum, hdum, ct_crit;
-
-#ifdef CLOUDY_COOLING
 
 	data = fopen("clcool.dat", "r");
 	if ( data == NULL ) {
@@ -88,11 +87,11 @@ void init_cooling() {
 
 }
 
-void set_cooling_redshift( double aexp ) {
+void set_cooling_redshift( double auni ) {
 	double rs, rs1, rs2, ac, bc;
 	int irs, irs1, irs2, ilz, ild, ilt;
 
-	rs = max( 1.0 / aexp - 1.0, 0.0 );
+	rs = max( 1.0 / auni - 1.0, 0.0 );
 
 	/* find redshift bin */
 	irs = (int)((rs - rsmin)*drsi);
@@ -130,6 +129,7 @@ void set_cooling_redshift( double aexp ) {
 }
 
 double cooling_rate( double rhogl, double T_g, double Z_met ) {
+#ifdef CLOUDY_COOLING
 	double Tlog;
 	int it1, it2;
 	int id1, id2;
@@ -137,7 +137,6 @@ double cooling_rate( double rhogl, double T_g, double Z_met ) {
 	double dd,td,zd;
 	double d1,d2,d3,t1,t2,t3;
 
-#ifdef CLOUDY_COOLING
 	/* compute temperature bin */
 	Tlog = log10(T_g) + 4.0;
 	it1 = (int)((Tlog - tlmin)*dlti);

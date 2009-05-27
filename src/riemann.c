@@ -136,20 +136,14 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 		a3 = xx4 - xx5;
 	}
 
-	a23 = a2*a3;
+	fs = -a2/a3;
+	if ( fs < 0.0 ) fs = 0.0;
+	if ( fs > 1.0 ) fs = 1.0;
 
-	if ( a23 > 0.0 ) {
-		sta[0] = rho;
-		sta[1] = u;
-		sta[2] = p_1;
-		sta[3] = gam;
-	} else {
-		fs = min( 1.0, -a2/a3);
-		sta[0] = rho	+ fs * ( rho_s - rho );
-		sta[1] = u	+ fs * ( u_s - u );
-		sta[2] = p_1	+ fs * ( p_s - p_1 );
-		sta[3] = gam	+ fs * ( gam_s - gam );
-	}
+	sta[0] = rho	+ fs * ( rho_s - rho );
+	sta[1] = u	+ fs * ( u_s - u );
+	sta[2] = p_1	+ fs * ( p_s - p_1 );
+	sta[3] = gam	+ fs * ( gam_s - gam );
 }       
 
 #ifdef GRAVITY_IN_RIEMANN

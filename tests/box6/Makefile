@@ -1,18 +1,16 @@
 TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
-PLATFORM = fulla
-
-include $(TOP_DIR)/Make.config
 
 compile: art
 
-run:
+include $(TOP_DIR)/Make.config
 
-art: .obj  $(OBJS) defs.h rt_defs.h start.c .obj/extra/ifrit.o
+art: .obj defs.h rt_defs.h $(OBJS) start.c .obj/extra/ifrit.o
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) .obj/extra/ifrit.o start.c -o art $(LIBS) $(EXTRALIBS)
+	which mpirun
 
 analysis: .obj $(OBJS) $(EXT_OBJS) defs.h rt_defs.h analysis.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) $(EXT_OBJS) analysis.c -o analysis $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf $(OBJS) .obj .obj/F *.il core start.o art analysis
+	rm -rf .obj *.il core start.o art analysis

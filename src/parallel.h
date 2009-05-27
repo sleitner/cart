@@ -14,4 +14,9 @@ extern int proc_sfc_index[MAX_PROCS+1];
 void init_parallel_grid();
 int processor_owner( int sfc );
 
+#define MPI_CUSTOM_NONE      0x0U
+#define MPI_CUSTOM_SYNC      0x1U
+
+extern unsigned int mpi_customization_mode;
+
 #endif

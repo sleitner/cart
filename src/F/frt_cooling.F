@@ -59,8 +59,8 @@ C
 C  Sub-cell bias factor & cooling suppressing factor:
 C  if not set, set them both to 1
 C
-      if(par(iparBias) .lt. 1.0e-38) par(iparBias) = 1.0
-      if(par(iparDFac) .lt. 1.0e-38) par(iparDFac) = 1.0
+      if(par(iparBias) .lt. 2.0e-38) par(iparBias) = 1.0
+      if(par(iparDFac) .lt. 2.0e-38) par(iparDFac) = 1.0
 C
 C  Metallicity-dependent cooling: parameters are saved in par(*) array.
 C  par(iparSDp[1-3]) - parameters for the Sutherland & Dopita 93, ApJS,
@@ -367,11 +367,11 @@ C
       sFact1 = frtShieldingFactorDust(cdDUl)
       sFact2 = sFact1*frtShieldingFactorH2(cdMHl)
       sFact1He = 1.0  !! sFact1
-#else  // RT_CHEMISTRY
+#else  /* RT_CHEMISTRY */
       sFact1 = 1.0
       sFact2 = 1.0
       sFact1He = 1.0
-#endif // RT_CHEMISTRY
+#endif /* RT_CHEMISTRY */
 C
 #ifdef RT_XLF_BUG_FIX1
 C
@@ -751,7 +751,7 @@ C
       avg(iavgDust) = par(iparDGas)*(XH1ll+2*XMHll)
 #endif
 
-#else  // RT_CHEMISTRY
+#else  /* RT_CHEMISTRY */
 
       a(ieqXMH) = 0.0
       w(ieqXMH) = 0.0
@@ -760,7 +760,7 @@ C
       avg(iavgDust) = 0.0
 #endif
 
-#endif  // RT_CHEMISTRY
+#endif  /* RT_CHEMISTRY */
 C
 C  Turn cooling into heating below CMB (induced emission)
 C
@@ -826,7 +826,7 @@ C
       include 'frt_base.inc'
       include 'frt_tables.inc'
 
-      x = 4.0e-21*cdDust/CSSTAR
+      x = 2.5e-21*cdDust/CSSTAR
       if(x .lt. 70) then
          frtShieldingFactorDust = exp(-x)
       else
@@ -841,11 +841,12 @@ C
       function frtShieldingFactorH2(cdMH)
       include 'frt_base.inc'
       include 'frt_tables.inc'
+      parameter(omegaH2 = 0.5)
 
       x = 2.0e-15*cdMH/CSSTAR
       if(x .lt. 1.0e15) then
-         frtShieldingFactorH2 = 
-     .        0.800/(1+x)**2 + 0.200/sqrt(1+x)*exp(-8.5e-4*sqrt(1+x))
+         frtShieldingFactorH2 = (1-omegaH2)/(1+x)**2 + 
+     .        omegaH2/sqrt(1+x)*exp(-8.5e-4*sqrt(1+x))
       else
          frtShieldingFactorH2 = 0.0
       endif
@@ -932,7 +933,7 @@ C
          endif
 
       else
-#endif  // defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+#endif  /* defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING) */
 C
 C  Generic rates
 C
@@ -940,7 +941,7 @@ C
 
 #if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
       endif
-#endif  // defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+#endif  /* defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING) */
 
 #endif
 
@@ -1241,7 +1242,7 @@ C
 
       return
       end
-#endif  // RT_MONOATOMIC
+#endif  /* RT_MONOATOMIC */
 #ifdef RT_DEBUG
 C
 C  Debug helpers

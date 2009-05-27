@@ -9,8 +9,13 @@
 #define EXT_GAS_TEMPERATURE     2000
 #define EXT_CELL_LEVEL          2001
 #define EXT_LOCAL_PROC          2002
+#define EXT_GAS_NUMBER_DENSITY  2003
 
 int extWriteIfritFile(int level, int *nbinIn, double *bbIn, int nvars, int *varid, const char *filename);
 
+/*
+//  Helper functions
+*/
+void extFindMaxVar(int var, float *val, double *pos);
 
 #endif  /* __EXT_IFRIT_H__ */

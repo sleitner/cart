@@ -4,6 +4,7 @@
 #include "tree.h"
 #include "timing.h"
 #include "auxiliary.h"
+#include "logging.h"
 
 double timelimit = 0.0;
 timer timers[num_refinement_levels+1][NUM_TIMERS];

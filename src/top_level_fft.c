@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "auxiliary.h"
+#include "cell_buffer.h"
 #include "sfc.h"
 #include "timing.h"
 #include "top_level_fft.h"
@@ -29,14 +30,14 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 
   start_time( FFT_TIMER );
 
-  buffer = cart_alloc( num_root_cells * sizeof(type_fft) );
+  buffer = cart_alloc(type_fft, num_root_cells );
 
   /* gather all root sources to master node */
   if ( local_proc_id == MASTER_NODE )
     {
       start_time( WORK_TIMER );
 
-      data = cart_alloc( num_root_cells * sizeof(type_fft) );
+      data = cart_alloc(type_fft, num_root_cells );
 
 #pragma omp parallel for default(none), private(i,coords,index), shared(num_cells_per_level,data,cell_vars,in_var)
       for ( i = 0; i < num_cells_per_level[min_level]; i++ )
@@ -68,7 +69,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
       /*
       //  In principle, memory can be saved by overlaying this array with data[] and doing in-place FFT.
       */
-      fft_source = cart_alloc( num_grid*num_grid*(num_grid/2+1) * sizeof(fftw_complex) );
+      fft_source = cart_alloc(fftw_complex, num_grid*num_grid*(num_grid/2+1) );
 
       forward = rfftw3d_create_plan( num_grid, num_grid, num_grid, FFTW_REAL_TO_COMPLEX, FFTW_ESTIMATE | FFTW_OUT_OF_PLACE );
       rfftwnd_one_real_to_complex( forward, data, fft_source );
@@ -76,7 +77,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 
       if(num_out_vars > 1)
 	{
-	  fft_output = cart_alloc( num_grid*num_grid*(num_grid/2+1) * sizeof(fftw_complex) );
+	  fft_output = cart_alloc(fftw_complex, num_grid*num_grid*(num_grid/2+1) );
 	}
       else
 	{

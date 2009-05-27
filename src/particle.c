@@ -17,6 +17,10 @@
 #include "units.h"
 #include "starformation.h"
 #include "refinement_indicators.h"
+#include "density.h"
+#include "refinement.h"
+#include "load_balance.h"
+#include "logging.h"
 
 
 #ifdef PARTICLES
@@ -209,12 +213,12 @@ void stellar_feedback(int level, int iter_cell, int ipart, double delta_t, doubl
 
 
 void move_particles( int level ) {
-	int i, j, k, m;
+	int i, m;
 	int ipart;
 	int iter_cell;
 	int num_level_cells;
 	int *level_cells;
-	int icell, icell_orig, icell2;
+	int icell, icell_orig;
 	int level1;
 	int child;
 	float pos[nDim];
@@ -240,21 +244,21 @@ void move_particles( int level ) {
 #ifdef STARFORM
 
 #ifdef FEEDBACK
-	cfbe = C_fb * aexp[level]*aexp[level] * cell_volume_inverse[level];
-	t_fb_code = t_fb / t0 / ( aexp[level]*aexp[level] );
-	T_fact = T0 / ( aexp[level]*aexp[level] );
+	cfbe = C_fb * abox[level] * abox[level] * cell_volume_inverse[level];
+	t_fb_code = t_fb / t0 / ( abox[level] * abox[level] );
+	T_fact = T0 / ( abox[level] * abox[level] );
 	efact = T_max_feedback / T_fact / (gamma - 1.0);
 #ifdef FEEDBACK_SNIa
-	t_SNIa_code = 1e9 * t_SNIa / t0 / ( aexp[level]*aexp[level] );
-	R_SNIa_fact = RIaf * aexp[level] * aexp[level];
-	cfbeIa = C_fbIa * cell_volume_inverse[level] * aexp[level] * aexp[level];
+	t_SNIa_code = 1e9 * t_SNIa / t0 / ( abox[level] * abox[level] );
+	R_SNIa_fact = RIaf * abox[level] * abox[level];
+	cfbeIa = C_fbIa * cell_volume_inverse[level] * abox[level] * abox[level];
 #ifdef ENRICH_SNIa
 	ejM_SNIa_code = ejM_SNIa / aM0 * cell_volume_inverse[level];
 #endif /* ENRICH_SNIa */
 #endif /* FEEDBACK_SNIa */
 #endif /* FEEDBACK */
 #ifdef STELLARMASSLOSS
-	T0_ml_code = T0_ml * 1e6 / t0 / ( aexp[level] * aexp[level] );
+	T0_ml_code = T0_ml * 1e6 / t0 / ( abox[level] * abox[level] );
 #endif /* STELLARMASSLOSS */
 
 #endif /* STARFORM */
@@ -516,8 +520,8 @@ void move_particles( int level ) {
 }
 
 void update_particle_list( int level ) {
-	int i, j, k;
-	int ipart, icell;
+	int i, k;
+	int ipart;
 	int iter_cell;
 	int num_level_cells;
 	int *level_cells;
@@ -527,7 +531,6 @@ void update_particle_list( int level ) {
 	int ipart2, new_cell;
 	int last_part;
 	int proc;
-	int num_parts;
 	int collect_level;
 
 	int min_level_modified, max_level_modified;
@@ -710,12 +713,12 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 
 	MPI_Waitall( num_requests, send_count_requests, MPI_STATUSES_IGNORE );
 	MPI_Waitall( num_requests, recv_id_requests, MPI_STATUSES_IGNORE );
-	
+
 	/* set up receives */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_parts_to_recv[proc] > 0 ) {
-			recv_id[proc] = cart_alloc( page_size * sizeof(int) );
-			recv_parts[proc] = cart_alloc( parts_page_size * sizeof(double) );
+			recv_id[proc] = cart_alloc(int, page_size );
+			recv_parts[proc] = cart_alloc(double, parts_page_size );
 
 			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0, 
 				MPI_COMM_WORLD, &recv_id_requests[proc] );
@@ -723,7 +726,7 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 				proc, 0, MPI_COMM_WORLD, &recv_parts_requests[proc] );
 
 #ifdef STARFORM
-			recv_stars[proc] = cart_alloc( star_page_size * sizeof(float) );
+			recv_stars[proc] = cart_alloc(float, star_page_size );
 			MPI_Irecv( recv_stars[proc], star_page_size, MPI_FLOAT, proc, 0, 
 				MPI_COMM_WORLD, &recv_stars_requests[proc] );
 #endif /* STARFORM */
@@ -740,19 +743,19 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 	}
 
 	/* allocate space for the pages */
-	send_id = cart_alloc( num_pages_to_send * page_size * sizeof(int) );
-	send_parts = cart_alloc( num_pages_to_send * parts_page_size * sizeof(double) );
+	send_id = cart_alloc(int, num_pages_to_send * page_size );
+	send_parts = cart_alloc(double, num_pages_to_send * parts_page_size );
 
 #ifdef STARFORM
 	/* allocating enough space for all particles to be stars */
-	send_stars = cart_alloc( num_pages_to_send * star_page_size * sizeof(float) );
-	send_requests = cart_alloc( 3*num_pages_to_send * sizeof(MPI_Request) );
+	send_stars = cart_alloc(float, num_pages_to_send * star_page_size );
+	send_requests = cart_alloc(MPI_Request, 3*num_pages_to_send );
 	star_page_start = 0;
 	star_vars_sent = 0;
 #else
-	send_requests = cart_alloc( 2*num_pages_to_send * sizeof(MPI_Request) );
+	send_requests = cart_alloc(MPI_Request, 2*num_pages_to_send );
 #endif /* STARFORM */	
-	
+
 	num_pages_sent = 0;
 	num_send_requests = 0;
         for ( proc = 0; proc < num_procs; proc++ ) {
@@ -899,6 +902,17 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 #endif /* STARFORM */
 
 				icell = cell_find_position( particle_x[ipart] );
+#ifdef DEBUG
+				if(!( icell != -1 && cell_is_local(icell) ))
+				  {
+				    cart_debug("Trade particles error: %d %d",ipart,icell);
+				    if(icell != -1) cart_debug("*** %d",cell_is_local(icell));
+				    cart_debug("*** %lf %lf %lf",particle_x[ipart][0],particle_x[ipart][1],particle_x[ipart][2]);
+				    cart_debug("*** %lf %lf %lf",particle_v[ipart][0],particle_v[ipart][1],particle_v[ipart][2]);
+				    cart_debug("*** %lf %lf %lf",particle_t[ipart],particle_dt[ipart]);
+				    cart_debug("*** %d %d",particle_is_star(ipart),particle_id[ipart]);
+				  }
+#endif
 				cart_assert( icell != -1 && cell_is_local(icell) );
 				insert_particle( icell, ipart );
 			}
@@ -951,7 +965,6 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 void build_particle_list() {
 	int i, j;
 	int icell;
-	float pos[nDim];
 
 	cart_debug("build_particle_list()");
 
@@ -976,8 +989,8 @@ void build_particle_list() {
 			cart_assert( cell_is_leaf( icell ) );
 			if ( !cell_contains_position(icell, particle_x[i]) ) {
 				cart_debug("%d %e %e %e", icell, particle_x[i][0], particle_x[i][1], particle_x[i][2] );
-			}	
-			cart_assert( cell_contains_position( icell, particle_x[i] ) );
+				cart_error("Error in building the particle list");
+			}
 
 			/* insert particle into cell list */
 			insert_particle( icell, i );
@@ -1379,16 +1392,17 @@ void build_mesh() {
 			cart_debug("level %u: %u cells", level, total_cells_per_level[level] );
 		}
 
-		for( j = 0; j < num_particles; j++) {
-			if ( particle_level[j] != FREE_PARTICLE_LEVEL ) {
-				cell = cell_find_position_above_level(level,particle_x[j]);
-				cart_assert(cell > -1);
-				particle_level[j] = cell_level(cell);
-				particle_dt[j] = dtl[cell_level(cell)];
-			}
-		}
-
-		load_balance();
+		if(total_cells_per_level[level] > 0)
+		  {
+		    for(j=0; j<num_local_particles; j++) if(particle_level[j] != FREE_PARTICLE_LEVEL)
+		      {
+			cell = cell_find_position_above_level(level,particle_x[j]);
+			cart_assert(cell > -1);
+			particle_level[j] = cell_level(cell);
+		      }
+		    
+		    load_balance();
+		  }
 	}
 }
 

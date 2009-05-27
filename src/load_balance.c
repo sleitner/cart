@@ -33,9 +33,9 @@ int divide_list_recursive( float *global_work,
 		int num_procs_in_division, int first_proc,
 		int first_cell_index, int *proc_index ) {
 
-	int i, j, k, c, m;
+	int i, j, k, c;
 	float work_frac_left;
-	double current_work, current_work_left, current_work_right;
+	double current_work, current_work_left;
 	long sum_constraints[num_constraints];
 	int num_procs_left, num_procs_right;
 	int left_failure, right_failure;
@@ -262,11 +262,9 @@ int divide_list_linear( float *global_work, int *constrained_quantities,
 	int i, c, c2;
 	int proc;
 	int index;
-	int min_assigned;
 	double local_work;
 	double ideal_work_per_proc;
 	int num_procs_remaining;
-	int num_root_cells_remaining;
 	long total_constraints[num_constraints];
 	long sum_constraints[num_constraints];
 
@@ -365,16 +363,8 @@ void load_balance_entire_volume( float *global_work,
 		int *new_proc_sfc_index ) {
 
 	int i, j, c;
-	int last, count;
-	int num_blocks;
-	int flag, ret;
-	float proc_fraction;
-	int current_proc, current_root_index;
-	int num_reserved_procs;
-	int num_procs_in_block;
-	int num_root_cells_in_block;
+	int ret;
 	double total_work, current_work;
-	double ideal_work_per_proc;
 	double avg_work;
 	long sum_constraints[num_constraints];
 	int per_proc_constraints[num_constraints];
@@ -603,14 +593,14 @@ void load_balance_entire_volume( float *global_work,
 }
 
 void load_balance() {
-	int i, j;
+	int i;
 	int level;
 	int root;
 	int num_parts;
 	float level_cost;
 	int proc;
 	int first_oct, old_first_oct;
-	int next, new_oct;
+	int new_oct;
 	int coords[nDim];
 	int receive_counts[MAX_PROCS];
 	int receive_displacements[MAX_PROCS];
@@ -619,7 +609,6 @@ void load_balance() {
 
 	int ipart;
 #ifdef PARTICLES
-	int ipart_next;
 	int num_parts_to_send[MAX_PROCS];
 	int particle_list_to_send[MAX_PROCS];
 #endif /* PARTICLES */
@@ -627,24 +616,18 @@ void load_balance() {
 #ifdef HYDRO_TRACERS
 	int tracer;
 	int tracer_list_to_send[MAX_PROCS];
+	int num_tracers_to_send[MAX_PROCS];
 #endif /* HYDRO_TRACERS */
 
 	float *local_work;
 	int *local_constraints;
 	float *global_work;
 	int *global_constraints;
-	int neighbors[num_neighbors];
-	int min_assigned;
-	double current_work, total_work, ideal_work_per_proc;
 	int num_cells_moved;
 	int root_cell_shift;
-	int *local_index;
 	int icell, ioct;
 	int num_level_cells;
-	int max_cells_allowed;
 	int *level_cells;
-	int sfc, count;
-	int sfc_neighbor;
 	int new_num_local_root_cells;
 	pack *transfer_cells;
 
@@ -663,8 +646,8 @@ void load_balance() {
 	start_time( LOAD_BALANCE_TIMER );
 
 	/* allocate space to store the work estimators */
-	local_work = cart_alloc( num_cells_per_level[min_level]* sizeof(float) );
-	local_constraints = cart_alloc( num_constraints*num_cells_per_level[min_level]* sizeof(int) );
+	local_work = cart_alloc(float, num_cells_per_level[min_level] );
+	local_constraints = cart_alloc(int, num_constraints*num_cells_per_level[min_level] );
 
 	#pragma omp parallel for
 	for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
@@ -686,7 +669,6 @@ void load_balance() {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 			root = cell_parent_root_cell( icell );
-			sfc = cell_parent_root_sfc( icell );
 
 			local_work[root] += cost_per_cell * level_cost;
 			local_constraints[num_constraints*root]++;
@@ -710,8 +692,8 @@ void load_balance() {
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
-		global_work = cart_alloc( num_root_cells * sizeof(float) );
-		global_constraints = cart_alloc( num_constraints * num_root_cells * sizeof(int) );
+		global_work = cart_alloc(float, num_root_cells );
+		global_constraints = cart_alloc(int, num_constraints * num_root_cells );
 
 		for ( i = 0; i < num_procs; i++ ) {
 			receive_counts[i] = proc_sfc_index[i+1] - proc_sfc_index[i];

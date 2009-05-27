@@ -298,8 +298,8 @@ void derefine( int level ) {
 
 	cart_free( level_cells );
 
-	oct_list = cart_alloc( num_cells_to_refine * sizeof(int) );
-	parent_root_sfc = cart_alloc( num_cells_to_refine * sizeof(int) );
+	oct_list = cart_alloc(int, num_cells_to_refine );
+	parent_root_sfc = cart_alloc(int, num_cells_to_refine );
 
 	num_octs_eliminated = 0;
 	

@@ -1,6 +1,8 @@
 # COMPILE OPTIONS
 
 # fulla (PG compilers)
+PATH = /usr/local/openmpi-pgi/bin:/opt/pgi/linux86-64/8.0/bin:/usr/bin:/bin
+
 CFLAGS  = -g -Ktrap=fp -mcmodel=medium
 CC      = mpicc
 FFLAGS  = -g -Ktrap=fp -mcmodel=medium -Mbounds

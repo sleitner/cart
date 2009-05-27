@@ -16,7 +16,7 @@ pack *pack_init( int cell_type ) {
 	int level;
 	pack *ret;
 
-	ret = cart_alloc( sizeof(pack) );
+	ret = cart_alloc(pack, 1 );
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		ret->tree_list[proc] = skiplist_init();
 		ret->num_sending_cells_total[proc] = 0;
@@ -150,7 +150,7 @@ void pack_apply( pack *p ) {
 	float *cell_packed_vars;
 	int *cell_packed_child;
 	int num_cells_packed;
-	int old_offset, level_offset;
+	int old_offset;
 
 	cart_assert( p != NULL );
 
@@ -160,7 +160,7 @@ void pack_apply( pack *p ) {
 		prune_proc = proc;
 
 		if ( p->num_sending_cells[proc][min_level] > 0 ) {
-			root_cells = cart_alloc( p->num_sending_cells[proc][min_level] * sizeof(int) );
+			root_cells = cart_alloc(int, p->num_sending_cells[proc][min_level] );
 
 			/* pack root sfc's into communication array */
 			i = 0;
@@ -177,8 +177,8 @@ void pack_apply( pack *p ) {
 			p->root_cells[proc] = root_cells;
 
 			/* allocate space for cell tree information */
-			cell_packed_vars = cart_alloc( p->num_sending_cells_total[proc] * num_vars * sizeof(float) );
-			cell_packed_child = cart_alloc( p->num_sending_cells_total[proc] * sizeof(int) );
+			cell_packed_vars = cart_alloc(float, p->num_sending_cells_total[proc] * num_vars );
+			cell_packed_child = cart_alloc(int, p->num_sending_cells_total[proc] );
 
 			/* pack root cells */
 			num_vars_packed = 0;
@@ -260,14 +260,13 @@ void pack_communicate( pack *p ) {
 	int ret;
 	int level;
 	int proc;
-	int icell, ioct, child;
+	int icell, child;
 	int next_level_count;
 	int num_cells_unpacked;
 	int num_cells_split;
-	int num_vars_packed;
 	int num_vars_unpacked;
 	int num_octs_unpacked;
-	int cell_count, level_count;
+	int cell_count;
 	int num_recv_octs;
 	int *root_cells[MAX_PROCS];
 	int *cell_refined[MAX_PROCS];
@@ -286,8 +285,8 @@ void pack_communicate( pack *p ) {
 				num_recv_octs = ( p->num_receiving_cells_total[proc] -
 					p->num_receiving_cells[proc][min_level] ) / num_children;
 
-				oct_indices[proc][0] = cart_alloc( num_recv_octs * sizeof(int) );
-				oct_indices[proc][1] = cart_alloc( num_recv_octs * sizeof(int) );
+				oct_indices[proc][0] = cart_alloc(int, num_recv_octs );
+				oct_indices[proc][1] = cart_alloc(int, num_recv_octs );
 			}
 
 			num_oct_indices[proc] = 0;
@@ -310,11 +309,11 @@ void pack_communicate( pack *p ) {
 
 			cell_count = p->num_receiving_cells[proc][level];
 			if ( cell_count > 0 ) {
-				cell_refined[proc] = cart_alloc( cell_count * sizeof(int) );
-				cell_recv_vars[proc] = cart_alloc( num_vars * cell_count * sizeof(float) );
+				cell_refined[proc] = cart_alloc(int, cell_count );
+				cell_recv_vars[proc] = cart_alloc(float, num_vars * cell_count );
 
 				if ( level == min_level ) {
-					root_cells[proc] = cart_alloc( cell_count * sizeof(int) );
+					root_cells[proc] = cart_alloc(int, cell_count );
 
 					MPI_Irecv( root_cells[proc], cell_count, MPI_INT, proc, cell_count, 
 						MPI_COMM_WORLD, &receives[num_receives++] );
@@ -364,7 +363,7 @@ void pack_communicate( pack *p ) {
 
 		/* unpack level */
 		num_cells_split = 0;
-		next_level_octs = cart_alloc( next_level_count * sizeof(int) );
+		next_level_octs = cart_alloc(int, next_level_count );
 		num_octs_unpacked = 0;
 		child = 0;
 

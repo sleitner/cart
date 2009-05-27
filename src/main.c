@@ -40,9 +40,6 @@
 #include "rt_solver.h"
 #endif
 
-#ifdef DEBUG_MEMORY_USE
-void dmuPrintRegistryContents();
-#endif  /* DEBUG_MEMORY_USE */
 
 void init_run();
 void run_output();
@@ -52,11 +49,13 @@ char **options = NULL;
 
 
 int main ( int argc, char *argv[]) {
-	int i, j;
+	int i;
 	int current_steps;
 	int restart;
 	int level;
 	double dt, restart_dt;
+	double restart_a;
+	const char *tmp;
 
 	#ifdef _OPENMP
 	struct utsname uname_info;
@@ -71,17 +70,6 @@ int main ( int argc, char *argv[]) {
 			num_procs, MAX_PROCS );
 	}
 
-	cart_debug("my local pid = %u", getpid() );
-
-	#ifdef _OPENMP
-	cart_debug("num openmp threads = %u", omp_get_max_threads() );
-
-	if ( num_procs > 1 ) {
-		uname(&uname_info);
-		cart_debug("node: %s", uname_info.nodename );
-	}
-	#endif
-
 	/* load configuration file */
 	if ( argc < 2 ) {
 		cart_error("Usage: art <config_file> [ restart_flag [ options ] ]");
@@ -95,18 +83,67 @@ int main ( int argc, char *argv[]) {
 		num_options = argc - 2;
 		options = argv + 2;
 	} else {
-	        if(strcmp(argv[2],"-restart")==0 || strcmp(argv[2],"-r")==0)
+	        /*
+		//  Also support an option-style restart in the form
+		//    -restart[=<value>]
+		//  where <value> is the value of the scale factor that
+		//  labels restart files.
+		*/
+  	        tmp = check_option1(argv[2],"restart","last");
+		if(tmp != NULL)
 		  {
 		    restart = 1;
+		    if(strcmp(tmp,"last") == 0)
+		      {
+			restart_a = 0.0;
+		      }
+		    else
+		      {
+			/*
+			//  Read in restart value
+			*/
+			if(sscanf(tmp,"%lg",&restart_a) != 1)
+			  {
+			    cart_error("Invalid option value %s",argv[2]+9);
+			  }
+		      }
 		  }
 		else
 		  {
 		    restart = atoi( argv[2] );
+		    restart_a = 0.0;
 		  }
 		/* skip config file name and restart flag */
 		num_options = argc - 3;
 		options = argv + 3;
+	#ifdef _OPENMP
+		if ( argc > 3 )
+		  {
+		    tmp = check_option1(argv[3],"omp",NULL);
+		    if(tmp != NULL)
+		      {
+			if(sscanf(tmp,"%d",&i)!=1 || i<1 || i>256)
+			  {
+			    cart_error("Invalid option value %s",argv[3]+4);
+			  }
+			omp_set_num_threads(i);
+			num_options--;
+			options++;
+		      }
+		  }
+	#endif
 	}
+
+	cart_debug("my local pid = %u", getpid() );
+
+	#ifdef _OPENMP
+	cart_debug("num openmp threads = %u", omp_get_max_threads() );
+
+	if ( num_procs > 1 ) {
+		uname(&uname_info);
+		cart_debug("node: %s", uname_info.nodename );
+	}
+	#endif
 
 	/* set up mpi datatypes, timers, units, etc 
          * (init_units called in case units set in config file) */
@@ -137,16 +174,22 @@ int main ( int argc, char *argv[]) {
 		init_tree();
 
 		/* set up individual problem (responsible for setting
-			time variables tl, dtl, aexp) on min_level only
+			time variables tl, dtl) on min_level only
 		*/
 		init_run();
-
+#ifdef COSMOLOGY
+		abox[min_level] = abox_from_tcode(tl[min_level]);
+		auni[min_level] = auni_from_tcode(tl[min_level]);
+#else
+		abox[min_level] = auni[min_level];
+#endif
 		dt = dtl[min_level];
 
 		for ( i = min_level+1; i <= max_level; i++ ) {
 			tl[i] = tl[min_level];
 			dtl[i] = 0.5*dtl[i-1];
-			aexp[i] = aexp[min_level];
+			abox[i] = abox[min_level];
+			auni[i] = auni[min_level];
 		}
 
 		step = 0;
@@ -180,18 +223,24 @@ int main ( int argc, char *argv[]) {
 
 		check_map();
 	} else {
-		read_restart(0);
+		read_restart(restart_a);
 		load_balance();
 		check_map();
 
 		choose_timestep( &dtl[min_level] );
-		/* dtl[min_level] *= 0.8; */
+#ifdef COSMOLOGY
+		abox[min_level] = abox_from_tcode(tl[min_level]);
+		auni[min_level] = auni_from_tcode(tl[min_level]);
+#else
+		abox[min_level] = auni[min_level];
+#endif
 		dt = dtl[min_level];
 
 		for ( i = min_level+1; i <= max_level; i++ ) {
 			tl[i] = tl[min_level];
 			dtl[i] = 0.5*dtl[i-1];
-			aexp[i] = aexp[min_level];
+			abox[i] = abox[min_level];
+			auni[i] = auni[min_level];
 		}
 
 		for ( i = min_level; i <= max_level; i++ ) {
@@ -220,9 +269,9 @@ int main ( int argc, char *argv[]) {
 	while ( 1 ) {
 
 #ifdef COSMOLOGY
-		cart_debug("a = %e, dt = %e", aexp[min_level], dt  );
+		cart_debug("a = %e, dt = %e", auni[min_level], dt  );
 
-		if ( aexp[min_level] >= a_end ) {
+		if ( auni[min_level] >= auni_end ) {
 			break;
 		}
 #else

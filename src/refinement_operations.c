@@ -127,8 +127,8 @@ int split ( int cell ) {
 			/*
 			  ASK DOUG WHY WE DO IT THAT WAY
 			*/
-			cell_gas_energy(child_cell) = cell_kinetic_energy(child_cell) + 
-				cell_interpolate_function_with_neighbors( cell, cell_internal_energy, neighbors );
+			cell_gas_energy(child_cell) = cell_kinetic_energy(child_cell) + cell_gas_internal_energy(child_cell);
+			//				cell_interpolate_function_with_neighbors( cell, cell_internal_energy, neighbors );
 			weights[4] += cell_gas_energy(child_cell);
 
 #ifdef	ELECTRON_ION_NONEQUILIBRIUM

@@ -181,8 +181,8 @@ void rtuGetLinearArrayMaxMin(int n, float *arr, float *max, float *min)
 #endif 
   int len_piece = (n+num_pieces-1)/num_pieces;
   
-  vmax = cart_alloc(num_pieces*sizeof(float));
-  vmin = cart_alloc(num_pieces*sizeof(float));
+  vmax = cart_alloc(float, num_pieces );
+  vmin = cart_alloc(float, num_pieces );
 
 #pragma omp parallel for default(none), private(j,i,ibeg,iend), shared(arr,vmin,vmax,n,len_piece,num_pieces)
   for(j=0; j<num_pieces; j++)

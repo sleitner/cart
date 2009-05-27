@@ -24,11 +24,22 @@ C
       parameter(G_pBbrk = -4.0)
       parameter(G_pXray = 2.0e1)
 C
-      dimension guv_G_esc(NRADL), guv_Q_esc(NRADL)
+      dimension guv_G_esc(NRAD), guv_Q_esc(NRAD)
 C
 #ifndef RT_TEST
 C
 C  Set switches - must be specified somewhere else???
+C  
+C  The default value: 5.0e-6 is obtained as follows:
+C    Draine field (1.0e6 phot/cm^2/s/ster/eV) at 12.0 eV is
+C      n_\xi (=\nu n_\nu) = 0.005/cm^3.
+C    In the code, for LW band (in the main rad. grid),
+C      n_\xi = epsUV*SFR3/r1^2/E30*1.0e3 /cm^3,
+C    where
+C      SFR3 = SFR/(3 Msun/yr)
+C      r1   = <r>/(1 kpc) (averaged as 1/<r>^2 = \int dV 1/r^2)
+C      E30  = <E_\nu>/(30 eV)
+C    Assuming SFR3 = r1 = E30 = 1, we get epsUV = 5.0e-6
 C
       EPSG_UV = 5.0e-6
       EPSQ_UV = 0.0
@@ -214,7 +225,7 @@ C$OMP+ guv_G,guv_Q,lrH1tr)
 
       call frtTestInitSourceSpectrum
 
-#endif  // RT_TEST
+#endif  /* RT_TEST */
 
       return
       end

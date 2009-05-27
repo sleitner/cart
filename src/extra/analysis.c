@@ -135,7 +135,7 @@ void load_halo_finder_epochs( char *filename, int *num_epochs, float **epoch ) {
 
 	rewind(input);
 
-	list = cart_alloc( num*sizeof(float) );
+	list = cart_alloc(float, num );
 
 	num = 0;
 	while ( fscanf( input, "%f", &aexpn ) != EOF ) {
@@ -161,7 +161,7 @@ halo_list *load_halo_finder_catalog( char *filename ) {
 	int np, coords[nDim];
 	halo_list *halos;
 
-	halos = cart_alloc( sizeof(halo_list) );
+	halos = cart_alloc(halo_list, 1 );
 
 	input = fopen( filename, "r" );
 	if ( input == NULL ) {
@@ -185,7 +185,7 @@ halo_list *load_halo_finder_catalog( char *filename ) {
 
 	rewind( input );
 
-	halos->list = cart_alloc( halos->num_halos*sizeof(halo) );
+	halos->list = cart_alloc(halo, halos->num_halos );
 
 	/* skip header lines */
 	for ( i = 0; i < 17; i++ ) {
@@ -313,10 +313,10 @@ void load_halo_particle_mapping( char *filename, halo_list *halos ) {
 		cart_assert( ih >= 0 && ih < halos->num_halos );
 
 		cart_debug("ih = %d, nhp = %d", ih, nhp ); fflush(stdout);
-		halos->list[ih].particles = cart_alloc( nhp * sizeof(int) );
-		halos->list[ih].binding_order = cart_alloc( nhp * sizeof(int) );
+		halos->list[ih].particles = cart_alloc(int, nhp );
+		halos->list[ih].binding_order = cart_alloc(int, nhp );
 
-		binding_energy = cart_alloc( nhp * sizeof(float) );
+		binding_energy = cart_alloc(float, nhp );
 
 		fread( halos->list[ih].particles, sizeof(int), nhp, input );
 		fread( binding_energy, sizeof(float), nhp, input );
@@ -388,7 +388,7 @@ void crude_stellar_mass_fractions( halo_list *halos ) {
 	float rhalomax;
 
 	if ( local_proc_id == MASTER_NODE ) {
-		sprintf(filename, "%s/stellar_fractions_a%5.3f.dat", output_directory, aexp[min_level] );
+		sprintf(filename, "%s/stellar_fractions_a%5.3f.dat", output_directory, auni[min_level] );
 		output = fopen(filename, "w");
 	}
 
@@ -622,26 +622,26 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 	/* set up conversion constants */
 #ifdef HYDRO
-	Tfact = T0 * ( gamma - 1.0 ) / ( aexp[min_level]*aexp[min_level] );
-	Pfact = P0/(aexp[min_level]*aexp[min_level]*aexp[min_level]*aexp[min_level]*aexp[min_level]);
+	Tfact = T0 * ( gamma - 1.0 ) / ( abox[min_level]*abox[min_level] );
+	Pfact = P0/(abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]);
 	Sfact = S0;
 	szfact = 3.9207e-15 * ( gamma - 1.0 ) * T0 * r0 * Omega0 * hubble / 
-			(aexp[min_level]*aexp[min_level]*aexp[min_level]*aexp[min_level]);
+			(abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]);
 #endif
 
-	rfact = 1000.0 * r0 * aexp[min_level] / hubble; /* proper kpc -> code units */
-	vfact = v0 / aexp[min_level];
+	rfact = 1000.0 * r0 * abox[min_level] / hubble; /* proper kpc -> code units */
+	vfact = v0 / abox[min_level];
 
 #ifdef STARFORM
-	tnewstar = 1e9 * new_star_age / t0 / ( aexp[min_level]*aexp[min_level] );
+	tnewstar = 1e9 * new_star_age / t0 / ( abox[min_level]*abox[min_level] );
 #endif
 
 #ifdef COOLING
-	dtfact = 1e6 * t0 * aexp[min_level]*aexp[min_level];
-	dEfact = t0 * aexp[min_level]*aexp[min_level]/Pfact;
+	dtfact = 1e6 * t0 * abox[min_level]*abox[min_level];
+	dEfact = t0 * abox[min_level]*abox[min_level]/Pfact;
 
 	fact_nH = log10( 1.12e-5 * hubble * hubble * Omega0 * ( 1.0 - Y_p ) / 
-			(aexp[min_level]*aexp[min_level]*aexp[min_level]) );
+			(abox[min_level]*abox[min_level]*abox[min_level]) );
 #endif
 
 	/* set up binning */
@@ -693,7 +693,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	}
 
 	/* compute virial overdensity using Bryan & Norman (1998) */
-	a3 = aexp[min_level] * aexp[min_level] * aexp[min_level];
+	a3 = abox[min_level] * abox[min_level] * abox[min_level];
 	E2 = Omega0 / a3 + OmegaL0;
 	omega = Omega0 / a3 / E2;
 	xz = omega - 1.0;
@@ -706,9 +706,9 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	cart_debug("virial_overdensity = %e", virial_overdensity );
 
 	if ( num_procs == 1 ) {
-		sprintf( suffix, "_a%6.4f.dat", aexp[min_level] );
+		sprintf( suffix, "_a%6.4f.dat", abox[min_level] );
 	} else {
-		sprintf( suffix, "_a%6.4f_%04u.dat", aexp[min_level], local_proc_id );
+		sprintf( suffix, "_a%6.4f_%04u.dat", abox[min_level], local_proc_id );
 	}
 
 	if ( halo_section == -1 ) {
@@ -1196,7 +1196,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 #ifdef HYDRO
 				/* build list of leaf cells within halo */
-				leaf_index = cart_alloc( num_halo_leafs * sizeof(int) );
+				leaf_index = cart_alloc(int, num_halo_leafs );
 
 				num_halo_leafs = 0;
 
@@ -1253,7 +1253,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 #endif /* METALCOOLING*/
 					dEcell = cooling_rate( rhogl, Tcell*1e-4, Zldum ) * 
 						cell_gas_density(icell)*cell_gas_density(icell) *
-						aexp[level];
+						abox[level];
 
 					tcool = cell_gas_internal_energy(icell) / dEcell / dtfact;
 					dEcell /= dEfact;
@@ -2295,7 +2295,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 					dEcell = cooling_rate( rhogl, Tcell*1e-4, Zldum ) *
 						cell_gas_density(icell)*cell_gas_density(icell) *
-						aexp[level];
+						abox[level];
 
 					tcool = cell_gas_internal_energy(icell) / dEcell / dtfact;
 					dEcell /= dEfact;

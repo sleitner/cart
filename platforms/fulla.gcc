@@ -1,0 +1,12 @@
+# COMPILE OPTIONS
+
+# fulla (gcc compilers)
+PATH = /usr/local/mpich2-gcc/bin:/usr/bin:/bin
+
+CFLAGS  = -fopenmp -O3 -mcmodel=medium
+CC      = mpicc
+FFLAGS  = -fopenmp -O3 -mcmodel=medium
+F77     = mpif77
+INCLUDES = -I/home/drudd/include
+EXTRALIBS = -L/home/drudd/lib -lgfortran -lmpi_f77
+

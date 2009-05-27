@@ -9,11 +9,11 @@ skiplist *skiplist_init() {
 	skiplist *list;
 	skiplist_page *page;
 
-	list = (skiplist *)cart_alloc( sizeof( skiplist ) );
+	list = cart_alloc(skiplist, 1 );
 
 	list->num_nodes = 0;
 	list->level = 0;
-	page = (skiplist_page *)cart_alloc( sizeof(skiplist_page) );
+	page = cart_alloc(skiplist_page, 1 );
 	list->page_head = page;
 	
 	list->head = (skiplist_node *)page->buffer;
@@ -107,7 +107,7 @@ int skiplist_insert( skiplist *list, int value ) {
 	/* allocate the new node and insert into the list */
 	size = sizeof(skiplist_node)+level*sizeof(skiplist_node *);
 	if ( list->page_head->bytes_remaining < size ) {
-		page = cart_alloc( sizeof(skiplist_page) );
+		page = cart_alloc(skiplist_page, 1 );
 		page->current_ptr = page->buffer;
 		page->bytes_remaining = SKIPLIST_PAGE_SIZE*sizeof(int);
 		page->next = list->page_head;
@@ -116,7 +116,7 @@ int skiplist_insert( skiplist *list, int value ) {
 		page = list->page_head;
 	}
 
-	n = page->current_ptr;
+	n = (skiplist_node *)page->current_ptr;
 	page->current_ptr = (void *)((skiplist_node **)((skiplist_node *)page->current_ptr+1)+level);
 	page->bytes_remaining -= size;
 	cart_assert( page->bytes_remaining >= 0 );
@@ -169,7 +169,6 @@ void skiplist_iterate( skiplist *list ) {
 }
 
 int skiplist_next( skiplist *list, int *value ) {
-	int val;
 
 	cart_assert( list != NULL );
 
