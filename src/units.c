@@ -70,7 +70,9 @@ void init_units() {
 	init_star_formation();
 #endif /* STARFORM */
 
+#ifdef RADIATIVE_TRANSFER
 	rtSetTemUnits();
+#endif
 
 	if ( local_proc_id == MASTER_NODE ) {
 		cart_debug("H0 = %e", H0 );

@@ -16,6 +16,8 @@
 
 #include "rt_utilities.h"
 
+#include "extra/ifrit.h"
+
 
 #define BottomLevel     1
 
@@ -77,7 +79,7 @@ void rt_initial_conditions( int cell )
   cell_momentum(cell,2) = 0.0;
   cell_gas_gamma(cell) = (5.0/3.0);
 
-  cell_gas_internal_energy(cell) = 1.0e3/T0*aexp[0]*aexp[0]/(gamma-1)*rho;
+  cell_gas_internal_energy(cell) = 1.0e3/T0*abox[0]*abox[0]/(gamma-1)*rho;
 
   cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell);
@@ -107,7 +109,7 @@ void run_output()
 {
   const int nvars = 4;
   const int nbin1 = num_grid * (1 << BottomLevel);
-  int varid[] = { HVAR_GAS_DENSITY, HVAR_PRESSURE, RTU_CELL_LEVEL, RTU_LOCAL_PROC };
+  int varid[] = { HVAR_GAS_DENSITY, HVAR_PRESSURE, EXT_CELL_LEVEL, EXT_LOCAL_PROC };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -118,7 +120,7 @@ void run_output()
   bb[1] = bb[3] = bb[5] = num_grid;
  
   sprintf(filename,"OUT/out.%05d.bin",step);
-  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
+  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
 
   if(step == 4)
     {
@@ -139,12 +141,12 @@ void init_run()
 
    /* set units */
    astart = 0.1;
-   hubble = 1.0;
+   cosmology_set(h,1.0);
    Lbox = 1.6e-3/(astart*hubble);
-   Omega0 = 3.2*pow(astart,3)/(1.123e-5*hubble*hubble);
-   Omegab0 = Omega0;
-   OmegaL0 = 0.0;
-   aexp[min_level] = astart;
+   cosmology_set(OmegaM,3.2*pow(astart,3)/(1.123e-5*hubble*hubble));
+   cosmology_set(OmegaB,cosmology->OmegaM);
+   cosmology_set(OmegaL,0.0);
+   abox[min_level] = astart;
 
    init_units();
    
@@ -208,7 +210,7 @@ void init_run()
      {
        dtl[level] = 0.5*dtl[level-1];
        tl[level] = tl[min_level];
-       aexp[level] = aexp[min_level];		
+       abox[level] = abox[min_level];		
      }
 
    /* particles */

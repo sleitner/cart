@@ -1336,6 +1336,7 @@ int particle_specie( int id ) {
 	return specie;
 }
 
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
 void build_mesh() {
 	int i,j;
@@ -1405,5 +1406,7 @@ void build_mesh() {
 		  }
 	}
 }
+
+#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
 
 #endif /* PARTICLES */

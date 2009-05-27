@@ -289,7 +289,7 @@ void run_output() {
 		size = num_grid;
 		fwrite( &size, sizeof(int), 1, output );
 
-		slice = cart_alloc( num_grid*num_grid*sizeof(float) );
+		slice = cart_alloc(float, num_grid*num_grid );
 
 		coords[1] = num_grid/2;
 		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
@@ -484,14 +484,12 @@ void init_run() {
 	tl[min_level] = t_init;
 	dtl[min_level] = 0.0;
 	choose_timestep( &dtl[min_level] );
-<<<<<<< .working
-=======
 
 #ifdef COSMOLOGY
 	auni[min_level] = auni_from_tcode( tl[min_level] );
 #else
->>>>>>> .merge-right.r225
 	auni[min_level] = 1.0;
+#endif
 	abox[min_level] = auni[min_level];
 
 	for ( level = min_level+1; level <= max_level; level++ ) {

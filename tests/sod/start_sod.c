@@ -94,11 +94,11 @@ void init_run() {
 	tl[min_level] = t_init;
 	dtl[min_level] = 0.0;
         choose_timestep( &dtl[min_level] );
-        aexp[min_level] = 1.0;
+        auni[min_level] = abox[min_level] = 1.0;
 
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		dtl[level] = 0.5*dtl[level-1];
 		tl[level] = tl[min_level];
-		aexp[level] = aexp[min_level];
+		auni[level] = abox[level] = auni[min_level];
 	}
 }
