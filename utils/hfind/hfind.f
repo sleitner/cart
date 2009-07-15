@@ -518,6 +518,14 @@ c
      &                                  (vxp(idm)**2 + 
      &                                   vyp(idm)**2 + 
      &                                   vzp(idm)**2)*pw(idm)
+
+                     if ( imark .eq. 1 ) then 
+                        if ( iter .eq. niter .and. 
+     &                       rd .lt. rh(ic1) ) then 
+                           iSp(idm) = 1
+                        endif
+                     endif
+
                     endif
                   endif
                   endif
