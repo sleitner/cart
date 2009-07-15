@@ -12,11 +12,13 @@
 #include "io.h"
 #include "tree.h"
 #include "particle.h"
+#include "timing.h"
 #include "sfc.h"
 #include "parallel.h"
 #include "cell_buffer.h"
 #include "auxiliary.h"
-
+#include "cosmology.h"
+#include "timestep.h"
 #include "extra/hart_io.h"
 
 int main ( int argc, char *argv[]) {
@@ -31,11 +33,21 @@ int main ( int argc, char *argv[]) {
 	strcpy( output_directory, "." );
 
 	init_auxiliary();
+	init_timers();
 	init_parallel_grid();
 	init_tree();
 	init_cell_buffer();
 
 	read_hart_grid_binary( argv[1] );
+	init_units();
+#ifdef COSMOLOGY
+	abox[min_level] = abox_from_tcode(tl[min_level]);
+	auni[min_level] = auni_from_tcode(tl[min_level]);
+#else
+	abox[min_level] = auni[min_level];
+#endif
+
+        cart_debug("abox = %e", abox[min_level] );
 	cart_debug("done reading data...");
 	write_grid_binary( argv[2] );
 	

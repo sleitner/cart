@@ -102,8 +102,10 @@ void read_hart_grid_binary( char *filename ) {
 	if ( endian ) {
 		reorder( (char *)&step, sizeof(int) );
 		reorder( (char *)&ainit, sizeof(float) );
+		reorder( (char *)&adum, sizeof(float) );
 	}
 
+	auni[min_level] = adum;
 	auni_init = ainit;
 
 	/* boxh, Om0, Oml0, Omb0, hubble */
@@ -278,7 +280,7 @@ void read_hart_grid_binary( char *filename ) {
 	cart_free( cellrefined_buffer );
 
 #ifdef HYDRO
-	vars_buffer = cart_alloc( int, num_grid*num_grid*num_hydro_vars );
+	vars_buffer = cart_alloc( float, num_grid*num_grid*num_hydro_vars );
 
 	fread( &size, sizeof(int), 1, input );
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
@@ -319,7 +321,7 @@ void read_hart_grid_binary( char *filename ) {
 #endif /* HYDRO */
 
 #ifdef GRAVITY 
-	vars_buffer = cart_alloc( int, 2*num_grid*num_grid );
+	vars_buffer = cart_alloc( float, 2*num_grid*num_grid );
 
 	fread( &size, sizeof(int), 1, input );
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
