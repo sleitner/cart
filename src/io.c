@@ -97,7 +97,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	}
 
 	start_time( GAS_IO_TIMER );
-	write_grid_binary2( filename_gas );
+	write_grid_binary( filename_gas );
 	end_time( GAS_IO_TIMER );
 
 
@@ -275,7 +275,7 @@ void read_restart( double aload ) {
 	restart_load_balance( filename_gas, filename1, filename2 );
 
 	cart_debug("Reading grid restart...");
-	read_grid_binary2( filename_gas );
+	read_grid_binary( filename_gas );
 
 #ifdef HYDRO
 #ifdef HYDRO_TRACERS
@@ -4375,356 +4375,6 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	buffer_enabled = 1;
 }
 
-void write_hart_gas_binary( char *filename ) {
-	int i, j, m;
-	int size;
-	FILE *output;
-	float adum, ainit;
-	float boxh, OmM0, OmL0, OmB0, h100;
-	int minlevel, maxlevel;
-	int nextras;
-	int *cellrefined;
-	float *cellhvars;
-	float *cellvars;
-	int level;
-	int coords[nDim];
-	int icell, ioct;
-	int ncell0;
-	int page_size;
-	int iOctFree, nOct;
-	int iNOLL, iHOLL;
-	int pos[nDim];
-	int inext, iprev;
-	int icellnum;
-	int neighbors[num_neighbors];
-	int parent_cell;
-	int iOctCh;
-
-	/* this is a single-processor only function */
-	cart_assert( num_procs == 1 );
-
-	/* should replace this with a memory parameters and use it in trade_particle_lists as well */	
-	page_size = num_grid*num_grid;
-
-	/* allocate pages for writing */
-        cellrefined = cart_alloc(int, page_size );
-        cellhvars = cart_alloc(float, num_hydro_vars * page_size );
-        cellvars = cart_alloc(float, 2 * page_size );
-
-	minlevel = min_level;
-	maxlevel = max_level_now();
-
-	/* open file and write header */
-	output = fopen(filename,"w");
-	if ( output == NULL ) {
-		cart_error( "Unable to open file %s for writing!", filename );
-	}
-
-	size = 256*sizeof(char);
-	fwrite(&size, sizeof(int), 1, output );
-	fwrite(&jobname, sizeof(char), 256, output );
-	fwrite(&size, sizeof(int), 1, output );
-
-	/* istep, t, dt, adum, ainit */
-	adum = auni[min_level];
-	ainit = auni_init;
-	size = sizeof(int) + 2*sizeof(double) + 2*sizeof(float);
-
-	fwrite(&size, sizeof(int), 1, output );
-	fwrite( &step, sizeof(int), 1, output );
-	fwrite( &tl[min_level], sizeof(double), 1, output );
-	fwrite( &dtl[min_level], sizeof(double), 1, output );
-	fwrite( &adum, sizeof(float), 1, output );
-	fwrite( &ainit, sizeof(float), 1, output );
-	fwrite(&size, sizeof(int), 1, output );
-
-	/* boxh, Om0, Oml0, Omb0, hubble */
-	boxh = Lbox;
-	OmM0 = cosmology->OmegaM;
-	OmL0 = cosmology->OmegaL;
-	OmB0 = cosmology->OmegaB;
-	h100 = cosmology->h;
-	size = 5*sizeof(float);
-
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &boxh, sizeof(float), 1, output );
-	fwrite( &OmM0, sizeof(float), 1, output );
-	fwrite( &OmL0, sizeof(float), 1, output );
-	fwrite( &OmB0, sizeof(float), 1, output );
-	fwrite( &h100, sizeof(float), 1, output );
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* nextra (no evidence extras are used...) extra lextra */
-	size = sizeof(int);
-	nextras = 0;
-
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &nextras, sizeof(int), 1, output );
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* extra */
-	size = nextras * sizeof(float);
-
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* lextra */
-	size = nextras * 256 * sizeof(char);
-
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &size, sizeof(int), 1, output );
-	
-	/* Minlevel, MaxLevelNow */
-	size = 2 * sizeof(int);
-	fwrite(&size, sizeof(int), 1, output );
-	fwrite(&minlevel, sizeof(int), 1, output );
-	fwrite(&maxlevel, sizeof(int), 1, output );
-	fwrite(&size, sizeof(int), 1, output );
-
-	size = (maxlevel-minlevel+1) * sizeof(double);
-
-	/* tl */
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &tl, sizeof(double), maxlevel-minlevel+1, output);
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* dtl */
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &dtl, sizeof(double), maxlevel-minlevel+1, output);
-	fwrite( &size, sizeof(int), 1, output );
-
-        /* tl_old */
-        fwrite( &size, sizeof(int), 1, output );
-        fwrite( &tl_old, sizeof(double), maxlevel-minlevel+1, output);
-        fwrite( &size, sizeof(int), 1, output );
-
-	/* dtl_old */
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &dtl_old, sizeof(double), maxlevel-minlevel+1, output);
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* iSO */
-	size = (maxlevel-minlevel+1) * sizeof(int);
-
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, output);
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* ncell0 */
-	ncell0 = num_grid*num_grid*num_grid;
-	size = sizeof(int);
-
-	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &ncell0, sizeof(int), 1, output);
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* now we start writing pages of root level cell children */
-	size = ncell0 * sizeof(int);
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* holds list of next level octs to write */
-	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-		i = 0;
-		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
-			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
-				icell = sfc_index( coords );
-				cellrefined[i++] = cell_child_oct[icell] + 1;
-			}
-		}
-
-		fwrite( cellrefined, sizeof(int), page_size, output );
-	}
-
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* now write pages of root level hydro variables */
-	size = num_hydro_vars * ncell0 * sizeof(float);
-	fwrite( &size, sizeof(int), 1, output );
-
-	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-		i = 0;
-		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
-			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
-				icell = sfc_index( coords );
-
-				cellhvars[i++] = cell_gas_density(icell);
-				cellhvars[i++] = cell_gas_energy(icell);
-				cellhvars[i++] = cell_momentum(icell,0);
-				cellhvars[i++] = cell_momentum(icell,1);
-				cellhvars[i++] = cell_momentum(icell,2);
-				cellhvars[i++] = cell_gas_pressure(icell);
-				cellhvars[i++] = cell_gas_gamma(icell);
-				cellhvars[i++] = cell_gas_internal_energy(icell);
-
-#ifdef ADVECT_SPECIES
-				for ( j = 0; j < num_chem_species; j++ ) {
-					cellhvars[i++] = cell_advected_variable(icell,j);
-				}
-#endif /* ADVECT_SPECIES */
-
-			}
-		}
-
-		fwrite( cellhvars, sizeof(float), num_hydro_vars*page_size, output );
-	}
-
-	fwrite( &size, sizeof(int), 1, output );
-
-#ifdef GRAVITY
-	/* finally write potential variables */
-	size = 2 * ncell0 * sizeof(float);
-	fwrite( &size, sizeof(int), 1, output );
-
-	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-		i = 0;
-		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
-			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
-				icell = sfc_index( coords );
-
-				cellvars[i++] = cell_potential(icell);
-				cellvars[i++] = cell_potential_hydro(icell);
-			}
-		}
-
-		fwrite( cellvars, sizeof(float), 2*page_size, output );
-	}
-
-	fwrite ( &size, sizeof(int), 1, output );
-#endif /* GRAVITY */
-
-	size = 2*sizeof(int);
-
-	fwrite( &size, sizeof(int), 1, output );
-
-	nOct = 0;
-	iOctFree = 0;
-	for ( ioct = 0; ioct < num_octs; ioct++ ) {
-		if ( oct_level[ioct] != FREE_OCT_LEVEL ) {
-			nOct++;
-			iOctFree = ioct+2;
-		}
-	}
-	fwrite( &iOctFree, sizeof(int), 1, output );
-	fwrite( &nOct, sizeof(int), 1, output );
-	fwrite( &size, sizeof(int), 1, output );
-
-	/* then write each level's cells in turn */
-	for ( level = min_level+1; level <= maxlevel; level++ ) {
-		/* write size */
-		size = 3*sizeof(int);
-		fwrite( &size, sizeof(int), 1, output );
-		fwrite( &level, sizeof(int), 1, output );
-
-		iHOLL = local_oct_list[level] + 1;
-		iNOLL = num_cells_per_level[level] / num_children;
-
-		fwrite( &iNOLL, sizeof(int), 1, output );
-		fwrite( &iHOLL, sizeof(int), 1, output );
-
-		fwrite( &size, sizeof(int), 1, output );
-
-		ioct = local_oct_list[level];
-		for ( i = 0; i < iNOLL; i++ ) {
-			size = 	3*sizeof(int) + 		/* pos */
-				num_neighbors*sizeof(int) + 	/* neighbors */
-				sizeof(int) +			/* parent */
-				sizeof(int) +			/* level */
-				sizeof(int) +			/* next */
-				sizeof(int);			/* prev */
-
-			for ( j = 0; j < nDim; j++ ) {
-				pos[j] = (int)((oct_pos[ioct][j]+1.0)*(1<<(max_level+1)));
-			}
-
-			for ( j = 0; j < num_neighbors; j++ ) {
-				/* if neighbor is root cell need to convert to index */
-				if ( cell_level(oct_neighbors[ioct][j]) == min_level ) {
-					sfc_coords( cell_parent_root_sfc( oct_neighbors[ioct][j] ), coords );
-					neighbors[j] = coords[2]+num_grid*(coords[1]+num_grid*coords[0])+1;
-				} else {
-					neighbors[j] = oct_neighbors[ioct][j] + 1;
-				}
-			}
-
-			if ( oct_level[ioct] == min_level+1 ) {
-				sfc_coords( oct_parent_root_sfc[ioct], coords );
-				parent_cell = coords[2]+num_grid*(coords[1]+num_grid*coords[0])+1;
-			} else {
-				parent_cell = oct_parent_cell[ioct] + 1;
-			}
-
-			fwrite( &size, sizeof(int), 1, output );
-			fwrite( pos, sizeof(int), 3, output );
-			fwrite( neighbors, sizeof(int), num_neighbors, output );
-			fwrite( &parent_cell, sizeof(int), 1, output );
-			fwrite( &oct_level[ioct], sizeof(int), 1, output );
-
-			inext = oct_next[ioct] + 1;
-			iprev = oct_prev[ioct] + 1;
-
-			fwrite( &inext, sizeof(int), 1, output );
-			fwrite( &iprev, sizeof(int), 1, output );
-			fwrite( &size, sizeof(int), 1, output );
-
-			ioct = oct_next[ioct];
-		}
-
-		ioct = local_oct_list[level];
-		for ( i = 0; i < iNOLL; i++ ) {
-			for ( j = 0; j < num_children; j++ ) {
-				icell = oct_child( ioct, j );
-
-				size = 	sizeof(int) +			/* idc */
-					sizeof(int) + 			/* iOctCh */
-					num_hydro_vars*sizeof(float) +	/* hvar */
-					2*sizeof(float);		/* var */
-
-				icellnum = icell + 1;
-				iOctCh = cell_child_oct[icell] + 1;
-
-				cellhvars[0] = cell_gas_density(icell);
-				cellhvars[1] = cell_gas_energy(icell);
-				cellhvars[2] = cell_momentum(icell,0);
-				cellhvars[3] = cell_momentum(icell,1);
-				cellhvars[4] = cell_momentum(icell,2);
-				cellhvars[5] = cell_gas_pressure(icell);
-				cellhvars[6] = cell_gas_gamma(icell);
-				cellhvars[7] = cell_gas_internal_energy(icell);
-
-#ifdef ADVECT_SPECIES
-				for ( m = 0; m < num_chem_species; m++ ) {
-					cellhvars[8+m] = cell_advected_variable(icell,m);
-				}
-#endif /* ADVECT_SPECIES */
-
-#ifdef GRAVITY
-				cellvars[0] = cell_potential(icell);
-				cellvars[1] = cell_potential_hydro(icell);
-#endif /* GRAVITY */
-
-				fwrite( &size, sizeof(int), 1, output );
-				fwrite( &icellnum, sizeof(int), 1, output );
-				fwrite( &iOctCh, sizeof(int), 1, output );
-				fwrite( cellhvars, sizeof(float), num_hydro_vars, output );
-
-#ifdef GRAVITY
-				fwrite( cellvars, sizeof(float), 2, output );
-#endif /* GRAVITY */
-
-				fwrite( &size, sizeof(int), 1, output );
-			}
-
-			ioct = oct_next[ioct];
-		}
-	}
-
-	fclose( output );
-
-	cart_free( cellrefined );
-	cart_free( cellhvars );
-	cart_free( cellvars );
-}
-
 #endif  /* HYDRO */
 
 
@@ -4740,7 +4390,7 @@ void write_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *outp
 void write_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells, int level, int current_level_count, int *current_level);
 
 
-void write_grid_binary2( char *filename ) {
+void write_grid_binary( char *filename ) {
         int i, j, k;
         int size;
 	FILE *output;
@@ -5316,7 +4966,7 @@ void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input
 void read_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level);
 
 
-void read_grid_binary2( char *filename ) {
+void read_grid_binary( char *filename ) {
         int i, j;
 	int size;
 	int num_read, flag;
@@ -5448,7 +5098,7 @@ void read_grid_binary2( char *filename ) {
 		}
 
 		if ( input == NULL ) {
-			cart_error( "read_grid_binary2: unable to open file %s for reading!", filename );
+			cart_error( "read_grid_binary: unable to open file %s for reading!", filename );
 		}
 	}
 
@@ -5869,6 +5519,7 @@ void read_grid_binary2( char *filename ) {
 
 	/* now read levels */
 	for ( level = min_level+1; level <= maxlevel; level++ ) {
+
 		num_requests = 0;
 
 		count = 0;
@@ -5901,11 +5552,13 @@ void read_grid_binary2( char *filename ) {
 				}
 
 				total_cells[level] = (long)size;
-			} else {
+			} else if ( size == sizeof(long) )  {
 				fread( &total_cells[level], sizeof(long), 1, input );
 				if ( endian ) {
 					reorder( (char *)&total_cells[level], sizeof(long) );
 				}
+			} else {
+				cart_error("File format error in %s, size = %d!", filename, size );
 			}
 			fread( &size, sizeof(int), 1, input );
 			fread( &size, sizeof(int), 1, input );
