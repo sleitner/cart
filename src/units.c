@@ -29,6 +29,7 @@ double Lbox = 1.0;
 void init_units() {
 
 	cosmology_init();
+	cosmology_insure_consistency(1.0,0.0);
 
 	/* H0 in s^-1 */
 	H0 = 1e7 * cosmology->h / mpc;

@@ -45,7 +45,8 @@ struct CosmologyInternal
   double *dPlus;
   double *qPlus;
   double aLow;
-} cosmology_internal_data = { 25, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1.0e-2 };
+  double tCodeOffset;
+} cosmology_internal_data = { 25, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1.0e-2, 0.0 };
 
 #define c cosmology_internal_parameters
 #define d cosmology_internal_data
@@ -157,6 +158,13 @@ void cosmology_init()
 
       cosmology_fill_table(d.aLow,1.0);
     }      
+}
+
+
+void cosmology_insure_consistency(double abox, double tcode)
+{
+  d.tCodeOffset = 0.0;
+  d.tCodeOffset = tcode - tCode(inv_aBox(abox));
 }
 
 
@@ -458,16 +466,17 @@ int cosmology_find_index(double v, double table[])
 /*
 //  Direct and inverse functions
 */
-#define DEFINE_FUN(name) \
+#define DEFINE_FUN(name,offset)			\
 double name(double a) \
 { \
   cosmology_check_range(a); \
-  return cosmology_get_value_from_table(a,d.name); \
+  return cosmology_get_value_from_table(a,d.name) + offset; \
 } \
 double inv_##name(double v) \
 { \
   int idx; \
   double *table; \
+  v -= offset; \
   if(d.size == 0) cosmology_init(); \
   table = d.name; \
   idx = cosmology_find_index(v,table); \
@@ -486,9 +495,9 @@ double inv_##name(double v) \
   return d.aUni[idx] + (d.aUni[idx+1]-d.aUni[idx])/(table[idx+1]-table[idx])*(v-table[idx]); \
 }
 
-DEFINE_FUN(aBox);
-DEFINE_FUN(tCode);
-DEFINE_FUN(tPhys);
-DEFINE_FUN(dPlus);
+DEFINE_FUN(aBox,0.0);
+DEFINE_FUN(tCode,d.tCodeOffset);
+DEFINE_FUN(tPhys,0.0);
+DEFINE_FUN(dPlus,0.0);
 
 #endif  /* COSMOLOGY */
