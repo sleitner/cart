@@ -106,7 +106,7 @@ void read_hart_grid_binary( char *filename ) {
 	}
 
 	auni[min_level] = adum;
-	auni_init = ainit;
+        auni_init = ainit; 
 
 	/* boxh, Om0, Oml0, Omb0, hubble */
 	fread( &size, sizeof(int), 1, input );
@@ -239,7 +239,7 @@ void read_hart_grid_binary( char *filename ) {
 	proc_sfc_index[1] = ncell0;
 
 	init_tree();
-	init_units();
+	init_units(); 
 
 	/* create hash for hart oct index -> our oct index */
 	hart_oct_hash = index_hash_create( ncell0 );
@@ -359,9 +359,6 @@ void read_hart_grid_binary( char *filename ) {
 		reorder( (char *)&nOct, sizeof(int) );
 	}
 
-	cart_debug("iOctFree = %d", iOctFree );
-	cart_debug("nOct = %d", nOct );
-
 	child_cells = cart_alloc( cell_file_struct, num_children );
 
 	for ( level = 1; level <= maxlevel; level++ ) {
@@ -382,8 +379,6 @@ void read_hart_grid_binary( char *filename ) {
 			reorder( (char *)&size, sizeof(int) );
 		}
 
-		cart_debug("level %d, %d octs", level, iNOLL );
-
 		fread( &size, sizeof(int), 1, input );
 
 		i = 0;
@@ -391,10 +386,6 @@ void read_hart_grid_binary( char *filename ) {
 
 		while ( iHOLL != 0 ) {
 			oct_list[i] = index_hash_lookup( hart_oct_hash, iHOLL );
-			if ( oct_list[i] == NULL_OCT ) {
-				cart_debug("oct_list[%u] = %d", i, oct_list[i] );
-				cart_debug("iHOLL = %d", iHOLL );
-			}
 			cart_assert( oct_list[i] != NULL_OCT );
 			cart_assert( oct_level[oct_list[i]] == level );
 			
@@ -420,9 +411,6 @@ void read_hart_grid_binary( char *filename ) {
 			i++;
 		}
 
-		if ( i != iNOLL ) {
-			cart_debug("i = %d, iNOLL = %d", i, iNOLL );
-		}
 		cart_assert( i == iNOLL );
 
 		index_hash_free( hart_oct_hash );
@@ -441,7 +429,6 @@ void read_hart_grid_binary( char *filename ) {
 					reorder( (char *)&child_cells[j].refined, sizeof(int) );
 				}
 
-			//	if ( child_cells[j].refined > 0 && child_cells[j].refined < nOct ) {
 				if ( child_cells[j].refined > 0 ) {
 					ret = split_cell( icell );
 					if ( ret ) {
@@ -479,16 +466,6 @@ void read_hart_grid_binary( char *filename ) {
 			}
 		}
 
-		cart_debug("creating list for level %u, %d", level, num_next_level_octs );
-/*
-		for ( i = 1; i < num_next_level_octs; i++ ) {
-			for ( j = 0; j < i; j++ ) {
-				if ( next_level_hart_octs[i] == next_level_hart_octs[j] ) {
-					cart_debug("%u %u = %d", i, j, next_level_hart_octs[i] );
-				}
-			}
-		}
-*/
 		hart_oct_hash = index_hash_create( 2*num_next_level_octs );
 		index_hash_add_list( hart_oct_hash, num_next_level_octs, 
 					next_level_hart_octs, next_level_cart_octs );
@@ -498,14 +475,13 @@ void read_hart_grid_binary( char *filename ) {
 		cart_free( oct_list );
 	}
 
+	fclose(input);
+
 	cart_free( child_cells );
 	index_hash_free( hart_oct_hash );
 
-	cart_debug("building cell buffer");
 	build_cell_buffer();
 	repair_neighbors();
-	
-	fclose( input );
 }
 
 void write_hart_grid_binary( char *filename ) {
@@ -532,6 +508,7 @@ void write_hart_grid_binary( char *filename ) {
 	int neighbors[num_neighbors];
 	int parent_cell;
 	int iOctCh;
+	int first_oct;
 
 	/* this is a single-processor only function */
 	cart_assert( num_procs == 1 );
@@ -540,12 +517,14 @@ void write_hart_grid_binary( char *filename ) {
 	page_size = num_grid*num_grid;
 
 	/* allocate pages for writing */
-        cellrefined = cart_alloc(int, page_size );
-        cellhvars = cart_alloc(float, num_hydro_vars * page_size );
-        cellvars = cart_alloc(float, 2 * page_size );
+        cellrefined = cart_alloc( int, page_size );
+        cellhvars = cart_alloc( float, num_hydro_vars*page_size );
+        cellvars = cart_alloc( float, 2*page_size );
 
 	minlevel = min_level;
 	maxlevel = max_level_now();
+
+	first_oct = cell_parent_oct( num_cells_per_level[min_level] + num_buffer_cells[min_level] );
 
 	/* open file and write header */
 	output = fopen(filename,"w");
@@ -559,7 +538,7 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite(&size, sizeof(int), 1, output );
 
 	/* istep, t, dt, adum, ainit */
-	adum = auni[min_level];
+        adum = auni[min_level];
 	ainit = auni_init;
 	size = sizeof(int) + 2*sizeof(double) + 2*sizeof(float);
 
@@ -573,10 +552,10 @@ void write_hart_grid_binary( char *filename ) {
 
 	/* boxh, Om0, Oml0, Omb0, hubble */
 	boxh = Lbox;
-	OmM0 = cosmology->OmegaM;
-	OmL0 = cosmology->OmegaL;
-	OmB0 = cosmology->OmegaB;
-	h100 = cosmology->h;
+        OmM0 = cosmology->OmegaM;
+        OmL0 = cosmology->OmegaL;
+        OmB0 = cosmology->OmegaB;
+        h100 = cosmology->h;
 	size = 5*sizeof(float);
 
 	fwrite( &size, sizeof(int), 1, output );
@@ -661,7 +640,11 @@ void write_hart_grid_binary( char *filename ) {
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
 			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
 				icell = sfc_index( coords );
-				cellrefined[i++] = cell_child_oct[icell] + 1;
+				if ( cell_is_refined(icell) ) {
+					cellrefined[i++] = cell_child_oct[icell] - first_oct + 1;
+				} else {
+					cellrefined[i++] = 0;
+				}
 			}
 		}
 
@@ -734,7 +717,7 @@ void write_hart_grid_binary( char *filename ) {
 	for ( ioct = 0; ioct < num_octs; ioct++ ) {
 		if ( oct_level[ioct] != FREE_OCT_LEVEL ) {
 			nOct++;
-			iOctFree = ioct+2;
+			iOctFree = ioct-first_oct+2;
 		}
 	}
 	fwrite( &iOctFree, sizeof(int), 1, output );
@@ -742,13 +725,17 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite( &size, sizeof(int), 1, output );
 
 	/* then write each level's cells in turn */
-	for ( level = min_level+1; level <= maxlevel; level++ ) {
+	for ( level = minlevel+1; level <= maxlevel; level++ ) {
 		/* write size */
 		size = 3*sizeof(int);
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &level, sizeof(int), 1, output );
 
-		iHOLL = local_oct_list[level] + 1;
+		if ( local_oct_list[level] == NULL_OCT ) {
+			iHOLL = 0;
+		} else {
+			iHOLL = local_oct_list[level] - first_oct + 1;
+		}
 		iNOLL = num_cells_per_level[level] / num_children;
 
 		fwrite( &iNOLL, sizeof(int), 1, output );
@@ -758,7 +745,7 @@ void write_hart_grid_binary( char *filename ) {
 
 		ioct = local_oct_list[level];
 		for ( i = 0; i < iNOLL; i++ ) {
-			size = 	3*sizeof(int) + 		/* pos */
+			size = 	nDim*sizeof(int) + 		/* pos */
 				num_neighbors*sizeof(int) + 	/* neighbors */
 				sizeof(int) +			/* parent */
 				sizeof(int) +			/* level */
@@ -766,7 +753,7 @@ void write_hart_grid_binary( char *filename ) {
 				sizeof(int);			/* prev */
 
 			for ( j = 0; j < nDim; j++ ) {
-				pos[j] = (int)((oct_pos[ioct][j]+1.0)*(1<<(max_level+1)));
+				pos[j] = (int)((oct_pos[ioct][j]+1.0)*(double)(1<<(maxlevel+1)));
 			}
 
 			for ( j = 0; j < num_neighbors; j++ ) {
@@ -775,7 +762,9 @@ void write_hart_grid_binary( char *filename ) {
 					sfc_coords( cell_parent_root_sfc( oct_neighbors[ioct][j] ), coords );
 					neighbors[j] = coords[2]+num_grid*(coords[1]+num_grid*coords[0])+1;
 				} else {
-					neighbors[j] = oct_neighbors[ioct][j] + 1;
+					neighbors[j] = ( cell_parent_oct( oct_neighbors[ioct][j] ) - first_oct ) * num_children +
+						cell_child_number( oct_neighbors[ioct][j] ) + ncell0 + 1;
+					//neighbors[j] = oct_neighbors[ioct][j] + 1;
 				}
 			}
 
@@ -783,17 +772,28 @@ void write_hart_grid_binary( char *filename ) {
 				sfc_coords( oct_parent_root_sfc[ioct], coords );
 				parent_cell = coords[2]+num_grid*(coords[1]+num_grid*coords[0])+1;
 			} else {
-				parent_cell = oct_parent_cell[ioct] + 1;
+				parent_cell = ( cell_parent_oct( oct_parent_cell[ioct] ) - first_oct ) * num_children + 
+					cell_child_number( oct_parent_cell[ioct] ) + ncell0 + 1;
+				//parent_cell = oct_parent_cell[ioct] + 1;
 			}
 
 			fwrite( &size, sizeof(int), 1, output );
-			fwrite( pos, sizeof(int), 3, output );
+			fwrite( pos, sizeof(int), nDim, output );
 			fwrite( neighbors, sizeof(int), num_neighbors, output );
 			fwrite( &parent_cell, sizeof(int), 1, output );
 			fwrite( &oct_level[ioct], sizeof(int), 1, output );
 
-			inext = oct_next[ioct] + 1;
-			iprev = oct_prev[ioct] + 1;
+			if ( oct_next[ioct] == NULL_OCT ) {
+				inext = 0;
+			} else {
+				inext = oct_next[ioct] - first_oct + 1;
+			}
+
+			if ( oct_prev[ioct] == NULL_OCT ) {
+				iprev = 0;
+			} else {
+				iprev = oct_prev[ioct] - first_oct + 1;
+			}
 
 			fwrite( &inext, sizeof(int), 1, output );
 			fwrite( &iprev, sizeof(int), 1, output );
@@ -812,8 +812,14 @@ void write_hart_grid_binary( char *filename ) {
 					num_hydro_vars*sizeof(float) +	/* hvar */
 					2*sizeof(float);		/* var */
 
-				icellnum = icell + 1;
-				iOctCh = cell_child_oct[icell] + 1;
+				icellnum = ( ioct - first_oct ) * num_children + cell_child_number( icell ) + ncell0 + 1;
+				//icellnum = icell + 1 + ncell0;
+
+				if ( cell_is_refined(icell) ) {
+					iOctCh = cell_child_oct[icell] - first_oct + 1;
+				} else {
+					iOctCh = 0;
+				}
 
 				cellhvars[0] = cell_gas_density(icell);
 				cellhvars[1] = cell_gas_energy(icell);

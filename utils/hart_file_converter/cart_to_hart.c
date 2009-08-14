@@ -20,6 +20,7 @@
 #include "logging.h"
 #include "auxiliary.h"
 #include "cosmology.h"
+#include "particle.h"
 #include "timestep.h"
 #include "extra/hart_io.h"
 
@@ -39,6 +40,10 @@ int main ( int argc, char *argv[]) {
 	init_parallel_grid();
 	init_tree();
 	init_cell_buffer();
+
+#ifdef PARTICLES
+	init_particles();	
+#endif
 
 	read_grid_binary( argv[1] );	
 	init_units();
