@@ -110,7 +110,10 @@ int main ( int argc, char *argv[]) {
 		  }
 		else
 		  {
-		    restart = atoi( argv[2] );
+		    if(sscanf(argv[2],"%d%c",&restart,&c) != 1)
+		      {
+			cart_error("Invalid restart flag %s\nValid values are either an integer number or an option '-restart[=<value>]'",argv[2]);
+		      }
 		    restart_a = 0.0;
 		  }
 		/* skip config file name and restart flag */
