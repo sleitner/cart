@@ -865,6 +865,7 @@ void gicReadGasData(const char *rootname, char *type)
       else
 	{
 	  ntot = num_root_cells;
+	  levelHeader->ind = 0;
 	}
 
       num_pages = (ntot+fileHeader->Nrec-1)/fileHeader->Nrec;
@@ -926,9 +927,9 @@ void gicReadGasData(const char *rootname, char *type)
 		{
 		  for(j=0; j<n; j++)
 		    {
-		      idx[j] = coords[0];
-		      jdx[j] = coords[1];
-		      kdx[j] = coords[2];
+		      idx[j] = 1 + coords[0];
+		      jdx[j] = 1 + coords[1];
+		      kdx[j] = 1 + coords[2];
 		      coords[0]++;
 		      if(coords[0] == num_grid)
 			{

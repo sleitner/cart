@@ -37,8 +37,8 @@ void mark_refinement_indicators( int cell, int level ) {
 	for ( i = 0; i < nDim; i++ ) {
 		drho[i] = fabs( cell_gas_density( neighbors[2*i] ) 
 			- cell_gas_density( neighbors[2*i+1] ) ) / 
-			min ( cell_gas_density( neighbors[2*i] ), 
-				cell_gas_density( neighbors[2*i+1] ) );
+			min (1.0e-35+cell_gas_density( neighbors[2*i] ), 
+				1.0e-35+cell_gas_density( neighbors[2*i+1] ) );
 	}
 
 	if ( use_refinement_indicator[SHOCK_INDICATOR][level] ) {

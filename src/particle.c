@@ -902,17 +902,6 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 #endif /* STARFORM */
 
 				icell = cell_find_position( particle_x[ipart] );
-#ifdef DEBUG
-				if(!( icell != -1 && cell_is_local(icell) ))
-				  {
-				    cart_debug("Trade particles error: %d %d",ipart,icell);
-				    if(icell != -1) cart_debug("*** %d",cell_is_local(icell));
-				    cart_debug("*** %lf %lf %lf",particle_x[ipart][0],particle_x[ipart][1],particle_x[ipart][2]);
-				    cart_debug("*** %lf %lf %lf",particle_v[ipart][0],particle_v[ipart][1],particle_v[ipart][2]);
-				    cart_debug("*** %lf %lf %lf",particle_t[ipart],particle_dt[ipart]);
-				    cart_debug("*** %d %d",particle_is_star(ipart),particle_id[ipart]);
-				  }
-#endif
 				cart_assert( icell != -1 && cell_is_local(icell) );
 				insert_particle( icell, ipart );
 			}
