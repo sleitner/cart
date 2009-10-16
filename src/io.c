@@ -115,6 +115,22 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	cart_debug("Writing hydro tracer restart...");
 	switch(tracer_filename_flag)
 	  {
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+	  case WRITE_SAVE:
+	    {
+	      sprintf( filename_tracers, "%s/%s_a%06.4f.dtr", output_directory, jobname, auni[min_level] );
+	      break;
+	    }
+	  case WRITE_BACKUP:
+	    {
+	      sprintf( filename_tracers, "%s/%s_2.dtr", output_directory, jobname );
+	      break;
+	    }
+	  default:
+	    {
+	      sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
+	    }
+#else	    
 	  case WRITE_SAVE:
 	    {
 	      sprintf( filename_tracers, "%s/tracers_a%06.4f.dat", output_directory, auni[min_level] );
@@ -129,6 +145,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	    {
 	      sprintf( filename_tracers, "%s/tracers.dat", output_directory );
 	    }
+#endif
 	}
 
 	start_time( PARTICLE_IO_TIMER );
@@ -141,6 +158,31 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	cart_debug("Writing particle restart...");
 	switch(particle_filename_flag)
 	  {
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+	  case WRITE_SAVE:
+	    {
+	      sprintf( filename1, "%s/%s_a%06.4f.dph", output_directory, jobname, auni[min_level] );
+	      sprintf( filename2, "%s/%s_a%06.4f.dxv", output_directory, jobname, auni[min_level] );
+	      sprintf( filename3, "%s/%s_a%06.4f.dpt", output_directory, jobname, auni[min_level] );
+	      sprintf( filename4, "%s/%s_a%06.4f.dst", output_directory, jobname, auni[min_level] );
+	      break;
+	    }
+	  case WRITE_BACKUP:
+	    {
+		sprintf( filename1, "%s/%s_2.dph", output_directory, jobname);
+		sprintf( filename2, "%s/%s_2.dxv", output_directory, jobname);
+		sprintf( filename3, "%s/%s_2.dpt", output_directory, jobname);
+		sprintf( filename4, "%s/%s_2.dst", output_directory, jobname);
+		break;
+	    }
+	  default:
+	    {
+		sprintf( filename1, "%s/%s.dph", output_directory, jobname);
+		sprintf( filename2, "%s/%s.dxv", output_directory, jobname);
+		sprintf( filename3, "%s/%s.dpt", output_directory, jobname);
+		sprintf( filename4, "%s/%s.dst", output_directory, jobname);
+	    }
+#else
 	  case WRITE_SAVE:
 	    {
 	      sprintf( filename1,"%s/PMcrda%06.4f.DAT", output_directory, auni[min_level] );
@@ -164,6 +206,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 		sprintf( filename3, "%s/pt.dat", output_directory );
 		sprintf( filename4, "%s/stars.dat", output_directory );
 	    }
+#endif
 	}
 		
 	start_time( PARTICLE_IO_TIMER );
@@ -241,12 +284,21 @@ void read_restart( double aload ) {
 			cart_debug("Unable to locate restart.dat, trying default filenames!");
 
 			/* try generic names */
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
+			sprintf( filename1,  "%s/%s.dph", output_directory, jobname );
+			sprintf( filename2, "%s/%s.dxv", output_directory, jobname );
+			sprintf( filename3, "%s/%s.dpt", output_directory, jobname );
+			sprintf( filename4, "%s/%s.dst", output_directory, jobname );
+			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
+#else
 			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
 			sprintf( filename1,  "%s/PMcrd.DAT", output_directory );
 			sprintf( filename2, "%s/PMcrs.DAT", output_directory );
 			sprintf( filename3, "%s/pt.dat", output_directory );
 			sprintf( filename4, "%s/stars.dat", output_directory );
 			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
+#endif
 		} else {
 			fscanf( restart, "%s\n", filename_gas );
 #ifdef HYDRO
@@ -263,12 +315,21 @@ void read_restart( double aload ) {
 			fclose(restart);
 		}
 	} else {
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+		sprintf( filename_gas, "%s/%s_a%06.4f.d", output_directory, jobname, aload );
+		sprintf( filename1,  "%s/%s_a%06.4f.dph", output_directory, jobname, aload );
+		sprintf( filename2, "%s/%s_a%06.4f.dxv", output_directory, jobname, aload );
+		sprintf( filename3, "%s/%s_a%06.4f.dpt", output_directory, jobname, aload );
+		sprintf( filename4, "%s/%s_a%06.4f.dst", output_directory, jobname, aload );
+		sprintf( filename_tracers, "%s/%s_a%06.4f.dtr", output_directory, jobname, aload );
+#else
 		sprintf( filename_gas, "%s/%s_a%06.4f.d", output_directory, jobname, aload );
 		sprintf( filename1,  "%s/PMcrda%06.4f.DAT", output_directory, aload );
 		sprintf( filename2, "%s/PMcrs0a%06.4f.DAT", output_directory, aload );
 		sprintf( filename3, "%s/pta%06.4f.dat", output_directory, aload );
 		sprintf( filename4, "%s/stars_a%06.4f.dat", output_directory, aload );
 		sprintf( filename_tracers, "%s/tracers_a%06.4f.dat", output_directory, aload );
+#endif
 	}
 
 	/* do load balancing */
@@ -343,12 +404,22 @@ void save_check() {
 			start_time( PARTICLE_IO_TIMER );
 
 			/* only write out particles, no restart */
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+			sprintf( filename1, "%s/%s_a%06.4f.dph", output_directory, jobname, auni[min_level] );
+			sprintf( filename2, "%s/%s_a%06.4f.dxv", output_directory, jobname, auni[min_level] );
+			sprintf( filename3, "%s/%s_a%06.4f.dpt", output_directory, jobname, auni[min_level] );
+#else
 			sprintf( filename1, "%s/PMcrda%06.4f.DAT", output_directory, auni[min_level] );
 			sprintf( filename2, "%s/PMcrs0a%06.4f.DAT", output_directory, auni[min_level] );
 			sprintf( filename3, "%s/pta%06.4f.dat", output_directory, auni[min_level] );
+#endif
 
 #ifdef STARFORM
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+			sprintf( filename4, "%s/%s_a%06.4f.dst", output_directory, jobname, auni[min_level] );
+#else
 			sprintf( filename4, "%s/stars_a%06.4f.dat", output_directory, auni[min_level] );
+#endif
 			write_particles( filename1, filename2, filename3, filename4 );
 #else
 			write_particles( filename1, filename2, filename3, NULL );
@@ -363,7 +434,11 @@ void save_check() {
 		if ( tracer_save_flag == WRITE_SAVE ) {
 			start_time( IO_TIMER );
 			start_time( PARTICLE_IO_TIMER );
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+			sprintf( filename1, "%s/%s_a%06.4f.dtr", output_directory, jobname, auni[min_level] );
+#else
 			sprintf( filename1, "%s/tracers_a%06.4f.dat", output_directory, auni[min_level] );
+#endif
 			write_hydro_tracers( filename1 );
 			end_time( PARTICLE_IO_TIMER );
 			end_time( IO_TIMER );

@@ -30,6 +30,7 @@
 
 --#define OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION 
 --#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
+--#define PREFIX_JOBNAME_TO_OUTPUT_FILES
 
 
 --#define num_root_grid_refinements	<set value here>
