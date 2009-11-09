@@ -157,14 +157,12 @@ void cosmology_init()
       c.Obh2 = c.OmegaB*c.h*c.h;
 
       cosmology_fill_table(d.aLow,1.0);
+
+      d.tCodeOffset = 0.0;  /*  Do need to set it to zero first */
+#ifndef NATIVE_TCODE_NORMALIZATION
+      d.tCodeOffset = 0.0 - tCode(inv_aBox(1.0));
+#endif
     }      
-}
-
-
-void cosmology_insure_consistency(double abox, double tcode)
-{
-  d.tCodeOffset = 0.0;
-  d.tCodeOffset = tcode - tCode(inv_aBox(abox));
 }
 
 

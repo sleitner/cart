@@ -57,14 +57,6 @@ void cosmology_copy(const struct CosmologyParameters *c);
 */
 void cosmology_init();
 
-/*
-//  This is for backward compatibility. Because tcode is only defined 
-//  up to a constant, an offset may exist between tcode used internally 
-//  in the code and the one read from an (old) data file. Call this 
-//  function with the values of abox and tcode to set the offset for tcode.
-*/
-void cosmology_insure_consistency(double abox, double tcode);
-
 
 #ifdef COSMOLOGY
 

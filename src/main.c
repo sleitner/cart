@@ -56,6 +56,7 @@ int main ( int argc, char *argv[]) {
 	double dt, restart_dt;
 	double restart_a;
 	const char *tmp;
+	char c;
 
 	#ifdef _OPENMP
 	struct utsname uname_info;
