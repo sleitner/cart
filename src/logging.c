@@ -393,11 +393,12 @@ void log_diagnostics() {
 			tintg = 0.0;
 			error = 0.0;
 		} else {
- 		        kinetic_energy = 0.5*(ekin+ekin1);
+			kinetic_energy = 0.5*(ekin+ekin1);
 			if(aeu0 != 0.0) error = (kinetic_energy+total_particle_potential)/aeu0 - 1.0; else error = 0.0;
 		}
 #endif  /* COSMOLOGY */
-
+#else
+		error = 0.0;
 #endif /* PARTICLES */
 
 		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e %e\n",
