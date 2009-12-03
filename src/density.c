@@ -400,7 +400,7 @@ void assign_particle_density_smoothed( int level ) {
 			for ( j =  0; j < count; j++ ) {
 				ipart = particle_list[j];
 
-				is_first = particle_is_first(ipart);
+				is_first = ( particle_id[ipart] < particle_species_indices[1] );
 #ifdef STARFORM				
 				is_star =  particle_is_star(ipart);
 #else 
@@ -418,9 +418,6 @@ void assign_particle_density_smoothed( int level ) {
 						if ( icell != -1 ) {
 						      cell_density(icell) += mass_assigned[num_children*j+k] ;
 						      cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
-#ifdef STARFORM
-						      cell_stellar_particle_mass(icell) += mass_assigned[num_children*j+k];
-#endif
 #ifdef RT_VAR_SOURCE
 						      cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
 #endif
