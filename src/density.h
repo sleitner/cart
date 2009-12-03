@@ -12,6 +12,9 @@ void assign_hydro_density( int level );
 
 #ifdef PARTICLES
 void assign_particle_density( int level );
+#ifdef MAX_LEVEL_DARK_DENSITY
+void assign_particle_density_smoothed( int level );
+#endif
 #endif
 
 #endif
