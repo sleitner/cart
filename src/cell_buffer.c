@@ -286,13 +286,13 @@ int cell_can_prune( int cell, int proc ) {
 				sfc = cell_parent_root_sfc( neighbors2[i] );
 				cart_assert( sfc >= 0 && sfc < max_sfc_index );
 
-                                if ( processor_owner(sfc) == proc ||
-                                                root_cell_type(sfc) == CELL_TYPE_BUFFER ) {
-                                        can_prune = 0;
-                                        break;
-                                }
+				if ( processor_owner(sfc) == proc ||
+						root_cell_type(sfc) == CELL_TYPE_BUFFER ) {
+					can_prune = 0;
+					break;
+				}
 			}
-                }
+		}
 
 		/* check tertiary neighbors */
 		for ( i = 0; can_prune && i < num_tertiary_neighbors; i++ ) {
@@ -327,17 +327,17 @@ void build_root_cell_buffer() {
 	int index;
 
 	if ( num_procs > 1 ) {
-                buffer_list = skiplist_init();
+		buffer_list = skiplist_init();
 
 		for ( sfc = proc_sfc_index[local_proc_id]; sfc < proc_sfc_index[local_proc_id+1]; sfc++ ) {	
-                        root_cell_all_dependent_neighbors( sfc, neighbors );
+			root_cell_all_dependent_neighbors( sfc, neighbors );
 
-                        for ( i = 0; i < num_dependent_neighbors; i++ ) {
-                                if ( !root_cell_is_local(neighbors[i]) ) {
-                                        skiplist_insert( buffer_list, neighbors[i] );
-                                }
-                        }
-                }
+			for ( i = 0; i < num_dependent_neighbors; i++ ) {
+				if ( !root_cell_is_local(neighbors[i]) ) {
+					skiplist_insert( buffer_list, neighbors[i] );
+				}
+			}
+		}
 
 		num_buffer_cells[min_level] = skiplist_size( buffer_list );
 
@@ -367,9 +367,9 @@ void build_root_cell_buffer() {
 				buffer_cell_sfc_index, buffer_indices );
 
 		cart_free( buffer_indices );
-        } else {
-                num_buffer_cells[min_level] = 0;
-        }
+	} else {
+		num_buffer_cells[min_level] = 0;
+	}
 
 	root_buffer_enabled = 1;
 }
@@ -468,8 +468,8 @@ void build_cell_buffer()
 		num_hash_octs = ( buffer_list->num_sending_cells_total[proc] - 
 				buffer_list->num_sending_cells[proc][min_level] ) / num_children;
 
-                buffer_oct_hash[proc] = index_hash_create( num_hash_octs );
-                buffer_oct_reverse_hash[proc] = index_hash_create( num_hash_octs );
+		buffer_oct_hash[proc] = index_hash_create( num_hash_octs );
+		buffer_oct_reverse_hash[proc] = index_hash_create( num_hash_octs );
 	}
 
 	pack_communicate( buffer_list );
@@ -653,7 +653,7 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 	do {
 		MPI_Waitany( num_procs, receives, &proc, &status );
 
-                if ( proc != MPI_UNDEFINED ) {
+		if ( proc != MPI_UNDEFINED ) {
 			var_counter = recv_offset[proc];
 			if ( level == min_level ) {
 				for ( i = 0; i < num_local_buffers[min_level][proc]; i++ ) {
@@ -714,9 +714,9 @@ void merge_buffer_cell_densities( int level ) {
 #endif
 
 	MPI_Request sends[MAX_PROCS];
-        MPI_Request receives[MAX_PROCS];
+	MPI_Request receives[MAX_PROCS];
 	MPI_Status status;
-        MPI_Status statuses[MAX_PROCS];
+	MPI_Status statuses[MAX_PROCS];
 
 	float *send_buffer;
 	float *recv_buffer;
@@ -908,7 +908,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 	int *buffer_cells_to_split[MAX_PROCS];
 	float *new_buffer_cell_vars;
 	int *cells_split[MAX_PROCS];
-        float *new_cell_vars[MAX_PROCS];
+	float *new_cell_vars[MAX_PROCS];
 	int *remote_buffer_list;
 	int *remote_octs;
 	int *local_octs;
@@ -1250,11 +1250,11 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 	oct_list = octs_to_join;
 	qsort( order, num_octs_to_join, sizeof(int), compare_octs_to_join );
 
-        for ( i = 0; i < num_procs; i++ ) {
-                if ( num_remote_buffers[level+1][i] > 0 ) {
-		        octs_joined[i] = cart_alloc(int, num_remote_buffers[level+1][i] );
-                        num_octs_to_send = 0;
-                
+	for ( i = 0; i < num_procs; i++ ) {
+		if ( num_remote_buffers[level+1][i] > 0 ) {
+			octs_joined[i] = cart_alloc(int, num_remote_buffers[level+1][i] );
+			num_octs_to_send = 0;
+
 			remote_buffer_list = cart_alloc(int, num_remote_buffers[level+1][i] );
 			for ( j = 0; j < num_remote_buffers[level+1][i]; j++ ) {
 				remote_buffer_list[j] = remote_buffers[level+1][i][j];
@@ -1262,8 +1262,8 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 
 			qsort( remote_buffer_list, num_remote_buffers[level+1][i], sizeof(int), compare_ints );
 
-                        /* build list of joined octs buffered by this processor  */
-                        k = 0;
+			/* build list of joined octs buffered by this processor  */
+			k = 0;
 			for ( j = 0; j < num_octs_to_join; j++ ) {
 				index = order[j];
 
@@ -1275,11 +1275,11 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 						octs_to_join[index] == remote_buffer_list[k] ) {
 					octs_joined[i][num_octs_to_send++] = octs_to_join[index];
 				}
-                        }
+			}
 
-                        MPI_Isend( octs_joined[i], num_octs_to_send, MPI_INT, i, 0, MPI_COMM_WORLD, &sends[i] );
+			MPI_Isend( octs_joined[i], num_octs_to_send, MPI_INT, i, 0, MPI_COMM_WORLD, &sends[i] );
 
-                        cart_free( remote_buffer_list );
+			cart_free( remote_buffer_list );
 
 			/* delete joined octs from remote_oct list */
 			for ( j = 0; j < num_octs_to_send; j++ ) {
@@ -1288,7 +1288,7 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 		} else {
 			sends[i] = MPI_REQUEST_NULL;
 		}
-        }
+	}
 
 	cart_free( order );
 
@@ -1313,14 +1313,14 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 				cart_assert( cell_is_refined(cell_index) );
 				result = join_cell( cell_index );
 				cart_assert( result == 0 );
-                        }
+			}
 
-                        cart_free( buffer_octs_to_join[i] );
-                }
-        }	
+			cart_free( buffer_octs_to_join[i] );
+		}
+	}	
 
 	/* wait for all sends to complete */
-        MPI_Waitall( num_procs, sends, statuses );
+	MPI_Waitall( num_procs, sends, statuses );
 
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( num_remote_buffers[level+1][i] > 0 ) {

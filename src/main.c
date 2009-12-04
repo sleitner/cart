@@ -84,13 +84,13 @@ int main ( int argc, char *argv[]) {
 		num_options = argc - 2;
 		options = argv + 2;
 	} else {
-	        /*
+		/*
 		//  Also support an option-style restart in the form
 		//    -restart[=<value>]
 		//  where <value> is the value of the scale factor that
 		//  labels restart files.
 		*/
-  	        tmp = check_option1(argv[2],"restart","last");
+		tmp = check_option1(argv[2],"restart","last");
 		if(tmp != NULL)
 		  {
 		    restart = 1;
@@ -123,7 +123,7 @@ int main ( int argc, char *argv[]) {
 	#ifdef _OPENMP
 		if ( argc > 3 )
 		  {
-		    tmp = check_option1(argv[3],"omp",NULL);
+			tmp = check_option1(argv[3],"omp",NULL);
 		    if(tmp != NULL)
 		      {
 			if(sscanf(tmp,"%d",&i)!=1 || i<1 || i>256)

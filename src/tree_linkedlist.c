@@ -45,7 +45,7 @@ void linked_list_optimize( int *head, int num_entries ) {
 	int cur;
 
 	if ( num_entries > 0 ) {
-	  order = cart_alloc(int, num_entries );
+		order = cart_alloc(int, num_entries );
 		count = 0;
 		cur = *head;
 

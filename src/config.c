@@ -78,15 +78,15 @@ void read_config( char *filename ) {
 			}
 
 			if ( strcmp( tag, "omega0" ) == 0 || strcmp( tag, "omegam" ) == 0 ) {
-			        cosmology_set(OmegaM,atof( value ));
+				cosmology_set(OmegaM,atof( value ));
 			} else if ( strcmp( tag, "omegal0" ) == 0 || strcmp( tag, "omegal" ) == 0 ) {
-			        cosmology_set(OmegaL,atof( value ));
+				cosmology_set(OmegaL,atof( value ));
 			} else if ( strcmp( tag, "omegab0" ) == 0 || strcmp( tag, "omegab" ) == 0 ) {
-			        cosmology_set(OmegaB,atof( value ));
+				cosmology_set(OmegaB,atof( value ));
 			} else if ( strcmp( tag, "hubble" ) == 0 || strcmp( tag, "h" ) == 0 ) {
-			        cosmology_set(h,atof( value ));
+				cosmology_set(h,atof( value ));
 			} else if ( strcmp( tag, "deltadc" ) == 0 ) {
-			        cosmology_set(DeltaDC,atof( value ));
+				cosmology_set(DeltaDC,atof( value ));
 			} else if ( strcmp( tag, "lbox" ) == 0 ) {
 				Lbox = atof( value );
 			} else if ( strcmp( tag, "output_directory" ) == 0 ) {
@@ -112,16 +112,16 @@ void read_config( char *filename ) {
 			} else if ( strcmp( tag, "t_init" ) == 0 ) {
 				t_init = atof( value );
 				#ifdef COSMOLOGY
-					auni_init = auni_from_tcode(t_init);
+				auni_init = auni_from_tcode(t_init);
 				#else
-					auni_init = 0.0;
+				auni_init = 0.0;
 				#endif
 			} else if ( strcmp( tag, "t_end" ) == 0 ) {
 				t_end = atof( value );
 				#ifdef COSMOLOGY
-					auni_end = auni_from_tcode(t_end);
+				auni_end = auni_from_tcode(t_end);
 				#else
-					auni_end = 1.0e35;
+				auni_end = 1.0e35;
 				#endif
 			} else if ( strcmp( tag, "timelimit" ) == 0 ) {
 				timelimit = atof(value);
@@ -149,7 +149,7 @@ void read_config( char *filename ) {
 				mpi_customization_mode = atoi(value);
 #ifdef _OPENMP
 			} else if ( strcmp( tag, "omp_num_threads" ) == 0 ) {
-			        omp_set_num_threads(atoi(value));
+				omp_set_num_threads(atoi(value));
 #endif
 			} else if ( strcmp( tag, "outputs" ) == 0 ) {
 				output = strtok( value, " " );

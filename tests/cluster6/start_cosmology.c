@@ -38,8 +38,8 @@ void init_run() {
 	char filename[256], filename2[256];
 
 #ifdef PARTICLES
-	sprintf( filename, "ICs/PMcrd.DAT", output_directory );
-	sprintf( filename2, "ICs/PMcrs0.DAT", output_directory );
+	sprintf( filename, "ICs/PMcrd.DAT" );
+	sprintf( filename2, "ICs/PMcrs0.DAT" );
 
 	restart_load_balance( NULL, filename, filename2 );
 
@@ -48,7 +48,7 @@ void init_run() {
 #endif
 
 #ifdef HYDRO
-	sprintf( filename, "ICs/tr_ic.dat", output_directory );
+	sprintf( filename, "ICs/tr_ic.dat" );
 	read_gas_ic(filename);
 	cart_debug("read in gas");
 

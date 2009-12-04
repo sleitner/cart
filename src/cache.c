@@ -242,7 +242,7 @@ void cache_reorder_tree() {
 	cart_free( scratch_tracer_list );
 
 	for ( icell = num_children * ( first_oct + num_local_octs ); icell < num_cells; icell++ ) {
-		cell_tracer_list[icell] = -1;
+		cell_tracer_list[icell] = NULL_TRACER;
 	}
 #endif /* HYDRO_TRACERS */
 
