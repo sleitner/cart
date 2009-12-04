@@ -9,6 +9,8 @@
 
 #define SLAB_DIM	0
 
+#define num_refinement_levels         20 //needs to be higher than maxlevel-minlevel+1   
+
 extern int num_grid;
 extern int sfc_order;
 extern int nBitsPerDim;

@@ -7,10 +7,11 @@
 
 /* #define ELECTRON_ION_NONEQUILIBRIUM */
 
-#define BLOCK_SIZE	(1024)
 
 #define num_children	(1<<nDim)
 #define num_grav_vars	2
+//#define ENRICH
+
 
 #define min(x,y)        (((x) < (y)) ? (x): (y))
 #define max(x,y)        (((x) > (y)) ? (x): (y))
@@ -41,8 +42,10 @@ const char *variable_name[] = {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 	"hydro_electron_internal_energy",
 #endif
+	//#ifdef ENRICH
         "hydro_metallicity_II",
 	"hydro_metallicity_Ia"
+	//#endif
 };
 
 void reorder( char *buffer, int size ) {
@@ -75,8 +78,8 @@ int main ( int argc, char *argv[] ) {
 	float extra[10];
 	char lextra[10][256];
 	int maxlevel, minlevel;
-	double tl[10], dtl[10], tl_old[10], dtl_old[10];
-	int level_sweep_dir[10];
+	double tl[num_refinement_levels], dtl[num_refinement_levels], tl_old[num_refinement_levels], dtl_old[num_refinement_levels];
+	int level_sweep_dir[num_refinement_levels];
 	int ncell0;
 	int count;
 	float refinement_volume_min[3], refinement_volume_max[3];
@@ -88,7 +91,7 @@ int main ( int argc, char *argv[] ) {
 	long total_cells[20];
 	int index;
 	int num_cells;
-	int num_hydro_vars;
+	int num_hydro_vars,num_extra_hydro_vars;
 	long root_file_index_ptr;
 	int current_root_index;
 	int *refined;
@@ -107,8 +110,8 @@ int main ( int argc, char *argv[] ) {
 	int sfc;
 	int coords[3], min_coords[3], max_coords[3];
 
-	if ( argc != 3 ) {
-		fprintf(stderr,"Usage: cart_create_indexed_grid [:num_output_grid_files] output_grid_file\n");
+	if ( argc != 4 ) {
+		fprintf(stderr,"Usage: cart_create_indexed_grid input [:num_output_grid_files] output_grid_file num_extra_hydro_vars(enrich=2)\n");
 		exit(1);
 	}
 
@@ -125,6 +128,14 @@ int main ( int argc, char *argv[] ) {
 		fprintf(stderr,"Unable to open %s for writing!\n", argv[2] );
 		exit(1);
 	}
+	
+	num_extra_hydro_vars = atoi( argv[3] ); 
+	if ( num_extra_hydro_vars > 3 || num_extra_hydro_vars <0 ) {
+	        fprintf(stderr,"num_extra_hydro_vars for enrich and noneq-ions <4 only\n");
+	        fprintf(stderr,"wrong num_extra_hydro_vars in arg %d\n", num_extra_hydro_vars);
+	        exit(1);
+        }
+	
 
 	for ( i = 0; i < 10; i++ ) {
 		global_var_max[i] = -1e20;
@@ -445,17 +456,26 @@ int main ( int argc, char *argv[] ) {
 				fwrite( star_formation_volume_max, sizeof(float), nDim, output );
 				fwrite( &size, sizeof(int), 1, output );
 
-				num_hydro_vars = 7+nDim;
+				/*
+				 *#ifdef ENRICH
+				 *num_hydro_vars = 5+nDim+2;//snl
+				 *#else
+				 *num_hydro_vars = 5+nDim;//snl
+				 *#endif
+				*/
 
                 		/* ncell0 */
 		                fread( &size, sizeof(int), 1, input );
 			} else {
-				num_hydro_vars = 5+nDim;
+			  /*num_hydro_vars = 5+nDim;*/
 			}
+			/*
+			 *#ifdef ELECTRON_ION_NONEQUILIBRIUM
+			 *num_hydro_vars++;
+			 *#endif
+			 */
+			num_hydro_vars = 5+nDim+num_extra_hydro_vars;
 
-#ifdef ELECTRON_ION_NONEQUILIBRIUM
-			num_hydro_vars++;
-#endif
 
 			printf("num_hydro_vars = %u\n", num_hydro_vars );
 
@@ -572,7 +592,7 @@ int main ( int argc, char *argv[] ) {
 			}
 		}
 
-		printf("total_local_cells = %d\n", total_local_cells );
+		printf("total_local_cells = %ld\n", total_local_cells );
 
 		/* read in cells in pages */
 		cell_vars = malloc( total_local_cells*num_hydro_vars*sizeof(float) ); 
@@ -593,7 +613,7 @@ int main ( int argc, char *argv[] ) {
 		level_count = local_file_root_cells;
 
 		for ( level = minlevel; level <= maxlevel && level_count > 0; level++ ) {
-			printf("level = %u, level_count = %d, next_level_count = %d\n", 
+			printf("level = %u, level_count = %ld, next_level_count = %ld\n", 
 				level, level_count, next_level_count ); fflush(stdout);
 
 			total_cells[level] += level_count;
@@ -623,7 +643,7 @@ int main ( int argc, char *argv[] ) {
 			}
 
 			if ( count*sizeof(float) != size ) {
-				printf("size = %d, count = %d, %d\n", size, count, count*sizeof(float) );
+				printf("size = %d, count = %d, %ld\n", size, count, count*sizeof(float) );
 			}
 
 			if ( size > count*sizeof(float) ) {
@@ -638,7 +658,7 @@ int main ( int argc, char *argv[] ) {
 				reorder( (char *)&size, sizeof(int) );
 			}
 			if ( size != num_grav_vars*level_count*sizeof(float) ) {
-				printf("size = %d, num_grav_vars = %d, level_count = %d, total = %d\n",
+				printf("size = %d, num_grav_vars = %d, level_count = %ld, total = %ld\n",
 					size, num_grav_vars, level_count, 
 					num_grav_vars*level_count*sizeof(float) );
 			}		
@@ -656,7 +676,7 @@ int main ( int argc, char *argv[] ) {
 				if ( endian ) {
 					reorder( (char *)&lsize, sizeof(long) );
 				}
-				printf("%ld vs %d\n", lsize, next_level_count );
+				printf("%ld vs %ld\n", lsize, next_level_count );
 				fread( &size, sizeof(int), 1, input );
 
 				level_count = next_level_count;
@@ -678,6 +698,7 @@ int main ( int argc, char *argv[] ) {
 
 						if ( num_read != root_next_level_count[index] ) {
 							printf("Error reading from file!\n" );
+							printf("check extra_num_hydro_vars=%d/%d\n",num_extra_hydro_vars, num_hydro_vars );
 							exit(1);
 						}
 
@@ -700,7 +721,7 @@ int main ( int argc, char *argv[] ) {
 				}
 
 				if ( size != count*sizeof(int) ) {
-					printf("after refined: size = %d, count = %d, %d\n", size, 
+					printf("after refined: size = %d, count = %d, %ld\n", size, 
 						count, count*sizeof(int) );
 					exit(1);
 				}
