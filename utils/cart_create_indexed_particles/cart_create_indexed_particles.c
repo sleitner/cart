@@ -236,22 +236,50 @@ int main ( int argc, char *argv[]) {
 
 	FILE *stellar_input, *stellar_output;
 	int stellar_endian;
-	int *root_star_count;
+	int *root_star_count, *stellar_root_index;
 	long *star_file_index;
 	int *root_index;
         int num_stars;
         double st, sa;
 	double total_stellar_mass, total_stellar_initial_mass;
-        float *pw, *pw0, *tbirth, *zstII, *zstIa;
+        float *pw, *pw0, *tbirth,*zstII, *zstIa;
 	float *star_vars;
+	//#ifdef ENRICH
+	//#ifdef ENRICH_SNIa
+	//        #define num_star_variables      5
+	//#else
+	//        #define num_star_variables      4
+	//#endif /* ENRICH_SNIa */
+	//#else
+	//        #define num_star_variables      3
+	//#endif /* ENRICH */
+	int enrich_flag;
+	int starform_flag;
+	int num_star_variables;
 
-	if ( argc != 4 && argc != 6 ) {
-		fprintf(stderr,"Usage: ./cart_create_indexed_particles PMcrd.DAT PMcrs.DAT PMcrs_indexed.DAT [stars.dat stars_indexed.dat\n");
-		exit(1);
+	if ( argc == 4){
+	  fprintf(stderr,"no starformation/enrichment\n");
+	  enrich_flag = 0;
+	  starform_flag = 0;
+	  
+	}else if( argc == 7 ) {
+	  fprintf(stderr,"starformation\n");
+	  starform_flag = 1;
+
+	  enrich_flag = atoi( argv[6] );
+	  fprintf(stderr,"enrichment by %d(0=NONE,1=SNII,2=SNII+SNIA)\n",enrich_flag);
+	  if ( enrich_flag > 2 || enrich_flag < 0){ fprintf(stderr,"bad enrich flag! %d",enrich_flag);exit(-1);}
+
+
+	}else{
+		fprintf(stderr,"Usage: ./cart_create_indexed_particles input_dph input_dxv  output_dxv_indexed input_dst output_dst_indexed enrich(0/1/2)\n");
+		fprintf(stderr,"enrichment by %d(0=NONE,1=SNII,2=SNII+SNIA)\n",enrich_flag);
+		exit(-1);
 	}
-
+	
+	num_star_variables = 3+enrich_flag;
+	
 	read_particle_header( argv[1], &header, &endian, &nbody_flag );
-
 	if ( nbody_flag ) {
 		vfact = 2.0/sqrt(header.Om0);
 		grid_shift = 1.5;
@@ -270,16 +298,21 @@ int main ( int argc, char *argv[]) {
 
 	num_particles_total = particle_species_indices[num_particle_species];
 	num_parts_per_page = header.Nrow*header.Nrow;
+#ifdef ADHOC_PAGESIZE 
+	num_parts_per_page = 1024*1024;
+#endif
 	num_pages = (num_particles_total-1) / num_parts_per_page + 1;
 
 	init_sfc();
+
+
 
 	root_particle_count = malloc( num_grid*num_grid*num_grid*sizeof(int) );
 	for ( i = 0; i < num_grid*num_grid*num_grid; i++ ) {
 		root_particle_count[i] = 0;
 	}
 
-	if ( argc == 6 ) {
+	if ( starform_flag == 1 ) {
 		root_star_count = malloc( num_grid*num_grid*num_grid*sizeof(int) );
 		for ( i = 0; i < num_grid*num_grid*num_grid; i++ ) {
 			root_star_count[i] = 0;
@@ -313,7 +346,7 @@ int main ( int argc, char *argv[]) {
 	current_type = 0;
 
 	for ( i = 0; i < num_pages; i++ ) {
-		if ( i % 10 == 0 ) {
+               if ( i % 10 == 0 ) {
 			printf("page %d/%d\n", i, num_pages );
 		}
 
@@ -375,7 +408,7 @@ int main ( int argc, char *argv[]) {
 				current_type++;
 			}
 
-			if ( argc == 6 && current_type == num_particle_species-1 ) {
+			if ( starform_flag == 1 && current_type == num_particle_species-1 ) {
 				root_star_count[index]++;
 			}
 
@@ -395,7 +428,7 @@ int main ( int argc, char *argv[]) {
 	current_id = current_type = 0;
 
 	for ( i = 0; i < num_pages; i++ ) {
-		if ( i % 10 == 0 ) {
+	        if ( i % 10 == 0 ) {
 			printf("Page %d/%d\n", i, num_pages );
 		}
 
@@ -496,7 +529,7 @@ int main ( int argc, char *argv[]) {
 	count = 0;
 	for ( index = 0; index < num_grid*num_grid*num_grid; index++ ) {
 		if ( (index % 1024*1024) == 0 ) {
-			printf("writing grid index %d...\n", index );
+		        printf("writing grid index %d...\n", index );
 		}
 		fwrite( &root_particle_count[index], sizeof(int), 1, output );
 		fwrite( &particles[count], sizeof(particle_struct), root_particle_count[index], output );
@@ -507,7 +540,7 @@ int main ( int argc, char *argv[]) {
 	free( particles );
 	free( root_index );
 
-	if ( argc == 6 ) {
+	if ( starform_flag == 1 ) {
 		printf("reading/writing star variables...\n");
 
 		stellar_input = fopen( argv[4], "r" );
@@ -545,6 +578,7 @@ int main ( int argc, char *argv[]) {
 			fprintf(stderr,"num_stars in %s doesn't match last particle specie.\n", argv[4] );
 			exit(1);
 		}
+		fprintf(stderr,"num_stars=%d\n",num_stars);
 
 		fread( &size, sizeof(int), 1, stellar_input );
 		fread( &total_stellar_mass, sizeof(double), 1, stellar_input );
@@ -554,8 +588,14 @@ int main ( int argc, char *argv[]) {
 		pw = malloc( num_stars * sizeof(float) );
 		pw0 = malloc( num_stars * sizeof(float) );
 		tbirth = malloc( num_stars * sizeof(float) );
-		zstII = malloc( num_stars * sizeof(float) );
-		zstIa = malloc( num_stars * sizeof(float) );
+		if(enrich_flag > 0){ //#ifdef ENRICH
+		  zstII = malloc( num_stars * sizeof(float) );
+		  if(enrich_flag == 2){//#ifdef ENRICH_SNIa
+		    zstIa = malloc( num_stars * sizeof(float) );
+		  }//#endif
+		}//#endif
+		
+		
 
 		fread( &size, sizeof(int), 1, stellar_input );
 		fread( pw, sizeof(float), num_stars, stellar_input );
@@ -569,45 +609,64 @@ int main ( int argc, char *argv[]) {
 		fread( tbirth, sizeof(float), num_stars, stellar_input );
 		fread( &size, sizeof(int), 1, stellar_input );
 
-		fread( &size, sizeof(int), 1, stellar_input );
-		fread( zstII, sizeof(float), num_stars, stellar_input );
-		fread( &size, sizeof(int), 1, stellar_input );
-
-		fread( &size, sizeof(int), 1, stellar_input );
-		fread( zstIa, sizeof(float), num_stars, stellar_input );
-		fread( &size, sizeof(int), 1, stellar_input );
+		if(enrich_flag > 0){//#ifdef ENRICH
+		  fread( &size, sizeof(int), 1, stellar_input );
+		  fread( zstII, sizeof(float), num_stars, stellar_input );
+		  fread( &size, sizeof(int), 1, stellar_input );
+		  if(enrich_flag == 2){//#ifdef ENRICH_SNIa
+		    fread( &size, sizeof(int), 1, stellar_input );
+		    fread( zstIa, sizeof(float), num_stars, stellar_input );
+		    fread( &size, sizeof(int), 1, stellar_input );
+		  }//#endif
+		}//#endif
+		
 
 		if ( stellar_endian ) {
 			for ( i = 0; i < num_stars; i++ ) {
 				reorder( (char *)&pw[i], sizeof(float) );
 				reorder( (char *)&pw0[i], sizeof(float) );
 				reorder( (char *)&tbirth[i], sizeof(float) );
-				reorder( (char *)&zstII[i], sizeof(float) );
-				reorder( (char *)&zstIa[i], sizeof(float) );
+				if(enrich_flag > 0){//#ifdef ENRICH
+				  reorder( (char *)&zstII[i], sizeof(float) );
+				  if(enrich_flag == 2){//#ifdef ENRICH_SNIa
+				    reorder( (char *)&zstIa[i], sizeof(float) );
+				  }//#endif
+				}//#endif
 			}
 		}
 
-		root_index = malloc( num_grid*num_grid*num_grid*sizeof(int) );
+		stellar_root_index = malloc( num_grid*num_grid*num_grid*sizeof(int) );
 
-		root_index[0] = 0;
+		stellar_root_index[0] = 0;
 		for ( i = 1; i < num_grid*num_grid*num_grid; i++ ) {
-			root_index[i] = root_index[i-1] + root_star_count[i-1];
+		  stellar_root_index[i] = stellar_root_index[i-1] + root_star_count[i-1];
+		  //fprintf(stderr,"grid_index=%d stellar_root_index=%d root_star_count %d \n",i,stellar_root_index[i], root_star_count[i-1] );
+		  if(root_star_count[i-1]>0){
+		    fprintf(stderr,"grid#=%d root_star_count %d...\n",i-1, root_star_count[i-1] );
+		  }
 		}
 
-		star_vars = malloc( 5*num_stars*sizeof(float) );
+		star_vars = malloc( num_star_variables*num_stars*sizeof(float) );
 
 		for ( i = 0; i < num_stars; i++ ) {
 			index = pindex[i+particle_species_indices[num_particle_species-1]];
-			j = root_index[index];
+			j = stellar_root_index[index];
 
-			star_vars[5*j] = pw[i];
-			star_vars[5*j+1] = pw0[i];
-			star_vars[5*j+2] = tbirth[i];
-			star_vars[5*j+3] = zstII[i];
-			star_vars[5*j+4] = zstIa[i];
+			star_vars[num_star_variables*j] = pw[i];
+			star_vars[num_star_variables*j+1] = pw0[i];
+			star_vars[num_star_variables*j+2] = tbirth[i];
+			if(enrich_flag > 0){//#ifdef ENRICH
+			  star_vars[num_star_variables*j+3] = zstII[i];
+			  if(enrich_flag == 2){//#ifdef ENRICH_SNIa
+			    star_vars[num_star_variables*j+4] = zstIa[i];
+			  }//#endif
+			}//#endif
 
-			root_index[index]++;
+			stellar_root_index[index]++;
 		}
+
+
+		//--------------------------==================--------------------
 
 		stellar_output = fopen( argv[5], "w");       
 		if ( stellar_output == NULL ) {
@@ -624,7 +683,7 @@ int main ( int argc, char *argv[]) {
 		star_file_index[0] = (long)num_grid*(long)num_grid*(long)num_grid*sizeof(long);
 		for ( i = 1; i < num_grid*num_grid*num_grid; i++ ) {
 			star_file_index[i] = star_file_index[i-1] + sizeof(int) +
-				5*sizeof(float)*root_star_count[i-1];
+				num_star_variables*sizeof(float)*root_star_count[i-1];
 			}
 
 		fwrite( star_file_index, sizeof(long), num_grid*num_grid*num_grid, stellar_output );
@@ -632,19 +691,25 @@ int main ( int argc, char *argv[]) {
 		count = 0;
 		for ( index = 0; index < num_grid*num_grid*num_grid; index++ ) {
 			if ( index % 1024 == 0 ) {
-				printf("writing grid index %d...\n", index );
+			        printf("writing grid index %d...%d\n", index, stellar_root_index[index] );
 			}
 			fwrite( &root_star_count[index], sizeof(int), 1, stellar_output );
-			fwrite( &star_vars[count], 5*sizeof(float), root_star_count[index], stellar_output );
-			count += 5*root_star_count[index];
+			fwrite( &star_vars[count], num_star_variables*sizeof(float), root_star_count[index], stellar_output );
+			count += num_star_variables*root_star_count[index];
 		}
 
+		free( stellar_root_index );
 		free( star_file_index );
 		free( pw );
 		free( pw0 );
 		free( tbirth );
-		free( zstII );
-		free( zstIa );
+		
+		if(enrich_flag > 0){//#ifdef ENRICH
+		  free( zstII );
+		  if(enrich_flag == 2){  //#ifdef ENRICH_SNIa
+		    free( zstIa );
+		  }//#endif
+		}//#endif
 		free( star_vars );
 
 		fclose(stellar_output);
