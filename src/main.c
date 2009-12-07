@@ -157,10 +157,6 @@ int main ( int argc, char *argv[]) {
 	init_logging( restart );
 	init_cell_buffer();
 
-#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-	init_fft();
-#endif
-
 #ifdef PARTICLES
 	init_particles();
 #endif /* PARTICLES */
