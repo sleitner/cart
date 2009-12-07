@@ -373,6 +373,10 @@ void load_balance_entire_volume( float *global_work,
 	int foo;
 	FILE *output;
 
+#ifdef SAVE_LOAD_BALANCE_PARTITION
+	FILE *partition;
+#endif
+
 	per_proc_constraints[0] = (1.0-est_buffer_fraction)*(double)num_cells;
 
 #ifdef PARTICLES
@@ -544,19 +548,34 @@ void load_balance_entire_volume( float *global_work,
 	/* }  */
 
 	if ( ret == -1 ) {
-                sprintf( filename, "%s/load_balance.dat", output_directory );
-                output = fopen( filename, "w" );
+		sprintf( filename, "%s/load_balance.dat", output_directory );
+		output = fopen( filename, "w" );
 
-                foo = num_root_cells;
-                fwrite( &foo, sizeof(int), 1, output );
-                foo = num_constraints;
-                fwrite( &foo, sizeof(int), 1, output );
-                fwrite( per_proc_constraints, sizeof(int), num_constraints, output );
-                fwrite( global_work, sizeof(float), num_root_cells, output );
-                fwrite( constrained_quantities, sizeof(int), (long)num_constraints*(long)num_root_cells, output );
-                fclose(output);
+		foo = num_root_cells;
+		fwrite( &foo, sizeof(int), 1, output );
+		foo = num_constraints;
+		fwrite( &foo, sizeof(int), 1, output );
+		fwrite( per_proc_constraints, sizeof(int), num_constraints, output );
+		fwrite( global_work, sizeof(float), num_root_cells, output );
+		fwrite( constrained_quantities, sizeof(int), (long)num_constraints*(long)num_root_cells, output );
+		fclose(output);
 
 		cart_error("Unable to find proper load balancing division");
+
+#ifdef SAVE_LOAD_BALANCE_PARTITION
+	} else {
+		sprintf( filename, "%s/partition.dat", output_directory );
+		partition = fopen( filename, "w" );
+		cart_assert( partition != NULL );
+
+        fprintf( partition, "%u %u\n", &num_procs, &num_grid );
+
+		for ( i = 0; i < num_procs+1; i++ ) {
+			fprintf( partition, "%u\n", &new_proc_sfc_index[i] );
+		}
+
+        fclose( partition );
+#endif
 	}
 
 	total_work = 0.0;

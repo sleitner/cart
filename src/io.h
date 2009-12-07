@@ -19,7 +19,7 @@ void reorder( char *buffer, int size );
 void save_check();
 
 #define WRITE_GENERIC		0
-#define WRITE_SAVE		1
+#define WRITE_SAVE			1
 #define WRITE_BACKUP		2
 
 void write_restart( int gas_filename_flag, int particle_filename_flag, int tracer_filename_flag );
@@ -27,6 +27,8 @@ void read_restart( double aexpn );
 void restart_load_balance( char *grid_filename, char *particle_header_filename, char *particle_data );
 
 #ifdef PARTICLES
+#define PARTICLE_HEADER_MAGIC		(0.1234f)
+
 typedef struct {
 	float aunin;
 	float auni0;
@@ -52,11 +54,11 @@ typedef struct {
 	float OmB0;  
 	float mass[10];
 	unsigned int   num[10];
-        float zero1;
-        float DelDC;
-        float abox;   /* Scale factor in the box */
-        float Hbox;   /* Hubble constant in the box */
-        float zero2;
+	float magic1;
+	float DelDC;
+	float abox;   /* Scale factor in the box */
+	float Hbox;   /* Hubble constant in the box */
+	float magic2;
 	float fill[75];
 } particle_header;
 
@@ -84,11 +86,11 @@ typedef struct {
 	float OmK0;
 	float mass[10];
 	unsigned int   num[10];
-        float zero1;
-        float DelDC;
-        float abox;   /* Scale factor in the box */
-        float Hbox;   /* Hubble constant in the box */
-        float zero2;
+	float magic1;
+	float DelDC;
+	float abox;   /* Scale factor in the box */
+	float Hbox;   /* Hubble constant in the box */
+	float magic2;
 	float fill[75];
 } nbody_particle_header;
 

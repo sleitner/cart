@@ -271,6 +271,11 @@ void read_restart( double aload ) {
 	char filename4[256];
 	char filename_tracers[256];
 
+#ifdef SAVE_LOAD_BALANCE_PARTITION
+	FILE *partition;
+	int partition_num_grid, partition_num_procs, proc;
+#endif
+
 	if ( buffer_enabled ) {
 		destroy_cell_buffer();
 	}
@@ -332,8 +337,33 @@ void read_restart( double aload ) {
 #endif
 	}
 
+#ifdef SAVE_LOAD_BALANCE_PARTITION
+    /* try to find load-balancing file */
+    sprintf( filename, "%s/partition.dat", output_directory );                                                                    
+    partition = fopen( filename, "r" );
+
+    if ( partition == NULL ) {
+        /* do load balancing */
+        restart_load_balance( filename_gas, filename1, filename2 );
+    } else {
+		fscanf( partition, "%u %u\n", &partition_num_procs, &partition_num_grid );
+
+		if ( partition_num_procs == num_procs && partition_num_grid == num_grid ) {
+			for ( proc = 0; proc < num_procs+1; proc++ ) {
+				fscanf( partition, "%u\n", &proc_sfc_index[proc] );
+			}
+
+			init_tree();
+		} else {
+			cart_error("Bad values for num_procs or num_grid in partition.dat!");
+		}
+
+		fclose( partition );
+	}
+#else
 	/* do load balancing */
 	restart_load_balance( filename_gas, filename1, filename2 );
+#endif
 
 	cart_debug("Reading grid restart...");
 	read_grid_binary( filename_gas );
@@ -376,8 +406,15 @@ void save_check() {
 #endif /* STARFORM */
 #endif /* PARTICLES */
 
-	int particle_save_flag = WRITE_GENERIC;
-	int tracer_save_flag = WRITE_GENERIC;
+	int grid_save_flag;
+	int particle_save_flag;
+	int tracer_save_flag;
+
+	if ( step % (2*restart_frequency) == 0 ) {
+		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
+	} else {
+		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
+	}
 
 	if ( particle_output_frequency != 0 && step % particle_output_frequency == 0 ) {
 		particle_save_flag = WRITE_SAVE;
@@ -388,14 +425,12 @@ void save_check() {
 	}
 
 	if ( ( grid_output_frequency != 0 && step % grid_output_frequency == 0 ) ||
-		( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) ) {
+			( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) ) {
 		/* we're saving information for permenant saving */
 		write_restart( WRITE_SAVE, WRITE_SAVE, WRITE_SAVE );
 		current_output++;
 	} else if ( restart_frequency != 0 && step % restart_frequency == 0 ) {
-		write_restart( WRITE_GENERIC, particle_save_flag, tracer_save_flag );
-		/* A second restart file, in case the primary one is corrupted */
-		if(step%(2*restart_frequency) == 0) write_restart(WRITE_BACKUP,WRITE_BACKUP,WRITE_BACKUP);
+		write_restart( grid_save_flag, particle_save_flag, tracer_save_flag );
 	} else {
 
 #ifdef PARTICLES
@@ -484,7 +519,7 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 
 	if ( local_proc_id == MASTER_NODE ) {
 		/* do load balancing */
-   	        constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
+		constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
 		cell_work = cart_alloc(float, num_root_cells );
 
 		for ( i = 0; i < num_root_cells; i++ ) {
@@ -696,9 +731,9 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 		cart_free( constrained_quantities );
 	}
 
-        /* let all other processors know what their new workload is */
-        MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-        init_tree();
+	/* let all other processors know what their new workload is */
+	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	init_tree();
 }
 
 #ifdef PARTICLES
@@ -749,12 +784,12 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 
 	/* construct mapping of id -> particle index */
 	particle_order = cart_alloc(int, num_local_particles );
-        num_parts = 0;
-        for ( i = 0; i < num_particles; i++ ) {
+	num_parts = 0;
+	for ( i = 0; i < num_particles; i++ ) {
 		if ( particle_level[i] != FREE_PARTICLE_LEVEL ) {
 			particle_order[num_parts++] = i;
 		}
-        }
+	}
 	cart_assert( num_parts == num_local_particles );
 
 	qsort( particle_order, num_parts, sizeof(int), compare_particle_ids );
@@ -774,30 +809,31 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		header.istep	= step;
 		header.partw	= 0.0;
 		header.tintg	= tintg;
-		header.ekin	= ekin;
+		header.ekin		= ekin;
 		header.ekin1	= ekin1;
 		header.ekin2	= 0.0;
-		header.au0	= au0;
-		header.aeu0	= aeu0;
-		header.Nrow	= num_row;
+		header.au0		= au0;
+		header.aeu0		= aeu0;
+		header.Nrow		= num_row;
 		header.Ngrid	= num_grid;
 		header.Nspecies	= num_particle_species;
 		header.Nseed	= 0.0;
-		header.OmM0	= cosmology->OmegaM;
-		header.OmL0	= cosmology->OmegaL;
+		header.OmM0		= cosmology->OmegaM;
+		header.OmL0		= cosmology->OmegaL;
 		header.h100     = cosmology->h;
-		header.Wp5	= 0.0;
-		header.OmK0	= cosmology->OmegaK;
-		header.OmB0	= cosmology->OmegaB;
+		header.Wp5		= 0.0;
+		header.OmK0		= cosmology->OmegaK;
+		header.OmB0		= cosmology->OmegaB;
 
-		header.zero1	= 0.0;  /* for indentifying legacy files */
-		header.zero2	= 0.0;  /* for indentifying legacy files */
+		header.magic1	= PARTICLE_HEADER_MAGIC;  /* for indentifying legacy files */
+		header.magic2	= PARTICLE_HEADER_MAGIC;  /* for indentifying legacy files */
 		header.DelDC	= cosmology->DeltaDC;
-		header.abox	= abox[min_level];
+		header.abox		= abox[min_level];
 #ifdef COSMOLOGY
-		header.Hbox	= (abox_from_tcode(tl[min_level]+0.5*dtl[min_level])-abox_from_tcode(tl[min_level]-0.5*dtl[min_level]))/dtl[min_level];
+		header.Hbox		= (abox_from_tcode(tl[min_level]+0.5*dtl[min_level]) - 
+							abox_from_tcode(tl[min_level]-0.5*dtl[min_level]))/dtl[min_level];
 #else
-		header.Hbox	= 0.0;
+		header.Hbox		= 0.0;
 #endif
 
 		for ( i = 0; i < num_particle_species; i++ ) {
@@ -844,7 +880,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 
 		/* allocate space to receive pages of particles from other procs */
 		for ( i = 1; i < num_procs; i++ ) {
-		        page[i] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
+			page[i] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
 			page_ids[i] = cart_alloc(int, num_parts_per_proc_page );
 		}
 
@@ -1041,11 +1077,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 					}
 
 					if ( smallest != root ) {
-                                                /* swap */
-                                                processor_heap[root] = processor_heap[smallest];
-                                                processor_heap[smallest] = rootproc;
-                                                root = smallest;
-                                                left = 2*root+1;
+						/* swap */
+						processor_heap[root] = processor_heap[smallest];
+						processor_heap[smallest] = rootproc;
+						root = smallest;
+						left = 2*root+1;
 					} else {
 						left = num_procs;
 					}
@@ -1497,7 +1533,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			if ( first_star == num_local_particles ) {
 				page_ids[0][0] = -1;
 			} else {
-	                        page_ids[0][0] = particle_id[particle_order[first_star]];
+				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
@@ -2035,7 +2071,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			cart_free( page_ids[i] );
 		}
 	} else {
-                page[local_proc_id] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
+		page[local_proc_id] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
 		page_ids[local_proc_id] = cart_alloc(int, num_parts_per_proc_page );
 		pages[local_proc_id] = 0;
 
@@ -2252,11 +2288,11 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 		header->OmK0 = nbody_header.OmK0;
 		header->OmB0 = 0.0;
 
-                header->zero1    = nbody_header.zero1;
-                header->zero2    = nbody_header.zero2;
-                header->DelDC    = nbody_header.DelDC;
-                header->abox     = nbody_header.abox;
-                header->Hbox     = nbody_header.Hbox;
+		header->magic1    = nbody_header.magic1;
+		header->magic2    = nbody_header.magic2;
+		header->DelDC    = nbody_header.DelDC;
+		header->abox     = nbody_header.abox;
+		header->Hbox     = nbody_header.Hbox;
 
 		for ( i = 0; i < 10; i++ ) {
 			header->mass[i] = nbody_header.mass[i];
@@ -2294,11 +2330,11 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 		reorder( (char *)&header->OmK0, sizeof(float) );
 		reorder( (char *)&header->OmB0, sizeof(float) );
 
-		reorder( (char *)&header->zero1, sizeof(float) );
+		reorder( (char *)&header->magic1, sizeof(float) );
 		reorder( (char *)&header->DelDC, sizeof(float) );
 		reorder( (char *)&header->abox, sizeof(float) );
 		reorder( (char *)&header->Hbox, sizeof(float) );
-		reorder( (char *)&header->zero2, sizeof(float) );
+		reorder( (char *)&header->magic2, sizeof(float) );
 
 		for ( i = 0; i < header->Nspecies; i++ ) {
 			reorder( (char *)&header->mass[i], sizeof(float) );
@@ -2309,13 +2345,15 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 	/*
 	//  NG: Check for legacy files
 	*/
-	if(header->zero1!=0.0f || header->zero2!=0.0f)
+	if(header->magic1!= PARTICLE_HEADER_MAGIC || header->magic2 != PARTICLE_HEADER_MAGIC )
 	  {
 	    /*
 	    //  A legacy file with the garbage in it. Set the DC mode to 0
 	    */
 	    header->DelDC = 0.0;
 	    header->abox = header->aunin;
+
+		cart_debug("Detected legacy format particle file (no DC mode set).");
 	  }
 }
 
@@ -3754,9 +3792,9 @@ void read_hydro_tracers( char *filename ) {
 
 		cart_free( page[local_proc_id] );
 		cart_free( page_ids[local_proc_id] );
-        }
+	}
 
-        cart_debug("num_local_tracers = %u", num_local_tracers );
+	cart_debug("num_local_tracers = %u", num_local_tracers );
 	build_tracer_list();
 }
 
@@ -3780,12 +3818,13 @@ void read_gas_ic( char *filename ) {
 	int *page_indices[MAX_PROCS];
 	int var;
 	const int num_gas_vars    = 6;
-	const int var_index[] = { 	HVAR_GAS_DENSITY, HVAR_MOMENTUM, 
-					HVAR_MOMENTUM+1, HVAR_MOMENTUM+2,
-					HVAR_GAS_ENERGY, HVAR_INTERNAL_ENERGY };
+	const int var_index[] = { 	
+		HVAR_GAS_DENSITY, HVAR_MOMENTUM, 
+		HVAR_MOMENTUM+1, HVAR_MOMENTUM+2,
+		HVAR_GAS_ENERGY, HVAR_INTERNAL_ENERGY };
 
 	if ( local_proc_id == MASTER_NODE ) {
-	        input = fopen(filename, "r");
+		input = fopen(filename, "r");
 		if ( input == NULL ) {
 			cart_error("Unable to open %s for reading!", filename );
 		}
@@ -3953,7 +3992,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	int minlevel, maxlevel;
 	double t, dt;
 	float adum, ainit;
-        float boxh, OmM0, OmL0, OmB0, h100;
+	float boxh, OmM0, OmL0, OmB0, h100;
 	int nextras;
 	float extra[10];
 	char lextra[10][256];
@@ -3978,7 +4017,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	int cells_to_read, cell_refined_to_read;
 	int num_file_vars;
 
-        struct CosmologyParameters temp_cosmo;
+	struct CosmologyParameters temp_cosmo;
 
 	max_level_to_read = min( max_level, max_level_to_read );
 
@@ -4466,8 +4505,8 @@ void write_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *ou
 
 
 void write_grid_binary( char *filename ) {
-        int i, j, k;
-        int size;
+	int i, j, k;
+	int size;
 	FILE *output;
 	float adum, ainit;
 	float boxh, OmM0, OmL0, OmB0, h100;
@@ -5042,7 +5081,7 @@ void read_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *inp
 
 
 void read_grid_binary( char *filename ) {
-        int i, j;
+	int i, j;
 	int size;
 	int num_read, flag;
 	FILE *input;
@@ -5050,7 +5089,7 @@ void read_grid_binary( char *filename ) {
 	int minlevel, maxlevel;
 	double t, dt;
 	float adum, ainit;
-        float boxh, OmM0, OmL0, OmB0, h100;
+	float boxh, OmM0, OmL0, OmB0, h100;
 	int nextras;
 	float extra[10];
 	char lextra[10][256];
@@ -5089,27 +5128,27 @@ void read_grid_binary( char *filename ) {
 	MPI_Request send_requests[MAX_PROCS];
 	MPI_Status status;
 
-        struct CosmologyParameters temp_cosmo;
+	struct CosmologyParameters temp_cosmo;
 
-        int hydro_vars[num_hydro_vars+1];
-        int num_other_vars = 0;
-        int *other_vars = 0;
+	int hydro_vars[num_hydro_vars+1];
+	int num_other_vars = 0;
+	int *other_vars = 0;
 #ifdef RADIATIVE_TRANSFER
-        int rt_var_offset = 0;
+	int rt_var_offset = 0;
 #endif
 
 #ifdef HYDRO
-        /*
-        // Maintain the same order as in a previous version
-        */
-        hydro_vars[0] = HVAR_GAS_DENSITY;
-        hydro_vars[1] = HVAR_GAS_ENERGY;
-        hydro_vars[2] = HVAR_MOMENTUM + 0;
-        hydro_vars[3] = HVAR_MOMENTUM + 1;
-        hydro_vars[4] = HVAR_MOMENTUM + 2;
-        hydro_vars[5] = HVAR_PRESSURE;
-        hydro_vars[6] = HVAR_GAMMA;
-        hydro_vars[7] = HVAR_INTERNAL_ENERGY;
+	/*
+	// Maintain the same order as in a previous version
+	 */
+	hydro_vars[0] = HVAR_GAS_DENSITY;
+	hydro_vars[1] = HVAR_GAS_ENERGY;
+	hydro_vars[2] = HVAR_MOMENTUM + 0;
+	hydro_vars[3] = HVAR_MOMENTUM + 1;
+	hydro_vars[4] = HVAR_MOMENTUM + 2;
+	hydro_vars[5] = HVAR_PRESSURE;
+	hydro_vars[6] = HVAR_GAMMA;
+	hydro_vars[7] = HVAR_INTERNAL_ENERGY;
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 	hydro_vars[8] = HVAR_ELECTRON_INTERNAL_ENERGY;
 #endif
@@ -5122,29 +5161,28 @@ void read_grid_binary( char *filename ) {
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 #ifdef GRAVITY
-        num_other_vars++;
+	num_other_vars++;
 #ifdef HYDRO
-        num_other_vars++;
+	num_other_vars++;
 #endif /* HYDRO */
 #endif
 #ifdef RADIATIVE_TRANSFER
 	rt_var_offset = num_other_vars;
-        num_other_vars += rt_num_disk_vars;
+	num_other_vars += rt_num_disk_vars;
 #endif
 
-        other_vars = cart_alloc(int, num_other_vars );
+	other_vars = cart_alloc(int, num_other_vars );
 
 #ifdef GRAVITY
-        other_vars[0] = VAR_POTENTIAL;
+	other_vars[0] = VAR_POTENTIAL;
 #ifdef HYDRO
-        other_vars[1] = VAR_POTENTIAL_HYDRO;
+	other_vars[1] = VAR_POTENTIAL_HYDRO;
 #endif /* HYDRO */
 #endif
 #ifdef RADIATIVE_TRANSFER
-        for(j=0; j<rt_num_disk_vars; j++) other_vars[rt_var_offset+j] = rt_disk_offset + j; 
+	for(j=0; j<rt_num_disk_vars; j++) other_vars[rt_var_offset+j] = rt_disk_offset + j; 
 #endif
 #endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
-
 
 	cart_assert( num_output_files >= 1 && num_output_files <= num_procs );
 
@@ -5179,7 +5217,7 @@ void read_grid_binary( char *filename ) {
 
 	/* the header exists only in the first file */
 	if ( local_proc_id == MASTER_NODE ) {
-                fread(&size, sizeof(int), 1, input );
+		fread(&size, sizeof(int), 1, input );
 		endian = 0;
 		if ( size != 256 ) {
 			reorder( (char *)&size, sizeof(int) );
@@ -5191,8 +5229,8 @@ void read_grid_binary( char *filename ) {
 			}
 		}
 
-                fread(&job, sizeof(char), 256, input );
-                fread(&size, sizeof(int), 1, input );
+		fread(&job, sizeof(char), 256, input );
+		fread(&size, sizeof(int), 1, input );
 
 		/* istep, t, dt, adum, ainit */
 		fread( &size, sizeof(int), 1, input );
@@ -5218,7 +5256,7 @@ void read_grid_binary( char *filename ) {
 		for(i=min_level; i<=max_level; i++) abox[i] = adum;
 #endif
 
-                /* boxh, Om0, Oml0, Omb0, hubble */
+		/* boxh, Om0, Oml0, Omb0, hubble */
 		fread( &size, sizeof(int), 1, input );
 		fread( &boxh, sizeof(float), 1, input );
 		fread( &OmM0, sizeof(float), 1, input );
@@ -5274,6 +5312,7 @@ void read_grid_binary( char *filename ) {
 		fread( &size, sizeof(int), 1, input );
 		fread( &minlevel, sizeof(int), 1, input );
 		fread( &maxlevel, sizeof(int), 1, input);
+		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
 			reorder( (char *)&minlevel, sizeof(int) );
@@ -5285,8 +5324,6 @@ void read_grid_binary( char *filename ) {
 		}
 
 		cart_assert( minlevel == min_level );
-
-		fread( &size, sizeof(int), 1, input );
 
 		/* tl */
 		fread( &size, sizeof(int), 1, input );
@@ -5332,7 +5369,7 @@ void read_grid_binary( char *filename ) {
 			}
 		}
 
-		/* iSO */
+		/* iSO (sweep direction for flux solver) */
 #ifdef HYDRO
 		fread( &size, sizeof(int), 1, input );
 		fread( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
@@ -5348,6 +5385,7 @@ void read_grid_binary( char *filename ) {
 		/* sfc ordering used */
 		fread( &size, sizeof(int), 1, input );
 		fread( &sfc_order, sizeof(int), 1, input);
+		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
 			reorder( (char *)&sfc_order, sizeof(int) );
@@ -5356,7 +5394,6 @@ void read_grid_binary( char *filename ) {
 		if ( sfc_order != SFC ) {
 			cart_error("File has different sfc indexing than program");
 		}
-		fread( &size, sizeof(int), 1, input );
 
 		/* refinement volume */
 		fread( &size, sizeof(int), 1, input );
@@ -5587,16 +5624,16 @@ void read_grid_binary( char *filename ) {
 
 	cart_free( cellrefined[local_proc_id] );
 
-	read_grid_binary_top_level_vars(num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
+	read_grid_binary_top_level_vars(num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
+			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-	read_grid_binary_top_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
+	read_grid_binary_top_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,
+			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
 
 	/* now read levels */
 	for ( level = min_level+1; level <= maxlevel; level++ ) {
-
 		num_requests = 0;
-
 		count = 0;
 		for ( proc = 0; proc < num_procs; proc++ ) {
 			proc_num_cells[proc] = proc_next_level_octs[proc]*num_children;
@@ -5869,10 +5906,14 @@ void read_grid_binary( char *filename ) {
 
 		cart_assert( count == next_level_count );
 
-		read_grid_binary_lower_level_vars(num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,total_cells,page_size,proc_num_cells,level,first_page_count,proc_first_index,proc_cell_index,current_level);
+		read_grid_binary_lower_level_vars(num_hydro_vars,hydro_vars,input,endian,file_parent,
+					file_index,total_cells,page_size,proc_num_cells,level,first_page_count,
+					proc_first_index,proc_cell_index,current_level);
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-		read_grid_binary_lower_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,total_cells,page_size,proc_num_cells,level,first_page_count,proc_first_index,proc_cell_index,current_level);
+		read_grid_binary_lower_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,
+					total_cells,page_size,proc_num_cells,level,first_page_count,proc_first_index,
+					proc_cell_index,current_level);
 #endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
 
 		cart_free( current_level );		
@@ -5882,7 +5923,7 @@ void read_grid_binary( char *filename ) {
 		fclose( input );
 	}
 
-        if(other_vars != 0) cart_free(other_vars);
+	if(other_vars != 0) cart_free(other_vars);
 
 	cart_free( order );
 
@@ -5893,220 +5934,187 @@ void read_grid_binary( char *filename ) {
 }
 
 
-void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, long *proc_cell_index, int *file_sfc_index)
-{
-  int i, m;
-  int size;
-  float *cellvars[MAX_PROCS], *cellvars_buffer;
-  int num_requests, num_send_requests;
-  int proc;
-  int proc_cur_cells[MAX_PROCS];
-  int proc_page_count[MAX_PROCS];
-  long current_level_count, current_read_count;
-  int continue_reading, ready_to_read;
-  int num_read, flag;
-  int page_count;
-  long start, count;
-  int icell;
-  MPI_Request requests[2*MAX_PROCS];
-  MPI_Request send_requests[MAX_PROCS];
+void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input, int endian, 
+		int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, 
+		long *proc_cell_index, int *file_sfc_index) {
+	int i, m;
+	int size;
+	float *cellvars[MAX_PROCS], *cellvars_buffer;
+	int num_requests, num_send_requests;
+	int proc;
+	int proc_cur_cells[MAX_PROCS];
+	int proc_page_count[MAX_PROCS];
+	long current_level_count, current_read_count;
+	int continue_reading, ready_to_read;
+	int num_read, flag;
+	int page_count;
+	long start, count;
+	int icell;
+	MPI_Request requests[2*MAX_PROCS];
+	MPI_Request send_requests[MAX_PROCS];
 
 
-  if(num_out_vars < 1) return;
+	if(num_out_vars < 1) return;
 
-
-  if ( local_proc_id == file_parent )
-    {
-      fread( &size, sizeof(int), 1, input );
-      cellvars_buffer = cart_alloc(float, num_out_vars*min( local_file_root_cells, page_size ) );
-    }
-
-  num_requests = 0;
-
-  for ( proc = 0; proc < num_procs; proc++ )
-    {
-      proc_cur_cells[proc] = 0;
-
-      if ( proc_num_cells[proc] > 0 && proc != local_proc_id ) 
-	{
-	  /* set up receive */
-	  proc_page_count[proc] = min( proc_num_cells[proc], page_size - ( proc_cell_index[proc] - file_sfc_index[(int)((proc * num_output_files)/ num_procs)]) % page_size);
-	  cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
-	  MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], MPI_COMM_WORLD, &requests[proc] );
-	  num_requests++;
-	} 
-      else 
-	{
-	  proc_page_count[proc] = 0;
-	  requests[proc] = MPI_REQUEST_NULL;
+	if ( local_proc_id == file_parent ) {
+		fread( &size, sizeof(int), 1, input );
+		cellvars_buffer = cart_alloc(float, num_out_vars*min( local_file_root_cells, page_size ) );
 	}
-    }
 
+	num_requests = 0;
 
-  current_level_count = 0;
-  current_read_count = 0;
-  continue_reading = 1;
-  ready_to_read = 1;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		proc_cur_cells[proc] = 0;
 
-  while ( continue_reading )
-    {
-      flag = 0;
-
-      if ( local_proc_id == file_parent && current_read_count < local_file_root_cells && ready_to_read )
-	{
-	  /* read in a page */
-	  page_count = min( page_size, local_file_root_cells - current_read_count );
-	  num_read = fread( cellvars_buffer, sizeof(float), num_out_vars*page_count, input );
-
-	  if ( num_read != num_out_vars*page_count )
-	    {
-	      cart_error("I/O Error in read_grid_binary: num_read = %u, num_out_vars*page_count = %u", num_read, num_out_vars*page_count );
-	    }
-
-	  if ( endian )
-	    {
-	      for ( i = 0; i < num_out_vars*page_count; i++ )
-		{
-		  reorder( (char *)&cellvars_buffer[i], sizeof(float) );
+		if ( proc_num_cells[proc] > 0 && proc != local_proc_id )  {
+			/* set up receive */
+			proc_page_count[proc] = min( proc_num_cells[proc], 
+					page_size - ( proc_cell_index[proc] - 
+					file_sfc_index[(int)((proc * num_output_files)/ num_procs)]) % page_size);
+			cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
+			MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
+					MPI_COMM_WORLD, &requests[proc] );
+			num_requests++;
+		} else {
+			proc_page_count[proc] = 0;
+			requests[proc] = MPI_REQUEST_NULL;
 		}
-	    }
+	}
 
-	  /* send info to other processors */
-	  start = 0;
-	  num_send_requests = 0;
-	  for ( proc = 0; proc < num_procs; proc++ )
-	    {
-	      if ( start < page_count && 
-		   file_sfc_index[file_index]+current_read_count+start < proc_sfc_index[proc+1] &&
-		   file_sfc_index[file_index]+current_read_count+start >= proc_sfc_index[proc] )
-		{
-		  
-		  count = min( proc_sfc_index[proc+1], file_sfc_index[file_index]+current_read_count+page_count ) - max( proc_sfc_index[proc],  file_sfc_index[file_index] + current_read_count + start );
-		  cart_assert( count > 0 && count <= page_count );
+	current_level_count = 0;
+	current_read_count = 0;
+	continue_reading = 1;
+	ready_to_read = 1;
 
-		  if ( proc == local_proc_id )
-		    {
-		      /* copy into local buffer */
-		      proc_page_count[local_proc_id] = count;
+	while ( continue_reading ) {
+		flag = 0;
 
-		      cellvars[local_proc_id] = cart_alloc(float, num_out_vars*proc_page_count[local_proc_id] );
+		if ( local_proc_id == file_parent && current_read_count < local_file_root_cells && ready_to_read ) {
+			/* read in a page */
+			page_count = min( page_size, local_file_root_cells - current_read_count );
+			num_read = fread( cellvars_buffer, sizeof(float), num_out_vars*page_count, input );
 
-		      for ( i = 0; i < num_out_vars*proc_page_count[local_proc_id]; i++ )
-			{
-			  cart_assert( num_out_vars*start + i < num_out_vars*page_count );
-			  cellvars[local_proc_id][i] = cellvars_buffer[num_out_vars*start+i];
+			if ( num_read != num_out_vars*page_count ) {
+				cart_error("I/O Error in read_grid_binary: num_read = %u, num_out_vars*page_count = %u", 
+						num_read, num_out_vars*page_count );
 			}
-		    } 
-		  else
-		    {
-		      MPI_Isend( &cellvars_buffer[num_out_vars*start], num_out_vars*count, MPI_FLOAT, proc, count, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
-		    }
+
+			if ( endian ) {
+				for ( i = 0; i < num_out_vars*page_count; i++ ) {
+					reorder( (char *)&cellvars_buffer[i], sizeof(float) );
+				}
+			}
+
+			/* send info to other processors */
+			start = 0;
+			num_send_requests = 0;
+			for ( proc = 0; proc < num_procs; proc++ ) {
+				if ( start < page_count && 
+						file_sfc_index[file_index]+current_read_count+start < proc_sfc_index[proc+1] &&
+						file_sfc_index[file_index]+current_read_count+start >= proc_sfc_index[proc] ) {
 		  
-		  start += count;
+					count = min( proc_sfc_index[proc+1], file_sfc_index[file_index]+current_read_count+page_count ) - 
+							max( proc_sfc_index[proc],  file_sfc_index[file_index] + current_read_count + start );
+					cart_assert( count > 0 && count <= page_count );
+
+					if ( proc == local_proc_id ) {
+						/* copy into local buffer */
+						proc_page_count[local_proc_id] = count;
+						cellvars[local_proc_id] = cart_alloc(float, num_out_vars*proc_page_count[local_proc_id] );
+
+						for ( i = 0; i < num_out_vars*proc_page_count[local_proc_id]; i++ ) {
+							cart_assert( num_out_vars*start + i < num_out_vars*page_count );
+							cellvars[local_proc_id][i] = cellvars_buffer[num_out_vars*start+i];
+						}
+					} else { 
+						MPI_Isend( &cellvars_buffer[num_out_vars*start], num_out_vars*count, MPI_FLOAT, proc, count, 
+								MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					}
+		  
+					start += count;
+				}
+			}
+
+			cart_assert( start == page_count );
+			current_read_count += page_count;
+			ready_to_read = 0;
+
+			/* unpack local cells first */
+			if ( proc_page_count[local_proc_id] > 0 ) {
+				flag = 1;
+				proc = local_proc_id;
+			} else if ( num_requests > 0 ) {
+				/* see if we've received anything */
+				MPI_Testany( num_procs, requests, &proc, &flag, MPI_STATUS_IGNORE );
+			}
+		} else if ( num_requests > 0 ) {
+			/* wait for a receive to complete */
+			MPI_Waitany( num_procs, requests, &proc, MPI_STATUS_IGNORE );
+			num_requests--;
+			flag = 1;
 		}
-	    }
 
-	  cart_assert( start == page_count );
-	  current_read_count += page_count;
-	  ready_to_read = 0;
-
-	  /* unpack local cells first */
-	  if ( proc_page_count[local_proc_id] > 0 )
-	    {
-	      flag = 1;
-	      proc = local_proc_id;
-	    } 
-	  else if ( num_requests > 0 ) 
-	    {
-	      /* see if we've received anything */
-	      MPI_Testany( num_procs, requests, &proc, &flag, MPI_STATUS_IGNORE );
-	    }
-	} 
-      else if ( num_requests > 0 )
-	{
-	  /* wait for a receive to complete */
-	  MPI_Waitany( num_procs, requests, &proc, MPI_STATUS_IGNORE );
-	  num_requests--;
-	  flag = 1;
-	}
-
-      if ( flag == 1 && proc != MPI_UNDEFINED )
-	{
-	  cart_assert( proc >= 0 && proc < num_procs );
+		if ( flag == 1 && proc != MPI_UNDEFINED ) {
+			cart_assert( proc >= 0 && proc < num_procs );
 			
-	  /* unpack received page */
-	  i = 0;
-	  while ( i < num_out_vars*proc_page_count[proc] ) 
-	    {
-	      icell = root_cell_location( proc_cell_index[proc] + proc_cur_cells[proc]);
-	      cart_assert( icell >= 0 && icell < num_cells_per_level[min_level] );
+			/* unpack received page */
+			i = 0;
+			while ( i < num_out_vars*proc_page_count[proc] ) {
+				icell = root_cell_location( proc_cell_index[proc] + proc_cur_cells[proc]);
+				cart_assert( icell >= 0 && icell < num_cells_per_level[min_level] );
 	      
-	      for ( m = 0; m < num_out_vars; m++ )
-		{
-		  cell_var(icell,out_var[m]) = cellvars[proc][i++];
+				for ( m = 0; m < num_out_vars; m++ ) {
+					cell_var(icell,out_var[m]) = cellvars[proc][i++];
+				}
+
+				current_level_count++;
+				proc_cur_cells[proc]++;
+			}
+
+			/* if necessary, start a new receive for that proc */
+			if ( proc_cur_cells[proc] < proc_num_cells[proc] && proc != local_proc_id ) {
+				proc_page_count[proc] = min( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
+				cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
+				MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
+						MPI_COMM_WORLD, &requests[proc] );
+				num_requests++;
+			} else {
+				proc_page_count[proc] = 0;
+				cart_free( cellvars[proc] );
+				requests[proc] = MPI_REQUEST_NULL;
+			}
 		}
 
-	      current_level_count++;
-	      proc_cur_cells[proc]++;
-	    }
+		if ( local_proc_id == file_parent ) {
+			if ( num_requests > 0 ) {
+				/* see if sends have completed, if they have we can continue to read */
+				MPI_Testall( num_send_requests, send_requests, &ready_to_read, MPI_STATUSES_IGNORE );
+			} else {
+				/* not waiting on any receives, so we can't do anything until
+				 * we read in additional data */
+				MPI_Waitall( num_send_requests, send_requests, MPI_STATUSES_IGNORE );
+				num_send_requests = 0;
+				ready_to_read = 1;
+			}
 
-	  /* if necessary, start a new receive for that proc */
-	  if ( proc_cur_cells[proc] < proc_num_cells[proc] && proc != local_proc_id )
-	    {
-	      proc_page_count[proc] = min( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
-	      cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
-	      MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], MPI_COMM_WORLD, &requests[proc] );
-	      num_requests++;
-	    } 
-	  else
-	    {
-	      proc_page_count[proc] = 0;
-	      cart_free( cellvars[proc] );
-	      requests[proc] = MPI_REQUEST_NULL;
-	    }
+			if ( current_read_count >= local_file_root_cells && current_level_count >= num_cells_per_level[min_level] ) {
+				continue_reading = 0;
+			}
+		} else {
+			if ( current_level_count >= num_cells_per_level[min_level] ) {
+				continue_reading = 0;
+			}
+		}
 	}
 
-      if ( local_proc_id == file_parent )
-	{
-	  if ( num_requests > 0 )
-	    {
-	      /* see if sends have completed, if they have we can continue to read */
-	      MPI_Testall( num_send_requests, send_requests, &ready_to_read, MPI_STATUSES_IGNORE );
-	    } 
-	  else
-	    {
-	      /* not waiting on any receives, so we can't do anything until
-	       * we read in additional data */
-	      MPI_Waitall( num_send_requests, send_requests, MPI_STATUSES_IGNORE );
-	      num_send_requests = 0;
-	      ready_to_read = 1;
-	    }
+	if ( local_proc_id == file_parent ) {
+		if ( !ready_to_read ) {
+			MPI_Waitall( num_send_requests, send_requests, MPI_STATUSES_IGNORE );
+		}
 
-	  if ( current_read_count >= local_file_root_cells && current_level_count >= num_cells_per_level[min_level] )
-	    {
-	      continue_reading = 0;
-	    }
-	} 
-      else
-	{
-	  if ( current_level_count >= num_cells_per_level[min_level] )
-	    {
-	      continue_reading = 0;
-	    }
+		cart_free( cellvars_buffer );
+		fread( &size, sizeof(int), 1, input );
 	}
-    }
-
-  if ( local_proc_id == file_parent )
-    {
-      if ( !ready_to_read ) 
-	{
-	  MPI_Waitall( num_send_requests, send_requests, MPI_STATUSES_IGNORE );
-	}
-
-      cart_free( cellvars_buffer );
-      fread( &size, sizeof(int), 1, input );
-
-    }
 }
 
 
