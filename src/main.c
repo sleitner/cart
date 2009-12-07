@@ -150,12 +150,16 @@ int main ( int argc, char *argv[]) {
 	#endif
 
 	/* set up mpi datatypes, timers, units, etc 
-         * (init_units called in case units set in config file) */
+	 * (init_units called in case units set in config file) */
 	init_auxiliary();
 	init_units();
 	init_timers();
 	init_logging( restart );
 	init_cell_buffer();
+
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
+	init_fft();
+#endif
 
 #ifdef PARTICLES
 	init_particles();
@@ -228,7 +232,7 @@ int main ( int argc, char *argv[]) {
 		check_map();
 	} else {
 		read_restart(restart_a);
-		load_balance();
+		/* load_balance(); */
 		check_map();
 
 		choose_timestep( &dtl[min_level] );
@@ -286,7 +290,8 @@ int main ( int argc, char *argv[]) {
 		}
 #endif /* COSMOLOGY */
 
-		if ( ( timelimit > 0.0 && current_steps > 0 && timelimit-current_time(TOTAL_TIME,min_level) < 1.5*last_time( LEVEL_TIMER, min_level ) ) ||
+		if ( ( timelimit > 0.0 && current_steps > 0 && 
+				timelimit-current_time(TOTAL_TIME,min_level) < 1.5*last_time( LEVEL_TIMER, min_level ) ) ||
 				( max_steps > 0 && current_steps >= max_steps ) ) {
 			cart_debug("reached time or step limit... writing restart");
 
@@ -318,7 +323,7 @@ int main ( int argc, char *argv[]) {
 			init_particles();
 #endif /* PARTICLES */
 			read_restart(0);
-			load_balance();
+			/* load_balance(); */
 			end_time( RESTART_TIMER );
 
 			dt = 0.5*min( dtl[min_level], restart_dt );
