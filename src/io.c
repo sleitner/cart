@@ -410,10 +410,10 @@ void save_check() {
 	int particle_save_flag;
 	int tracer_save_flag;
 
-	if ( step % (2*restart_frequency) == 0 ) {
-		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
-	} else {
+	if ( restart_frequency != 0 && step % (2*restart_frequency) == 0 ) {
 		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
+	} else {
+		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
 	}
 
 	if ( particle_output_frequency != 0 && step % particle_output_frequency == 0 ) {
