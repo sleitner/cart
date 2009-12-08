@@ -228,7 +228,7 @@ int main ( int argc, char *argv[]) {
 		check_map();
 	} else {
 		read_restart(restart_a);
-		/* load_balance(); */
+		load_balance(); 
 		check_map();
 
 		choose_timestep( &dtl[min_level] );
@@ -319,7 +319,7 @@ int main ( int argc, char *argv[]) {
 			init_particles();
 #endif /* PARTICLES */
 			read_restart(0);
-			/* load_balance(); */
+			load_balance(); 
 			end_time( RESTART_TIMER );
 
 			dt = 0.5*min( dtl[min_level], restart_dt );
