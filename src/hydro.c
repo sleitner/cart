@@ -87,10 +87,10 @@ void hydro_step( int level, MPI_Comm local_comm ) {
 	pressure_floor = 0.0;
 #endif
 
-        dtx = dtl[level] * cell_size_inverse[level];
+	dtx = dtl[level] * cell_size_inverse[level];
 	dxi = cell_size_inverse[level];
 	dxi2 = 0.5*cell_size_inverse[level];
-        dtx2 = 0.5*dtx;
+	dtx2 = 0.5*dtx;
 
 	start_time( HYDRO_TIMER );
 
@@ -229,23 +229,23 @@ void hydro_sweep_1d( int level ) {
                         }
 
 #pragma omp parallel for default(none), private(j,icell), shared(count,cell_list,level,f,dxi,dxi2)
-                        for ( j = 0; j < count; j++ ) {
-                                icell = cell_list[j][2];
+			for ( j = 0; j < count; j++ ) {
+				icell = cell_list[j][2];
 
-                                if ( cell_is_local(icell) ) {
-                                        if ( cell_level(icell) < level ) {
+				if ( cell_is_local(icell) ) {
+					if ( cell_level(icell) < level ) {
 						apply_hydro_fluxes( icell, 0.125, dxi2, f[j] );
-                                        } else {
+					} else {
 						apply_hydro_fluxes( icell, 1.0, dxi, f[j] );
 					}
-                                }
-                        }
+				}
+			}
 
-                        count = 0;
+			count = 0;
 		}
-        }
+	}
 
-        cart_free( level_cells );
+	cart_free( level_cells );
 }
 
 #if defined(GRAVITY) && (!defined(GRAVITY_IN_RIEMANN))

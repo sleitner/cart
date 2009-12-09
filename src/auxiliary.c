@@ -73,45 +73,45 @@ double integrate( double (*f)(double), double a, double b, double epsrel, double
 
 	w = gsl_integration_workspace_alloc(1000);
 
-        F.function = gsl_function_wrapper;
-        F.params = (void *)f;  /* NG: BAD!!! Unsafe type cast */
+	F.function = gsl_function_wrapper;
+	F.params = (void *)f;  /* NG: BAD!!! Unsafe type cast */
 
 	gsl_integration_qag(&F, a, b, epsrel, epsabs, 1000, 6,
                 w, &result, &error);
                                                                                                                                                             
-        gsl_integration_workspace_free(w);
-                                                                                                                                                            
-        return result;
+	gsl_integration_workspace_free(w);
+
+	return result;
 }
 
 #define MAX_ITER 1000
                                                                                                                                                             
 double root_finder( double (*f)(double), double a, double b, double epsrel, double epsabs ) {
-        int status,i;
-        double root;
-        const gsl_root_fsolver_type *T;
-        gsl_root_fsolver *s;
-        gsl_function F;
-                                                                                                                                                            
-        F.function = gsl_function_wrapper;
-        F.params = (void *)f;
-                                                                                                                                                            
-        T = gsl_root_fsolver_brent;
-        s = gsl_root_fsolver_alloc (T);
-        gsl_root_fsolver_set (s, &F, a, b);
-                                                                                                                                                            
-        for ( i = 0; i < MAX_ITER; i++ ) {
-                status = gsl_root_fsolver_iterate (s);
-                status = gsl_root_test_interval (gsl_root_fsolver_x_lower(s),
-                                                 gsl_root_fsolver_x_upper(s),
-                                                 epsrel, epsabs);
+	int status,i;
+	double root;
+	const gsl_root_fsolver_type *T;
+	gsl_root_fsolver *s;
+	gsl_function F;
 
-                if (status == GSL_SUCCESS) {
-                        root = gsl_root_fsolver_root(s);
-                        gsl_root_fsolver_free(s);
-                        return root;
-                }
-        }
+	F.function = gsl_function_wrapper;
+	F.params = (void *)f;
+
+	T = gsl_root_fsolver_brent;
+	s = gsl_root_fsolver_alloc (T);
+	gsl_root_fsolver_set (s, &F, a, b);
+
+	for ( i = 0; i < MAX_ITER; i++ ) {
+		status = gsl_root_fsolver_iterate (s);
+		status = gsl_root_test_interval (gsl_root_fsolver_x_lower(s),
+				gsl_root_fsolver_x_upper(s),
+				epsrel, epsabs);
+
+		if (status == GSL_SUCCESS) {
+			root = gsl_root_fsolver_root(s);
+			gsl_root_fsolver_free(s);
+			return root;
+		}
+	}
 
 	cart_error("Did not reach root after %u iterations!", MAX_ITER);
 	return 0.0;
@@ -120,13 +120,13 @@ double root_finder( double (*f)(double), double a, double b, double epsrel, doub
 #undef MAX_ITER
 
 int compare_ints( const void *a, const void *b ) {
-        if ( *(int *)a == -1 ) {
-                return 1;
-        } else if ( *(int *)b == -1 ) {
-                return -1;
-        } else {
-                return ( *(int *)a - *(int *)b );
-        }
+	if ( *(int *)a == -1 ) {
+		return 1;
+	} else if ( *(int *)b == -1 ) {
+		return -1;
+	} else {
+		return ( *(int *)a - *(int *)b );
+	}
 }
 
 int compare_floats( const void *a, const void *b ) {
@@ -190,11 +190,10 @@ void cart_error( const char *fmt, ... ) {
 
 	sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
 	f = fopen(filename,"a");
-	if(f != 0)
-	  {
-	    fprintf(f,"ERROR: %s\n",message);
-	    fclose(f);
-	  }
+	if (f != 0) {
+		fprintf(f,"ERROR: %s\n",message);
+		fclose(f);
+	}
 
 	MPI_Abort( MPI_COMM_WORLD, 1 );
 }

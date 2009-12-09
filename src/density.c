@@ -27,8 +27,8 @@
 void initialize_density( int level ) {
 	int i;
 	int icell;
-        int num_level_cells;
-        int *level_cells;
+	int num_level_cells;
+	int *level_cells;
 
 	start_time( WORK_TIMER );
 
@@ -90,11 +90,11 @@ void assign_density( int level ) {
 #ifdef PARTICLES
 
 #ifdef MAX_LEVEL_DARK_DENSITY
-        if ( level <= MAX_LEVEL_DARK_DENSITY ) {
-          assign_particle_density( level );
-        } else {
-          assign_particle_density_smoothed( level );
-        }
+	if ( level <= MAX_LEVEL_DARK_DENSITY ) {
+		assign_particle_density( level );
+	} else {
+		assign_particle_density_smoothed( level );
+	}
 #else
 	assign_particle_density( level );
 #endif
@@ -145,12 +145,12 @@ void assign_hydro_density( int level ) {
 #ifdef PARTICLES
 void find_single_particle_density( int level, double size2, double size_inverse, int ipart, 
 		int *cell_list, float *mass_assigned ) {
-        double corner[nDim];
-        double cornerx0, cornerx1, cornery0, cornery1, cornerz0, cornerz1;
-        double x, y, z;
-        double xs, ys, zs;
-        double dx0, dx1, dy0, dy1, dz0, dz1;
-        double d00, d01, d10, d11;
+	double corner[nDim];
+	double cornerx0, cornerx1, cornery0, cornery1, cornerz0, cornerz1;
+	double x, y, z;
+	double xs, ys, zs;
+	double dx0, dx1, dy0, dy1, dz0, dz1;
+	double d00, d01, d10, d11;
 
 	x = particle_x[ipart][0];
 	y = particle_x[ipart][1];
@@ -247,26 +247,26 @@ void find_single_particle_density( int level, double size2, double size_inverse,
 
 
 void assign_particle_density( int level ) {
-        int i, j, k;
+	int i, j, k;
 	int count;
-        int ipart;
-        int icell;
-        int is_first;
+	int ipart;
+	int icell;
+	int is_first;
 	double size2, size_inverse;
 #ifdef RT_VAR_SOURCE
-        float sor;
+	float sor;
 #endif
 	int particle_list[DENSITY_CHUNK_SIZE];
 	int cell_list[num_children*DENSITY_CHUNK_SIZE];
 	float mass_assigned[num_children*DENSITY_CHUNK_SIZE];
 
-        start_time( WORK_TIMER );
+	start_time( WORK_TIMER );
 
-        size2 = 0.5*cell_size[level];
-        size_inverse = cell_size_inverse[level];
+	size2 = 0.5*cell_size[level];
+	size_inverse = cell_size_inverse[level];
 	count = 0;
 
-        for ( i = 0; i < num_particles; i++ ) {
+	for ( i = 0; i < num_particles; i++ ) {
 		if ( particle_level[i] >= level ) {
 			particle_list[count++] = i;
 		}
@@ -333,16 +333,16 @@ void assign_particle_density( int level ) {
 #ifdef MAX_LEVEL_DARK_DENSITY
 /* snl With a few more ifdefs all this could be done in the original routine */
 void assign_particle_density_smoothed( int level ) { 
-        int i, j, k;
+	int i, j, k;
 	int count;
-        int ipart;
-        int icell, icell0;
-        int is_first;
-        int is_star;
+	int ipart;
+	int icell, icell0;
+	int is_first;
+	int is_star;
 	double size2, size_inverse;
 	double size2_star, size_star_inverse;
 #ifdef RT_VAR_SOURCE
-        float sor;
+	float sor;
 #endif
 	int particle_list[DENSITY_CHUNK_SIZE];
 	int cell_list[num_children*DENSITY_CHUNK_SIZE];
@@ -355,23 +355,23 @@ void assign_particle_density_smoothed( int level ) {
 	int ic,icid;
 	int ilev;
 	
-        start_time( WORK_TIMER );
+	start_time( WORK_TIMER );
 
 	high_levels = level - MAX_LEVEL_DARK_DENSITY  ;
 	cart_assert ( high_levels > 0 );
 	children_at_level = pow( 2, 3*high_levels );
 
 	/* smoothed interpolation is done on MAX_LEVEL_DARK_DENSITY so sizes reflect this*/
-        size2 = 0.5*cell_size[MAX_LEVEL_DARK_DENSITY];
-        size_inverse = cell_size_inverse[MAX_LEVEL_DARK_DENSITY];
+	size2 = 0.5*cell_size[MAX_LEVEL_DARK_DENSITY];
+	size_inverse = cell_size_inverse[MAX_LEVEL_DARK_DENSITY];
 
-        size2_star = 0.5*cell_size[level];
-        size_star_inverse = cell_size_inverse[level];
+	size2_star = 0.5*cell_size[level];
+	size_star_inverse = cell_size_inverse[level];
 
 	count = 0;
-        for ( i = 0; i < num_particles; i++ ) {
+	for ( i = 0; i < num_particles; i++ ) {
 		if ( particle_level[i] >= level ) {
-		  particle_list[count++] = i; 
+			particle_list[count++] = i; 
 		}
 
 		if ( i == num_particles-1 || count == DENSITY_CHUNK_SIZE ) {
@@ -384,15 +384,15 @@ void assign_particle_density_smoothed( int level ) {
 				is_star = 0;
 #endif
 				if ( is_star ) {
-				  /* stars put density on their own leaves */
-				  find_single_particle_density( level, size2_star, size_star_inverse, 
-								ipart, &cell_list[num_children*j],
-								&mass_assigned[num_children*j] );
+					/* stars put density on their own leaves */
+					find_single_particle_density( level, size2_star, size_star_inverse, 
+							ipart, &cell_list[num_children*j],
+							&mass_assigned[num_children*j] );
 				} else {
-				  /* assign density of particles in list at MAX_LEVEL_DARK_DENSITY*/
-				  find_single_particle_density( MAX_LEVEL_DARK_DENSITY, size2, size_inverse, 
-								ipart, &cell_list[num_children*j],
-								&mass_assigned[num_children*j] );
+					/* assign density of particles in list at MAX_LEVEL_DARK_DENSITY*/
+					find_single_particle_density( MAX_LEVEL_DARK_DENSITY, size2, size_inverse, 
+							ipart, &cell_list[num_children*j],
+							&mass_assigned[num_children*j] );
 				}
 			}
 
@@ -412,14 +412,14 @@ void assign_particle_density_smoothed( int level ) {
 #endif
 	
 				if ( is_star ) {
-      				        for ( k = 0; k < num_children; k++ ) {
-					        icell = cell_list[num_children*j+k];
+					for ( k = 0; k < num_children; k++ ) {
+						icell = cell_list[num_children*j+k];
 
 						if ( icell != -1 ) {
-						      cell_density(icell) += mass_assigned[num_children*j+k] ;
-						      cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
+							cell_density(icell) += mass_assigned[num_children*j+k] ;
+							cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
 #ifdef RT_VAR_SOURCE
-						      cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
+							cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
 #endif
 						}
 					}
@@ -429,42 +429,42 @@ void assign_particle_density_smoothed( int level ) {
 						icell0 = cell_list[num_children*j+k];
 						
 						if ( icell0 != -1 ) {
-						  mass_assigned[num_children*j+k] /= pow( 2., 3*(high_levels));
+							mass_assigned[num_children*j+k] /= pow( 2., 3*(high_levels));
 						  
-						  /* now find all youngest relatives of these cells to level "level" and give the fraction of mass_assigned to
-						   * cell_density[icell] to cells that are refined at or below the particle level =level */
-						  ic = 0;
-						  while ( ic < children_at_level ) {
-						    icid = ic;
-						    icell = icell0;
-						    ilev = 0;
+							/* now find all youngest relatives of these cells to level "level" and give the fraction of mass_assigned to
+							 * cell_density[icell] to cells that are refined at or below the particle level =level */
+							ic = 0;
+							while ( ic < children_at_level ) {
+								icid = ic;
+								icell = icell0;
+								ilev = 0;
 
-						    while ( ilev < high_levels && icell !=-1 ){
-						      cells_below_ilev = pow(  2 , 3*( high_levels-(ilev+1) )  );
-                                                      index_to_child = (int)icid / cells_below_ilev ;
-                                                      icid -= cells_below_ilev * index_to_child;
-						      icell = cell_child ( icell, index_to_child );
-						      ilev++;
-						    }
+								while ( ilev < high_levels && icell !=-1 ){
+									cells_below_ilev = pow(  2 , 3*( high_levels-(ilev+1) )  );
+									index_to_child = (int)icid / cells_below_ilev ;
+									icid -= cells_below_ilev * index_to_child;
+									icell = cell_child ( icell, index_to_child );
+									ilev++;
+								}
 
-						    if ( icell != -1 ) {
-						      cell_density(icell) += mass_assigned[num_children*j+k] ;
-						      if(is_first){
-							cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
-						      }
+								if ( icell != -1 ) {
+									cell_density(icell) += mass_assigned[num_children*j+k] ;
+									if(is_first){
+										cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
+									}
 #ifdef RT_VAR_SOURCE
-						      cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
+									cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
 #endif
-						      ic++; 
-						    }else {
-						      ic += pow( 2,3*(high_levels-ilev) ) ;
-						    }
-						    
-						  }
-						  
+									ic++; 
+								}else {
+									ic += pow( 2,3*(high_levels-ilev) ) ;
+								}
+
+							}
+
 						}
 					}
-					
+
 				}
 			}
 
@@ -478,8 +478,7 @@ void assign_particle_density_smoothed( int level ) {
 	 *  have correct densities on all cells/buffer cells) */
 	merge_buffer_cell_densities( level );
 }
+
 #endif /* MAX_LEVEL_DARK_DENSITY */
-
 #endif /* PARTICLES */
-
 #endif /* GRAVITY */

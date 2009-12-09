@@ -196,7 +196,8 @@ void cell_buffer_delete_remote_oct( int level, int processor, int local_oct ) {
 	}
 
 	if ( !found ) {
-		cart_error("cell_buffer_delete_remote_oct: %u was not found in list %u long", local_oct, num_remote_buffers[level][processor] );
+		cart_error("cell_buffer_delete_remote_oct: %u was not found in list %u long", local_oct, 
+				num_remote_buffers[level][processor] );
 	} else {
 		num_remote_buffers[level][processor]--;
 		new_buffer = cart_alloc(int, num_remote_buffers[level][processor] );

@@ -172,13 +172,13 @@ int timestep( int level, MPI_Comm local_comm )
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
 	
-        if(mpi_customization_mode & MPI_CUSTOM_SYNC)
-          {
-            /*
-            //  Sync all procs at this level before creating a new communicator
-            */
-            MPI_Barrier(local_comm);
-          }
+	if(mpi_customization_mode & MPI_CUSTOM_SYNC)
+	{
+		/*
+		//  Sync all procs at this level before creating a new communicator
+		 */
+		MPI_Barrier(local_comm);
+	}
 
 	/* 
 	//  Create a child communicator
@@ -235,9 +235,9 @@ int timestep( int level, MPI_Comm local_comm )
 				tl[nlevel] += dtl[nlevel];
 
 #ifdef COSMOLOGY
-			        abox_old[nlevel] = abox[nlevel];
-			        abox[nlevel] = abox_from_tcode( tl[nlevel] );
-			        auni[nlevel] = auni_from_tcode( tl[nlevel] );
+				abox_old[nlevel] = abox[nlevel];
+				abox[nlevel] = abox_from_tcode( tl[nlevel] );
+				auni[nlevel] = auni_from_tcode( tl[nlevel] );
 #endif
 
 				num_steps_on_level[nlevel]++;
@@ -308,16 +308,16 @@ int timestep( int level, MPI_Comm local_comm )
 
 #ifdef HYDRO
 #ifdef STARFORM
-        if ( num_steps_on_level[level] % star_formation_frequency[level] == 0 ) {
-                star_formation( level, star_formation_frequency[level] );
-        }
+	if ( num_steps_on_level[level] % star_formation_frequency[level] == 0 ) {
+		star_formation( level, star_formation_frequency[level] );
+	}
 #endif /* STARFORM */
 #endif /* HYDRO */
 
 #ifdef GRAVITY
-#ifdef HYDRO
-	/* if hydro is enabled, we destroyed the value of the acceleration variable
-	 * and need to recompute it here */
+#if defined(HYDRO) || defined(REFINEMENT)
+	/* if hydro or refinement are enabled, we destroyed the value of the 
+	 * acceleration variable and need to recompute it here */
 	compute_accelerations_particles(level);
 #endif /* HYDRO */
 #endif /* GRAVITY */

@@ -160,8 +160,8 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	double pw_l, uw_l, vw_l, ww_l, gamw_l, b_l, x0_l, rho0_l;
 	double v0_l, w0_l, gam0_l, xx1, xx2, b0_l, v_l, w_l, p_l, gam_l;
 	double rhor_r, u_r, a_r, c_r, c2_r, cp_r, cm_r, x_r, rhow_r;
-        double pw_r, uw_r, vw_r, ww_r, gamw_r, b_r, x0_r, rho0_r;
-        double v0_r, w0_r, gam0_r, b0_r, v_r, w_r, p_r, gam_r;
+	double pw_r, uw_r, vw_r, ww_r, gamw_r, b_r, x0_r, rho0_r;
+	double v0_r, w0_r, gam0_r, b0_r, v_r, w_r, p_r, gam_r;
 	double rho, vu, pre, gam, xup_r, xup_l, vv, vw, fmass, predtx;
 	double pvu, vudtx;
 	double fu, fv, fw, fe;
