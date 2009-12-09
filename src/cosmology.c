@@ -46,7 +46,7 @@ struct CosmologyInternal
   double *qPlus;
   double aLow;
   double tCodeOffset;
-} cosmology_internal_data = { 25, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1.0e-2, 0.0 };
+} cosmology_internal_data = { 200, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1.0e-2, 0.0 };
 
 #define c cosmology_internal_parameters
 #define d cosmology_internal_data

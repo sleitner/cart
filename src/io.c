@@ -2480,7 +2480,7 @@ void read_particles( char *header_filename, char *data_filename,
 		ekin		= header.ekin;
 		ekin1		= header.ekin1;
 		ekin2		= header.ekin2;
-		au0		= header.au0;
+		au0			= header.au0;
 		aeu0		= header.aeu0;
 
 #ifdef COSMOLOGY

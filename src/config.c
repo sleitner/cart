@@ -156,7 +156,7 @@ void read_config( char *filename ) {
 				while ( output != NULL && num_outputs < MAX_OUTPUTS ) {
 					outputs[num_outputs++] = atof( output );
 					output = strtok( NULL, " " );
-				}
+				}	
 			} else if ( strcmp( tag, "cfl" ) == 0 ) {
 				cfl_run = cfl_max = atof( value );
 			} else if ( strcmp( tag, "cfl_run" ) == 0 ) {
