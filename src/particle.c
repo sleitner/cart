@@ -1330,7 +1330,23 @@ void build_mesh() {
 	int level, cell;
 	int total_cells_per_level[max_level-min_level+1];
 	float refmin[nDim];
-        float refmax[nDim];
+	float refmax[nDim];
+
+	/* Doug (11/29/2009): necessary to properly set particle timestep 
+     * (not certain abox and auni are required here) */
+#ifdef COSMOLOGY
+	abox[min_level] = abox_from_tcode(tl[min_level]);
+	auni[min_level] = auni_from_tcode(tl[min_level]);
+#else
+	abox[min_level] = auni[min_level];
+#endif
+
+	for ( i = min_level+1; i <= max_level; i++ ) {
+		tl[i] = tl[min_level];
+		dtl[i] = 0.5*dtl[i-1];
+		abox[i] = abox[min_level];
+		auni[i] = auni[min_level];
+	}
 
 	for ( i = 0; i < nDim; i++ ) {
 		refmin[i] = num_grid+1.0;
@@ -1382,7 +1398,7 @@ void build_mesh() {
 
 		if(total_cells_per_level[level] > 0) {
 			for(j=0; j<num_particles; j++) { 
-				if(particle_level[j] != FREE_PARTICLE_LEVEL) {
+				if ( particle_level[j] != FREE_PARTICLE_LEVEL) {
 					cell = cell_find_position_above_level(level,particle_x[j]);
 					cart_assert(cell > -1);
 					particle_level[j] = cell_level(cell);
