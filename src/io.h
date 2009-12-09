@@ -102,14 +102,9 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 void write_grid_binary( char *filename );
 void read_grid_binary( char *filename );
 
-#ifdef HYDRO
-void read_gas_ic( char *filename );
-void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_level_to_read );
-
 #ifdef HYDRO_TRACERS
 void read_hydro_tracers( char *filename );
 void write_hydro_tracers( char *filename );
 #endif /* HYDRO_TRACERS */
-#endif /* HYDRO */
 
 #endif

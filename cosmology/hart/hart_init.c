@@ -1,6 +1,5 @@
 #include "defs.h"
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -27,6 +26,7 @@
 #include "starformation.h"
 #include "io.h"
 
+#include "hart_init.h"
 
 void hart_init() {
 	int i;
@@ -44,7 +44,7 @@ void hart_init() {
 
 #ifdef HYDRO
 	sprintf( filename, "%s/tr_ic.dat", output_directory );
-	read_gas_ic(filename);
+	read_hart_gas_ic(filename);
 	cart_debug("read in gas");
 
 	hydro_magic( min_level );
@@ -55,7 +55,7 @@ void hart_init() {
 	cart_debug(" a[min_level] = %f", auni[min_level] );
 
 	dtl[min_level] = 0.0;
-        choose_timestep( &dtl[min_level] );
+	choose_timestep( &dtl[min_level] );
 
 #ifdef PARTICLES
 	build_mesh();

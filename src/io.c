@@ -5154,7 +5154,7 @@ void read_grid_binary( char *filename ) {
 #endif
 #ifdef ADVECT_SPECIES
 	for(j=0; j<num_chem_species; j++) {
-		hydro_vars[8+j] = HVAR_ADVECTED_VARIABLES+j;
+        hydro_vars[num_hydro_vars-num_chem_species+j] = HVAR_ADVECTED_VARIABLES+j;
 	}
 #endif /* ADVECT_SPECIES */
 #endif /* HYDRO */
