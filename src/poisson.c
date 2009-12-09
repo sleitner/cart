@@ -9,16 +9,7 @@
 
 #ifdef GRAVITY
 
-#ifdef FFT_DOUBLE
-#include <drfftw.h>
-#include <dfftw.h>
-#else
-#include <srfftw.h>
-#include <sfftw.h>
-#endif /* FFT_DOUBLE */
-
-
-void poisson( int id, fftw_complex *fft_density, fftw_complex *dummy ) {
+void poisson( int id, type_fft_complex *fft_density, type_fft_complex *dummy ) {
 	int i, j, k;
 	int index, index1, index2;
 	double G, G_i, G_j, G_k;
@@ -53,8 +44,8 @@ void poisson( int id, fftw_complex *fft_density, fftw_complex *dummy ) {
 					G = trphi / G_k;
 				}
 
-				fft_density[index].re *= G;
-				fft_density[index].im *= G;
+				c_re(fft_density[index]) *= G;
+				c_im(fft_density[index]) *= G;
 			}
 		}
 	}

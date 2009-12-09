@@ -30,6 +30,7 @@
 #include "logging.h"
 #include "auxiliary.h"
 #include "cooling.h"
+#include "top_level_fft.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -147,6 +148,10 @@ int main ( int argc, char *argv[]) {
 		uname(&uname_info);
 		cart_debug("node: %s", uname_info.nodename );
 	}
+	#endif
+
+	#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
+	init_fft();
 	#endif
 
 	/* set up mpi datatypes, timers, units, etc 
