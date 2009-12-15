@@ -1,0 +1,8 @@
+# COMPILE OPTIONS
+
+CC      = mpicc 
+CFLAGS  = -q64 -O2
+F77     = mpif77
+FFLAGS  = 
+INCLUDES= 
+EXTRALIBS=
