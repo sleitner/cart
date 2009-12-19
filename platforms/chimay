@@ -1,8 +1,8 @@
 # COMPILE OPTIONS
 
 CC      = mpicc 
-CFLAGS  = -q64 -O2
+CFLAGS  = -O2
 F77     = mpif77
 FFLAGS  = 
-INCLUDES= 
+INCLUDES= -I/home/dhr9/fftw-2.1.5/include -L/home/dhr9/fftw-2.1.5/lib -I/home/dhr9/gsl-1.12/include -L/home/dhr9/gsl-1.12/lib
 EXTRALIBS=
