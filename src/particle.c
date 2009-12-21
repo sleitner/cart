@@ -1403,10 +1403,10 @@ void build_mesh() {
 					cart_assert(cell > -1);
 					particle_level[j] = cell_level(cell);
 				}
+			}
 		   
-				if ( total_cells_per_level[level] > 0 ) {
-					load_balance();
-				}
+			if ( total_cells_per_level[level] > 0 ) {
+				load_balance();
 			}
 		}
 	}

@@ -17,7 +17,6 @@
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "extra/viewdump.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -26,6 +25,10 @@
 #include "starformation.h"
 #include "io.h"
 
+#ifdef HYDRO
+void read_hart_gas_ic( char *filename );
+#endif /* HYDRO */
+
 void run_output() {
 }
 
@@ -33,8 +36,6 @@ void init_run() {
 	int i,j;
 	int level;
 	int total_cells_per_level[max_level-min_level+1];
-	float refmin[nDim];
-        float refmax[nDim];
 	char filename[256], filename2[256];
 
 #ifdef PARTICLES
@@ -49,7 +50,7 @@ void init_run() {
 
 #ifdef HYDRO
 	sprintf( filename, "ICs/tr_ic.dat" );
-	read_gas_ic(filename);
+	read_hart_gas_ic(filename);
 	cart_debug("read in gas");
 
 	hydro_magic( min_level );
@@ -60,75 +61,28 @@ void init_run() {
 	cart_debug(" a[min_level] = %f", auni[min_level] );
 
 	dtl[min_level] = 0.0;
-        choose_timestep( &dtl[min_level] );
+	choose_timestep( &dtl[min_level] );
 
 #ifdef PARTICLES
-	for ( i = 0; i < nDim; i++ ) {
-		refmin[i] = num_grid+1.0;
-		refmax[i] = -1.0;
-
-		for ( j = 0; j < num_particles; j++ ) {
-			if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
-					particle_id[j] < particle_species_indices[1] ) {
-				if ( particle_x[j][i] < refmin[i] ) {
-					refmin[i] = particle_x[j][i];
-				}
-
-				if ( particle_x[j][i] > refmax[i] ) {
-					refmax[i] = particle_x[j][i];
-				}
-			}
-		}
-	}
-#else
-	for ( i = 0; i < nDim; i++ ) {
-		refmin[i] = -1.0;
-		refmax[i] = num_grid+1;
-	}
-#endif /* PARTICLES */
-
-	MPI_Allreduce( refmin, refinement_volume_min, nDim, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD );
-	MPI_Allreduce( refmax, refinement_volume_max, nDim, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD );
-
-	for ( i = 0; i < nDim; i++ ) {
-		cart_debug("refinement_volume[%u] = %e %e", i, refinement_volume_min[i],
-			refinement_volume_max[i] );
-	}
+	build_mesh();
 
 #ifdef STARFORM
 	for ( i = 0; i < nDim; i++ ) {
 		star_formation_volume_min[i] = refinement_volume_min[i];
 		star_formation_volume_max[i] = refinement_volume_max[i];
 	}
-#endif
+#endif /* STARFORM */
 
-	build_cell_buffer();
-	repair_neighbors();
-
-	/* do initial refinement */
-	level = min_level;
-	total_cells_per_level[min_level] = num_root_cells;
-	while ( level < max_level && total_cells_per_level[level] > 0 ) {
-		cart_debug("assigning density to level %u", level );
-		assign_density(level);
-		cart_debug("refining level %u, num_cells_per_level = %d", level, num_cells_per_level[level] );
-		modify( level, 0 );
-		cart_debug("done refining level %u, created %u new cells", 
-				level, num_cells_per_level[level+1] );
-		MPI_Allreduce( &num_cells_per_level[level+1], &total_cells_per_level[level+1], 
-				1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
-		level++;
-	
-		if ( local_proc_id == MASTER_NODE ) {
-			cart_debug("level %u: %u cells", level, total_cells_per_level[level] );
-		}
-
-		load_balance();
+#else
+	for ( i = 0; i < nDim; i++ ) {
+		refinement_volume_min[i] = 0;
+		refinement_volume_max[i] = (double)num_grid;
 	}
+#endif /* PARTICLES */
 
 	if ( !buffer_enabled ) {
-	        cart_debug("building cell buffer");
-        	build_cell_buffer();
-	        repair_neighbors();
-	}
+		cart_debug("building cell buffer");
+		build_cell_buffer();
+		repair_neighbors();
+	}     
 }

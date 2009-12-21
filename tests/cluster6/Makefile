@@ -6,8 +6,11 @@ compile:	cart
 
 include $(TOP_DIR)/Make.config
 
-cart: .obj $(OBJS) defs.h start_cosmology.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_cosmology.c -o cart $(LIBS) $(EXTRALIBS)
+hart_reader.o: $(DEFS) hart_reader.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -c hart_reader.c
+
+cart: .obj $(OBJS) hart_reader.o defs.h start_cosmology.c 
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) hart_reader.o start_cosmology.c -o cart $(LIBS) $(EXTRALIBS)
 
 DAT:
 	@mkdir DAT

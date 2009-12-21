@@ -5,6 +5,7 @@
 #define GRAVITY
 #define COSMOLOGY
 #define HYDRO
+#define REFINEMENT
 #define LAPIDUS
 #define DENSGRADSMOOTH
 #define PRESSURE_FLOOR
