@@ -448,7 +448,7 @@ void rtPackCellData(int level, int cell, f2c_real rVar[], f2c_real rPar[], f2c_r
   //    Metallicity in units of solar
   */
 #ifdef METALCOOLING            
-  rPar[IPAR_ZSOL] = cell_gas_metallicity(cell)/(0.02*cell_gas_density(cell));
+  rPar[IPAR_ZSOL] = cell_gas_metallicity(cell)/(Zsolar*cell_gas_density(cell));
 #else
   rPar[IPAR_ZSOL] = 0.0;
 #endif

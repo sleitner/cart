@@ -372,7 +372,7 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 #ifdef ENRICH_SNIa
       Zsol += cell_gas_metallicity_Ia(cell);
 #endif
-      Zsol /= (0.02*cell_gas_density(cell));
+      Zsol /= (Zsolar*cell_gas_density(cell));
 #else
       Zsol = 0.0;
 #endif
