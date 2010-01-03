@@ -21,11 +21,11 @@
 
 
 #if nDim == 3
-#define		num_secondary_neighbors	18
+#define		num_stencil				32
+#define		num_secondary_neighbors	12
 #define		num_tertiary_neighbors	8
-#define		num_dependent_neighbors (num_neighbors+num_secondary_neighbors+num_tertiary_neighbors)
 #else
-#error  "Unsupported number of directions for num_secondary_neighbors"
+#error  "Unsupported number of dimensions for stencil"
 #endif
 
 #define		min_level		0
@@ -301,7 +301,7 @@ int cell_child( int c, int j );
 void oct_all_children( int oct, int child_octs[num_children] );
 void cell_all_children( int c, int child_octs[num_children] );
 int root_cell_neighbor( int c, int direction );
-void root_cell_all_dependent_neighbors( int sfc, int neighbors[num_dependent_neighbors] );
+void root_cell_uniform_stencil( int sfc, int neighbors[num_stencil] );
 int cell_neighbor( int c, int direction );
 void cell_all_neighbors( int c, int neighbors[num_neighbors] );
 int split_cell( int cell );
@@ -332,6 +332,7 @@ int tree_num_cells( int c, int level );
 
 /* public constant arrays (precomputed tables) */
 extern const int external_direction[num_children][nDim];
+extern const int uniform_stencil[num_stencil][nDim];
 extern const int secondary_neighbors[num_secondary_neighbors][2];
 extern const int tertiary_neighbors[num_tertiary_neighbors][2];
 extern const int secondary_external_neighbors[num_children][nDim];

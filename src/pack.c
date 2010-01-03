@@ -167,7 +167,7 @@ void pack_apply( pack *p ) {
 			skiplist_iterate( p->tree_list[proc] );
 			while ( skiplist_next( p->tree_list[proc], &root_cells[i] ) ) i++;
 
-                        skiplist_destroy( p->tree_list[proc] );
+			skiplist_destroy( p->tree_list[proc] );
 
 			for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
 				cart_assert( root_cells[i] >= 0 && root_cells[i] < max_sfc_index );
@@ -191,9 +191,24 @@ void pack_apply( pack *p ) {
 				for ( j = 0; j < num_vars; j++ ) {
 					cell_packed_vars[num_vars_packed++] = cell_var(icell,j);
 				}
+			}
 
-				/* pack root cell child ptr */
-				cell_packed_child[i] = cell_child_oct[icell];
+			/* pack root cell child ptr */
+			if ( p->cell_type == CELL_TYPE_BUFFER ) {
+				cart_debug("cell_type == CELL_TYPE_BUFFER");
+				for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
+					icell = root_cell_location(root_cells[i]);
+					if ( cell_is_refined(icell) && !cell_can_prune(icell,proc) ) {
+						cell_packed_child[i] = cell_child_oct[icell];
+					} else {
+						cell_packed_child[i] = NULL_OCT;
+					}
+				}
+			} else {
+				for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
+					icell = root_cell_location(root_cells[i]);
+					cell_packed_child[i] = cell_child_oct[icell];
+				}
 			}
 
 			old_offset = 0;
@@ -220,6 +235,7 @@ void pack_apply( pack *p ) {
 							}
 
 							/* pack child ptr */
+							/*
 							if ( cell_is_refined(icell) &&
 									( p->cell_type != CELL_TYPE_BUFFER || 
 									  !cell_can_prune( icell, proc) ) ) {
@@ -228,8 +244,39 @@ void pack_apply( pack *p ) {
 							} else {
 								cell_packed_child[num_cells_packed++] = NULL_OCT;
 							}
+							*/
 	
 							level_count++;
+						}
+					}
+				}
+
+				/* pack child ptr's */
+				if ( p->cell_type == CELL_TYPE_BUFFER ) {
+					for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1]; i++ ) {
+						ioct = cell_packed_child[i];
+
+						if ( ioct != NULL_OCT ) {
+							for ( child = 0; child < num_children; child++ ) {
+								icell = oct_child( ioct, child );
+								if ( cell_is_refined(icell) && !cell_can_prune(icell,proc) ) {
+									cell_packed_child[num_cells_packed++] = 
+										cell_child_oct[icell];
+								} else {
+									cell_packed_child[num_cells_packed++] = NULL_OCT;
+								}
+							}
+						}
+					}
+				} else {
+					for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1]; i++ ) {
+						ioct = cell_packed_child[i];
+
+						if ( ioct != NULL_OCT ) {
+							for ( child = 0; child < num_children; child++ ) {
+								icell = oct_child( ioct, child );
+								cell_packed_child[num_cells_packed++] = cell_child_oct[icell];
+							}
 						}
 					}
 				}

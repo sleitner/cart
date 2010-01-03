@@ -27,26 +27,43 @@ const int reverse_direction[num_neighbors] = {
 	#endif
 };
 
-const int secondary_neighbors[num_secondary_neighbors][2] = {
-	#if nDim == 3
-		{ 0, 0 }, { 0, 2 }, { 0, 3 }, { 2, 2 },
-		{ 1, 1 }, { 1, 2 }, { 1, 3 }, { 3, 3 },
-		{ 4, 0 }, { 4, 1 }, { 4, 2 }, { 4, 3 }, { 4, 4 },
-		{ 5, 0 }, { 5, 1 }, { 5, 2 }, { 5, 3 }, { 5, 5 }
+const int uniform_stencil[num_stencil][nDim] = {
+	#if nDim == 3 
+		{ -1, -1, -1 }, {  0, -1, -1 }, {  1, -1, -1 }, 
+		{ -1,  0, -1 }, {  0,  0, -1 }, {  1,  0, -1 }, 
+		{ -1,  1, -1 }, {  0,  1, -1 }, {  1,  1, -1 }, 	
+		{ -1, -1,  0 }, {  0, -1,  0 }, {  1, -1,  0 }, 
+		{ -1,  0,  0 },                 {  1,  0,  0 }, 
+		{ -1,  1,  0 }, {  0,  1,  0 }, {  1,  1,  0 },  
+		{ -1, -1,  1 }, {  0, -1,  1 }, {  1, -1,  1 }, 
+		{ -1,  0,  1 }, {  0,  0,  1 }, {  1,  0,  1 }, 
+		{ -1,  1,  1 }, {  0,  1,  1 }, {  1,  1,  1 },  
+		{  2,  0,  0 }, { -2,  0,  0 }, {  0,  2,  0 },
+		{  0, -2,  0 }, {  0,  0,  2 }, {  0,  0, -2 }
 	#else
-		#error "No valid secondary_neighbors for that number of dimensions"
+		#error "No valid stencil for that number of dimesions!"
 	#endif
 };
 
+const int secondary_neighbors[num_secondary_neighbors][2] = {
+    #if nDim == 3
+        { 0, 2 }, { 0, 3 }, { 1, 2 }, { 1, 3 },
+        { 4, 0 }, { 4, 1 }, { 4, 2 }, { 4, 3 }, 
+        { 5, 0 }, { 5, 1 }, { 5, 2 }, { 5, 3 }, 
+    #else
+        #error "No valid secondary_neighbors for that number of dimensions"
+    #endif
+};
+
 const int tertiary_neighbors[num_tertiary_neighbors][2] = {
-	#if nDim == 3
-		{ 1, 4 }, { 1, 5 },
-		{ 2, 4 }, { 2, 5 },
-		{ 5, 4 }, { 5, 5 },
-		{ 6, 4 }, { 6, 5 }
-	#else
-		#error "No valid tertiary_neighbors for that number of dimensions"
-	#endif
+    #if nDim == 3
+        { 0, 4 }, { 0, 5 },
+        { 1, 4 }, { 1, 5 },
+        { 2, 4 }, { 2, 5 },
+        { 3, 4 }, { 3, 5 }
+    #else
+        #error "No valid tertiary_neighbors for that number of dimensions"
+    #endif
 };
 
 

@@ -236,7 +236,7 @@ int cell_can_prune( int cell, int proc ) {
 		/* check secondary neighbors */ 
 		for ( i = 0; can_prune && i < num_secondary_neighbors; i++ ) {
 			neighbors2[i] = cell_neighbor( neighbors[ secondary_neighbors[i][0] ],
-        	                        secondary_neighbors[i][1] );
+					secondary_neighbors[i][1] );
 	
 			cart_assert( neighbors2[i] == NULL_OCT || cell_parent_root_sfc(neighbors2[i]) >= 0 );
 			if ( neighbors2[i] == NULL_OCT ||
@@ -259,6 +259,7 @@ int cell_can_prune( int cell, int proc ) {
 			}
 		}
 	} else {
+		/* check primary neighbors */
 		for ( i = 0; i < num_neighbors; i++ ) {
 			if ( neighbors[i] == NULL_OCT ) {
 				can_prune = 0;
@@ -278,7 +279,7 @@ int cell_can_prune( int cell, int proc ) {
 		/* check secondary neighbors */
 		for ( i = 0; can_prune && i < num_secondary_neighbors; i++ ) {
 			neighbors2[i] = cell_neighbor( neighbors[ secondary_neighbors[i][0] ],
-				secondary_neighbors[i][1] );
+					secondary_neighbors[i][1] );
 
 			if ( neighbors2[i] == NULL_OCT ) {
 				can_prune = 0;
@@ -322,7 +323,7 @@ int cell_can_prune( int cell, int proc ) {
 void build_root_cell_buffer() {
 	int i;
 	int sfc;
-	int neighbors[num_dependent_neighbors];
+	int neighbors[num_stencil];
 	skiplist *buffer_list;
 	int *buffer_indices;
 	int index;
@@ -331,9 +332,9 @@ void build_root_cell_buffer() {
 		buffer_list = skiplist_init();
 
 		for ( sfc = proc_sfc_index[local_proc_id]; sfc < proc_sfc_index[local_proc_id+1]; sfc++ ) {	
-			root_cell_all_dependent_neighbors( sfc, neighbors );
+			root_cell_uniform_stencil( sfc, neighbors );
 
-			for ( i = 0; i < num_dependent_neighbors; i++ ) {
+			for ( i = 0; i < num_stencil; i++ ) {
 				if ( !root_cell_is_local(neighbors[i]) ) {
 					skiplist_insert( buffer_list, neighbors[i] );
 				}
@@ -387,7 +388,7 @@ void build_cell_buffer()
 	int sfc, i;
 	int proc, level;
 	int processor;
-	int neighbors[num_dependent_neighbors];
+	int neighbors[num_stencil];
 	int count[max_level-min_level+1];
 	int ioct;
 	int num_hash_octs;
@@ -411,13 +412,13 @@ void build_cell_buffer()
 	buffer_list = pack_init( CELL_TYPE_BUFFER );
 
 	/* loop over all of our local cells, and determine if another processor
-	 * needs to buffer them, assumes dependent_neighbors are symmetric */
+	 * needs to buffer them, assumes the stencil is symmetric */
 	for ( sfc = proc_sfc_index[local_proc_id]; sfc < proc_sfc_index[local_proc_id+1]; sfc++ ) {
 		cart_assert( root_cell_is_local( sfc ) );
 
-		root_cell_all_dependent_neighbors( sfc, neighbors );
+		root_cell_uniform_stencil( sfc, neighbors );
 
-		for ( i = 0; i < num_dependent_neighbors; i++ ) {
+		for ( i = 0; i < num_stencil; i++ ) {
 			if ( !root_cell_is_local( neighbors[i] ) ) {
 				processor = processor_owner( neighbors[i] );
 				pack_add_root_tree( buffer_list, processor, sfc );

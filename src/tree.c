@@ -657,22 +657,18 @@ int root_cell_neighbor( int sfc, int direction )
 	return sfc_index( coords );	
 }
 
-void root_cell_all_dependent_neighbors( int sfc, int neighbors[num_dependent_neighbors] ) {
-	int d;
+void root_cell_uniform_stencil( int sfc, int neighbors[num_stencil] ) {
+	int coords[nDim], coords2[nDim];
+	int i, d;
 
-	for ( d = 0; d < num_neighbors; d++ ) {
-		neighbors[d] = root_cell_neighbor( sfc, d );
-	}
+	sfc_coords( sfc, coords );
 
-	for ( d = 0; d < num_secondary_neighbors; d++ ) {
-		neighbors[num_neighbors+d] = root_cell_neighbor( neighbors[ secondary_neighbors[d][0] ],
-				secondary_neighbors[d][1] );
-	}
+	for ( i = 0; i < num_stencil; i++ ) {
+		for ( d = 0; d < nDim; d++ ) {
+			coords2[d] = (num_grid + coords[d] + uniform_stencil[i][d]) % num_grid;
+		}
 
-	for ( d = 0; d < num_tertiary_neighbors; d++ ) {
-		neighbors[num_neighbors+num_secondary_neighbors+d] = 
-			root_cell_neighbor( neighbors[ num_neighbors + tertiary_neighbors[d][0] ],
-				tertiary_neighbors[d][1] );		
+		neighbors[i] = sfc_index( coords2 );
 	}
 }
 
