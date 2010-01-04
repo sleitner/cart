@@ -200,7 +200,7 @@ void cart_error( const char *fmt, ... ) {
 
 #ifndef NDEBUG
 void cart_debug( const char *fmt, ... ) {
-        int i;
+	int i;
 	char message[256], prompt[256];
 	va_list args;
 	static int first_time = 1;

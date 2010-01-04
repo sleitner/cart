@@ -306,7 +306,7 @@ void smooth( int level ) {
 
 	cart_free( level_cells );
 
-        /* send receive list */
+	/* send receive list */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_recv_octs[proc] > 0 ) {
 			MPI_Isend( send_recv_indices[proc], num_recv_octs[proc], MPI_INT,
@@ -382,20 +382,20 @@ void smooth( int level ) {
 					}
 				}
 			}
-                }
+		}
 	}
 
 	/* compute neighbors for red direct blocks */
-        for ( i = num_local_blocks; i < num_local_blocks+num_direct_blocks; i++ ) {
-                cur_oct = oct_list[i];
+	for ( i = num_local_blocks; i < num_local_blocks+num_direct_blocks; i++ ) {
+		cur_oct = oct_list[i];
 
-                for ( j = 0; j < num_children; j++ ) {
+		for ( j = 0; j < num_children; j++ ) {
 			if ( color[j] == 0 ) {
-	                        icell = 4*i+block_index[j];
+				icell = 4*i+block_index[j];
 
 				for ( k = 0; k < nDim; k++ ) {
-                                	direction = external_direction[j][k];
-	                                neighbor = oct_neighbors[cur_oct][direction];
+					direction = external_direction[j][k];
+					neighbor = oct_neighbors[cur_oct][direction];
 					cart_assert( neighbor != NULL_OCT );
 					cart_assert( cell_level(neighbor) == level-1 );
 
@@ -407,10 +407,10 @@ void smooth( int level ) {
 				if ( k < nDim ) { 
 					for ( k = 0; k < nDim; k++ ) {
 						direction = external_direction[j][k];
-	                                        neighbor = oct_neighbors[cur_oct][direction];
+						neighbor = oct_neighbors[cur_oct][direction];
 						
 						cart_assert( neighbor != NULL_OCT );
-		                                cart_assert( cell_level(neighbor) == level-1 );
+						cart_assert( cell_level(neighbor) == level-1 );
 
 						if ( cell_is_refined(neighbor) ) {
 							block = ind[cell_child_oct[neighbor]];
@@ -432,13 +432,13 @@ void smooth( int level ) {
 	}
 
 	/* now allocate space for cell values (since we know the size exactly) */
-        phi_red = cart_alloc(double, (4*num_blocks + num_red_border_cells) );
-        phi_black = cart_alloc(double, (4*num_blocks + num_black_border_cells) );
+	phi_red = cart_alloc(double, (4*num_blocks + num_red_border_cells) );
+	phi_black = cart_alloc(double, (4*num_blocks + num_black_border_cells) );
 
 	num_red_border_cells = 0;
 	num_black_border_cells = 0;
 
-        /* compute border cell values */
+	/* compute border cell values */
 	for ( i = 0; i < num_local_blocks; i++ ) {
 		cur_oct = oct_list[i];
 
@@ -578,30 +578,30 @@ void smooth( int level ) {
 
 	cart_free( ind );
 
-        /* create communications objects for iteration steps */
+	/* create communications objects for iteration steps */
 	num_sendrequests = 0;
 	num_recvrequests = 0;
-        for ( proc = 0; proc < num_procs; proc++ ) {
-                if ( num_send_octs[proc] > 0 ) {
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_send_octs[proc] > 0 ) {
 			packed_red[proc] = cart_alloc(double, (num_children/2)*num_send_octs[proc] );
 			packed_black[proc] = cart_alloc(double, (num_children/2)*num_send_octs[proc] );
 
 			MPI_Send_init( packed_red[proc], (num_children/2)*num_send_octs[proc], MPI_DOUBLE, proc, 0,
-				MPI_COMM_WORLD, &send_requests[num_sendrequests++] );
+					MPI_COMM_WORLD, &send_requests[num_sendrequests++] );
 			MPI_Send_init( packed_black[proc], (num_children/2)*num_send_octs[proc], MPI_DOUBLE, proc, 1, 
-				MPI_COMM_WORLD, &send_requests[num_sendrequests++]);
-                }
+					MPI_COMM_WORLD, &send_requests[num_sendrequests++]);
+		}
                                                                                                                                                             
-                if ( num_recv_octs[proc] > 0 ) {
+		if ( num_recv_octs[proc] > 0 ) {
 			buffer_red[proc] = cart_alloc(double, (num_children/2)*num_recv_octs[proc] );
 			buffer_black[proc] = cart_alloc(double, (num_children/2)*num_recv_octs[proc] );
 			
-                        MPI_Recv_init( buffer_red[proc], (num_children/2)*num_recv_octs[proc], MPI_DOUBLE,
-                                proc, 0, MPI_COMM_WORLD, &recv_requests[num_recvrequests++] );
-                        MPI_Recv_init( buffer_black[proc], (num_children/2)*num_recv_octs[proc], MPI_DOUBLE,
-                                proc, 1, MPI_COMM_WORLD, &recv_requests[num_recvrequests++] );
-                }
-        }
+			MPI_Recv_init( buffer_red[proc], (num_children/2)*num_recv_octs[proc], MPI_DOUBLE,
+					proc, 0, MPI_COMM_WORLD, &recv_requests[num_recvrequests++] );
+			MPI_Recv_init( buffer_black[proc], (num_children/2)*num_recv_octs[proc], MPI_DOUBLE,
+					proc, 1, MPI_COMM_WORLD, &recv_requests[num_recvrequests++] );
+		}
+	}
 
 	end_time( COMMUNICATION_TIMER );	
 	end_time( SMOOTH_SETUP_TIMER );
@@ -725,46 +725,46 @@ void smooth( int level ) {
 		for ( i = 0; i < num_local_blocks; i++ ) {
 			block = i*4;
 
-                        phi0 = phi_red[block];
-                        phi3 = phi_red[block+1];
-                        phi5 = phi_red[block+2];
-                        phi6 = phi_red[block+3];
+			phi0 = phi_red[block];
+			phi3 = phi_red[block+1];
+			phi5 = phi_red[block+2];
+			phi6 = phi_red[block+3];
 
-                        /* child 1 */
-                        icell = block;
-                        phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
-                                        +   phi_red[ext_black[nDim*icell+1]]
-                                        +   phi_red[ext_black[nDim*icell+2]];
-                        phi_black[icell] = phi_black[icell]
-                                + wsor6 * ( phi_ext_neighbors + phi0 + phi3 + phi5 - 6.0*phi_black[icell] )
-                                - trfi2 * rho_black[icell];
-
-                        /* child 2 */
-                        icell = icell+1;  /* block + 1 */
-                        phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
-                                        +   phi_red[ext_black[nDim*icell+1]]
-                                        +   phi_red[ext_black[nDim*icell+2]];
-                        phi_black[icell] = phi_black[icell]
-                                + wsor6 * ( phi_ext_neighbors + phi0 + phi3 + phi6 - 6.0*phi_black[icell] )
-                                - trfi2 * rho_black[icell];
-
-                        /* child 4 */
-                        icell = icell+1;  /* block + 2 */
-                        phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
-                                        +   phi_red[ext_black[nDim*icell+1]]
-                                        +   phi_red[ext_black[nDim*icell+2]];
-                        phi_black[icell] = phi_black[icell]
-				+ wsor6 * ( phi_ext_neighbors + phi0 + phi5 + phi6 - 6.0*phi_black[icell] )
-                                - trfi2 * rho_black[icell];
-
-                        /* child 7 */
-                        icell = icell+1;  /* block + 3 */
-                        phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
-                                        +   phi_red[ext_black[nDim*icell+1]]
-                                        +   phi_red[ext_black[nDim*icell+2]];
+			/* child 1 */
+			icell = block;
+			phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
+				+   phi_red[ext_black[nDim*icell+1]]
+				+   phi_red[ext_black[nDim*icell+2]];
 			phi_black[icell] = phi_black[icell]
-                                + wsor6 * ( phi_ext_neighbors + phi3 + phi5 + phi6 - 6.0*phi_black[icell] )
-                                - trfi2 * rho_black[icell];
+				+ wsor6 * ( phi_ext_neighbors + phi0 + phi3 + phi5 - 6.0*phi_black[icell] )
+				- trfi2 * rho_black[icell];
+
+			/* child 2 */
+			icell = icell+1;  /* block + 1 */
+			phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
+				+   phi_red[ext_black[nDim*icell+1]]
+				+   phi_red[ext_black[nDim*icell+2]];
+			phi_black[icell] = phi_black[icell]
+				+ wsor6 * ( phi_ext_neighbors + phi0 + phi3 + phi6 - 6.0*phi_black[icell] )
+				- trfi2 * rho_black[icell];
+
+			/* child 4 */
+			icell = icell+1;  /* block + 2 */
+			phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
+				+   phi_red[ext_black[nDim*icell+1]]
+				+   phi_red[ext_black[nDim*icell+2]];
+			phi_black[icell] = phi_black[icell]
+				+ wsor6 * ( phi_ext_neighbors + phi0 + phi5 + phi6 - 6.0*phi_black[icell] )
+				- trfi2 * rho_black[icell];
+
+			/* child 7 */
+			icell = icell+1;  /* block + 3 */
+			phi_ext_neighbors = phi_red[ext_black[nDim*icell]]
+				+   phi_red[ext_black[nDim*icell+1]]
+				+   phi_red[ext_black[nDim*icell+2]];
+			phi_black[icell] = phi_black[icell]
+				+ wsor6 * ( phi_ext_neighbors + phi3 + phi5 + phi6 - 6.0*phi_black[icell] )
+				- trfi2 * rho_black[icell];
 		}
 
 		/* chebyshev acceleration */
@@ -896,7 +896,7 @@ void restrict_to_level( int level ) {
 	end_time( RESTRICT_UPDATE_TIMER );
 }
 
-/* compute potential on min_level (WILL BE REWRITTEN!) */
+/* compute potential on min_level */
 void potential() {
 	const int potential_vars[1] = { VAR_POTENTIAL };
 	
@@ -928,9 +928,9 @@ void compute_accelerations_hydro( int level ) {
 	a2half = -0.5*dtl[level]*cell_size_inverse[level];
 #endif 
 
-        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half,local)
-        for ( i = 0; i < num_level_cells; i++ ) {
+	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
 		cell_all_neighbors( icell, neighbors );
@@ -952,7 +952,7 @@ void compute_accelerations_hydro( int level ) {
 			}
 
 			cell_accel( icell, j ) = (float)(a2half * ( phi_r - phi_l ) );
-                }
+		}
 	}
 	cart_free( level_cells );
 

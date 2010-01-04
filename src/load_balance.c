@@ -770,7 +770,6 @@ void load_balance() {
 			pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
 				max( proc_sfc_index[local_proc_id], new_proc_sfc_index[local_proc_id+1] ),
 				proc_sfc_index[local_proc_id+1] );
-				
 		}
 	} else {
 		pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
@@ -794,7 +793,7 @@ void load_balance() {
 		}
 	}
 
-        /* make transfer official */
+	/* make transfer official */
 	for ( i = 0; i < num_procs+1; i++ ) {
 		old_proc_sfc_index[i] = proc_sfc_index[i];
 		proc_sfc_index[i] = new_proc_sfc_index[i];
@@ -803,7 +802,7 @@ void load_balance() {
 	num_cells_per_level[min_level] = new_num_local_root_cells;
 
 	/* determine how many buffer cells to expect */
-        build_root_cell_buffer();
+	build_root_cell_buffer();
 
 	/* move octs out of the way */
 	first_oct = cell_parent_oct( num_cells_per_level[min_level] + 
@@ -848,9 +847,9 @@ void load_balance() {
 			oct_move( ioct, new_oct );
 
 			/* don't use oct_free on ioct since it'll be placed in free oct list */
-                	linked_list_remove( &local_oct_list[oct_level[ioct]], ioct );
+			linked_list_remove( &local_oct_list[oct_level[ioct]], ioct );
 			oct_level[ioct] = FREE_OCT_LEVEL;
-        		oct_parent_root_sfc[ioct] = NULL_OCT;
+			oct_parent_root_sfc[ioct] = NULL_OCT;
 			oct_parent_cell[ioct] = NULL_OCT;
         
 			for ( i = 0; i < num_neighbors; i++ ) {

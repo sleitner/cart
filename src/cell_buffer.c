@@ -475,6 +475,7 @@ void build_cell_buffer()
 	}
 
 	pack_communicate( buffer_list );
+
 	pack_destroy( buffer_list );
 
 	buffer_enabled = 1;
@@ -830,10 +831,6 @@ void merge_buffer_cell_densities( int level ) {
 			MPI_Isend( &send_buffer[send_offset], num_send_vars[proc], MPI_FLOAT,
 				proc, 0, MPI_COMM_WORLD, &sends[proc] );
 
-			/*if ( local_proc_id == 105 ) {
-				cart_debug("proc = %d, send_count = %d, send_offset = %d, num_send_vars[%u] = %d, num_local_buffers = %d",
-					proc, send_count, send_offset, proc, num_send_vars[proc], num_local_buffers[level][proc] );
-			}*/
 			send_offset = send_count;
 		} else {
 			sends[proc] = MPI_REQUEST_NULL;
@@ -993,7 +990,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 
 			/* loop through split cells and count those buffered by proc
 			 * assumes remote_buffers and cells_to_split are both sorted */
-                        k = 0;
+			k = 0;
 			if ( level == min_level ) {
 				for ( j = 0; j < num_cells_split; j++ ) {
 					root = cell_parent_root_sfc( cells_to_split[j] );
