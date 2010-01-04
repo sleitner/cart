@@ -96,9 +96,9 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	    }
 	}
 
-	start_time( GAS_IO_TIMER );
+	start_time( GAS_WRITE_IO_TIMER );
 	write_grid_binary( filename_gas );
-	end_time( GAS_IO_TIMER );
+	end_time( GAS_WRITE_IO_TIMER );
 
 
 	if(mpi_customization_mode & MPI_CUSTOM_SYNC)
@@ -148,9 +148,9 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #endif
 	}
 
-	start_time( PARTICLE_IO_TIMER );
+	start_time( PARTICLE_WRITE_IO_TIMER );
 	write_hydro_tracers( filename_tracers );
-	end_time( PARTICLE_IO_TIMER );
+	end_time( PARTICLE_WRITE_IO_TIMER );
 #endif /* HYDRO_TRACERS */
 #endif /* HYDRO */
 
@@ -209,13 +209,13 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #endif
 	}
 		
-	start_time( PARTICLE_IO_TIMER );
+	start_time( PARTICLE_WRITE_IO_TIMER );
 #ifdef STARFORM
 	write_particles( filename1, filename2, filename3, filename4 );
 #else
 	write_particles( filename1, filename2, filename3, NULL );
 #endif /* STARFORM */
-	end_time( PARTICLE_IO_TIMER );
+	end_time( PARTICLE_WRITE_IO_TIMER );
 
 
 	if(mpi_customization_mode & MPI_CUSTOM_SYNC)
@@ -275,6 +275,8 @@ void read_restart( double aload ) {
 	FILE *partition;
 	int partition_num_grid, partition_num_procs, proc;
 #endif
+
+	start_time( IO_TIMER );
 
 	if ( buffer_enabled ) {
 		destroy_cell_buffer();
@@ -366,11 +368,15 @@ void read_restart( double aload ) {
 #endif
 
 	cart_debug("Reading grid restart...");
+	start_time( GAS_READ_IO_TIMER );
 	read_grid_binary( filename_gas );
+	end_time( GAS_READ_IO_TIMER );
 
 #ifdef HYDRO
 #ifdef HYDRO_TRACERS
+	start_time( PARTICLE_READ_IO_TIMER );
 	read_hydro_tracers( filename_tracers );
+	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* HYDRO_TRACERS */
 
 #else
@@ -379,11 +385,13 @@ void read_restart( double aload ) {
 
 #ifdef PARTICLES
 	cart_debug("Reading particle restart...");
+	start_time( PARTICLE_READ_IO_TIMER );
 #ifdef STARFORM
 	read_particles( filename1, filename2, filename3, filename4, 0, NULL );
 #else
 	read_particles( filename1, filename2, filename3, NULL, 0, NULL );
 #endif /* STARFORM */
+	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* PARTICLES */
 
 	init_units();
@@ -394,6 +402,8 @@ void read_restart( double aload ) {
 			auni[min_level] >= outputs[current_output] ) {
 		current_output++;
 	}
+
+	end_time( IO_TIMER );
 }
 
 void save_check() {
@@ -436,7 +446,7 @@ void save_check() {
 #ifdef PARTICLES
 		if ( particle_save_flag == WRITE_SAVE ) {
 			start_time( IO_TIMER );
-			start_time( PARTICLE_IO_TIMER );
+			start_time( PARTICLE_WRITE_IO_TIMER );
 
 			/* only write out particles, no restart */
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
@@ -460,7 +470,7 @@ void save_check() {
 			write_particles( filename1, filename2, filename3, NULL );
 #endif /* STARFORM */
 
-			end_time( PARTICLE_IO_TIMER );
+			end_time( PARTICLE_WRITE_IO_TIMER );
 			end_time( IO_TIMER );
 		}
 #endif /* PARTICLES */
@@ -468,14 +478,14 @@ void save_check() {
 #ifdef HYDRO_TRACERS
 		if ( tracer_save_flag == WRITE_SAVE ) {
 			start_time( IO_TIMER );
-			start_time( PARTICLE_IO_TIMER );
+			start_time( PARTICLE_WRITE_IO_TIMER );
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 			sprintf( filename1, "%s/%s_a%06.4f.dtr", output_directory, jobname, auni[min_level] );
 #else
 			sprintf( filename1, "%s/tracers_a%06.4f.dat", output_directory, auni[min_level] );
 #endif
 			write_hydro_tracers( filename1 );
-			end_time( PARTICLE_IO_TIMER );
+			end_time( PARTICLE_WRITE_IO_TIMER );
 			end_time( IO_TIMER );
 		}
 #endif /* HYDRO_TRACERS */

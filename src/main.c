@@ -340,9 +340,6 @@ int main ( int argc, char *argv[]) {
 			step++;
 			current_steps++;
 
-			cart_debug("done with timestep %u at tl = %e", step, tl[min_level] );
-                        log_diagnostics();
-
 			if ( output_frequency > 0 && step % output_frequency == 0 ) {
 				start_time( OUTPUT_TIMER );
 				run_output();
@@ -350,12 +347,14 @@ int main ( int argc, char *argv[]) {
 			}
 
 			save_check();
-
 			choose_timestep( &dt );
 		
 			if ( load_balance_frequency > 0 && step % load_balance_frequency == 0 ) {
 				load_balance();
 			}
+
+			cart_debug("done with timestep %u at tl = %e", step, tl[min_level] );
+			log_diagnostics();
 		}
 	}
 
