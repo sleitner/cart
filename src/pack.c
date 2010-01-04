@@ -166,7 +166,6 @@ void pack_apply( pack *p ) {
 			i = 0;
 			skiplist_iterate( p->tree_list[proc] );
 			while ( skiplist_next( p->tree_list[proc], &root_cells[i] ) ) i++;
-
 			skiplist_destroy( p->tree_list[proc] );
 
 			for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
@@ -195,7 +194,6 @@ void pack_apply( pack *p ) {
 
 			/* pack root cell child ptr */
 			if ( p->cell_type == CELL_TYPE_BUFFER ) {
-				cart_debug("cell_type == CELL_TYPE_BUFFER");
 				for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
 					icell = root_cell_location(root_cells[i]);
 					if ( cell_is_refined(icell) && !cell_can_prune(icell,proc) ) {
@@ -323,9 +321,14 @@ void pack_communicate( pack *p ) {
 	int level_offset[MAX_PROCS];
 	int *next_level_octs, *current_level_octs;
 	int num_sends, num_receives;
-	MPI_Request sends[3*MAX_PROCS];
-	MPI_Request receives[3*MAX_PROCS];
-	
+	int num_send_requests, num_recv_requests;
+	MPI_Request *sends;
+	MPI_Request *receives;
+
+#ifdef MPI_MAX_MESSAGE_SIZE
+	int size;
+#endif
+
 	if ( p->cell_type == CELL_TYPE_BUFFER ) {
 		for ( proc = 0; proc < num_procs; proc++ ) {
 			if ( p->num_receiving_cells[proc][min_level] > 0 ) {
@@ -349,6 +352,37 @@ void pack_communicate( pack *p ) {
 		num_receives = 0;
 		num_sends = 0;
 
+		/* determine number of pages if we have a limited send size */
+#ifdef MPI_MAX_MESSAGE_SIZE
+		num_send_requests = num_recv_requests = 0;
+		for ( proc = 0; proc < num_procs; proc++ ) {
+			cell_count = p->num_receiving_cells[proc][level];
+			if ( cell_count > 0 ) {
+				if ( level == min_level ) {
+					num_recv_requests += (sizeof(int)*cell_count-1)/MPI_MAX_MESSAGE_SIZE+1;
+				}
+
+				num_recv_requests += (sizeof(int)*cell_count-1)/MPI_MAX_MESSAGE_SIZE+1;
+				num_recv_requests += (sizeof(float)*cell_count*num_vars-1)/MPI_MAX_MESSAGE_SIZE+1;
+			}
+
+			cell_count = p->num_sending_cells[proc][level];
+			if ( cell_count > 0 ) {
+				if ( level == min_level ) {
+					num_send_requests += (sizeof(int)*cell_count-1)/MPI_MAX_MESSAGE_SIZE+1;
+				}
+
+				num_send_requests += (sizeof(int)*cell_count-1)/MPI_MAX_MESSAGE_SIZE+1;
+				num_send_requests += (sizeof(float)*cell_count*num_vars-1)/MPI_MAX_MESSAGE_SIZE+1;
+			}
+		}
+#else
+		num_send_requests = num_recv_requests = 3*num_procs;
+#endif
+
+		sends = cart_alloc( MPI_Request, num_send_requests );
+		receives = cart_alloc( MPI_Request, num_recv_requests );
+
 		for ( proc = 0; proc < num_procs; proc++ ) {
 			if ( level < max_level ) {
 				next_level_count += p->num_receiving_cells[proc][level+1] / num_children;
@@ -362,32 +396,95 @@ void pack_communicate( pack *p ) {
 				if ( level == min_level ) {
 					root_cells[proc] = cart_alloc(int, cell_count );
 
+#ifdef MPI_MAX_MESSAGE_SIZE
+					i = 0;
+					do {
+						cart_assert( num_receives < num_recv_requests );
+						size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+						MPI_Irecv( &root_cells[proc][i], size, MPI_INT, proc, i,
+								MPI_COMM_WORLD, &receives[num_receives++] );
+						i += size;
+					} while ( i < cell_count );
+#else 
 					MPI_Irecv( root_cells[proc], cell_count, MPI_INT, proc, cell_count, 
 						MPI_COMM_WORLD, &receives[num_receives++] );
+#endif
 				}
 
+#ifdef MPI_MAX_MESSAGE_SIZE
+				i = 0;
+				do {
+					cart_assert( num_receives < num_recv_requests );
+					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+					MPI_Irecv( &cell_refined[proc][i], size, MPI_INT, proc, i+cell_count,
+							MPI_COMM_WORLD, &receives[num_receives++] );
+					i += size;
+				} while ( i < cell_count );
+
+				i = 0;
+				do {
+					cart_assert( num_receives < num_recv_requests );
+					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
+					MPI_Irecv( &cell_recv_vars[proc][i], size, MPI_FLOAT, proc,
+							i, MPI_COMM_WORLD, &receives[num_receives++] );
+					i += size;
+				} while ( i < cell_count*num_vars );
+#else
 				MPI_Irecv( cell_refined[proc], cell_count, MPI_INT, proc, level,
-					MPI_COMM_WORLD, &receives[num_receives++] );
+						MPI_COMM_WORLD, &receives[num_receives++] );
 				MPI_Irecv( cell_recv_vars[proc], num_vars*cell_count, MPI_FLOAT, proc,
 					level, MPI_COMM_WORLD, &receives[num_receives++] );
+#endif
 			}
 
 			cell_count = p->num_sending_cells[proc][level];
 			if ( cell_count > 0 ) {
 				if ( level == min_level ) {
+#ifdef MPI_MAX_MESSAGE_SIZE
+					i = 0;
+					do {
+						cart_assert( num_sends < num_send_requests );
+						size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+						MPI_Isend( &p->root_cells[proc][i], size, MPI_INT, proc, i,
+								MPI_COMM_WORLD, &sends[num_sends++] );
+						i += size;
+					} while ( i < cell_count );
+#else 
 					MPI_Isend( p->root_cells[proc], cell_count, MPI_INT, proc, cell_count,
-						MPI_COMM_WORLD, &sends[num_sends++] );
+							MPI_COMM_WORLD, &sends[num_sends++] );
+#endif
 				}
 
-				MPI_Isend( &p->cell_refined[proc][level_offset[proc]], cell_count, MPI_INT, proc, level,
-					MPI_COMM_WORLD, &sends[num_sends++] );
-				MPI_Isend( &p->cell_vars[proc][num_vars*level_offset[proc]], num_vars*cell_count, MPI_FLOAT,
-					proc, level, MPI_COMM_WORLD, &sends[num_sends++] );
+#ifdef MPI_MAX_MESSAGE_SIZE
+				i = 0;
+				do {
+					cart_assert( num_sends < num_send_requests );
+					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+					MPI_Isend( &p->cell_refined[proc][level_offset[proc]+i], size, MPI_INT, 
+							proc, i+cell_count, MPI_COMM_WORLD, &sends[num_sends++] );
+					i += size;
+				} while ( i < cell_count );
+
+				i = 0;
+				do {
+					cart_assert( num_sends < num_send_requests );
+					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
+					MPI_Isend( &p->cell_vars[proc][num_vars*level_offset[proc]+i], size, MPI_FLOAT,
+							proc, i, MPI_COMM_WORLD, &sends[num_sends++] );
+					i += size;
+				} while ( i < cell_count*num_vars );
+
+#else 
+				MPI_Isend( &p->cell_refined[proc][level_offset[proc]], cell_count, MPI_INT, proc, 
+						level, MPI_COMM_WORLD, &sends[num_sends++] );
+				MPI_Isend( &p->cell_vars[proc][num_vars*level_offset[proc]], num_vars*cell_count, 
+						MPI_FLOAT, proc, level, MPI_COMM_WORLD, &sends[num_sends++] );
+#endif
 
 				level_offset[proc] += cell_count;
-			} 
+			}
 		}
-
+	
 		MPI_Waitall( num_receives, receives, MPI_STATUSES_IGNORE );
 
 		if ( p->cell_type == CELL_TYPE_BUFFER ) {
@@ -438,7 +535,6 @@ void pack_communicate( pack *p ) {
 						}
 
 						icell = oct_child( current_level_octs[num_octs_unpacked], child );
-
 						child++;
 					}
 
@@ -465,9 +561,11 @@ void pack_communicate( pack *p ) {
 						cart_assert( oct_level[ cell_child_oct[icell] ] == level+1 );
 						cart_assert( oct_parent_cell[cell_child_oct[icell]] == icell );
 
+						/*
 						for ( i = 0; i < num_cells_split; i++ ) {
 							cart_assert( next_level_octs[i] != cell_child_oct[icell] );
 						}
+						*/
 
 						cart_assert( num_cells_split < next_level_count );
 						next_level_octs[num_cells_split++] = cell_child_oct[icell];
@@ -511,6 +609,9 @@ void pack_communicate( pack *p ) {
 		current_level_octs = next_level_octs;
 
 		MPI_Waitall( num_sends, sends, MPI_STATUSES_IGNORE );
+
+		cart_free( sends );
+		cart_free( receives );
 	}
 
 	cart_free( current_level_octs );

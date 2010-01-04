@@ -442,11 +442,11 @@ int cell_find_position( double position[nDim] ) {
 int cell_find_position_level( int level, double position[nDim] ) {
 	int i;
 	int curlevel;
-        int coords[nDim];
-        int root_index;
-        int c;
-        int child;
-        float pos[nDim];
+	int coords[nDim];
+	int root_index;
+	int c;
+	int child;
+	float pos[nDim];
 
 	for ( i = 0; i < nDim; i++ ) {
 		coords[i] = (int)(position[i]);
@@ -456,7 +456,7 @@ int cell_find_position_level( int level, double position[nDim] ) {
 		}
 	}
 	root_index = sfc_index( coords );
-                                                                                                                                                            
+
 	c = root_cell_location(root_index);
 	curlevel = min_level;
 	if ( c != NULL_OCT ) {
@@ -733,14 +733,7 @@ void cell_all_neighbors( int c, int neighbors[num_neighbors] )
 		for ( direction = 0; direction < num_neighbors; direction++ ) {
 			/* shift the coordinates in the given direction */
 			for ( i = 0; i < nDim; i++ ) {
-				coords_neighbor[i] = coords[i] + ishift[direction][i];
-
-				/* boundary check to ensure periodicity */
-				if ( coords_neighbor[i] >= num_grid ) {
-					coords_neighbor[i] = 0;
-				} else if ( coords_neighbor[i] < 0 ) {
-					coords_neighbor[i] = num_grid - 1;
-				}
+				coords_neighbor[i] = ( num_grid + coords[i] + ishift[direction][i] ) % num_grid;
 			}
 	
 			neighbors[direction] = root_cell_location( sfc_index( coords_neighbor ) );
