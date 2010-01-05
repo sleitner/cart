@@ -137,7 +137,7 @@ void config_print_to_file(const char *filename)
 	}
     }
 
-  fprintf(f,"SVN Revision number: %d",$Revision$);
+  fprintf(f,"SVN $Revision$\n");
   fprintf(f,title_sep);
 
   fprintf(f,"\n");
