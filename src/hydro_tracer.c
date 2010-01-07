@@ -1,27 +1,23 @@
+#include "config.h"
+#if defined(HYDRO) && defined(HYDRO_TRACERS)
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "defs.h"
-#include "tree.h"
+#include "auxiliary.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
-#include "particle.h"
-#include "timestep.h"
-#include "iterators.h"
-#include "constants.h"
-#include "parallel.h"
-#include "auxiliary.h"
-#include "timing.h"
 #include "io.h"
+#include "iterators.h"
+#include "parallel.h"
+#include "particle.h"
+#include "timing.h"
 #include "sfc.h"
+#include "timestep.h"
+#include "tree.h"
 #include "units.h"
 
-#ifdef HYDRO_TRACERS
-
-#ifndef HYDRO
-#error "Hydro tracer particles requires HYDRO to be defined!"
-#endif /* HYDRO */
 
 double tracer_x[num_tracers][nDim];
 int tracer_id[num_tracers];
@@ -39,17 +35,17 @@ int free_tracer_list = NULL_TRACER;
 
 int tracer_list_enabled = 0;
 
-#ifdef ENRICH
+#if defined(ENRICH) && defined(ENRICH_SNIa)
 int num_hydro_vars_traced = 4;
 int hydro_vars_traced[] = {		HVAR_GAS_DENSITY,
 					HVAR_INTERNAL_ENERGY,
-					HVAR_METALLICITY_II,
-					HVAR_METALLICITY_Ia };
+					HVAR_METAL_DENSITY_II,
+					HVAR_METAL_DENSITY_Ia };
 char *hydro_vars_traced_labels[] = { 	"density",
 					"internal energy",
 					"SNII metallicity",
 					"SNIa metallicity" };
-#else 
+#else  /* ENRICH && ENRICH_SNIa */
 int num_hydro_vars_traced = 3;
 int hydro_vars_traced[] = {      	HVAR_GAS_DENSITY,
 					HVAR_GAS_ENERGY,
@@ -57,7 +53,7 @@ int hydro_vars_traced[] = {      	HVAR_GAS_DENSITY,
 char *hydro_vars_traced_labels[] = {	"density",
 					"total energy",
 					"internal energy" };
-#endif /* ENRICH */
+#endif /* ENRICH && ENRICH_SNIa */
 
 
 void init_hydro_tracers() { 
@@ -832,4 +828,4 @@ void delete_tracer( int icell, int tracer ) {
 	}
 }
 
-#endif /* HYDRO_TRACERS */
+#endif /* HYDRO && HYDRO_TRACERS */

@@ -1,6 +1,13 @@
 #ifndef __REFINEMENT_INDICATORS_H__
 #define __REFINEMENT_INDICATORS_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
+#ifdef REFINEMENT
+
 #define num_refinement_indicators	7
 
 #define DARK_MASS_INDICATOR             0
@@ -10,6 +17,9 @@
 #define DENSITY_GRADIENT_INDICATOR      4
 #define PRESSURE_GRADIENT_INDICATOR     5
 #define ENTROPY_GRADIENT_INDICATOR      6
+
+void config_init_refinement_indicators();
+void config_verify_refinement_indicators();
 
 void mark_refinement_indicators( int cell, int level );
 
@@ -21,10 +31,6 @@ float density_gradient_indicator( int cell, int level );
 float pressure_gradient_indicator( int cell, int level );
 float entropy_gradient_indicator( int cell, int level );
 
-extern float refinement_indicator_threshold[num_refinement_indicators][num_refinement_levels+1];
-extern float refinement_indicator_weight[num_refinement_indicators+1];
-extern int use_refinement_indicator[num_refinement_indicators][num_refinement_levels+1];
-extern float refinement_volume_min[nDim];
-extern float refinement_volume_max[nDim];
+#endif /* REFINEMENT */
 
 #endif

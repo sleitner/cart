@@ -2,6 +2,11 @@
 #define __RT_CONFIG_H__
 
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 /*
 //  Currently implemented methods for radiative transfer
 */
@@ -18,9 +23,8 @@
 /* 
 // rt_defs.h file should only be included here 
 */
-#define __RT_INCLUDING_DEFS
 #include "rt_defs.h"
-#undef __RT_INCLUDING_DEFS
+#define RT_CONFIGURED
 
 
 #ifndef RT_TRANSFER
@@ -98,15 +102,17 @@
 
 /*
 //  H2 cooling and formation/destruction rates
-//  H2_RATE: 1 = Shapiro & Kang 
-//           2 = Abel et all
-//           3 = Galli & Palla
-//  H2_COOL: 1 = Lepp & Shull 
+//  H2_RATE: 0 = Glover & Abel
+//           1 = Shapiro & Kang / Lepp & Shull
 //           2 = Galli & Palla
 */
-#define RT_H2_RATE 3
-#define RT_H2_COOL 2
+#define RT_H2_RATE 0
 
+/*
+//  By defult use the full chemical model -  it is the only one
+//  that works in all regimes
+*/
+#define RT_CHEMISTRY_FULL_MODEL
 
 /*
 //  A helper switch to optimize calculations if photoionization and
@@ -133,7 +139,6 @@
 #define RT_SINGLE_SOURCE
 #endif
 
-
 /*
 //  If we are running several specific tests, remove the background
 */
@@ -144,4 +149,16 @@
 #endif
 
 
-#endif  /* __RT_CONFIG_H__ */
+/*
+//  RT needs both COOLING and ADVECT_SPECIES to be set 
+*/
+#ifndef COOLING
+#define COOLING
+#endif
+
+#ifndef ADVECT_SPECIES
+#define ADVECT_SPECIES
+#endif
+
+
+#endif /* __RT_CONFIG_H__ */

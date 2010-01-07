@@ -1,23 +1,20 @@
-#include "defs.h"
-#ifdef RADIATIVE_TRANSFER
+#include "config.h"
+#if defined(RADIATIVE_TRANSFER) && defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
 #include <math.h>
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "iterators.h"
+#include "parallel.h"
 #include "sfc.h"
+#include "rt_solver.h"
+#include "rt_transfer.h"
+#include "rt_utilities.h"
 #include "top_level_fft.h"
 #include "tree.h"
 #include "timing.h"
 
-#include "rt_tree.h"
-#include "rt_utilities.h"
-
-
-#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
-
-
-#include "rt_transfer.h"
 
 
 /*
@@ -37,10 +34,6 @@ extern int Vars[];
 void rtOtvetTopLevelEddingtonTensor(int id, fftw_complex *fft_source, fftw_complex *fft_output);
 void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *level_cells);
 void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos);
-
-#ifdef RT_VAR_SOURCE
-float rtSource(int ipart);
-#endif
 
 
 void rtOtvetEddingtonTensor(int level, int num_level_cells, int *level_cells)
@@ -450,5 +443,4 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
   update_buffer_level(level,Vars,NumVars);
 }
 
-#endif  // defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
-#endif  // RADIATIVE_TRANSFER
+#endif /* RADIATIVE_TRANSFER && RT_TRANSFER && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */

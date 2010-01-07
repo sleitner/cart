@@ -1,7 +1,13 @@
 #ifndef __TOP_LEVEL_FFT_H__
 #define __TOP_LEVEL_FFT_H__
 
-#include "defs.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
+#include <mpi.h>
+
 
 #ifdef FFTW3
 	#include "fftw3.h"
@@ -27,6 +33,7 @@
 		#endif
 	#endif
 #endif
+
 
 #ifdef FFT_DOUBLE
 typedef fftw_complex	type_fft_complex;

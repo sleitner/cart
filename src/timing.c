@@ -1,12 +1,12 @@
+#include "config.h"
+
 #include <mpi.h>
 
-#include "defs.h"
-#include "tree.h"
-#include "timing.h"
 #include "auxiliary.h"
 #include "logging.h"
+#include "timing.h"
+//#include "tree.h"
 
-double timelimit = 0.0;
 timer timers[num_refinement_levels+1][NUM_TIMERS];
 int current_timer_level;
 
@@ -89,6 +89,8 @@ void start_time_at_location( int timerid, const char *file, int line ) {
 
 	timers[current_timer_level][timerid].current_time = MPI_Wtime();
 
+	//MPE_Log_event(2*timerid+0,0,timer_name[timerid]);
+
 #ifdef DEBUG
 	log_in_debug(timerid,1,file,line);
 #endif
@@ -101,6 +103,8 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 	cart_assert( timers[current_timer_level][timerid].current_time > 0.0 );
 
 	elapsed = MPI_Wtime() - timers[current_timer_level][timerid].current_time;
+
+	//MPE_Log_event(2*timerid+1,0,timer_name[timerid]);
 
 	timers[current_timer_level][timerid].last_time = elapsed;	
 	timers[current_timer_level][timerid].total_time += elapsed;

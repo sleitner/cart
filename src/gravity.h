@@ -1,6 +1,11 @@
 #ifndef __GRAVITY_H__
 #define __GRAVITY_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 #ifdef GRAVITY
 
 void solve_poisson( int level, int flag);

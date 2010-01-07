@@ -1,10 +1,13 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include "config.h"
 
-#include "tree.h"
-#include "tree_linkedlist.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "auxiliary.h"
+#include "tree_linkedlist.h"
+#include "tree.h"
+
 
 void linked_list_insert( int *head, int ioct ) {
 	cart_assert( head != NULL );

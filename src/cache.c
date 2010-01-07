@@ -1,13 +1,16 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "config.h"
 
-#include "defs.h"
-#include "tree.h"
-#include "iterators.h"
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "auxiliary.h"
+#include "cell_buffer.h"
+#include "iterators.h"
 #include "particle.h"
 #include "hydro_tracer.h"
 #include "starformation.h"
+#include "tree.h"
+
 
 int compare_oct_parent_root_sfc( const void *a, const void *b ) {
 	int ioct1 = *(int *)a;

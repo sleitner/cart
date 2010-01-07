@@ -1,13 +1,14 @@
 #ifndef __HYDRO_H__
 #define __HYDRO_H__
 
-#include "defs.h"
-#include "tree.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
 
 #ifdef HYDRO
 
-#define gamma			(5.0/3.0)
-#define gamma_max		10.0
+#include <mpi.h>
 
 #define COPY		0
 #define RESTORE		1
@@ -23,19 +24,22 @@ extern float pressure_floor_factor;
 #endif
 
 extern float ref[num_cells];
-extern int level_sweep_dir[max_level-min_level+1];
+DECLARE_LEVEL_ARRAY(int,level_sweep_dir);
 
 extern float gas_density_floor;
 extern float gas_temperature_floor;
 
+void config_init_hydro();
+void config_verify_hydro();
+
 void hydro_step( int level, MPI_Comm local_comm );
 void hydro_copy_vars( int level, int direction, int cell_type );
-void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[num_hydro_vars-1] );
+void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[ /* num_hydro_vars-1 */ ] );
 void hydro_sweep_1d( int level );
 #ifdef GRAVITY
 void hydro_apply_gravity( int level );
 #endif /* GRAVITY */
-void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] );
+void compute_hydro_fluxes( int cell_list[4], double f[ /* num_hydro_vars-1 */ ] );
 void hydro_eos(int level);
 void hydro_magic(int level);
 void hydro_advance_internalenergy(int level);

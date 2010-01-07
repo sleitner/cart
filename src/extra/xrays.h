@@ -1,5 +1,10 @@
-#ifndef __ANALYSIS_XRAY_H__
-#define __ANALYSIS_XRAY_H__
+#ifndef __EXT_XRAYS_H__
+#define __EXT_XRAYS_H__
+
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
 
 /* Chandra parameters for X-ray spectroscopic fitting (Vikhlinin 2006) */
 #define alpha_xray      (0.875)
@@ -12,4 +17,4 @@ void set_xray_redshift( double aexp );
 void xray_calibration( double Tg, double *cT, double *lambda, double *fT );
 double xray_calibrated_line_temperature( double avgE );
 
-#endif /* ANALYSIS_XRAY */
+#endif /* EXT_XRAYS */

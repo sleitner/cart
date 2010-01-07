@@ -1,6 +1,5 @@
-#ifndef __DEFS_H__
-#define __DEFS_H__
 
+#define NATIVE_TCODE_NORMALIZATION
 
 #define HYDRO
 #define GRAVITY
@@ -16,13 +15,11 @@
 #define PRESSURE_FLOOR
 #define ADVECT_SPECIES
 
-#define METALCOOLING
 #define ENRICH
 #define ENRICH_SNIa
 #define FEEDBACK
 #define FEEDBACK_SNIa
 #define STELLARMASSLOSS
-
 
 #define DEBUG_MEMORY_USE
 #define OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION
@@ -32,7 +29,6 @@
 #define num_root_grid_refinements	6
 #define num_refinement_levels		9
 #define num_octs			5000000
-#define num_particles		        8000000
-#define num_star_particles              4000000
+#define num_particles		        16000000
+#define num_star_particles              16000000
 
-#endif

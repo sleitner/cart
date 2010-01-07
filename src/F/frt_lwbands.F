@@ -1,6 +1,5 @@
-#include "defs.h"
+#include "../config.h"
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 #ifdef RT_LWBANDS
 C  
 C  Block data....define common blocks

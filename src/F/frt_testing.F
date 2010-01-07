@@ -1,6 +1,5 @@
-#include "defs.h"      
+#include "../config.h"      
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 #ifdef RT_TEST
 C
 C
@@ -77,14 +76,15 @@ C
 C
 C
 C
-      subroutine frtTestStepBegin(Om0,h100,r0,t0)
+      subroutine frtTestStepBegin
       include 'frt_base.inc'
       include 'frt_tables.inc'
 C
 C  Test #0
 C
 #if (RT_TEST == -1)
-      if(t0*tStep .gt. 0.7e5*(10**0.1-1.0)) then
+      tyr = uTime*dtStep/(365.25*86400)
+      if(tyr .gt. 0.7e5*(10**0.1-1.0)) then
          do lr = 1,NRAD
             angUni(lr) = 0.0
          enddo
@@ -92,7 +92,7 @@ C
 
       write(6,*) angUni(lrH1tr)
 
-      if(t0*tStep .gt. 4.0e7) then
+      if(tyr .gt. 4.0e7) then
          call frtAbort
       endif
 #endif
@@ -179,8 +179,8 @@ C
 
       return
       end
-#endif  /* RT_EXTERNAL_BACKGROUND */
-#endif  /* RT_TEST */
+#endif /* RT_EXTERNAL_BACKGROUND */
+#endif /* RT_TEST */
 #endif
 
       subroutine frtDummyTesting(i)

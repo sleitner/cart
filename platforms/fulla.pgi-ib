@@ -1,0 +1,12 @@
+# COMPILE OPTIONS
+
+# fulla (PG compilers)
+PATH = /usr/local/mvapich2-1.2p1-pgi/bin:/opt/pgi/linux86-64/9.0/bin:/usr/bin:/bin
+
+CFLAGS  = -fast -mp -mcmodel=medium
+CC      = mpicc
+FFLAGS  = -fast -mp -mcmodel=medium
+F77     = mpif77
+INCLUDES = -I/home/drudd/include
+EXTRALIBS = -pgf77libs -L/home/drudd/lib -L/usr/local/ofed-1.4.2/lib64 -libcommon
+

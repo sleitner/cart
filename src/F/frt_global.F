@@ -1,6 +1,5 @@
-#include "defs.h"      
+#include "../config.h"      
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 C
 C  Add one global contributions to a specific buffer
 C
@@ -74,7 +73,7 @@ C
 
       return
       end
-#endif  /* defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) */
+#endif /* RT_EXTERNAL_BACKGROUND && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) */
 C
 C Initialize global field buffers
 C
@@ -194,12 +193,12 @@ C
       enddo
 
       if(vol .gt. 0.0) then
-         w = vol*tStep*weight
+         w = vol*dtStep*weight
 #ifdef RT_DEBUG
          call frtQueryId(id)
          if(id .eq. 0) then
             write(6,*) 'RT: internal vol*dt = ', dDataBufGlob(iavgNorm)
-            write(6,*) 'RT: external vol*dt = ', vol*tStep
+            write(6,*) 'RT: external vol*dt = ', vol*dtStep
          endif
 #endif
          if(abs(w-1.0) .gt. 1.0e-3) then

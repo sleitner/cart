@@ -594,6 +594,7 @@ void kdBuildTree(KD kd)
 	int l,n,i,d,m,j,diff;
 	KDN *c;
 	BND bnd;
+	long iter = 0;
 
 	n = kd->nActive;
 	kd->nLevels = 1;
@@ -632,6 +633,8 @@ void kdBuildTree(KD kd)
 	c[ROOT].bnd = bnd;
 	i = ROOT;
 	while (1) {
+   	        iter++;
+	        if(iter%1000000 == 0) printf("working, %ld done...\n",iter);
 		assert(c[i].pUpper - c[i].pLower + 1 > 0);
 		if (i < kd->nSplit && (c[i].pUpper - c[i].pLower) > 0) {
 			d = 0;

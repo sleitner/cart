@@ -1,70 +1,230 @@
-#include "defs.h"
+#include "config.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "timestep.h"
-#include "tree.h"
+#include "auxiliary.h"
+#include "cell_buffer.h"
+#include "control_parameter.h"
+#include "cooling.h"
+#include "cosmology.h"
+#include "density.h"
+#include "gravity.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
-#include "cell_buffer.h"
-#include "parallel.h"
-#include "refinement.h"
-#include "iterators.h"
-#include "density.h"
-#include "timing.h"
-#include "gravity.h"
-#include "units.h"
-#include "particle.h"
-#include "starformation.h"
 #include "io.h"
-#include "auxiliary.h"
-#include "cooling.h"
+#include "iterators.h"
 #include "logging.h"
-
-
-#ifdef RADIATIVE_TRANSFER
+#include "parallel.h"
+#include "particle.h"
+#include "refinement.h"
 #include "rt_solver.h"
-#endif  /* RADIATIVE_TRANSFER */
+#include "starformation.h"
+#include "timestep.h"
+#include "timing.h"
+#include "tree.h"
+#include "units.h"
 
 
-double tl[max_level-min_level+1];
-double tl_old[max_level-min_level+1];
-double dtl[max_level-min_level+1];
-double dtl_old[max_level-min_level+1];
-double abox[max_level-min_level+1];
-double abox_old[max_level-min_level+1];
-double auni[max_level-min_level+1];
-
-int num_steps_on_level[max_level-min_level+1];
-
-double auni_init = 0.0;
-double auni_end = 1.0;
 double t_init = 0.0;
 double t_end = 0.0;
+DEFINE_LEVEL_ARRAY(double,dtl);
+DEFINE_LEVEL_ARRAY(double,dtl_old);
+DEFINE_LEVEL_ARRAY(double,tl);
+DEFINE_LEVEL_ARRAY(double,tl_old);
 
-int output_frequency = 0;
-int restart_frequency = 1;
-int particle_output_frequency = 0;
-int tracer_output_frequency = 0;
-int grid_output_frequency = 0;
+#ifdef COSMOLOGY
+double auni_init = 1.0e-3;
+double auni_end = 1.0;
+DEFINE_LEVEL_ARRAY(double,abox);
+DEFINE_LEVEL_ARRAY(double,abox_old);
+DEFINE_LEVEL_ARRAY(double,auni);
+#endif /* COSMOLOGY */
+
+DEFINE_LEVEL_ARRAY(int,num_steps_on_level);
+
 int max_steps = 0;
+double timelimit = 0.0;
+
 int max_cfl_sync_level = min_level;
 
+#ifdef HYDRO 
 double cfl_run = 0.6;
 double cfl_max = 0.6;     /* max allowed, re-do the timestep if that number is exceeded. */
+#endif /* HYDRO */
+
+#ifdef PARTICLES
 double particle_cfl = 0.0;
+#endif /* PARTICLES */
+
 double max_time_inc = 1.1;
 double min_time_dec = 1.25;
-double max_da = 3e-3;
 double max_dt = 0.125;
-double max_frac_da = 0.1;
+#ifdef COSMOLOGY
+double max_a_inc = 1.1;
+double max_da = 3e-3;
+#endif /* COSMOLOGY */
+
 
 int step;
 int step_of_last_increase = 0;
 int steps_before_increasing = 4;
 int current_step_level = -1;
+
+double min_courant_velocity = 1.0e-6;
+
+
+/*
+// NG: it is not clear how make all these 4 parameters consistent.
+// For now keep them completely independent
+//
+#ifdef COSMOLOGY
+void control_parameter_set_aini(const char *value, void *ptr, int ind)
+{
+  control_parameter_set_double(value,ptr,ind);
+  t_init = tcode_from_auni(auni_init);
+}
+
+
+void control_parameter_set_aend(const char *value, void *ptr, int ind)
+{
+  control_parameter_set_double(value,ptr,ind);
+  t_end = tcode_from_auni(auni_end);
+}
+#endif
+
+
+void control_parameter_set_tini(const char *value, void *ptr, int ind)
+{
+  control_parameter_set_double(value,ptr,ind);
+#ifdef COSMOLOGY
+  auni_init = auni_from_tcode(t_init);
+#endif
+}
+
+
+void control_parameter_set_tend(const char *value, void *ptr, int ind)
+{
+  control_parameter_set_double(value,ptr,ind);
+#ifdef COSMOLOGY
+  auni_end = auni_from_tcode(t_end);
+#endif
+}
+*/
+
+
+#ifdef HYDRO 
+void control_parameter_set_cflrun(const char *value, void *ptr, int ind)
+{
+  control_parameter_set_double(value,ptr,ind);
+  if(cfl_max < cfl_run) cfl_max = cfl_run;
+}
+
+
+void control_parameter_set_cflmax(const char *value, void *ptr, int ind)
+{
+  control_parameter_set_double(value,ptr,ind);
+  if(cfl_max < cfl_run) cfl_max = cfl_run;
+}
+#endif /* HYDRO  */
+
+
+#ifdef COSMOLOGY
+void control_parameter_set_a_inc(const char *value, void *ptr, int ind)
+{
+  control_parameter_set_double(value,ptr,ind);
+  if(ind == 2)
+    {
+      max_a_inc += 1.0; /* backward compatibility */
+    }
+}
+#endif /* COSMOLOGY */
+
+
+void config_init_timestep()
+{
+#ifdef COSMOLOGY
+  ControlParameterOps control_parameter_aini = { control_parameter_set_double, control_parameter_list_double };
+  ControlParameterOps control_parameter_aend = { control_parameter_set_double, control_parameter_list_double };
+  ControlParameterOps control_parameter_a_inc = { control_parameter_set_a_inc, control_parameter_list_double };
+#endif /* COSMOLOGY */
+  ControlParameterOps control_parameter_tini = { control_parameter_set_double, control_parameter_list_double };
+  ControlParameterOps control_parameter_tend = { control_parameter_set_double, control_parameter_list_double };
+#ifdef HYDRO 
+  ControlParameterOps control_parameter_cflrun = { control_parameter_set_cflrun, control_parameter_list_double };
+  ControlParameterOps control_parameter_cflmax = { control_parameter_set_cflmax, control_parameter_list_double };
+#endif /* HYDRO  */
+
+#ifdef COSMOLOGY
+  control_parameter_add3(control_parameter_aini,&auni_init,"auni-start","auni_init","a_init","starting value for the cosmic scale factor.");
+
+  control_parameter_add3(control_parameter_aend,&auni_end,"auni-stop","auni_end","a_end","last value for the cosmic scale factor. The simulation stops if this value is reached.");
+
+  control_parameter_add3(control_parameter_a_inc,&max_a_inc,"max-a-increment","max_a_inc","max_frac_da","the largest factor by which the cosmic scale factor is allowed to increase in one time-step.");
+
+  control_parameter_add2(control_parameter_double,&max_da,"max-da","max_da","maximum allowed step in the cosmic scale factor.");
+#endif /* COSMOLOGY */
+
+  control_parameter_add2(control_parameter_tini,&t_init,"time-start","t_init","starting value for the code time variable (in code units).");
+
+  control_parameter_add2(control_parameter_tend,&t_end,"time-stop","t_end","last value for the code time variable (in code units). The simulation stops if this value is reached.");
+
+  control_parameter_add2(control_parameter_int,&max_steps,"num-steps","max_steps","number of time-steps to make. Zero value disables this limit.");
+
+  control_parameter_add2(control_parameter_double,&timelimit,"walltime-limit","timelimit","the limit for the wall-clock time for the current job. Zero value disables this limit.");
+
+  control_parameter_add2(control_parameter_int,&max_cfl_sync_level,"max-cfl-sync-level","max_cfl_sync_level","maximum level at which the CFL conditions are synchronized across separate nodes.");
+
+#ifdef HYDRO 
+  control_parameter_add3(control_parameter_cflrun,&cfl_run,"CFL-run","cfl_run","cfl","the CFL number for setting the time-step.");
+
+  control_parameter_add3(control_parameter_cflmax,&cfl_max,"CFL-max","cfl_max","cfl","the maximum acceptable CFL number. If this number is exceeded, the time-step needs to be redone. It is a good sense to set this number just a little bit higher than <CFL-run>, to avoid extra restarts due to numerical noise.");
+#endif /* HYDRO */
+
+#ifdef PARTICLES
+  control_parameter_add2(control_parameter_double,&particle_cfl,"particle-CFL","particle_cfl","the CFL number for particle dynamics. In HYDRO mode this number is usually not needed, as the grid CFL conditions superceeds that of particles. Setting it to zero disables this limit.");
+#endif /* PARTICLES */
+
+  control_parameter_add2(control_parameter_double,&max_time_inc,"max-timestep-increment","max_time_inc","the largest factor by which the time-step is allowed to increase.");
+
+  control_parameter_add2(control_parameter_double,&min_time_dec,"min-timestep-decrement","min_time_dec","the smallest factor by which the time-step is allowed to decrease.");
+
+  control_parameter_add2(control_parameter_double,&max_dt,"max-dt","max_dt","maximum allowed time-step.");
+}
+
+
+void config_verify_timestep()
+{
+#ifdef COSMOLOGY
+  cart_assert(auni_init>0.0 && !(auni_init>auni_end));
+
+  cart_assert(max_a_inc > 1.0);
+
+  cart_assert(max_da > 0.0);
+#endif /* COSMOLOGY */
+
+  cart_assert(!(t_init > t_end));
+
+  cart_assert(max_steps >= 0);
+
+  cart_assert(max_cfl_sync_level >= min_level);
+
+#ifdef HYDRO 
+  cart_assert(cfl_run>0.0 && !(cfl_run>cfl_max));
+#endif /* HYDRO */
+
+#ifdef PARTICLES
+  cart_assert(!(particle_cfl < 0.0));
+#endif /* PARTICLES */
+
+  cart_assert(max_time_inc > 1.0);
+
+  cart_assert(min_time_dec > 1.0);
+
+  cart_assert(max_dt > 0.0);
+}
+
 
 int global_timestep( double dt ) {
 	int i;
@@ -77,7 +237,9 @@ int global_timestep( double dt ) {
 	for ( i = min_level; i <= max_level; i++ ) {
 		tl_old[i] = tl[i];
 		dtl_old[i] = dtl[i];
+#ifdef COSMOLOGY
 		abox_old[i] = abox[i];
+#endif /* COSMOLOGY */
 		num_steps_on_level[i] = 0;
 	}
 
@@ -87,9 +249,13 @@ int global_timestep( double dt ) {
 	for ( i = min_level+1; i <= max_level; i++ ) {
 		tl[i] = tl[min_level];
 		dtl[i] = 0.5*dtl[i-1];
+#ifdef COSMOLOGY
 		abox[i] = abox[min_level];
 		auni[i] = auni[min_level];
+#endif /* COSMOLOGY */
 	}
+
+	units_update(min_level);
 
 #ifdef RADIATIVE_TRANSFER
 	rtStepBegin();
@@ -97,10 +263,14 @@ int global_timestep( double dt ) {
 	rtUpdateTables();
 #else
 #ifdef COOLING
+#ifdef COSMOLOGY
 	/* prepare for cooling timestep */
 	set_cooling_redshift( auni[min_level] );
+#else
+#error "Setting COOLING and !RADIATIVE_TRANSFER requires COSMOLOGY."
+#endif /* COSMOLOGY */
 #endif /* COOLING */
-#endif  /* RADIATIVE_TRANSFER */
+#endif /* RADIATIVE_TRANSFER */
 
 #ifdef STARFORM
 	num_new_stars = 0;
@@ -108,7 +278,7 @@ int global_timestep( double dt ) {
 
 	/* compute frequency of star formation calls */
 	for ( i = min_level; i <= max_level; i++ ) {
-		dtratio = max( dtmin_SF / ( t0 * abox[i] * abox[i] * dtl[i] ), 1e-30 );
+		dtratio = max( sf_sampling_timescale * constants->yr / units->time , 1e-30 );
 		sf = max( 0, nearest_int( log(dtratio)/log(2.0) ) );
 		sf = min( sf, i );
 		star_formation_frequency[i] = 1 << sf;
@@ -142,7 +312,7 @@ int global_timestep( double dt ) {
 
 #ifdef RADIATIVE_TRANSFER
 		rtStepEnd();
-#endif  /* RADIATIVE_TRANSFER */
+#endif /* RADIATIVE_TRANSFER */
 	}
 
 	return global_ret;
@@ -172,13 +342,13 @@ int timestep( int level, MPI_Comm local_comm )
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
 	
-	if(mpi_customization_mode & MPI_CUSTOM_SYNC)
-	{
-		/*
-		//  Sync all procs at this level before creating a new communicator
-		 */
-		MPI_Barrier(local_comm);
-	}
+        if(mpi_custom_flags & MPI_CUSTOM_SYNC)
+          {
+            /*
+            //  Sync all procs at this level before creating a new communicator
+            */
+            MPI_Barrier(local_comm);
+          }
 
 	/* 
 	//  Create a child communicator
@@ -247,6 +417,8 @@ int timestep( int level, MPI_Comm local_comm )
 		}
 	}
 
+	units_update(level);
+
 #ifdef GRAVITY
 	if ( level > min_level && level < max_level ) {
 		restrict_to_level( level );
@@ -265,13 +437,13 @@ int timestep( int level, MPI_Comm local_comm )
 	dt_needed = cfl_max * cell_size[level] / velocity;
 
 	/* check for cfl condition violation... */
-	if ( dtl[level] > dt_needed ) {
+	if ( dtl[level] > dt_needed && ret != -1 ) {
 		cart_debug("uh oh, violated cfl condition current dt: %0.25e needed %0.25e courant_cell = %u, velocity = %e", 
 			dtl[level], dt_needed, courant_cell, velocity );
 
 		cart_debug("density = %e, pressure = %e, as = %e", cell_gas_density(courant_cell),
 			cell_gas_pressure(courant_cell), 
-			sqrt( gamma * cell_gas_pressure(courant_cell) / cell_gas_gamma(courant_cell ) ) );
+			sqrt( cell_gas_gamma(courant_cell ) * cell_gas_pressure(courant_cell) / cell_gas_density(courant_cell ) ) );
 		cart_debug("momentum = %e %e %e", cell_momentum(courant_cell,0), cell_momentum(courant_cell,1),
 			cell_momentum(courant_cell,2) );
 
@@ -292,7 +464,7 @@ int timestep( int level, MPI_Comm local_comm )
 #ifdef RADIATIVE_TRANSFER
 	/* Do RT step */
 	rtLevelUpdate(level,local_comm);
-#endif  /* RADIATIVE_TRANSFER */
+#endif /* RADIATIVE_TRANSFER */
 
 	/* do hydro step */
 	hydro_step( level, local_comm );
@@ -391,7 +563,7 @@ void choose_timestep( double *dt ) {
 
 #ifdef RADIATIVE_TRANSFER
 	rtModifyTimeStep(dt);
-#endif  /* RADIATIVE_TRANSFER */
+#endif /* RADIATIVE_TRANSFER */
 
 #else 
 
@@ -459,7 +631,7 @@ void choose_timestep( double *dt ) {
 	        adum1 = abox_from_tcode( tl[min_level] );
 
 		if ( dt_new > 0.0 ) {
-			dda = abox_from_tcode( min( tl[min_level] + dt_new, tcode_from_abox(adum1*(1+max_frac_da)) ) ) - adum1;  /* dt_new could be very large, it can break cosmology module */
+			dda = abox_from_tcode( min( tl[min_level] + dt_new, tcode_from_abox(adum1*max_a_inc) ) ) - adum1;  /* dt_new could be very large, it can break cosmology module */
 			if ( max_da > 0.0 ) {
 				dda = min( dda , max_da );
 			}
@@ -510,7 +682,7 @@ void hydro_timestep( int level, int *courant_cell, double *velocity ) {
 	int *level_cells;
 	int ivas;
 	double vas;
-	double rho_r, as, vel;
+	double as, vel;
 
 	vas = 0.0;
 	ivas = 0;
@@ -520,15 +692,14 @@ void hydro_timestep( int level, int *courant_cell, double *velocity ) {
 		icell = level_cells[i];
 
 		if ( cell_is_leaf(icell) ) {
-			rho_r = 1.0/cell_gas_density(icell);
-			as = sqrt( gamma * rho_r * cell_gas_pressure(icell) );
-			vel = min_courant_velocity;
+			as = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
+			vel = cell_gas_density(icell)*min_courant_velocity;
 			for ( j = 0; j < nDim; j++ ) {
 				if ( fabs(cell_momentum(icell,j)) > vel ) {
 					vel = fabs(cell_momentum(icell,j));
 				}
 			}
-			vel = vel*rho_r + as;
+			vel = vel/cell_gas_density(icell) + as;
 
 			if ( vel >= vas ) {
 				ivas = icell;

@@ -1,7 +1,6 @@
-#include "defs.h"
+#include "config.h"
 
-#include <mpi.h>
-
+#include "auxiliary.h"
 #include "parallel.h"
 
 

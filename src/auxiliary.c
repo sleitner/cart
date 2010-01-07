@@ -1,22 +1,21 @@
-#include <stdlib.h>
+#include "config.h"
+
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
-#include <mpi.h>
-
-#include <gsl/gsl_math.h>
 #include <gsl/gsl_errno.h>
-#include <gsl/gsl_roots.h>
 #include <gsl/gsl_integration.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_roots.h>
 #include <gsl/gsl_rng.h>
 
-#include "defs.h"
-#include "tree.h"
 #include "auxiliary.h"
 #include "parallel.h"
 #include "io.h"
+
 
 unsigned long int rng_seed = 0L;
 gsl_rng *cart_random_generator;
@@ -692,4 +691,4 @@ unsigned long dmuReportAllocatedMemory()
   return tot;
 }
 
-#endif  /* DEBUG_MEMORY_USE */
+#endif /* DEBUG_MEMORY_USE */

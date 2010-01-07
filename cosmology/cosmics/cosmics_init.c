@@ -1,4 +1,4 @@
-#include "defs.h"
+#include "config.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -9,12 +9,14 @@
 #include "hydro.h"
 #include "io.h"
 #include "iterators.h"
+#include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "sfc.h"
 #include "starformation.h"
 #include "timestep.h"
+#include "tree.h"
 #include "units.h"
 
 
@@ -43,7 +45,7 @@ void cosmics_init()
   long id;
   int ng1, ng2;
   double x0[3], x[3], fRef;
-  float q, sFac, vFac;
+  float q, xFac, vFac;
   float *buffer[6], *vxc, *vyc, *vzc, *vxb, *vyb, *vzb;
   float fracB, temIn, fracHII;
   int children[num_children];
@@ -182,13 +184,14 @@ void cosmics_init()
   cosmology_set(OmegaL,header->OmegaL);
   cosmology_set(h,header->H0/100.0);
   cosmology_set(DeltaDC,0.0);
-  Lbox = header->dx*cosmology->h*num_grid;
+  box_size = header->dx*cosmology->h*num_grid;
 
   auni[min_level] = header->abeg;
   tl[min_level] = tcode_from_auni(auni[min_level]);
   abox[min_level] = abox_from_auni(auni[min_level]);
 
-  init_units();
+  units_reset();
+  units_update(min_level);
 
   /*
   //  Particle parameters
@@ -273,9 +276,8 @@ void cosmics_init()
   /*
   //  Unit conversion factors
   */
-  sFac = 1.0/(100.0*r0*sqrt(abox[min_level]*cosmology->OmegaM+cosmology->OmegaL*pow(abox[min_level],4.0))); 
-  vFac = abox[min_level]/v0;
-
+  vFac = constants->kms/units->velocity;
+  xFac = abox[min_level]*abox[min_level]*constants->Mpc/(100*cosmology->h*units->length)*dPlus(abox[min_level])/qPlus(abox[min_level]);
 
   if(header->n[1] > 256)
     {
@@ -364,9 +366,9 @@ void cosmics_init()
 	      x0[1] = fRef*(0.5+(id/ng1 % ng1));
 	      x0[2] = fRef*(0.5+(id/ng2 % ng1));
 	      
-	      x[0] = abox[min_level]*sFac*vxc[j] + x0[0];
-	      x[1] = abox[min_level]*sFac*vyc[j] + x0[1];
-	      x[2] = abox[min_level]*sFac*vzc[j] + x0[2];
+	      x[0] = xFac*vxc[j] + x0[0];
+	      x[1] = xFac*vyc[j] + x0[1];
+	      x[2] = xFac*vzc[j] + x0[2];
 
 	      /* enforce periodic boundary conditions */
 	      for(i=0; i<3; i++)
@@ -463,15 +465,15 @@ void cosmics_init()
   */
   fracB = cosmology->OmegaB/cosmology->OmegaM;
   fracHII = 1.2e-5*sqrt(cosmology->Omh2)/cosmology->Obh2;
-  q = auni[min_level]*137.0*pow(Omegab0*hubble*hubble/0.022,0.4);
-  temIn = T_CMB0/auni[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
+  q = auni[min_level]*137.0*pow(cosmology->Obh2/0.022,0.4);
+  temIn = 2.728/auni[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
 
   if(local_proc_id == MASTER_NODE)
     {
       cart_debug("Initial temperature: %f",temIn);
     }
 
-  temIn *= auni[min_level]*auni[min_level]*wmu/T0;
+  temIn /= units->temperature;
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -491,18 +493,18 @@ void cosmics_init()
       cell_momentum(cell,1) *= fracB;
       cell_momentum(cell,2) *= fracB;
 
-      cell_gas_gamma(cell) = gamma;
-      cell_gas_internal_energy(cell) =  cell_gas_density(cell)*temIn/(gamma-1)*(1.0-Y_p+0.25*Y_p);
-      cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
+      cell_gas_gamma(cell) = constants->gamma;
+      cell_gas_internal_energy(cell) =  cell_gas_density(cell)*temIn/(constants->gamma-1)*(1.0-constants->Yp+0.25*constants->Yp);
+      cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(constants->gamma-1);
       cell_gas_energy(cell) = cell_gas_internal_energy(cell) + cell_gas_kinetic_energy(cell);
 
 #ifdef RADIATIVE_TRANSFER
-      cell_HI_density(cell) = cell_gas_density(cell)*rtXH*(1.0-fracHII);
-      cell_HII_density(cell) = cell_gas_density(cell)*rtXH*fracHII;
-      cell_HeI_density(cell) = cell_gas_density(cell)*rtXHe;
+      cell_HI_density(cell) = cell_gas_density(cell)*constants->XH*(1.0-fracHII);
+      cell_HII_density(cell) = cell_gas_density(cell)*constants->XH*fracHII;
+      cell_HeI_density(cell) = cell_gas_density(cell)*constants->XHe;
       cell_HeII_density(cell) = cell_gas_density(cell)*0.0;
       cell_HeIII_density(cell) = cell_gas_density(cell)*0.0;
-      cell_H2_density(cell) = cell_gas_density(cell)*rtXH*2.0e-6;
+      cell_H2_density(cell) = cell_gas_density(cell)*constants->XH*2.0e-6;
 #endif
     }
   cart_free(level_cells);

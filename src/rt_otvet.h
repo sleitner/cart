@@ -1,14 +1,26 @@
 #ifndef __RT_OTVET_H__
 #define __RT_OTVET_H__
 
-#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
 
+
+#ifdef RADIATIVE_TRANSFER
+
+#ifndef RT_CONFIGURED
+#error "Missing rt_config.h include."
+#endif
+
+
+#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
 void rtInitRunTransferOtvet();
 void rtStepBeginTransferOtvet();
 void rtAfterAssignDensityTransferOtvet(int level, int num_level_cells, int *level_cells);
 void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm);
 
-#endif
+#endif /* defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */
+#endif /* RADIATIVE_TRANSFER */
 
-#endif  /* __RT_OTVET_H__ */
+#endif /* __RT_OTVET_H__ */

@@ -1,23 +1,30 @@
-#include "defs.h"      
+#include "../config.h"      
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 C
 C
 C
-      subroutine frtInitRun(Yp)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
+      subroutine frtInitRun2(Ypl,Tminl,D2Gminl,ClumpH2l,CohLenH2l,
+     .     fGall,fQSOl,IPOPl,IRECl)
+      include 'frt_f77.inc'
 C
-C  Default configuration
+      Yp = Ypl
+      Tmin = Tminl
+      D2Gin = D2Gminl
+      ClumpH2 = ClumpH2l
+      CohLenH2 = CohLenH2l
+      fGal = fGall
+      fQSO = fQSOl
+      IPOP = IPOPl
+      IREC = IRECl
 C
-      call frtInitRunGeneric(Yp,10.0,10.0)
-
+      call frtInitRun
+C
       return
       end
 C
 C
 C
-      subroutine frtInitRunGeneric(Yp,TemFloor,ClumpH2)
+      subroutine frtInitRun
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
@@ -26,6 +33,11 @@ C
 #ifdef RT_XRAYS
       include 'frt_xrays.inc'
 #endif
+C
+      data Yp/0.24/, Tmin/10.0/, D2Gmin/1.0e-3/
+      data ClumpH2/30.0/, CohLenH2/0.3/
+      data fGal /1.0/, fQSO/1.0/
+      data IPOP /2/, IREC/0/
 C
 #ifdef RT_DUST
       write(0,*) 'RT_Base: fatal error, ',
@@ -38,16 +50,28 @@ C
      .        'Yp must be between 1e-10 and 0.99.'
          call frtAbort
       endif
+C
+#ifdef RT_OUTPUT
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         open(unit=81, file='rt-run.log')
+         write(81,*) 'Run:'
+         write(81,*) 'Yp:       ', Yp
+         write(81,*) 'Tmin:     ', Tmin
+         write(81,*) 'D2Gmin:   ', D2Gmin
+         write(81,*) 'ClumpH2:  ', ClumpH2
+         write(81,*) 'CohLenH2: ', CohLenH2
+         write(81,*) 'fGal:     ', fGal
+         write(81,*) 'fQSO:     ', fQSO
+         write(81,*) 'IPOP:     ', IPOP
+         write(81,*) 'IREC:     ', IREC
+         close(81)
+      endif
+#endif /* RT_OUTPUT */
+C
       XH = 1 - Yp
       XG = 0.25*Yp
       XFEMAX = XH + 2*XG
-C
-C  Someparameters:
-C  1. H2 formation model: clumping factor in molecular clouds
-C  2. Temperature floor
-C
-      d_clump = ClumpH2
-      Tmin = TemFloor
 C     
 C  Table initialization
 C
@@ -66,67 +90,57 @@ C
 C
 C  Some extra initialization to avoid division by zero
 C
-      aStep = 1
+      aExp = 1
 
-      return
-      end
-C
-C
-C
-      subroutine frtStepBeginART(as,hs,ts,Om0,h100,r0,t0)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-C
 #ifdef RT_TEST
-      call frtTestStepBegin(Om0,h100,r0,t0)
+C
+C  RT-TEST +++++++++++++++++
+C
+      IREC = 2
+C
+C  RT-TEST -----------------
+C
 #endif
-C
-C  physical n_b/rho
-C
-      ud = 1.123e-5*Om0*h100**2/as**3
-C
-C  Time unit (in s)
-C
-      ut = t0*3.15e7*as**2
-C
-C  a*r0*1Mpc/h
-C
-      ul = 3.086e24*r0/h100*as
-
-      call frtStepBegin(ud,ul,ut,as,hs,ts,0)
 
       return
       end
 C
 C
 C
-      subroutine frtStepBegin(ud,ul,ut,as,hs,ts,mab)
+      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
       dimension guv(NRAD)
+C
       include 'frt_inline.inc'
 C
-C  Parameters of the step
+      uDen = uDenl
+      uLen = uLenl
+      uTime = uTimel
+      dtStep = dtStepl
+      aExp = aExpl
+      Hubble = Hubblel
 C
-      uDen = ud
-      uLen = ul
-      uTime = ut
-      aStep = as
-      hStep = hs
-      tStep = ts
-      modeAB = mab
+#ifdef RT_OUTPUT
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         open(unit=81, file='rt-run.log', access='append')
+         write(81,*) 'Step:'
+         write(81,*) '   uDen:   ', uDen
+         write(81,*) '   uLen:   ', uLen
+         write(81,*) '   uTime:  ', uTime
+         write(81,*) '   aExp:   ', aExp
+         write(81,*) '   Hubble: ', Hubble
+         write(81,*) '   dtStep: ', dtStep
+         close(81)
+      endif
+#endif /* RT_OUTPUT */
 
 #ifdef RT_TEST
-C
-C  RT-TEST +++++++++++++++++
-C
-      modeAB = 2
-C
-C  RT-TEST -----------------
-C
+      call frtTestStepBegin
 #endif
 C
 C  Some constants
@@ -144,9 +158,9 @@ C
          write(6,*) 'RT_Base: uDen = ', uDen
          write(6,*) 'RT_Base: uLen = ', uLen
          write(6,*) 'RT_Base: uTime = ', uTime
-         write(6,*) 'RT_Base: aStep = ', aStep
-         write(6,*) 'RT_Base: hStep = ', hStep
-         write(6,*) 'RT_Base: tStep = ', tStep
+         write(6,*) 'RT_Base: aExp = ', aExp
+         write(6,*) 'RT_Base: Hubble = ', Hubble
+         write(6,*) 'RT_Base: dtStep = ', dtStep
          write(6,*) 'RT_Base: uRate = ', uRate
          write(6,*) 'RT_Base: uColumn = ', uColumn
       endif
@@ -154,21 +168,24 @@ C
 C
 C  CMB temperature (in K)
 C
-      TemCMB = 2.728/aStep
+      TemCMB = 2.728/aExp
 C
-C  Destruction of H2 by CMB photons
+C  Destruction of H- by CMB photons
+C  NG 20091001: I do not recall where this is coming from, and it is
+C  completely negligible for z<100, so ignore it.
 C
-      facH2CMB = 1.1e-1*TemCMB**2.13*exp(-8823.0/TemCMB)
+C      facH2CMB = 1.1e-1*TemCMB**2.13*exp(-8823.0/TemCMB)
+      facH2CMB = 0.0
 C
 C   dEin/dt = facCool * CoolFun * rho 
 C   Only need to switch from proper time unit and from ergs to K
 C
       facCool = uRate*(CFSTAR/1.381e-16)
 C
-C  P_i = facPhot * Sum_j sigma_j ang_j/aStep**3 
-C  facPhot = c * CSSTAR * XISTEP / aStep**3 
+C  P_i = facPhot * Sum_j sigma_j ang_j/aExp**3 
+C  facPhot = c * CSSTAR * XISTEP / aExp**3 
 C
-      facPhot = 2.998e10*CSSTAR*XISTEP/aStep**3
+      facPhot = 2.998e10*CSSTAR*XISTEP/aExp**3
 C
 C  Compton cooling: dEin/dt (K/code units) = facCC*Xfe*(T-TCMB)
 C
@@ -192,19 +209,19 @@ C  Recombination case A/B:
 C    tau = XH1*fOSC/hnu_eV*tau0
 C    tau0 = c sigmaAB CSTAR nb / H / sqrt(Pi)
 C
-      if(modeAB.eq.0 .and. hStep.gt.1.0e-20) then
-         facRecB = 2.998e10*CSSTAR*uDen/(uTime*hStep)
+      if(IREC.eq.0 .and. Hubble.gt.1.0e-20) then
+         facRecB = 2.998e10*CSSTAR*uDen/(uTime*Hubble)
       else
          facRecB = 0.0
       endif
 C
 C Set the source spectrum
 C
-      call frtSetSourceSpectrum(aStep,guv)
+      call frtSetSourceSpectrum(aExp,guv)
 C
 C  Normalize
 C
-      fac = uDen*aStep**3
+      fac = uDen*aExp**3
       do lr=1,NRAD
          guvEff(lr) = fac*guv(lr)
       enddo
@@ -221,7 +238,7 @@ C$OMP+SHARED(guvLW0,guvLWe,guvEff,lrLWtr)
 C     
 C  Call Massimo's function
 C         
-      call  frtLW_SigmaH2(hStep,tStep,csLWMH)
+      call  frtLW_SigmaH2(Hubble,dtStep,csLWMH)
 C
 C  Renormalize
 C
@@ -272,7 +289,7 @@ C$OMP+SHARED(angLoc)
          angLoc(lr) = 0.0
       enddo
 
-      call frtSetExternalBackground(aStep,angUni,angLW)
+      call frtSetExternalBackground(aExp,angUni,angLW)
 
 #endif /* RT_EXTERNAL_BACKGROUND != RT_BACKGROUND_SELFCONSISTENT */
 #endif /* RT_EXTERNAL_BACKGROUND */
@@ -399,7 +416,7 @@ C     d\tilde{n}_xi/dt = 1/V e^{-h\nu/kT} 1/kT dE_tot/dt
 C     gBrem(xi) = Sum dV rho dT/dt 1/T e^{-T_xi/T} / V
 C     CRAD1 = \tilde{n}_b = comoving n_b
 C
-      CRAD1 = uDen*aStep**3
+      CRAD1 = uDen*aExp**3
 C
 C  Coefficient for absorption:
 C    c*CSSTAR*n_b/uTime = uColumn/facLX
@@ -457,7 +474,7 @@ C
 C
 C  Frequency shift
 C
-      shift = hStep*tStep
+      shift = Hubble*dtStep
       lshift = int(shift/XISTEP)
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
@@ -509,15 +526,15 @@ C
 
       fMH = XMH_va*CRAD2/CSSTAR
       fH1 = XH1_va*CRAD2/CSSTAR
-      call frtLW_ComputeLineShifts(hStep,fMH)
-      call frtLW_ComputeAbs(hStep,fH1,tStep,0.0,axiLW)
-      call frtLW_ComputeSource(hStep,fH1,tStep,guvLWe,sxiLW)
+      call frtLW_ComputeLineShifts(Hubble,fMH)
+      call frtLW_ComputeAbs(Hubble,fH1,dtStep,0.0,axiLW)
+      call frtLW_ComputeSource(Hubble,fH1,dtStep,guvLWe,sxiLW)
 
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(anbLW,angLW,axiLW,duvin,sxiLW,tStep)
+C$OMP+SHARED(anbLW,angLW,axiLW,duvin,sxiLW,dtStep)
       do lr=1,NRLW
-         anbLW(lr) = angLW(lr)*axiLW(lr) + duvin*sxiLW(lr)*tStep
+         anbLW(lr) = angLW(lr)*axiLW(lr) + duvin*sxiLW(lr)*dtStep
       enddo
 C
       shift = 0  !!  already included 
@@ -577,7 +594,7 @@ C$OMP+SHARED(angUni,angLoc,angAvg)
 #ifdef RT_DEBUG
       call frtQueryId(id)
       if(id .eq. 0) then
-         fac = 1.59e-17/aStep**3
+         fac = 1.59e-17/aExp**3
          write(6,*) 'RT: <abs_HI> = ', axiH1tr, axiH1tr/csH1tr/CRAD2
          write(6,*) 'RT: <PIR_HI> = ', 
      .        angUni(lrH1tr)*csH1tr*facPhot, 
@@ -604,16 +621,16 @@ C
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,t12,p12,q12),
-C$OMP+SHARED(axi,tStep,anb,ang,sxi)
+C$OMP+SHARED(axi,dtStep,anb,ang,sxi)
       do lr=1,NRAD
 
-         t12 = axi(lr)*tStep
+         t12 = axi(lr)*dtStep
          if(t12 .gt. 20.0) then
             p12 = 0.0
             q12 = 1.0/axi(lr)
          else if(t12 .lt. 0.001) then
             p12 = 1.0-t12
-            q12 = tStep
+            q12 = dtStep
          else
             p12 = exp(-t12)
             q12 = (1.0-p12)/axi(lr)
@@ -674,27 +691,90 @@ C
       end
 C
 C
-C
-      subroutine frtQueryBackground(n,wlen,anxi)
+C     
+      subroutine frtGetBackgroundPhotoRates(pRate)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-      dimension wlen(*), anxi(*)
+      dimension pRate(*)
 
-      if(n .ne. NRAD) then
-         n = NRAD
-      else
-         do lr=1,NRAD
-            wlen(lr) = 911.75*exp(-xig(lr))
-            anxi(lr) = angAvg(lr)
-         enddo
+      do i=1,iptabDim
+         pRate(i) = pRate0(i)
+      enddo
+
+      return
+      end
+C
+C
+C
+      function frtGetBinId(wlen)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      integer frtGetBinId
+
+      if(wlen .lt. 1.0e-35) then
+         frtGetBinId = 0
+         return
       endif
+
+      xi = log(911.75/wlen)
+
+      if(xi.lt.xig(1) .or. xi.gt.xig(NRAD)) then
+         lr = 0
+      else
+         lr = 1 + nint((xi-xig(1))/XISTEP)
+         if(lr .gt. NRAD) lr = NRAD
+      endif
+
+      frtGetBinId = lr
+
+      return
+      end
+C
+C
+C
+      function frtGetBinWavelength(lr)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+
+      if(lr.ge.1 .and. lr.le.NRAD) then
+
+         wlen = 911.75*exp(-xig(lr))
+
+      else
+
+         wlen = 0.0
+
+      endif
+
+      frtGetBinWavelength = wlen
+
+      return
+      end
+C
+C
+C
+      function frtGetBackgroundRadiationField(lr)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+
+      if(lr.ge.1 .and. lr.le.NRAD) then
+
+         anxi = angAvg(lr)
+
+      else
+
+         anxi = 0.0
+
+      endif
+
+      frtGetBackgroundRadiationField = anxi
 
       return
       end
 C
 C
 C     
-      function frtGetRadiationField(rf,lr)
+      function frtGetRadiationField(lr,rf)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER

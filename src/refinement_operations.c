@@ -1,12 +1,14 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "config.h"
+#ifdef REFINEMENT
+
 #include <math.h>
-
 #include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "defs.h"
-#include "tree.h"
 #include "auxiliary.h"
+#include "tree.h"
+
 
 int join( int cell ) {
 	int i, j;
@@ -229,3 +231,6 @@ int split ( int cell ) {
 
 	return result;
 }
+
+#endif /* REFINEMENT */
+

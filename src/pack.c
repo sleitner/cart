@@ -1,15 +1,17 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "config.h"
 
-#include "defs.h"
-#include "pack.h"
-#include "iterators.h"
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "auxiliary.h"
-#include "parallel.h"
 #include "cell_buffer.h"
-#include "tree.h"
+#include "iterators.h"
+#include "pack.h"
+#include "parallel.h"
 #include "sfc.h"
 #include "timing.h"
+#include "tree.h"
+
 
 pack *pack_init( int cell_type ) {
 	int proc;
@@ -22,8 +24,8 @@ pack *pack_init( int cell_type ) {
 		ret->num_sending_cells_total[proc] = 0;
 		ret->num_receiving_cells_total[proc] = 0;
 		for ( level = min_level; level <= max_level; level++ ) {
-			ret->num_sending_cells[proc][level] = 0;
-			ret->num_receiving_cells[proc][level] = 0;
+			ret->num_sending_cells[proc][level-min_level] = 0;
+			ret->num_receiving_cells[proc][level-min_level] = 0;
 		}
 	}
 
@@ -38,7 +40,7 @@ void pack_destroy( pack *p ) {
 	cart_assert( p != NULL );
 
 	for ( proc = 0; proc < num_procs; proc++ ) {
-		if ( p->num_sending_cells[proc][min_level] > 0 ) {
+		if ( p->num_sending_cells[proc][min_level-min_level] > 0 ) {
 			cart_free( p->root_cells[proc] );
 			cart_free( p->cell_refined[proc] );
 			cart_free( p->cell_vars[proc] );
@@ -123,7 +125,7 @@ void pack_add_root_tree( pack *p, int proc, int sfc ) {
 	cart_assert( sfc >= 0 && sfc < max_sfc_index );
 
 	if ( skiplist_insert( p->tree_list[proc], sfc ) ) {
-		p->num_sending_cells[proc][min_level]++;
+		p->num_sending_cells[proc][min_level-min_level]++;
 
 		if ( p->cell_type == CELL_TYPE_BUFFER ) {
 			/* prune cells if we're building a cell buffer */
@@ -159,8 +161,8 @@ void pack_apply( pack *p ) {
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		prune_proc = proc;
 
-		if ( p->num_sending_cells[proc][min_level] > 0 ) {
-			root_cells = cart_alloc(int, p->num_sending_cells[proc][min_level] );
+		if ( p->num_sending_cells[proc][min_level-min_level] > 0 ) {
+			root_cells = cart_alloc(int, p->num_sending_cells[proc][min_level-min_level] );
 
 			/* pack root sfc's into communication array */
 			i = 0;
@@ -168,7 +170,7 @@ void pack_apply( pack *p ) {
 			while ( skiplist_next( p->tree_list[proc], &root_cells[i] ) ) i++;
 			skiplist_destroy( p->tree_list[proc] );
 
-			for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
+			for ( i = 0; i < p->num_sending_cells[proc][min_level-min_level]; i++ ) {
 				cart_assert( root_cells[i] >= 0 && root_cells[i] < max_sfc_index );
 				cart_assert( root_cells[i] < proc_sfc_index[local_proc_id+1] );
 			}
@@ -181,7 +183,7 @@ void pack_apply( pack *p ) {
 
 			/* pack root cells */
 			num_vars_packed = 0;
-			for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
+			for ( i = 0; i < p->num_sending_cells[proc][min_level-min_level]; i++ ) {
 				/* pack tree into communication arrays */
 				icell = root_cell_location(root_cells[i]);
 				cart_assert( icell >= 0 && icell < num_cells_per_level[min_level] );
@@ -194,7 +196,7 @@ void pack_apply( pack *p ) {
 
 			/* pack root cell child ptr */
 			if ( p->cell_type == CELL_TYPE_BUFFER ) {
-				for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
+				for ( i = 0; i < p->num_sending_cells[proc][min_level-min_level]; i++ ) {
 					icell = root_cell_location(root_cells[i]);
 					if ( cell_is_refined(icell) && !cell_can_prune(icell,proc) ) {
 						cell_packed_child[i] = cell_child_oct[icell];
@@ -203,20 +205,20 @@ void pack_apply( pack *p ) {
 					}
 				}
 			} else {
-				for ( i = 0; i < p->num_sending_cells[proc][min_level]; i++ ) {
+				for ( i = 0; i < p->num_sending_cells[proc][min_level-min_level]; i++ ) {
 					icell = root_cell_location(root_cells[i]);
 					cell_packed_child[i] = cell_child_oct[icell];
 				}
 			}
 
 			old_offset = 0;
-			num_cells_packed = p->num_sending_cells[proc][min_level];
+			num_cells_packed = p->num_sending_cells[proc][min_level-min_level];
 
 			/* pack each level in turn */
 			for ( level = min_level+1; level <= max_level; level++ ) {
 				level_count = 0;
 
-				for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1]; i++ ) {
+				for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1-min_level]; i++ ) {
 					ioct = cell_packed_child[i];
 
 					if ( ioct != NULL_OCT ) {
@@ -251,7 +253,7 @@ void pack_apply( pack *p ) {
 
 				/* pack child ptr's */
 				if ( p->cell_type == CELL_TYPE_BUFFER ) {
-					for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1]; i++ ) {
+					for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1-min_level]; i++ ) {
 						ioct = cell_packed_child[i];
 
 						if ( ioct != NULL_OCT ) {
@@ -267,7 +269,7 @@ void pack_apply( pack *p ) {
 						}
 					}
 				} else {
-					for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1]; i++ ) {
+					for ( i = old_offset; i < old_offset + p->num_sending_cells[proc][level-1-min_level]; i++ ) {
 						ioct = cell_packed_child[i];
 
 						if ( ioct != NULL_OCT ) {
@@ -279,7 +281,7 @@ void pack_apply( pack *p ) {
 					}
 				}
 
-				p->num_sending_cells[proc][level] = level_count;
+				p->num_sending_cells[proc][level-min_level] = level_count;
 				old_offset = num_cells_packed - level_count;
 
 				cart_assert( old_offset >= 0 );
@@ -331,9 +333,9 @@ void pack_communicate( pack *p ) {
 
 	if ( p->cell_type == CELL_TYPE_BUFFER ) {
 		for ( proc = 0; proc < num_procs; proc++ ) {
-			if ( p->num_receiving_cells[proc][min_level] > 0 ) {
+			if ( p->num_receiving_cells[proc][min_level-min_level] > 0 ) {
 				num_recv_octs = ( p->num_receiving_cells_total[proc] -
-					p->num_receiving_cells[proc][min_level] ) / num_children;
+					p->num_receiving_cells[proc][min_level-min_level] ) / num_children;
 
 				oct_indices[proc][0] = cart_alloc(int, num_recv_octs );
 				oct_indices[proc][1] = cart_alloc(int, num_recv_octs );
@@ -356,7 +358,7 @@ void pack_communicate( pack *p ) {
 #ifdef MPI_MAX_MESSAGE_SIZE
 		num_send_requests = num_recv_requests = 0;
 		for ( proc = 0; proc < num_procs; proc++ ) {
-			cell_count = p->num_receiving_cells[proc][level];
+			cell_count = p->num_receiving_cells[proc][level-min_level];
 			if ( cell_count > 0 ) {
 				if ( level == min_level ) {
 					num_recv_requests += (sizeof(int)*cell_count-1)/MPI_MAX_MESSAGE_SIZE+1;
@@ -366,7 +368,7 @@ void pack_communicate( pack *p ) {
 				num_recv_requests += (sizeof(float)*cell_count*num_vars-1)/MPI_MAX_MESSAGE_SIZE+1;
 			}
 
-			cell_count = p->num_sending_cells[proc][level];
+			cell_count = p->num_sending_cells[proc][level-min_level];
 			if ( cell_count > 0 ) {
 				if ( level == min_level ) {
 					num_send_requests += (sizeof(int)*cell_count-1)/MPI_MAX_MESSAGE_SIZE+1;
@@ -385,10 +387,10 @@ void pack_communicate( pack *p ) {
 
 		for ( proc = 0; proc < num_procs; proc++ ) {
 			if ( level < max_level ) {
-				next_level_count += p->num_receiving_cells[proc][level+1] / num_children;
+				next_level_count += p->num_receiving_cells[proc][level+1-min_level] / num_children;
 			}
 
-			cell_count = p->num_receiving_cells[proc][level];
+			cell_count = p->num_receiving_cells[proc][level-min_level];
 			if ( cell_count > 0 ) {
 				cell_refined[proc] = cart_alloc(int, cell_count );
 				cell_recv_vars[proc] = cart_alloc(float, num_vars * cell_count );
@@ -437,7 +439,7 @@ void pack_communicate( pack *p ) {
 #endif
 			}
 
-			cell_count = p->num_sending_cells[proc][level];
+			cell_count = p->num_sending_cells[proc][level-min_level];
 			if ( cell_count > 0 ) {
 				if ( level == min_level ) {
 #ifdef MPI_MAX_MESSAGE_SIZE
@@ -490,7 +492,7 @@ void pack_communicate( pack *p ) {
 		if ( p->cell_type == CELL_TYPE_BUFFER ) {
 			if ( level == min_level ) {
 				for ( proc = 0; proc < num_procs; proc++ ) {
-					for ( i = 0; i < p->num_receiving_cells[proc][min_level]; i++ ) {
+					for ( i = 0; i < p->num_receiving_cells[proc][min_level-min_level]; i++ ) {
 						local_buffers[min_level][proc][i] = 
 							cell_buffer_local_index( root_cells[proc][i] );
 						cart_assert( cell_is_leaf( local_buffers[min_level][proc][i] ) );
@@ -512,7 +514,7 @@ void pack_communicate( pack *p ) {
 		child = 0;
 
 		for ( proc = 0; proc < num_procs; proc++ ) {
-			cell_count = p->num_receiving_cells[proc][level];
+			cell_count = p->num_receiving_cells[proc][level-min_level];
 
 			if ( cell_count > 0 ) {
 				cart_assert( proc != local_proc_id );
@@ -625,7 +627,7 @@ void pack_communicate( pack *p ) {
 					oct_indices[proc][1], oct_indices[proc][0] );
         		}
 
-			if ( p->num_receiving_cells[proc][min_level] > 0 ) {
+			if ( p->num_receiving_cells[proc][min_level-min_level] > 0 ) {
 				cart_free( oct_indices[proc][0] );
 				cart_free( oct_indices[proc][1] );
 			}

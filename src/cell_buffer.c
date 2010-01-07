@@ -1,23 +1,21 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <mpi.h>
+#include "config.h"
 
-#include "defs.h"
-#include "skiplist.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
 #include "cell_buffer.h"
 #include "index_hash.h"
-#include "parallel.h"
-#include "sfc.h"
-#include "tree.h"
-#include "pack.h"
 #include "iterators.h"
-#include "auxiliary.h"
-#include "timing.h"
-
-#ifdef RADIATIVE_TRANSFER
+#include "pack.h"
+#include "parallel.h"
 #include "rt_solver.h"
-#endif
+#include "sfc.h"
+#include "skiplist.h"
+#include "timing.h"
+#include "tree.h"
+
 
 int root_buffer_enabled = 0;
 int buffer_enabled = 0;
@@ -29,13 +27,13 @@ index_hash *buffer_oct_reverse_hash[MAX_PROCS];
 
 /* WARNING: remote_buffers[min_level] stores sfc index, while
  *  local_buffers[min_level] stores actual buffer index */
-int *remote_buffers[max_level-min_level+1][MAX_PROCS];
-int num_remote_buffers[max_level-min_level+1][MAX_PROCS];
-int num_local_buffers[max_level-min_level+1][MAX_PROCS];
-int *local_buffers[max_level-min_level+1][MAX_PROCS];
+DEFINE_LEVEL_ARRAY(int*,num_remote_buffers);
+DEFINE_LEVEL_ARRAY(int**,remote_buffers);
+DEFINE_LEVEL_ARRAY(int*,num_local_buffers);
+DEFINE_LEVEL_ARRAY(int**,local_buffers);
 
-int num_buffer_cells[max_level-min_level+1];	/* number of cells we're buffering */
-int buffer_oct_list[max_level-min_level+1];	/* linked list for buffered octs */
+DEFINE_LEVEL_ARRAY(int,num_buffer_cells);	/* number of cells we're buffering */
+DEFINE_LEVEL_ARRAY(int,buffer_oct_list);	/* linked list for buffered octs */
 
 /*******************************************************
  * init_cell_buffer
@@ -53,6 +51,11 @@ void init_cell_buffer()
 		num_buffer_cells[i] = 0;
 		buffer_oct_list[i] = NULL_OCT;
 
+		num_remote_buffers[i] = cart_alloc(int,num_procs);
+		num_local_buffers[i] = cart_alloc(int,num_procs);
+		remote_buffers[i] = cart_alloc(int*,num_procs);
+		local_buffers[i] = cart_alloc(int*,num_procs);
+		
 		for ( j = 0; j < num_procs; j++ ) {
 			num_remote_buffers[i][j] = 0;
 			num_local_buffers[i][j] = 0;

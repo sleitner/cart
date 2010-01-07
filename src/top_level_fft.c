@@ -1,14 +1,16 @@
-#include "defs.h"
+#include "config.h"
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
 
 #include <math.h>
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "parallel.h"
 #include "sfc.h"
 #include "timing.h"
 #include "top_level_fft.h"
+#include "tree.h"
 
-#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
 
 void init_fft() {
 #ifdef FFTW3
@@ -230,4 +232,4 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 	end_time( FFT_TIMER );
 }
 
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */

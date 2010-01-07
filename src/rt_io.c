@@ -1,4 +1,4 @@
-#include "defs.h"
+#include "config.h"
 #ifdef RADIATIVE_TRANSFER
 
 #include <mpi.h>
@@ -6,25 +6,21 @@
 #include <string.h>
 
 #include "auxiliary.h"
-#include "tree.h"
+#include "parallel.h"
 
-#include "rt_c2f.h"
-#include "rt_tree.h"
-#include "rt_utilities.h"
 #include "rt_transfer.h"
+#include "rt_utilities.h"
+
+#include "F/frt_c.h"
 
 
-void f2c_wrapper(frtpackradiationfields)(f2c_intg *n, f2c_real *data);
-void f2c_wrapper(frtunpackradiationfields)(f2c_intg *n, f2c_real *data);
-
-
-int rtWriteRFHelper(FILE *f, f2c_intg n, f2c_real *data, int fortran_style)
+int rtWriteRFHelper(FILE *f, frt_intg n, frt_real *data, int fortran_style)
 {
   int size;
 
-  size = n*sizeof(f2c_real);
+  size = n*sizeof(frt_real);
   if(fortran_style && fwrite(&size,sizeof(int),1,f)!=1) return 1;
-  if(fwrite(data,sizeof(f2c_real),n,f) != n) return 1;
+  if(fwrite(data,sizeof(frt_real),n,f) != n) return 1;
   if(fortran_style && fwrite(&size,sizeof(int),1,f)!=1) return 1;
 
 #ifdef RT_SINGLE_SOURCE
@@ -39,13 +35,13 @@ int rtWriteRFHelper(FILE *f, f2c_intg n, f2c_real *data, int fortran_style)
 }
 
 
-int rtReadRFHelper(FILE *f, f2c_intg n, f2c_real *data, int fortran_style)
+int rtReadRFHelper(FILE *f, frt_intg n, frt_real *data, int fortran_style)
 {
   int size;
 
-  size = n*sizeof(f2c_real);
+  size = n*sizeof(frt_real);
   if(fortran_style && fread(&size,sizeof(int),1,f)!=1) return 1;
-  if(fread(data,sizeof(f2c_real),n,f) != n) return 1;
+  if(fread(data,sizeof(frt_real),n,f) != n) return 1;
   if(fortran_style && fread(&size,sizeof(int),1,f)!=1) return 1;
 
 #ifdef RT_SINGLE_SOURCE
@@ -63,14 +59,14 @@ int rtReadRFHelper(FILE *f, f2c_intg n, f2c_real *data, int fortran_style)
 void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 {
   FILE *f;
-  f2c_intg n;
-  f2c_real *data;
+  frt_intg n;
+  frt_real *data;
   char *filename;
 
   if(local_proc_id == MASTER_NODE)
     {
       n = 0;
-      f2c_wrapper(frtpackradiationfields)(&n,0);
+      frtCall(packradiationfields)(&n,0);
       
       if(n < 1)
 	{
@@ -87,8 +83,8 @@ void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 	  cart_error("Unable to open file %s for writing.",filename);
 	}
 
-      data = cart_alloc(f2c_real, n );
-      f2c_wrapper(frtpackradiationfields)(&n,data);
+      data = cart_alloc(frt_real, n );
+      frtCall(packradiationfields)(&n,data);
 
       if(rtWriteRFHelper(f,n,data,fortran_style))
 	{
@@ -105,19 +101,19 @@ void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
 {
   FILE *f;
-  f2c_intg n;
-  f2c_real *data;
+  frt_intg n;
+  frt_real *data;
   char *filename;
 
   n = 0;
-  f2c_wrapper(frtunpackradiationfields)(&n,0);
+  frtCall(unpackradiationfields)(&n,0);
   
   if(n < 1)
     {
       cart_error("Unable to unpack Radiation Field data.");
     }
 
-  data = cart_alloc(f2c_real, n );
+  data = cart_alloc(frt_real, n );
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -137,7 +133,7 @@ void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
 	}
     }
 
-  if(sizeof(f2c_real) == sizeof(float))
+  if(sizeof(frt_real) == sizeof(float))
     {
       MPI_Bcast(data,n,MPI_FLOAT,MASTER_NODE,MPI_COMM_WORLD);
     }
@@ -145,7 +141,7 @@ void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
     {
       cart_error("Fortran type REAL and C type FLOAT are expected to be the same.");
     }
-  f2c_wrapper(frtunpackradiationfields)(&n,data);
+  frtCall(unpackradiationfields)(&n,data);
   
   cart_free(data);
  
@@ -161,5 +157,5 @@ void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
 #endif
 }
 
-#endif  // RADIATIVE_TRANSFER
+#endif /* RADIATIVE_TRANSFER */
 

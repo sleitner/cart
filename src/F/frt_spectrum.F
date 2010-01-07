@@ -1,6 +1,5 @@
-#include "defs.h"      
+#include "../config.h"      
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 C
 C
 C
@@ -15,7 +14,7 @@ C
 C
 C  Parameters of stellar spectral shape
 C  **MASSI**
-C  IFPOP = 3 Jason pop3 IFPOP = 2 nick pop2
+C  IPOP = 3 Jason pop3 IPOP = 2 nick pop2
 C
       parameter(G_Abrk = 5.5)
       parameter(G_Bbrk = 2.5)
@@ -41,13 +40,11 @@ C      r1   = <r>/(1 kpc) (averaged as 1/<r>^2 = \int dV 1/r^2)
 C      E30  = <E_\nu>/(30 eV)
 C    Assuming SFR3 = r1 = E30 = 1, we get epsUV = 5.0e-6
 C
-      EPSG_UV = 5.0e-6
-      EPSQ_UV = 0.0
+      EPSG_UV = fGal*5.0e-6
+      EPSQ_UV = fQSO*5.0e-6
 C
 C  Spectral shape parameters
 C
-      IPOP = 2
-
       FESCSET = 1.0
       XG1HESC = 0.1
       XG2HESC = 0.01
@@ -225,7 +222,7 @@ C$OMP+ guv_G,guv_Q,lrH1tr)
 
       call frtTestInitSourceSpectrum
 
-#endif  /* RT_TEST */
+#endif /* RT_TEST */
 
       return
       end

@@ -1,7 +1,10 @@
 #ifndef __LOAD_BALANCE_H__
 #define __LOAD_BALANCE_H__
 
-#include "defs.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
 
 extern float cost_per_cell;
 extern float cost_per_particle;
@@ -13,6 +16,9 @@ extern int load_balance_frequency;
 #else
 #define num_constraints         1
 #endif
+
+void config_init_load_balance();
+void config_verify_load_balance();
 
 int divide_list_recursive( float *global_work,
                 int *constrained_quantities,

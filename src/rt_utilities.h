@@ -2,8 +2,12 @@
 #define __RT_UTILITIES_H__
 
 
-#include "iterators.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
 
+
+#include <mpi.h>
 
 /*
 //  Useful macros
@@ -34,10 +38,6 @@ for(_Index=0; _Index<_Num_level_cells; _Index++) \
  _Level_cells = 0; \
 }
 
-#define DEFINE_LEVEL_ARRAY(type,name) \
-type name##_buffer[max_level-min_level+1]; \
-type *const name = name##_buffer - min_level
-
 
 #define rtuStencilSize     (2*nDim*nDim)
 extern double rtuStencilDist2[rtuStencilSize];
@@ -54,16 +54,6 @@ void rtuGlobalAverage(int n, double *buffer);
 void rtuGetStencil(int level, int cell, int nb[]);
 void rtuGetLinearArrayMaxMin(int n, float *arr, float *max, float *min);
 
-struct rtArrayAverageData
-{
-  float Value;
-  float LocalLevelSum[num_refinement_levels+1];
-  float GlobalLevelSum[num_refinement_levels+1];
-};
-
-void rtuInitArrayAverage(int n, struct rtArrayAverageData *out); 
-void rtuUpdateArrayAverage(int level, int n, struct rtArrayAverageData *out, MPI_Comm local_comm); 
-
 void rtuCopyArraysInt(int *dest, int *src, int size);
 void rtuCopyArraysFloat(float *dest, float *src, int size);
 
@@ -72,4 +62,4 @@ void rtuCheckGlobalValue(int val, char *name, MPI_Comm local_comm);
 #endif
 
 
-#endif  /* __RT_UTILITIES_H__ */
+#endif /* __RT_UTILITIES_H__ */

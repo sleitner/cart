@@ -1,28 +1,25 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include "config.h"
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
-#include "defs.h"
-#include "timestep.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
+#include "cell_buffer.h"
 #include "density.h"
 #include "iterators.h"
-#include "tree.h"
-#include "cell_buffer.h"
 #include "particle.h"
-#include "constants.h"
-#include "auxiliary.h"
+#include "rt_solver.h"
+#include "timestep.h"
 #include "timing.h"
+#include "tree.h"
+
 
 #ifndef DENSITY_CHUNK_SIZE
 #define DENSITY_CHUNK_SIZE	16384
 #endif /* DENSITY_CHUNK_SIZE */
 
-#ifdef RADIATIVE_TRANSFER
-#include "rt_solver.h"
-#endif
-
-
-#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
 void initialize_density( int level ) {
 	int i;
@@ -481,4 +478,4 @@ void assign_particle_density_smoothed( int level ) {
 
 #endif /* MAX_LEVEL_DARK_DENSITY */
 #endif /* PARTICLES */
-#endif /* GRAVITY */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */

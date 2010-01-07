@@ -1,24 +1,21 @@
 #ifndef __RT_TRANSFER_H__
 #define __RT_TRANSFER_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
+#ifdef RADIATIVE_TRANSFER
+
+#ifndef RT_CONFIGURED
+#error "Missing rt_config.h include."
+#endif
+
 
 #ifdef RT_TRANSFER
 
-
-/*
-// Global quantities 
-*/
-extern struct rtArrayAverageData rt_glob_Avg[2];
-
-#define rt_source_Avg     rt_glob_Avg[0]
-#define rt_num_glob       1
-
-#ifdef RT_VAR_OT_FIELD
-#define rt_ot_field_Avg   rt_glob_Avg[1]
-#undef rt_num_glob
-#define rt_num_glob       2
-#endif
-
+#include <mpi.h>
 
 void rtInitRunTransfer();
 void rtStepBeginTransfer();
@@ -28,13 +25,12 @@ void rtLevelUpdateTransfer(int level, MPI_Comm local_comm);
 
 void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc);
 
-
 #ifdef RT_SINGLE_SOURCE
 extern float rtSingleSourceVal;
 extern double rtSingleSourcePos[nDim];
 #endif
 
+#endif /* RT_TRANSFER */
+#endif /* RADIATIVE_TRANSFER */
 
-#endif
-
-#endif  /* __RT_TRANSFER_H__ */
+#endif /* __RT_TRANSFER_H__ */

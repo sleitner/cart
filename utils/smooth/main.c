@@ -41,10 +41,16 @@ int main(int argc,char **argv)
 	fPeriod[1] = period;
 	fPeriod[2] = period;
 
+	printf("bulding tree...\n");
 	kdBuildTree(kd);
+	printf("initializing density...\n");
 	smInit(&smx,kd,nSmooth,fPeriod);
+	printf("smoothing density...\n");
 	smSmooth(smx,smDensitySym);
+	printf("ordering tree...\n");
 	kdOrder(kd);
+
+	printf("writing output...\n");
 
 	/* write density file */
 	if ( argc == 4 ) {

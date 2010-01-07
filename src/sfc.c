@@ -1,11 +1,12 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include "config.h"
 
-#include "defs.h"
-#include "tree.h"
-#include "sfc.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "auxiliary.h"
+#include "sfc.h"
+
 
 /*******************************************************
  * morton_index

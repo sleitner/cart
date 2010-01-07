@@ -1,7 +1,11 @@
 #ifndef __CELL_BUFFER_H__
 #define __CELL_BUFFER_H__
 
-#include "tree.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 #include "index_hash.h"
 
 extern int root_buffer_enabled;
@@ -13,13 +17,13 @@ extern index_hash *buffer_root_hash;
 extern index_hash *buffer_oct_hash[MAX_PROCS];
 extern index_hash *buffer_oct_reverse_hash[MAX_PROCS];
 
-extern int num_buffer_cells[max_level-min_level+1];
-extern int buffer_oct_list[max_level-min_level+1]; 
+DECLARE_LEVEL_ARRAY(int,num_buffer_cells);
+DECLARE_LEVEL_ARRAY(int,buffer_oct_list);
 
-extern int *remote_buffers[max_level-min_level+1][MAX_PROCS];
-extern int num_remote_buffers[max_level-min_level+1][MAX_PROCS];
-extern int num_local_buffers[max_level-min_level+1][MAX_PROCS];
-extern int *local_buffers[max_level-min_level+1][MAX_PROCS];
+DECLARE_LEVEL_ARRAY(int*,num_remote_buffers);
+DECLARE_LEVEL_ARRAY(int**,remote_buffers);
+DECLARE_LEVEL_ARRAY(int*,num_local_buffers);
+DECLARE_LEVEL_ARRAY(int**,local_buffers);
 
 void init_cell_buffer();
 int cell_buffer_hash( int sfc );

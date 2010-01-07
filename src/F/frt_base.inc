@@ -85,11 +85,12 @@ C
 	parameter(infoDim  = 6)
 C
         common/RT_BASE_A/ XH, XG, XFEMAX
-        common/RT_BASE_B/ uDen, uLen, uTime, uRate, uColumn
+        common/RT_BASE_B/ uRate, uColumn, TemCMB
         common/RT_BASE_C/ facPhot, facCC, facH2CMB, facCool,
      .                    facLX, facLya, facRecB
-        common/RT_BASE_D/ modeAB
-        common/RT_BASE_E/ aStep, hStep, tStep, TemCMB
+        common/RT_BASE_D/ yLimit(ieqDim), ySmall(ieqDim)
+	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, dtStep
 C
-        common/RT_BASE_F/ yLimit(ieqDim), ySmall(ieqDim)
+	include 'frt_f77.inc'
+
 

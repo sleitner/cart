@@ -1,16 +1,19 @@
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "defs.h"
-#include "tree.h"
-#include "particle.h"
-#include "sfc.h"
-#include "parallel.h"
+#include "auxiliary.h"
 #include "cell_buffer.h"
 #include "iterators.h"
+#include "parallel.h"
+#include "particle.h"
+#include "sfc.h"
 #include "timing.h"
-#include "auxiliary.h"
+#include "tree.h"
+#include "units.h"
+
 
 /* global tree variables */
 float cell_vars[num_cells][num_vars];
@@ -30,14 +33,14 @@ int all_hydro_vars[num_hydro_vars];
 #endif
 
 /* level linked list variables */
-int num_cells_per_level[max_level-min_level+1];
-int local_oct_list[max_level-min_level+1];
+DEFINE_LEVEL_ARRAY(int,num_cells_per_level);
+DEFINE_LEVEL_ARRAY(int,local_oct_list);
 
 /* tables of stats for each level */
-float cell_size[max_level-min_level+1];
-float cell_size_inverse[max_level-min_level+1];
-float cell_volume[max_level-min_level+1];
-float cell_volume_inverse[max_level-min_level+1];
+DEFINE_LEVEL_ARRAY(float,cell_size);
+DEFINE_LEVEL_ARRAY(float,cell_size_inverse);
+DEFINE_LEVEL_ARRAY(float,cell_volume);
+DEFINE_LEVEL_ARRAY(float,cell_volume_inverse);
 
 /*******************************************************
  * init_tree
@@ -762,17 +765,37 @@ void cell_all_neighbors( int c, int neighbors[num_neighbors] )
 
 
 #ifdef HYDRO
-float cell_gas_kinetic_energy(int icell)
+
+float cell_gas_kinetic_energy(int cell)
 {
   int j;
   double ke = 0.0;
 
-  if(cell_gas_density(icell) > 0.0)
+  if(cell_gas_density(cell) > 0.0)
     {
-      for(j=0; j<nDim; j++) ke += cell_momentum(icell,j)*cell_momentum(icell,j);
-      return (float)(0.5*ke/cell_gas_density(icell));
+      for(j=0; j<nDim; j++) ke += cell_momentum(cell,j)*cell_momentum(cell,j);
+      return (float)(0.5*ke/cell_gas_density(cell));
     }
   else return 0.0;
 }
+
+
+#ifdef RADIATIVE_TRANSFER
+float rtTem(int cell);
+#endif /* RADIATIVE_TRANSFER */
+
+float cell_gas_temperature(int cell)
+{
+  if(cell_gas_density(cell) > 0.0)
+    {
+#ifdef RADIATIVE_TRANSFER
+      return rtTem(cell);
+#else
+      return cell_gas_internal_energy(cell)/(constants->wmu*(cell_gas_gamma(cell)-1)*cell_gas_density(cell));
 #endif
+    }
+  else return 0.0;
+}
+
+#endif /* HYDRO */
 

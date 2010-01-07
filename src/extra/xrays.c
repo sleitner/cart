@@ -1,15 +1,15 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "config.h"
+
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "defs.h"
-#include "tree.h"
-#include "analysis_xray.h"
 #include "auxiliary.h"
+#include "tree.h"
 #include "units.h"
-#include "constants.h"
 
-#ifdef ANALYSIS
+#include "xrays.h"
+
 
 #define nltmax		500
 #define nlzmax		500
@@ -152,4 +152,3 @@ double xray_calibrated_line_temperature( double avgE ) {
 	return pow( 10.0, logT );
 }
 
-#endif /* ANALYSIS */

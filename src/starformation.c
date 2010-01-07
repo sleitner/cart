@@ -1,18 +1,23 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include "config.h"
+#ifdef STARFORM
 
-#include "defs.h"
-#include "tree.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
+#include "control_parameter.h"
+#include "cosmology.h"
+#include "iterators.h"
+#include "parallel.h"
 #include "particle.h"
 #include "starformation.h"
+#include "starformation_recipes.h"
+#include "starformation_feedback.h"
 #include "timestep.h"
+#include "tree.h"
 #include "units.h"
-#include "constants.h"
-#include "iterators.h"
-#include "auxiliary.h"
 
-#ifdef STARFORM
 
 int num_local_star_particles;
 int last_star_id;
@@ -34,319 +39,180 @@ float star_metallicity_Ia[num_star_particles];
 float star_formation_volume_min[nDim];
 float star_formation_volume_max[nDim];
 
-int star_formation_frequency[max_level-min_level+1];
+DEFINE_LEVEL_ARRAY(int,star_formation_frequency);
 
 /* star formation parameters */
 int sf_recipe = 0;   /* default to the old-style recipe */
+int sf_min_level = min_level;  /* Minimum level on which create stars */
 
-double alpha_SF	= 1.5;
-double eps_SF = 1.5;
-double dtmin_SF = 1e6;
-double tau_SF = 3.0e7;
-double dm_star_min = 0.0;
-double rho_SF = 1e-1;
-double T_SF = 2e4;
-double a_IMF = 0.0;
-double aM_stl = 0.1;
-double aM_stu = 100.0;
-double aM_SNII = 8.0;
-double aM_SNIa1 = 3.0;
-double aM_SNIa2 = 8.0;
-double ejM_SNIa = 1.3;
-double C_SNIa = 1.5e-2;
-double t_SNIa = 0.2;
-double E_51 = 2.0;
-double t_fb = 1000.0;
-double T0_ml = 5.0;
-double c0_ml = 0.05;
+double sf_min_gas_number_density = 0.1;      /* in cm^{-3}; used to be called rho_SF */
+double sf_max_gas_temperature = 2.0e4;       /* in K; used to be called T_SF */
+double sf_timescale = 3.0e7;                 /* in yrs; used to be called tau_SF; called dtmin_SF in HART */
+double sf_sampling_timescale = 1.0e6;        /* in yrs; used to be called dtmin_SF; did not exist in HART */
+double sf_min_stellar_particle_mass = 0.0;   /* in Msun; used to be called dm_star_min */
 
-double T_max_feedback = 1.0e8;  /* That used to be a define, but it really should be a var */
 
-double eps_SFH2 = 0.005;
-double fH2_SFH2 = 0.1;
-double den_SFH2_eff = 100.0;
-double den_PRIM_eff = 1.0e6;
+void config_init_star_formation()
+{
+  /*
+  //  General parameters
+  */
+  control_parameter_add2(control_parameter_int,&sf_recipe,"sf:recipe","sf_recipe","recipe for star formation. Available recipes: \n   0 (oldstyle HART recipe),\n   1 (Gnedin et al 2009 recipes).\nUse <sf:recipe=1:min-cloud-density> and <sf:recipe=1:max-cloud-density> to mimic Gnedin et al 2009 recipes 1 to 3.");
 
-double C_SFR;
-double C_fb;
-double C_fbIa;
-double fmass_met;
-double rho_SF_fact, rho_SFH2_eff, rho_PRIM_eff, den_SFH2_fact;
-double aMSN_ave;
-double fmass_SN;
-double RIaf;
+  control_parameter_add2(control_parameter_int,&sf_min_level,"sf:min-level","sf_min_level","minimum level on which do star formation. Cells with level < <sf:min-level> form no stars no matter what.");
 
-double f_IMF( double amstar ) {
-	/* Miller-Scalo (1979, ApJS 41, 513, eq. 30, Table 7) IMF */
-	#define C_1     1.09
-	#define C_2     -1.02
-	return exp( -C_1 * ( (log10(amstar) - C_2)*(log10(amstar) - C_2) ) ) / amstar;
-                                                                                                                                                            
-	/* Chabrier, G. (2001, ApJ 554, 1274) */
-	/* #define am0_Ch 716.4 */
-	/* #define beta_Ch 0.25 */
-	/* #define alpha_Ch (-3.3) */
-	/* return exp( -pow( am0_Ch/amstar), beta_Ch) * pow(amstar,alpha_Ch); */
+  control_parameter_add3(control_parameter_double,&sf_min_gas_number_density,"sf:min-gas-number-density","sf_min_gas_number_density","rho_sf","the gas total hydrogen number density threshold for star formation, in cm^{-3}. No star formation is done for gas at lower densities.");
+
+  control_parameter_add3(control_parameter_double,&sf_max_gas_temperature,"sf:max-gas-temperature","sf_max_gas_temperature","t_sf","the maximum gas temperature (in K) for star formation. No star formation is done in hotter gas.");
+
+  control_parameter_add3(control_parameter_double,&sf_timescale,"sf:timescale","sf_timescale","tau_sf","the timescale for star formation. Star formation in a given cell is assumed to continue with the constant rate for that period of time. This parameter used to be called 'dtmin_SF' in HART.");
+
+  control_parameter_add3(control_parameter_double,&sf_sampling_timescale,"sf:sampling-timescale","sf_sampling_timescale","dtmin_sf","the timescale on which the conditions for star formation are checked. This is a numerical parameter only, no physical results should depend on it; its value should be sufficiently smaller than the <sf:timescale> parameter.");
+
+  control_parameter_add3(control_parameter_double,&sf_min_stellar_particle_mass,"sf:min-stellar-particle-mass","sf_min_stellar_particle_mass","dm_star_min","minimum mass for a newly created stellar particle, in solar masses. This value should be small enough to avoid artifically boosting the SFR in the low density gas.");
+
+  config_init_star_formation_recipes();
+  config_init_star_formation_feedback();
 }
 
-double f_SNIa_func( double xd ) {
-	return max( exp( -xd*xd ) / sqrt( xd ), 1e-20 );
+
+void config_verify_star_formation()
+{
+  /*
+  //  General parameters
+  */
+  cart_assert(sf_recipe>=0 && sf_recipe<=1);
+
+  cart_assert(sf_min_level>=min_level && sf_min_level<=max_level);
+
+  cart_assert(sf_min_gas_number_density > 0.0);
+
+  cart_assert(sf_max_gas_temperature > 10.0);
+
+  cart_assert(sf_timescale > 0.0);
+
+  cart_assert(sf_sampling_timescale < 0.5*sf_timescale);
+
+  cart_assert(!(sf_min_stellar_particle_mass < 0.0));
+
+  config_verify_star_formation_recipes();
+  config_verify_star_formation_feedback();
 }
-                                                                                                                                                            
-double f_SNIa( double xd ) {
-	return max( exp(-xd*xd) * sqrt(xd*xd*xd), 1e-20 );
-}
-                                                                                                                                                            
-double f_IMF_plaw( double amstar ) {
-	return pow( amstar, -a_IMF );
-}
-                                                                                                                                                            
-double fm_IMF_plaw( double amstar ) {
-	return pow( amstar, 1.0 - a_IMF );
-}
-                                                                                                                                                            
-double fm_IMF( double amstar ) {
-	return amstar * f_IMF(amstar);
-}
 
-double fmet_ej( double amstar ) {
-        return min( 0.2, max( 0.01*amstar - 0.06, 1e-20 ) );
+
+void init_star_formation()
+{
+  int j;
+  
+  init_star_formation_feedback();
+
+  /*
+  //  NG: This limit is very obscure, disable by default
+  */
+  for(j=0; j<nDim; j++)
+    {
+      star_formation_volume_min[j] = 0.0;
+      star_formation_volume_max[j] = num_grid;
+    }
 }
 
-double fej_IMF( double amstar ) {
-	return amstar * f_IMF(amstar) * fmet_ej(amstar);
-}
-                                                                                                                                                            
-double fej_IMF_plaw( double amstar ) {
-	return pow( amstar, 1.0 - a_IMF ) * fmet_ej( amstar );
-}
-                                                                                                                                                            
-void init_star_formation() {
-        int j;
-	double Aprime;
-	double aN_SNII, An_IMF;
-
-	if ( sf_recipe == 0 )
-	  C_SFR = eps_SF * 2.5*pow(10.0, 6.0 - 16.0*alpha_SF) * t0 * pow(rho0,alpha_SF-1.0);
-	else
-	  C_SFR = 49.53 * 2.5e-18 * t0 * sqrt(rho0);  /* This is from Kostas */
-
-	/*
-	// Code units
-	*/  
-	dm_star_min /= aM0; 
-
-	if ( a_IMF > 0.0 ) {
-		if ( a_IMF == 2.0 ) {
-			Aprime = 1.0 / log(aM_stu/aM_stl);
-		} else {
-			Aprime = (2.0-a_IMF) / ( pow(aM_stu,2.0-a_IMF) - pow(aM_stl,2.0-a_IMF) );
-		}
-
-		An_IMF = Aprime;
-
-		if ( a_IMF == 1.0 ) {
-			Aprime *= log(aM_stu/aM_SNII);
-		} else {
-			Aprime /= (1.0-a_IMF)*( pow(aM_stu,2.0-a_IMF) - pow( aM_SNII,1.0-a_IMF) );
-		}
-
-#ifdef ENRICH
-		fmass_met = integrate( fej_IMF_plaw, aM_SNII, aM_stu, 1e-6, 1e-9 );
-
-		if ( a_IMF == 2.0 ) {
-			fmass_met /= log(aM_stu/aM_stl);
-		} else {
-			fmass_met *= (2.0-a_IMF)/( pow(aM_stu,2.0-a_IMF) - pow(aM_stl,2.0-a_IMF) );
-		}
-#endif /* ENRICH */
-
-		aN_SNII = integrate( f_IMF_plaw, aM_SNII, aM_stu, 1e-6, 1e-9 );
-		aMSN_ave = integrate( fm_IMF_plaw, aM_SNII, aM_stu, 1e-6, 1e-9 ) / aN_SNII;
-		aN_SNII *= An_IMF;
-
-		fmass_SN = integrate( fm_IMF_plaw, aM_SNII, aM_stu, 1e-6, 1e-9 ) /
-				integrate( fm_IMF_plaw, aM_stl, aM_stu, 1e-6, 1e-9 );
-
-#ifdef FEEDBACK_SNIa
-		RIaf = 1e-9 * t0 * aM0 * C_SNIa * integrate( f_IMF_plaw, aM_SNIa1, aM_SNIa2, 1e-6, 1e-9 ) /
-			integrate( fm_IMF_plaw, aM_SNIa1, aM_SNIa2, 1e-6, 1e-9 ) /
-			integrate( f_SNIa_func, 1e-2, 1e3, 1e-6, 1e-9 ) / t_SNIa;
-#endif /* FEEDBACK_SNIa */
-
-	} else {
-		/* Miller-Scalo IMF */
-		An_IMF = 1.0 / integrate( fm_IMF, aM_stl, aM_stu, 1e-6, 1e-9 );
-
-		if ( An_IMF <= 0.0 ) {
-			cart_error("An_IMF <= 0.0!");
-		}
-
-		Aprime = An_IMF * integrate( f_IMF, aM_SNII, aM_stu, 1e-6, 1e-9 );
-
-		if ( Aprime <= 0.0 ) {
-			cart_error("Aprime <= 0!");
-		}
-
-#ifdef ENRICH 
-		fmass_met = integrate( fej_IMF, aM_SNII, aM_stu, 1e-6, 1e-9 ) /
-			integrate( fm_IMF, aM_stl, aM_stu, 1e-6, 1e-9 );
-#endif /* ENRICH */
-
-		aN_SNII = integrate( f_IMF, aM_SNII, aM_stu, 1e-6, 1e-9 );
-		aMSN_ave = integrate( fm_IMF, aM_SNII, aM_stu, 1e-6, 1e-9 ) / aN_SNII;
-		aN_SNII *= An_IMF;
-
-		fmass_SN = integrate( fm_IMF, aM_SNII, aM_stu, 1e-6, 1e-9 ) /
-				integrate( fm_IMF, aM_stl, aM_stu, 1e-6, 1e-9 );
-
-#ifdef FEEDBACK_SNIa
-		RIaf = 1e-9 * t0 * aM0 * C_SNIa * integrate( f_IMF, aM_SNIa1, aM_SNIa2, 1e-6, 1e-9 ) /
-			integrate( fm_IMF, aM_SNIa1, aM_SNIa2, 1e-6, 1e-9 ) /
-			integrate( f_SNIa_func, 1e-3, 1e3, 1e-6, 1e-9 ) / t_SNIa;
-#endif /* FEEDBACK_SNIa */
-	}
-
-	C_fb = 1e51 * E_51 * Aprime * aM0 / E0;
-	C_fbIa = 1e51 * E_51 / E0;
-	rho_SF_fact = rho_SF * 8.9e4 / cosmology->Omh2 / ( 1.0 - Y_p );
-
-	/*
-	//  NG: This limit is very obscure, disable by default
-	*/
-	for(j=0; j<nDim; j++)
-	  {
-	    star_formation_volume_min[j] = 0.0;
-	    star_formation_volume_max[j] = num_grid;
-	  }
-
-	if ( local_proc_id == MASTER_NODE ) {
-		cart_debug("tau_SF = %e", tau_SF );
-		cart_debug("T_SF = %e", T_SF );
-		cart_debug("C_fb = %e", C_fb );
-		cart_debug("C_sfr = %e", C_SFR );
-		cart_debug("rho_SF_fact = %e", rho_SF_fact );
-	}
-}
 
 #ifdef HYDRO
-void star_formation( int level, int time_multiplier ) {
-	int i, j;
-	int icell;
-	float pos[nDim];
-	int num_level_cells;
-	int *level_cells;
-	int do_star_formation;
-	double cell_fraction;
-	double fmass;
-	double T_SF_max;
-	double Tcell;
-	double dm_star;
-	double rho_SF_min;
-	double tau_SF_code;
-	double dt_eff;
-	double P_SF, fH2_cell;
-#ifndef RADIATIVE_TRANSFER
-        double zSol_cell;
+
+void star_formation_rate(int level, int num_level_cells, int *level_cells, float *sfr)
+{
+  int i, j;
+  int cell;
+  float pos[nDim];
+  int do_star_formation;
+  double tem_max, rho_min;
+
+  tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature);
+  rho_min = sf_min_gas_number_density/(constants->XH*units->number_density);
+#ifdef COSMOLOGY
+  rho_min = max(rho_min,200*cosmology->OmegaB/cosmology->OmegaM);
 #endif
 
-	cell_fraction = 0.667 * cell_volume[level];
+  setup_star_formation_recipes(level);
 
-	T_SF_max = T_SF / T0 * abox[level] * abox[level];
-	rho_SF_min = max( rho_SF_fact * abox[level]*abox[level]*abox[level], 200.0 * cosmology->OmegaB / cosmology->OmegaM );
-	tau_SF_code = tau_SF / ( t0 * abox[level]*abox[level] );
-	dt_eff = dtl[level] * time_multiplier;
+  for(i=0; i<num_level_cells; i++)
+    {
+      cell = level_cells[i];
 
-	if ( sf_recipe == 0 )
-	  fmass = pow(abox[level], (5.0 - 3.0*alpha_SF)) * C_SFR * cell_volume[level] * tau_SF_code;
-	else
-	  fmass = eps_SFH2 * sqrt(abox[level]) * C_SFR * cell_volume[level] * tau_SF_code;
+      sfr[i] = -1.0;
+      if(cell_is_leaf(cell))
+	{
+	  /* check position */
+	  cell_position(cell,pos);
 
-	den_SFH2_fact = 1.123e-5*cosmology->Omh2/(abox[level]*abox[level]*abox[level]);
-	rho_SFH2_eff = den_SFH2_eff/den_SFH2_fact;
-	rho_PRIM_eff = den_PRIM_eff/den_SFH2_fact;
-
-	/* probability of forming a star is Poisson with <t> = tau_SF */
-	P_SF = exp( -dt_eff / tau_SF_code );
-
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
-
-		if ( cell_is_leaf(icell) ) {
-			/* check position */
-			cell_position( icell, pos );
-
-			do_star_formation = 1;
-			for ( j = 0; j < nDim; j++ ) {
-				if ( pos[j] < star_formation_volume_min[j] || pos[j] > star_formation_volume_max[j] ) {
-					do_star_formation = 0;
-				}
-			}
-
-			if ( do_star_formation ) {
-				if ( cell_gas_density(icell) > rho_SF_min ) {
-					Tcell = cell_gas_pressure(icell) / cell_gas_density(icell);
-#ifdef RADIATIVE_TRANSFER
-					fH2_cell = 2*cell_H2_density(icell)/(2*cell_H2_density(icell)+cell_HI_density(icell));
-#else /* RADIATIVE_TRANSFER */
-#ifdef ENRICH
-					zSol_cell = cell_gas_metallicity(icell)/(Zsolar*cell_gas_density(icell));
-#else
-					zSol_cell = 0.0;
-#endif /* ENRICH */
-					fH2_cell = (max(1.0e-3,zSol_cell)*den_SFH2_fact*cell_gas_density(icell) > 30.0) ? 1.0 : 0.0;
-#endif /* RADIATIVE_TRANSFER */
-
-					if(cell_gas_density(icell) > rho_PRIM_eff) fH2_cell = 1.0;
-
-					if ( Tcell < T_SF_max && ( sf_recipe == 0 || fH2_cell > fH2_SFH2 ) ) {
-						/* randomly generate particle on timescale tau_SF_eff */
-						if ( cart_rand() > P_SF )
-						  {
-						    /* how big of a star particle to create? */
-						    switch(sf_recipe)
-						      {
-						      case 0:
-							{
-							  dm_star = fmass * pow( cell_gas_density(icell), alpha_SF );
-							  break;
-							}
-						      case 1:
-							{
-							  dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(rho_SFH2_eff);
-							  break;
-							}
-						      case 2:
-							{
-							  dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(max(cell_gas_density(icell),rho_SFH2_eff));
-							  break;
-							}
-						      case 3:
-							{
-							  dm_star = fmass*fH2_cell*cell_gas_density(icell)*sqrt(cell_gas_density(icell));
-							  break;
-							}
-						      default:
-							{
-							  cart_error("Invalid sf_recipe value: %d",sf_recipe);
-							}
-						      }
-
-						    dm_star = min( max(dm_star,dm_star_min), cell_fraction * cell_gas_density(icell) );
-
-						    /* create the new star */
-						    create_star_particle( icell, dm_star );
-						  }
-					}
-				}
-			}
+	  do_star_formation = 1;
+	  for(j=0; j<nDim; j++)
+	    {
+	      if(pos[j]<star_formation_volume_min[j] || pos[j]>star_formation_volume_max[j])
+		{
+		  do_star_formation = 0;
 		}
-	}
+	    }
 
-	cart_free( level_cells );
+	  if(do_star_formation && cell_gas_density(cell)>rho_min && cell_gas_pressure(cell)/cell_gas_density(cell)<tem_max)
+	    {
+	      sfr[i] = sf_rate(cell);
+	    }
+	}
+    }
 }
 
+
+void star_formation( int level, int time_multiplier )
+{
+  int i;
+  int icell;
+  int num_level_cells;
+  int *level_cells;
+  double cell_fraction;
+  double dm_star;
+  double dt_SF;
+  double dt_eff, dm_star_min;
+  double P_SF;
+  float *sfr;
+
+  if ( level < sf_min_level) return;
+
+  cell_fraction = 0.667 * cell_volume[level];
+  dm_star_min = sf_min_stellar_particle_mass * constants->Msun / units->mass; 
+
+  dt_SF = sf_timescale * constants->yr / units->time;
+  dt_eff = dtl[level] * time_multiplier;
+
+  /* probability of forming a star is Poisson with <t> = tau_SF */
+  P_SF = exp( -dt_eff / dt_SF );
+
+  select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+  sfr = cart_alloc(float,num_level_cells);
+
+  star_formation_rate(level,num_level_cells,level_cells,sfr);
+
+  for ( i = 0; i < num_level_cells; i++ ) if ( sfr[i] > 0.0 )
+    {
+      icell = level_cells[i];
+
+      /* randomly generate particle on timescale tau_SF_eff */
+      if ( cart_rand() > P_SF )
+	{
+	  dm_star = min( max(sfr[i]*dt_SF*cell_volume[level],dm_star_min), cell_fraction * cell_gas_density(icell) );
+
+	  /* create the new star */
+	  create_star_particle( icell, dm_star );
+	}
+    }
+
+  cart_free( sfr );
+  cart_free( level_cells );
+}
+
+/*
+//  NG: I haven't modified Doug's code below.
+*/
 void create_star_particle( int icell, float mass ) {
 	int i;
 	int ipart;
@@ -386,9 +252,9 @@ void create_star_particle( int icell, float mass ) {
 	star_initial_mass[ipart] = mass;
 
 #ifdef ENRICH
-	star_metallicity_II[ipart] = cell_gas_metallicity_II(icell) / cell_gas_density(icell);
+	star_metallicity_II[ipart] = cell_gas_metal_density_II(icell) / cell_gas_density(icell);
 #ifdef ENRICH_SNIa
-	star_metallicity_Ia[ipart] = cell_gas_metallicity_Ia(icell) / cell_gas_density(icell);
+	star_metallicity_Ia[ipart] = cell_gas_metal_density_Ia(icell) / cell_gas_density(icell);
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
 	
@@ -408,11 +274,11 @@ void create_star_particle( int icell, float mass ) {
 	cell_momentum(icell,2) *= density_fraction;
 		
 #ifdef ENRICH
-	cell_gas_metallicity_II(icell) = max( 1e-17,
-		cell_gas_metallicity_II(icell) - star_metallicity_II[ipart]*mass*cell_volume_inverse[level] );
+	cell_gas_metal_density_II(icell) = max( 1e-17,
+		cell_gas_metal_density_II(icell) - star_metallicity_II[ipart]*mass*cell_volume_inverse[level] );
 #ifdef ENRICH_SNIa
-	cell_gas_metallicity_Ia(icell) = max( 1e-17,
-		cell_gas_metallicity_Ia(icell) - star_metallicity_Ia[ipart]*mass*cell_volume_inverse[level] );
+	cell_gas_metal_density_Ia(icell) = max( 1e-17,
+		cell_gas_metal_density_Ia(icell) - star_metallicity_Ia[ipart]*mass*cell_volume_inverse[level] );
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
 }

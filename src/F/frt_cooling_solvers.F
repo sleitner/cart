@@ -1,4 +1,4 @@
-#include "defs.h"
+#include "../config.h"
 #ifdef RADIATIVE_TRANSFER
 
 #undef WA2_METHOD2
@@ -158,7 +158,7 @@ C
       dimension y0(*), w0(*), a0(*), yf(*), rs(*)
       dimension out1(*), pRate(*)
 C
-      dimension y1(9), w1(9), a1(9), yp(9)
+      dimension y1(9), w1(9), a1(9), ys(9)
 C
       d1 = 0.5
 C
@@ -170,7 +170,7 @@ C
             alp = (1-(1-exp(-tau))/tau)/(1-exp(-tau))
          endif
          y1(j) = y0(j) + dt*(w0(j)-a0(j)*y0(j))/(1+alp*tau)
-         yp(j) = y1(j)
+         ys(j) = y1(j)
       enddo
 
       call frtGetRates(par,rf,itab,
@@ -188,7 +188,7 @@ C
       enddo
 
       do j=1,nEqs
-         rs(j) = yf(j) - yp(j)
+         rs(j) = yf(j) - ys(j)
       enddo
 
       return
@@ -202,7 +202,7 @@ C
       dimension y0(*), w0(*), a0(*), yf(*), rs(*)
       dimension out1(*), pRate(*)
 C
-      dimension y1(9), w1(9), a1(9), yp(9)
+      dimension y1(9), w1(9), a1(9), ys(9)
 C
       d1 = 0.5
 C
@@ -217,7 +217,7 @@ C
             alp = (1-(1-exp(-tau))/tau)/(1-exp(-tau))
          endif
          y1(j) = y0(j) + dt*(w0(j)-a0(j)*y0(j))/(1+alp*tau)
-         yp(j) = y1(j)
+         ys(j) = y1(j)
       enddo
 
       iCor = 0
@@ -239,7 +239,7 @@ C
 C
 C  Black magic: oscillating vs evolving mode
 C
-      if((yf(1)-y0(1))*(yp(1)-y0(1)) .lt. 0.0) then
+      if((yf(1)-y0(1))*(ys(1)-y0(1)) .lt. 0.0) then
          nCor = 4
          rCor = 0.2
       endif
@@ -252,7 +252,7 @@ C
       endif
 
       do j=1,nEqs
-         rs(j) = yf(j) - yp(j)
+         rs(j) = yf(j) - ys(j)
       enddo
 
       return

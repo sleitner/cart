@@ -219,6 +219,7 @@ void smSmooth(SMX smx,void (*fncSmooth)(SMX,int,int,int *,float *))
 	int cell;
 	int pi,pin,pj,pNext,nCnt,nSmooth;
 	float dx,dy,dz,x,y,z,h2,ax,ay,az;
+	long iter = 0;
 
 
 	for (pi=0;pi<smx->kd->nActive;++pi) {
@@ -249,6 +250,8 @@ void smSmooth(SMX smx,void (*fncSmooth)(SMX,int,int,int *,float *))
 		pq->az = az;
 		}
 	while (1) {
+	        iter++;
+	        if(iter%1000000 == 0) printf("working, %ld done...\n",iter);
 		if (smx->pfBall2[pin] >= 0) {
 			/*
 			 ** Find next particle which is not done, and load the

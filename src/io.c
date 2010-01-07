@@ -1,46 +1,53 @@
+#include "config.h"
+
+#include <dirent.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <string.h>
+#include <sys/types.h>
 
-#include <mpi.h>
-
-#include "defs.h"
-#include "particle.h"
-#include "timestep.h"
-#include "tree.h"
-#include "io.h"
-#include "units.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "sfc.h"
-#include "iterators.h"
-#include "particle.h"
 #include "auxiliary.h"
-#include "timing.h"
+#include "cell_buffer.h"
+#include "control_parameter.h"
+#include "cosmology.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
-#include "starformation.h"
-#include "load_balance.h"
-#include "skiplist.h"
 #include "index_hash.h"
-#include "refinement_indicators.h"
-
-#ifdef RADIATIVE_TRANSFER
+#include "io.h"
+#include "iterators.h"
+#include "load_balance.h"
+#include "parallel.h"
+#include "particle.h"
+#include "refinement.h"
 #include "rt_io.h"
-#endif
+#include "sfc.h"
+#include "skiplist.h"
+#include "starformation.h"
+#include "timestep.h"
+#include "timing.h"
+#include "tree.h"
+#include "units.h"
 
-char output_directory[256];
-char logfile_directory[256];
-char jobname[256];
-char requeue_command[256];
-float outputs[MAX_OUTPUTS];
-int num_outputs;
+
+char output_directory[CONTROL_PARAMETER_STRING_LENGTH];
+char logfile_directory[CONTROL_PARAMETER_STRING_LENGTH];
+char jobname[CONTROL_PARAMETER_STRING_LENGTH];
+char requeue_command[CONTROL_PARAMETER_STRING_LENGTH];
+
 int current_output;
 int last_restart_step;
 
+int output_frequency = 0;
+int restart_frequency = 1;
+int particle_output_frequency = 0;
+int tracer_output_frequency = 0;
+int grid_output_frequency = 0;
+
 int num_output_files = 1;
+
+int num_outputs = 0;
+float outputs[MAX_OUTPUTS];
 
 #ifdef OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION
 typedef float particle_float;
@@ -49,6 +56,170 @@ typedef float particle_float;
 typedef double particle_float;
 #define MPI_PARTICLE_FLOAT	MPI_DOUBLE
 #endif
+
+
+/*
+//  For backward compatibility
+*/
+void units_set_art(double OmegaM, double h, double Lbox);
+
+
+void control_parameter_set_outputs(const char *value, void *ptr, int ind)
+{
+  int i, j;
+  char *str, *tok;
+  float a1, a2, da;
+
+  str = cart_alloc(char,strlen(value)+1);
+  strcpy(str,value); /* strtok destroys the input string */
+
+  tok = strtok(str," ");
+  while(tok!=NULL && num_outputs<MAX_OUTPUTS)
+    {
+      if(sscanf(tok,"(%g,%g,%g)",&a1,&a2,&da) == 3)
+	{
+	  cart_assert(da > 0.0);
+	  while(a1<a2 && num_outputs<MAX_OUTPUTS)
+	    {
+	      outputs[num_outputs++] = a1;
+	      a1 += da;
+	    }
+	}
+      else if(sscanf(tok,"%g",&a1) == 1)
+	{
+	  outputs[num_outputs++] = a1;
+	}
+      else
+	{
+	  cart_error("Invalid snapshot token %s in line %s",tok,value);
+	}
+      tok = strtok(NULL," ");
+    }
+
+  cart_free(str);
+
+  qsort(outputs,num_outputs,sizeof(float),compare_floats);
+  /*
+  //  Remove duplicates
+  */
+  for(i=1; i<num_outputs; i++)
+    {
+      if(outputs[i] < outputs[i-1]+1.0e-6)
+	{
+	  num_outputs--;
+	  for(j=i; j<num_outputs; j++) 
+	    {
+	      outputs[j] = outputs[j+1];
+	    }
+	}
+    }
+}
+
+
+void control_parameter_print_name(FILE *f, const char *name);
+
+void control_parameter_list_outputs(FILE *stream, const void *ptr)
+{
+  const int num_per_line = 10;
+  int i;
+  int newline = 0;
+
+  for(i=0; i<num_outputs; i++)
+    {
+      if(newline)
+	{
+	  fprintf(stream,"\n");
+	  control_parameter_print_name(stream,"snapshot-epochs");
+	  newline = 0;
+	}
+
+      fprintf(stream,"%g ",outputs[i]);
+
+      if((i+1)%num_per_line == 0)  newline = 1;
+    }
+
+  if(num_outputs == 0)
+    {
+      /*
+      //  Refinement indicators are not set
+      */
+      //fprintf(stream,"(NOT SET)");
+    }
+}
+
+
+void config_init_io()
+{
+  ControlParameterOps control_parameter_outputs = { control_parameter_set_outputs, control_parameter_list_outputs };
+
+  strcpy(jobname,"ART");
+  strcpy(output_directory,".");
+  strcpy(logfile_directory,".");
+  strcpy(requeue_command,"");
+
+  control_parameter_add2(control_parameter_string,jobname,"job-name","jobname","a name for this job. This name can be stored in output files for further reference.");
+
+  control_parameter_add2(control_parameter_string,output_directory,"directory:outputs","output_directory","directory for output files.");
+
+  control_parameter_add2(control_parameter_string,logfile_directory,"directory:logs","logfile_directory","directory for logs and other auxiliary files.");
+
+  control_parameter_add2(control_parameter_string,requeue_command,"requeue-command","requeue_command","a command for re-queueing the batch job after the completion of the current one.");
+
+  control_parameter_add2(control_parameter_int,&num_output_files,"num-output-files","num_output_files","Number of parallel output files.");
+
+#ifdef COSMOLOGY
+  control_parameter_add2(control_parameter_outputs,outputs,"snapshot-epochs","outputs","values for the cosmic scale factor at which to produce the full snalshots from the simulation. Values can be listed either one by one, separated by white space, or in a form '(a1,a2,da)' which expand into a loop from a=a1 to a=a2, with the step da. For example, '(0.1,0.5,0.1)' is equivalent to '0.1 0.2 0.3 0.4 0.5'. An arbitrary number of entries is allowed, so the loop entry does not have to be just one, several of them can be combined together; for example, '(0.1,0.3,0.1) (0.4,1.0,0.2)' will expand to '0.1 0.2 0.3 0.4 0.6 0.8 1.0'. Entries are sorted and repeated entries are automatically deleted, so the user does not need to care about the order of entries or the existence of duplicates.");
+#endif /* COSMOLOGY */
+
+  control_parameter_add2(control_parameter_int,&output_frequency,"frequency:user-output","output_frequency","frequency (in global time steps) of calling a user-defined run_output() function. Zero frequency disables this option.");
+
+  control_parameter_add2(control_parameter_int,&restart_frequency,"frequency:restart","restart_frequency","frequency (in global time steps) of producing restart files. Zero frequency disables this option.");
+
+  control_parameter_add2(control_parameter_int,&particle_output_frequency,"frequency:particle-output","particle_output_frequency","frequency (in global time steps) of producing particle output files. Zero frequency disables this option.");
+
+  control_parameter_add2(control_parameter_int,&tracer_output_frequency,"frequency:tracer-output","tracer_output_frequency","frequency (in global time steps) of producing tracer output files. Zero frequency disables this option.");
+
+  control_parameter_add2(control_parameter_int,&grid_output_frequency,"frequency:grid-output","grid_output_frequency","frequency (in global time steps) of calling producing grid output files. Every time a grid file is writtent to disk, particle and tracer files are also written, irrespectively of the values of <frequency:particle-output> and <frequency:tracer-output> parameters. Zero frequency disables regular output of grid files; however, outputs are still produced in cosmological simulations at cosmic scale factors set by <snapshot-epochs> parameter.");
+}
+
+
+void config_verify_io()
+{
+  int i;
+  DIR *d;
+  
+  if((d = opendir(output_directory)) == NULL)
+    {
+      cart_error("Directory %s does not exist.",output_directory);
+    }
+  else closedir(d);
+
+  if((d = opendir(logfile_directory)) == NULL)
+    {
+      cart_error("Directory %s does not exist.",logfile_directory);
+    }
+  else closedir(d);
+
+  cart_assert(num_output_files > 0);
+
+#ifdef COSMOLOGY
+  for(i=1; i<num_outputs; i++) if(!(outputs[i-1] < outputs[i]))
+    {
+      cart_error("Outputs are not strictly increasing (%d,%f,%f)",i,outputs[i-1],outputs[i]);
+    }
+#endif /* COSMOLOGY */
+
+  cart_assert(output_frequency >= 0);
+
+  cart_assert(restart_frequency >= 0);
+
+  cart_assert(particle_output_frequency >= 0);
+
+  cart_assert(tracer_output_frequency >= 0);
+
+  cart_assert(grid_output_frequency >= 0);
+}
+
 
 void reorder( char *buffer, int size ) {
         int i;
@@ -82,7 +253,11 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	  {
 	  case WRITE_SAVE:
 	    {
+#ifdef COSMOLOGY
 	      sprintf( filename_gas, "%s/%s_a%06.4f.d", output_directory, jobname, auni[min_level] );
+#else
+	      sprintf( filename_gas, "%s/%s_a%06d.d", output_directory, jobname, step );
+#endif /* COSMOLOGY */
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -101,7 +276,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	end_time( GAS_WRITE_IO_TIMER );
 
 
-	if(mpi_customization_mode & MPI_CUSTOM_SYNC)
+	if(mpi_custom_flags & MPI_CUSTOM_SYNC)
 	  {
 	    /*
 	    //  Finish writing one file before getting to another
@@ -118,7 +293,11 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 	  case WRITE_SAVE:
 	    {
+#ifdef COSMOLOGY
 	      sprintf( filename_tracers, "%s/%s_a%06.4f.dtr", output_directory, jobname, auni[min_level] );
+#else
+	      sprintf( filename_tracers, "%s/%s_a%06d.dtr", output_directory, jobname, step );
+#endif /* COSMOLOGY */
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -130,10 +309,14 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	    {
 	      sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
 	    }
-#else	    
+#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 	  case WRITE_SAVE:
 	    {
+#ifdef COSMOLOGY
 	      sprintf( filename_tracers, "%s/tracers_a%06.4f.dat", output_directory, auni[min_level] );
+#else
+	      sprintf( filename_tracers, "%s/tracers_a%06d.dat", output_directory, step );
+#endif /* COSMOLOGY */
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -145,7 +328,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	    {
 	      sprintf( filename_tracers, "%s/tracers.dat", output_directory );
 	    }
-#endif
+#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 	}
 
 	start_time( PARTICLE_WRITE_IO_TIMER );
@@ -161,10 +344,17 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 	  case WRITE_SAVE:
 	    {
+#ifdef COSMOLOGY
 	      sprintf( filename1, "%s/%s_a%06.4f.dph", output_directory, jobname, auni[min_level] );
 	      sprintf( filename2, "%s/%s_a%06.4f.dxv", output_directory, jobname, auni[min_level] );
 	      sprintf( filename3, "%s/%s_a%06.4f.dpt", output_directory, jobname, auni[min_level] );
 	      sprintf( filename4, "%s/%s_a%06.4f.dst", output_directory, jobname, auni[min_level] );
+#else
+	      sprintf( filename1, "%s/%s_a%06d.dph", output_directory, jobname, step );
+	      sprintf( filename2, "%s/%s_a%06d.dxv", output_directory, jobname, step );
+	      sprintf( filename3, "%s/%s_a%06d.dpt", output_directory, jobname, step );
+	      sprintf( filename4, "%s/%s_a%06d.dst", output_directory, jobname, step );
+#endif /* COSMOLOGY */
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -182,13 +372,20 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 		sprintf( filename3, "%s/%s.dpt", output_directory, jobname);
 		sprintf( filename4, "%s/%s.dst", output_directory, jobname);
 	    }
-#else
+#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 	  case WRITE_SAVE:
 	    {
+#ifdef COSMOLOGY
 	      sprintf( filename1,"%s/PMcrda%06.4f.DAT", output_directory, auni[min_level] );
 	      sprintf( filename2, "%s/PMcrs0a%06.4f.DAT", output_directory, auni[min_level] );
 	      sprintf( filename3, "%s/pta%06.4f.dat", output_directory, auni[min_level] );
 	      sprintf( filename4, "%s/stars_a%06.4f.dat", output_directory, auni[min_level] );
+#else
+	      sprintf( filename1,"%s/PMcrda%06d.DAT", output_directory, step );
+	      sprintf( filename2, "%s/PMcrs0a%06d.DAT", output_directory, step );
+	      sprintf( filename3, "%s/pta%06d.dat", output_directory, step );
+	      sprintf( filename4, "%s/stars_a%06d.dat", output_directory, step );
+#endif /* COSMOLOGY */
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -206,7 +403,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 		sprintf( filename3, "%s/pt.dat", output_directory );
 		sprintf( filename4, "%s/stars.dat", output_directory );
 	    }
-#endif
+#endif  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 	}
 		
 	start_time( PARTICLE_WRITE_IO_TIMER );
@@ -218,7 +415,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	end_time( PARTICLE_WRITE_IO_TIMER );
 
 
-	if(mpi_customization_mode & MPI_CUSTOM_SYNC)
+	if(mpi_custom_flags & MPI_CUSTOM_SYNC)
 	  {
 	    /*
 	    //  Finish writing one file before getting to another
@@ -394,14 +591,17 @@ void read_restart( double aload ) {
 	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* PARTICLES */
 
-	init_units();
+	units_reset();
+	units_update(min_level);
 
+#ifdef COSMOLOGY
 	/* ensure current output points to correct place in output array */
 	current_output = 0;
 	while ( current_output < num_outputs &&
 			auni[min_level] >= outputs[current_output] ) {
 		current_output++;
 	}
+#endif /* COSMOLOGY */
 
 	end_time( IO_TIMER );
 }
@@ -434,8 +634,11 @@ void save_check() {
 		tracer_save_flag = WRITE_SAVE;
 	}
 
-	if ( ( grid_output_frequency != 0 && step % grid_output_frequency == 0 ) ||
-			( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) ) {
+	if ( ( grid_output_frequency != 0 && step % grid_output_frequency == 0 )
+#ifdef COSMOLOGY
+	     || ( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) 
+#endif /* COSMOLOGY */
+	     ) {
 		/* we're saving information for permenant saving */
 		write_restart( WRITE_SAVE, WRITE_SAVE, WRITE_SAVE );
 		current_output++;
@@ -450,21 +653,42 @@ void save_check() {
 
 			/* only write out particles, no restart */
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+#ifdef COSMOLOGY
 			sprintf( filename1, "%s/%s_a%06.4f.dph", output_directory, jobname, auni[min_level] );
 			sprintf( filename2, "%s/%s_a%06.4f.dxv", output_directory, jobname, auni[min_level] );
 			sprintf( filename3, "%s/%s_a%06.4f.dpt", output_directory, jobname, auni[min_level] );
 #else
+			sprintf( filename1, "%s/%s_a%06d.dph", output_directory, jobname, step );
+			sprintf( filename2, "%s/%s_a%06d.dxv", output_directory, jobname, step );
+			sprintf( filename3, "%s/%s_a%06d.dpt", output_directory, jobname, step );
+#endif /* COSMOLOGY */
+#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
+#ifdef COSMOLOGY
 			sprintf( filename1, "%s/PMcrda%06.4f.DAT", output_directory, auni[min_level] );
 			sprintf( filename2, "%s/PMcrs0a%06.4f.DAT", output_directory, auni[min_level] );
 			sprintf( filename3, "%s/pta%06.4f.dat", output_directory, auni[min_level] );
-#endif
+#else
+			sprintf( filename1, "%s/PMcrda%06d.DAT", output_directory, step );
+			sprintf( filename2, "%s/PMcrs0a%06d.DAT", output_directory, step );
+			sprintf( filename3, "%s/pta%06d.dat", output_directory, step );
+#endif /* COSMOLOGY */
+#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
+
 
 #ifdef STARFORM
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+#ifdef COSMOLOGY
 			sprintf( filename4, "%s/%s_a%06.4f.dst", output_directory, jobname, auni[min_level] );
 #else
+			sprintf( filename4, "%s/%s_a%06d.dst", output_directory, jobname, step );
+#endif /* COSMOLOGY */
+#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
+#ifdef COSMOLOGY
 			sprintf( filename4, "%s/stars_a%06.4f.dat", output_directory, auni[min_level] );
-#endif
+#else
+			sprintf( filename4, "%s/stars_a%06d.dat", output_directory, step );
+#endif /* COSMOLOGY */
+#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 			write_particles( filename1, filename2, filename3, filename4 );
 #else
 			write_particles( filename1, filename2, filename3, NULL );
@@ -480,10 +704,19 @@ void save_check() {
 			start_time( IO_TIMER );
 			start_time( PARTICLE_WRITE_IO_TIMER );
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+#ifdef COSMOLOGY
 			sprintf( filename1, "%s/%s_a%06.4f.dtr", output_directory, jobname, auni[min_level] );
 #else
+			sprintf( filename1, "%s/%s_a%06d.dtr", output_directory, jobname, step );
+#endif /* COSMOLOGY */
+#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
+#ifdef COSMOLOGY
 			sprintf( filename1, "%s/tracers_a%06.4f.dat", output_directory, auni[min_level] );
-#endif
+#else
+			sprintf( filename1, "%s/tracers_a%06d.dat", output_directory, step );
+#endif /* COSMOLOGY */
+#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
+
 			write_hydro_tracers( filename1 );
 			end_time( PARTICLE_WRITE_IO_TIMER );
 			end_time( IO_TIMER );
@@ -812,10 +1045,32 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		}
 
 		/* set up header and write it out */
+#ifdef COSMOLOGY
 		header.aunin	= auni[min_level];
 		header.auni0	= auni_init;
-		header.amplt	= 0.0;
 		header.astep	= abox[min_level] - abox_old[min_level];
+		header.h100     = cosmology->h;
+		header.OmM0	= cosmology->OmegaM;
+		header.OmL0	= cosmology->OmegaL;
+		header.OmK0	= cosmology->OmegaK;
+		header.OmB0	= cosmology->OmegaB;
+		header.DelDC	= cosmology->DeltaDC;
+		header.abox	= abox[min_level];
+		header.Hbox	= (abox_from_tcode(tl[min_level]+0.5*dtl[min_level])-abox_from_tcode(tl[min_level]-0.5*dtl[min_level]))/dtl[min_level];
+#else
+		header.aunin	= 1.0;
+		header.auni0	= 1.0;
+		header.astep	= 0.0;
+		header.h100     = 0.0;
+		header.OmM0	= primary_units->mass;
+		header.OmB0	= primary_units->time;
+		header.OmL0	= primary_units->length;
+		header.OmK0	= 0.0;
+		header.DelDC	= 0.0;
+		header.abox	= tl[min_level];
+		header.Hbox	= 0.0;
+#endif /* COSMOLOGY */
+		header.amplt	= 0.0;
 		header.istep	= step;
 		header.partw	= 0.0;
 		header.tintg	= tintg;
@@ -828,23 +1083,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		header.Ngrid	= num_grid;
 		header.Nspecies	= num_particle_species;
 		header.Nseed	= 0.0;
-		header.OmM0		= cosmology->OmegaM;
-		header.OmL0		= cosmology->OmegaL;
-		header.h100     = cosmology->h;
-		header.Wp5		= 0.0;
-		header.OmK0		= cosmology->OmegaK;
-		header.OmB0		= cosmology->OmegaB;
+		header.Wp5	= 0.0;
 
 		header.magic1	= PARTICLE_HEADER_MAGIC;  /* for indentifying legacy files */
 		header.magic2	= PARTICLE_HEADER_MAGIC;  /* for indentifying legacy files */
-		header.DelDC	= cosmology->DeltaDC;
-		header.abox		= abox[min_level];
-#ifdef COSMOLOGY
-		header.Hbox		= (abox_from_tcode(tl[min_level]+0.5*dtl[min_level]) - 
-							abox_from_tcode(tl[min_level]-0.5*dtl[min_level]))/dtl[min_level];
-#else
-		header.Hbox		= 0.0;
-#endif
 
 		for ( i = 0; i < num_particle_species; i++ ) {
 			header.mass[i] = particle_species_mass[i];
@@ -1165,7 +1407,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			size = 2*sizeof(double);
 			fwrite( &size, sizeof(int), 1, stellar_output );
 			fwrite( &tl[min_level], sizeof(double), 1, stellar_output );
+#ifdef COSMOLOGY
 			fwrite( &auni[min_level], sizeof(double), 1, stellar_output );
+#else
+			fwrite( &dtl[min_level], sizeof(double), 1, stellar_output );
+#endif /* COSMOLOGY */
 			fwrite( &size, sizeof(int), 1, stellar_output );
 
 			size = sizeof(int);
@@ -2296,7 +2542,7 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 		header->h100 = nbody_header.h100;
 		header->Wp5  = nbody_header.Wp5;
 		header->OmK0 = nbody_header.OmK0;
-		header->OmB0 = 0.0;
+		header->OmB0 = 1.0e-30;
 
 		header->magic1    = nbody_header.magic1;
 		header->magic2    = nbody_header.magic2;
@@ -2399,7 +2645,9 @@ void read_particles( char *header_filename, char *data_filename,
 	float grid_shift;
 	MPI_Status status;
 
+#ifdef COSMOLOGY
 	struct CosmologyParameters temp_cosmo;
+#endif /* COSMOLOGY */
 
 #ifdef STARFORM
 	FILE *stellar_input;
@@ -2438,18 +2686,20 @@ void read_particles( char *header_filename, char *data_filename,
 		cart_debug("OmegaB = %e", header.OmB0 );
 
 		cart_debug("DelDC = %e", header.DelDC );
+
+#ifdef COSMOLOGY
 		cart_debug("abox  = %e", header.abox );
 
-		/* set units */
+		/* set cosmology & units */
 		cosmology_set(OmegaM,header.OmM0);
 		cosmology_set(OmegaL,header.OmL0);
+		cosmology_set(OmegaB,header.OmB0);
 		cosmology_set(h,header.h100);
 		cosmology_set(DeltaDC,header.DelDC);
 
 		/* NG: trust only the global scale factor */
 		auni[min_level]	= header.aunin;
-
-#ifdef COSMOLOGY
+		auni_init	= header.auni0;
 
 		tl[min_level]  = tcode_from_auni(auni[min_level]);
 		abox[min_level] = abox_from_auni(auni[min_level]);
@@ -2463,24 +2713,30 @@ void read_particles( char *header_filename, char *data_filename,
 
 #else
 
-		tl[min_level]  = 0.0;
-		abox[min_level] = auni[min_level];
-		abox_old[min_level] = abox[min_level] - header.astep;
+		cart_debug("tl    = %e", header.abox );
 
+		tl[min_level]  = header.abox;
 		dt = 0.0;
-#endif
 
+		if(header.h100 > 0.0) /* legacy units */
+		  {
+		    units_set_art(header.OmM0,header.h100,box_size);
+		  }
+		else
+		  {
+		    units_set(header.OmM0,header.OmB0,header.OmL0);
+		  }
 
-		auni_init	= header.auni0;
+#endif /* COSMOLOGY */
+
 		step		= header.istep;
 	
 		num_row		= header.Nrow;
 	
 		if ( nbody_flag ) {
-			vfact = 2.0/sqrt(cosmology->OmegaM);
+			vfact = 2.0/sqrt(header.OmM0);
 			grid_shift = 1.5;
 		} else {
-		        cosmology_set(OmegaB,header.OmB0);
 			vfact = 1.0;
 			grid_shift = 1.0;
 		}
@@ -2496,7 +2752,7 @@ void read_particles( char *header_filename, char *data_filename,
 #ifdef COSMOLOGY
 		ap0 		= abox_from_tcode( tl[min_level] - 0.5*dt );
 #else
-		ap0             = abox[min_level];
+		ap0             = 1.0;
 #endif
 
 #ifndef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
@@ -2623,13 +2879,15 @@ void read_particles( char *header_filename, char *data_filename,
 		}
 #endif /* STARFORM */
 
+#ifdef COSMOLOGY
 		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+                MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
+#endif /* COSMOLOGY */
+
 		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-
-                MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
 
 		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
@@ -3060,14 +3318,16 @@ void read_particles( char *header_filename, char *data_filename,
 			cart_free( sfc_map );
 		}
 	} else {
+#ifdef COSMOLOGY
                 MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
                 MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
                 MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-
                 MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
 		cosmology_copy(&temp_cosmo);
+#endif /* COSMOLOGY */
+
+		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
                 MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
                 MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
@@ -3256,7 +3516,7 @@ void write_hydro_tracers( char *filename ) {
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* boxh, Om0, Oml0, Omb0, hubble */
-		boxh = Lbox;
+		boxh = box_size;
 		OmM0 = cosmology->OmegaM;
 		OmL0 = cosmology->OmegaL;
 		OmB0 = cosmology->OmegaB;
@@ -3869,11 +4129,13 @@ void read_gas_ic( char *filename ) {
 			reorder( (char *)&ncells, sizeof(int) );
 		}
 
-		Lbox = boxh;
-		auni_init = ainit;
+		box_size = boxh;
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
-		MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+#ifdef COSMOLOGY
+		auni_init = ainit;
 		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+#endif /* COSMOLOGY */
 	
 		cart_debug("boxh = %f", boxh );
 		cart_debug("ainit = %f", ainit );
@@ -3954,8 +4216,10 @@ void read_gas_ic( char *filename ) {
 			cart_free( page_indices[proc] );
 		}
 	} else {
-		MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+#ifdef COSMOLOGY
 		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+#endif /* COSMOLOGY */
 
 		page[local_proc_id] = cart_alloc(float, num_grid*num_grid );
 		page_indices[local_proc_id] = cart_alloc(int, num_grid*num_grid );
@@ -3980,10 +4244,10 @@ void read_gas_ic( char *filename ) {
 
 	/* set gas gamma on root level */
 	for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-		cell_gas_gamma(i) = gamma;
+		cell_gas_gamma(i) = constants->gamma;
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*wmu/wmu_e;
+		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*constants->wmu/constants->wmu_e;
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 	}
 
@@ -4027,7 +4291,9 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	int cells_to_read, cell_refined_to_read;
 	int num_file_vars;
 
-	struct CosmologyParameters temp_cosmo;
+#ifdef COSMOLOGY
+        struct CosmologyParameters temp_cosmo;
+#endif /* COSMOLOGY */
 
 	max_level_to_read = min( max_level, max_level_to_read );
 
@@ -4067,8 +4333,6 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			reorder( (char *)&ainit, sizeof(float) );
 		}
 
-		auni_init = ainit;
-
                 /* boxh, Om0, Oml0, Omb0, hubble */
 		fread( &size, sizeof(int), 1, input );
 		fread( &boxh, sizeof(float), 1, input );
@@ -4086,12 +4350,26 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			reorder( (char *)&h100, sizeof(float) );
 		}
 
-		Lbox = boxh;
+		box_size = boxh;
+
+#ifdef COSMOLOGY
+		auni_init = ainit;
+
 		cosmology_set(OmegaM,OmM0);
 		cosmology_set(OmegaL,OmL0);
 		cosmology_set(OmegaB,OmB0);
 		cosmology_set(h,h100);
 		temp_cosmo = *cosmology;
+#else
+                if(h100 > 0.0) /* legacy units */
+                  {
+                    units_set_art(OmM0,h100,box_size);
+                  }
+                else
+                  {
+                    units_set(OmM0,OmB0,OmL0);
+                  }
+#endif /* COSMOLOGY */
 
 		/* nextra (no evidence extras are used...) extra lextra */
 		fread( &size, sizeof(int), 1, input );
@@ -4132,7 +4410,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* tl */
 		fread( &size, sizeof(int), 1, input );
-		fread( &tl, sizeof(double), maxlevel-minlevel+1, input );
+		fread( tl, sizeof(double), maxlevel-minlevel+1, input );
 		fread( &size, sizeof(int), 1, input);
 
 		if ( endian ) {
@@ -4143,7 +4421,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* dtl */
 		fread( &size, sizeof(int), 1, input );
-		fread( &dtl, sizeof(double), maxlevel-minlevel+1, input);
+		fread( dtl, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -4154,7 +4432,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* tl_old */
 		fread( &size, sizeof(int), 1, input );
-		fread( &tl_old, sizeof(double), maxlevel-minlevel+1, input);
+		fread( tl_old, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -4165,7 +4443,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* dtl_old */
 		fread( &size, sizeof(int), 1, input );
-		fread( &dtl_old, sizeof(double), maxlevel-minlevel+1, input);
+		fread( dtl_old, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );	
 
 		if ( endian ) {
@@ -4176,7 +4454,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* iSO */
 		fread( &size, sizeof(int), 1, input );
-		fread( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
+		fread( level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -4269,10 +4547,10 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			} else if ( strncmp( varname, "hydro_momentum_z", 32 ) == 0 ) {
 				varindex[i] = HVAR_MOMENTUM+2;
 #ifdef ENRICH
-			} else if ( strncmp( varname, "hydro_metallicity_II", 32 ) == 0 ) {
-				varindex[i] = HVAR_METALLICITY_II;
-			} else if ( strncmp( varname, "hydro_metallicity_Ia", 32 ) == 0 ) {
-				varindex[i] = HVAR_METALLICITY_Ia;
+			} else if ( strncmp( varname, "hydro_metallicity_II", 32 ) == 0 || strncmp( varname, "hydro_metal_density_II", 32 ) == 0 ) {
+				varindex[i] = HVAR_METAL_DENSITY_II;
+			} else if ( strncmp( varname, "hydro_metallicity_Ia", 32 ) == 0 || strncmp( varname, "hydro_metal_density_Ia", 32 ) == 0 ) {
+				varindex[i] = HVAR_METAL_DENSITY_Ia;
 #endif /* ENRICH */
 			} else {
 				varindex[i] = -1;
@@ -4300,11 +4578,13 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	MPI_Bcast( &minlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( &maxlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
+#ifdef COSMOLOGY
+	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
 	cosmology_copy(&temp_cosmo);
+#endif /* COSMOLOGY */
 
 	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( dtl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
@@ -4499,7 +4779,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	buffer_enabled = 1;
 }
 
-#endif  /* HYDRO */
+#endif /* HYDRO */
 
 
 /*
@@ -4595,7 +4875,7 @@ void write_grid_binary( char *filename ) {
 #ifdef RADIATIVE_TRANSFER
 	for(j=0; j<rt_num_disk_vars; j++) other_vars[k+j] = rt_disk_offset + j; 
 #endif
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 
 	/* ensure consistency of num_output_files */
@@ -4657,8 +4937,12 @@ void write_grid_binary( char *filename ) {
 		fwrite(&size, sizeof(int), 1, output );
 
 		/* istep, t, dt, adum, ainit */
+#ifdef COSMOLOGY
 		adum = auni[min_level];
 		ainit = auni_init;
+#else
+		adum = ainit = 1.0;
+#endif /* COSMOLOGY */
 		size = sizeof(int) + 2*sizeof(double) + 2*sizeof(float);
 
 		fwrite( &size, sizeof(int), 1, output );
@@ -4670,11 +4954,18 @@ void write_grid_binary( char *filename ) {
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* boxh, OmM0, OmL0, OmB0, hubble */
-		boxh = Lbox;
+		boxh = box_size;
+#ifdef COSMOLOGY
 		OmM0 = cosmology->OmegaM;
 		OmL0 = cosmology->OmegaL;
 		OmB0 = cosmology->OmegaB;
 		h100 = cosmology->h;
+#else
+		OmM0 = primary_units->mass;
+		OmB0 = primary_units->time;
+		OmL0 = primary_units->length;
+		h100 = 0.0; /* indicator that we have units rather than cosmological parameters */
+#endif /* COSMOLOGY */
 		size = 5*sizeof(float);
 
 		fwrite( &size, sizeof(int), 1, output );
@@ -4716,22 +5007,22 @@ void write_grid_binary( char *filename ) {
 
 		/* tl */
 		fwrite( &size, sizeof(int), 1, output );
-		fwrite( &tl, sizeof(double), maxlevel-minlevel+1, output);
+		fwrite( tl, sizeof(double), maxlevel-minlevel+1, output);
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* dtl */
 		fwrite( &size, sizeof(int), 1, output );
-		fwrite( &dtl, sizeof(double), maxlevel-minlevel+1, output);
+		fwrite( dtl, sizeof(double), maxlevel-minlevel+1, output);
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* tl_old */
 		fwrite( &size, sizeof(int), 1, output );
-		fwrite( &tl_old, sizeof(double), maxlevel-minlevel+1, output );
+		fwrite( tl_old, sizeof(double), maxlevel-minlevel+1, output );
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* dtl_old */
 		fwrite( &size, sizeof(int), 1, output );
-		fwrite( &dtl_old, sizeof(double), maxlevel-minlevel+1, output);
+		fwrite( dtl_old, sizeof(double), maxlevel-minlevel+1, output);
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* iSO */
@@ -4832,7 +5123,7 @@ void write_grid_binary( char *filename ) {
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 	write_grid_binary_top_level_vars(num_other_vars,other_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells);
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 	/* then write each level's cells in turn */
 	for ( level = min_level+1; level <= maxlevel; level++ ) {
@@ -4911,7 +5202,7 @@ void write_grid_binary( char *filename ) {
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 		write_grid_binary_lower_level_vars(num_other_vars,other_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells,level,current_level_count,current_level);
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 		cart_free( current_level );
 	}
@@ -5138,7 +5429,9 @@ void read_grid_binary( char *filename ) {
 	MPI_Request send_requests[MAX_PROCS];
 	MPI_Status status;
 
-	struct CosmologyParameters temp_cosmo;
+#ifdef COSMOLOGY
+        struct CosmologyParameters temp_cosmo;
+#endif /* COSMOLOGY */
 
 	int hydro_vars[num_hydro_vars+1];
 	int num_other_vars = 0;
@@ -5192,7 +5485,7 @@ void read_grid_binary( char *filename ) {
 #ifdef RADIATIVE_TRANSFER
 	for(j=0; j<rt_num_disk_vars; j++) other_vars[rt_var_offset+j] = rt_disk_offset + j; 
 #endif
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 	cart_assert( num_output_files >= 1 && num_output_files <= num_procs );
 
@@ -5256,16 +5549,6 @@ void read_grid_binary( char *filename ) {
 			reorder( (char *)&ainit, sizeof(float) );
 		}
 
-		auni_init = ainit;
-
-#ifndef COSMOLOGY
-		if ( endian ) {
-			reorder( (char *)&adum, sizeof(float) );
-		}
-		for(i=min_level; i<=max_level; i++) auni[i] = adum;
-		for(i=min_level; i<=max_level; i++) abox[i] = adum;
-#endif
-
 		/* boxh, Om0, Oml0, Omb0, hubble */
 		fread( &size, sizeof(int), 1, input );
 		fread( &boxh, sizeof(float), 1, input );
@@ -5283,21 +5566,39 @@ void read_grid_binary( char *filename ) {
 			reorder( (char *)&h100, sizeof(float) );
 		}
 
-		Lbox = boxh;
+		box_size = boxh;
+
+#ifdef COSMOLOGY
+		auni_init = ainit;
+
 		cosmology_set(OmegaM,OmM0);
 		cosmology_set(OmegaL,OmL0);
 		cosmology_set(OmegaB,OmB0);
 		cosmology_set(h,h100);
 
 		/*
-		//  NG: we do not set the DC mode here since we assume it will be set by the particle reader.
-		//  The DC mode is only relevant for cosmology, and it is unlikely that a cosmology run
-		//  will not include particles. And if it even does, then there is no sense whatsoever to set 
+		//  NG: we do not set the DC mode here since we
+		//  assume it will be set by the particle reader.
+		//  The DC mode is only relevant for cosmology, and 
+		//  it is unlikely that a cosmology run will not 
+		//  include particles. And if it even does, then 
+		//  there is no sense whatsoever to set 
 		//  a non-trivial DC mode.
 		*/
 		cosmology_set(DeltaDC,0.0);
 
 		temp_cosmo = *cosmology;
+
+#else
+                if(h100 > 0.0) /* legacy units */
+                  {
+                    units_set_art(OmM0,h100,box_size);
+                  }
+                else
+                  {
+                    units_set(OmM0,OmB0,OmL0);
+                  }
+#endif /* COSMOLOGY */
 
 		/* nextra (no evidence extras are used...) extra lextra */
 		fread( &size, sizeof(int), 1, input );
@@ -5337,7 +5638,7 @@ void read_grid_binary( char *filename ) {
 
 		/* tl */
 		fread( &size, sizeof(int), 1, input );
-		fread( &tl, sizeof(double), maxlevel-minlevel+1, input );
+		fread( tl, sizeof(double), maxlevel-minlevel+1, input );
 		fread( &size, sizeof(int), 1, input);
 
 		if ( endian ) {
@@ -5348,7 +5649,7 @@ void read_grid_binary( char *filename ) {
 
 		/* dtl */
 		fread( &size, sizeof(int), 1, input );
-		fread( &dtl, sizeof(double), maxlevel-minlevel+1, input);
+		fread( dtl, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -5359,7 +5660,7 @@ void read_grid_binary( char *filename ) {
 
 		/* tl_old */
 		fread( &size, sizeof(int), 1, input );
-		fread( &tl_old, sizeof(double), maxlevel-minlevel+1, input);
+		fread( tl_old, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -5370,7 +5671,7 @@ void read_grid_binary( char *filename ) {
 
 		/* dtl_old */
 		fread( &size, sizeof(int), 1, input );
-		fread( &dtl_old, sizeof(double), maxlevel-minlevel+1, input);
+		fread( dtl_old, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );	
 
 		if ( endian ) {
@@ -5382,7 +5683,7 @@ void read_grid_binary( char *filename ) {
 		/* iSO (sweep direction for flux solver) */
 #ifdef HYDRO
 		fread( &size, sizeof(int), 1, input );
-		fread( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
+		fread( level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -5452,11 +5753,13 @@ void read_grid_binary( char *filename ) {
 	MPI_Bcast( &minlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( &maxlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
+#ifdef COSMOLOGY
+	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
 	cosmology_copy(&temp_cosmo);
+#endif /* COSMOLOGY */
 
 	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( dtl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
@@ -5464,6 +5767,7 @@ void read_grid_binary( char *filename ) {
 #ifdef HYDRO
 	MPI_Bcast( level_sweep_dir, max_level-min_level+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 #endif /* HYDRO */
+
 	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
 
@@ -5471,11 +5775,6 @@ void read_grid_binary( char *filename ) {
 	MPI_Bcast( star_formation_volume_min, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( star_formation_volume_max, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
 #endif /* STARFORM */
-
-#ifndef COSMOLOGY
-	MPI_Bcast( auni, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( abox, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-#endif
 
 	if ( local_proc_id == file_parent ) {
 		fread( &size, sizeof(int), 1, input );
@@ -5639,7 +5938,7 @@ void read_grid_binary( char *filename ) {
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 	read_grid_binary_top_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 	/* now read levels */
 	for ( level = min_level+1; level <= maxlevel; level++ ) {
@@ -5924,7 +6223,7 @@ void read_grid_binary( char *filename ) {
 		read_grid_binary_lower_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,
 					total_cells,page_size,proc_num_cells,level,first_page_count,proc_first_index,
 					proc_cell_index,current_level);
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 		cart_free( current_level );		
 	}

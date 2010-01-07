@@ -1,14 +1,16 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "config.h"
 
-#include "defs.h"
-#include "tree.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
+#include "cell_buffer.h"
 #include "iterators.h"
 #include "parallel.h"
-#include "cell_buffer.h"
-#include "tree_linkedlist.h"
-#include "auxiliary.h"
 #include "timing.h"
+#include "tree.h"
+#include "tree_linkedlist.h"
+
 
 void select_level( int level, int cell_types, int *num_cells_selected, int **selection ) {
 	int i;

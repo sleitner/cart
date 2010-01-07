@@ -1,21 +1,23 @@
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include "config.h"
+#ifdef GRAVITY 
 
-#include "defs.h"
-#include "tree.h"
-#include "timestep.h"
-#include "timing.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
+#include "cell_buffer.h"
+#include "cosmology.h"
 #include "gravity.h"
 #include "iterators.h"
-#include "cell_buffer.h"
 #include "parallel.h"
-#include "sfc.h"
 #include "poisson.h"
+#include "sfc.h"
+#include "timestep.h"
+#include "timing.h"
+#include "tree.h"
 #include "units.h"
-#include "auxiliary.h"
 
-#ifdef GRAVITY 
 
 void solve_poisson( int level, int flag ) {
 
@@ -609,7 +611,7 @@ void smooth( int level ) {
 	/* work loop */
 	wsor = 2.0; /* done for wsor_(1/2) calc, really == 1.0 */
 	wsor6 = 1.0 / 6.0;
-	trfi2 = cell_size_inverse[level] / abox[level]; 
+	trfi2 = units->potential * cell_size_inverse[level];
 
 	for ( iter = 0; iter < MAX_SOR_ITERS; iter++ ) {
 		if ( iter > 0 ) {
@@ -718,7 +720,7 @@ void smooth( int level ) {
 		/* chebyshev acceleration */
 		wsor = 1.0 / ( 1.0 - 0.25 * rhoJ*rhoJ*wsor );
 		wsor6 = wsor / 6.0;
-		trfi2 = wsor * cell_size_inverse[level] / abox[level]; 
+		trfi2 = wsor * units->potential * cell_size_inverse[level];
 
 		/* black (just local black cells) */
 #pragma omp parallel for default(none), private(i,block,phi0,phi3,phi5,phi6,phi_ext_neighbors,icell), shared(num_local_blocks,phi_red,ext_black,phi_black,wsor6,trfi2,rho_black)
@@ -770,7 +772,7 @@ void smooth( int level ) {
 		/* chebyshev acceleration */
 		wsor = 1.0 / ( 1.0 - 0.25 * rhoJ*rhoJ*wsor );
 		wsor6 = wsor / 6.0;
-		trfi2 = wsor * cell_size_inverse[level] / abox[level]; 
+		trfi2 = wsor * units->potential * cell_size_inverse[level];
 
 		end_time( WORK_TIMER );
 

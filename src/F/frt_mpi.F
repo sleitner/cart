@@ -1,10 +1,9 @@
-#include "defs.h"      
+#include "../config.h"      
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 C
 C  Sum/max local buffers and send the result to the global buffer
 C
-      subroutine frtGlobalAverage(mode,nBuf,bufLoc,bufGlob)
+      subroutine frtGlobalAverage(iOp,nBuf,bufLoc,bufGlob)
       real*8 bufLoc(*), bufGlob(*)
 #ifdef RT_PARALLEL_USE_MPI
       include 'mpif.h'
@@ -12,7 +11,7 @@ C
 
 #ifdef RT_PARALLEL_USE_MPI
 
-      if(mode .eq. 1) then
+      if(iOp .eq. 1) then
          call MPI_ALLREDUCE(bufLoc,bufGlob,nBuf,
      .        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,ierr)
       else
@@ -65,6 +64,9 @@ C
 C
 C
       subroutine frtAbort()
+#ifdef RT_PARALLEL_USE_MPI
+      include 'mpif.h'
+#endif /* RT_PARALLEL_USE_MPI */
 
 C$OMP CRITICAL
 

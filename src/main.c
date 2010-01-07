@@ -1,45 +1,48 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-#include <math.h>
-#include <string.h>
-#include <mpi.h>
-
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "defs.h"
 #include "config.h"
-#include "io.h"
-#include "tree.h"
-#include "particle.h"
-#include "sfc.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "iterators.h"
-#include "load_balance.h"
-#include "timestep.h"
-#include "refinement.h"
-#include "refinement_operations.h"
-#include "timing.h"
-#include "units.h"
-#include "hydro.h"
-#include "hydro_tracer.h"
-#include "gravity.h"
-#include "density.h"
-#include "logging.h"
-#include "auxiliary.h"
-#include "cooling.h"
-#include "top_level_fft.h"
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 #ifdef _OPENMP
 #include <omp.h>
 #include <sys/utsname.h>
 #endif
 
-#ifdef RADIATIVE_TRANSFER
+
+#include "auxiliary.h"
+#include "cell_buffer.h"
+#include "cooling.h"
+#include "cosmology.h"
+#include "density.h"
+#include "gravity.h"
+#include "hydro.h"
+#include "hydro_tracer.h"
+#include "io.h"
+#include "load_balance.h"
+#include "logging.h"
+#include "parallel.h"
+#include "particle.h"
 #include "rt_solver.h"
-#endif
+#include "starformation.h"
+#include "timestep.h"
+#include "timing.h"
+#include "tree.h"
+#include "units.h"
+#include "top_level_fft.h"
+
+
+/*
+//  Reading control parameters from the config file
+*/
+void config_init();
+void config_read_file(const char *filename);
+void config_create_file(const char *filename);
+void config_print_to_file(const char *filename);
 
 
 void init_run();
@@ -73,11 +76,17 @@ int main ( int argc, char *argv[]) {
 	}
 
 	/* load configuration file */
-	if ( argc < 2 ) {
-		cart_error("Usage: art <config_file> [ restart_flag [ options ] ]");
-	}
-
-	read_config( argv[1] );	
+	config_init();
+	if ( argc < 2 )
+	  {
+	    config_create_file("sample.cfg");
+	    cart_error("Usage: art <config_file> [ restart_flag [ options ] ]\n   A documented sample of <config_file> is created\n   in the current working directory as sample.cfg");
+	  }
+	else
+	  {
+	    config_read_file( argv[1] );
+	  }
+	config_print_to_file("config.log");
 
 	if ( argc == 2 ) {
 		restart = 0;
@@ -94,7 +103,7 @@ int main ( int argc, char *argv[]) {
 		tmp = check_option1(argv[2],"restart","last");
 		if(tmp != NULL)
 		  {
-		    restart = 1;
+		    restart = 2;
 		    if(strcmp(tmp,"last") == 0)
 		      {
 			restart_a = 0.0;
@@ -157,7 +166,6 @@ int main ( int argc, char *argv[]) {
 	/* set up mpi datatypes, timers, units, etc 
 	 * (init_units called in case units set in config file) */
 	init_auxiliary();
-	init_units();
 	init_timers();
 	init_logging( restart );
 	init_cell_buffer();
@@ -170,8 +178,16 @@ int main ( int argc, char *argv[]) {
 	init_hydro_tracers();
 #endif /* HYDRO_TRACERS */
 
+#ifdef STARFORM
+	init_star_formation();
+#endif /* STARFORM */
+
 #ifdef RADIATIVE_TRANSFER
 	rtInitRun();
+#else
+#ifdef COOLING
+	init_cooling();
+#endif /* COOLING */
 #endif /* RADIATIVE_TRANSFER */
 
 	start_time( TOTAL_TIME );
@@ -189,16 +205,16 @@ int main ( int argc, char *argv[]) {
 #ifdef COSMOLOGY
 		abox[min_level] = abox_from_tcode(tl[min_level]);
 		auni[min_level] = auni_from_tcode(tl[min_level]);
-#else
-		abox[min_level] = auni[min_level];
-#endif
+#endif /* COSMOLOGY */
 		dt = dtl[min_level];
 
 		for ( i = min_level+1; i <= max_level; i++ ) {
 			tl[i] = tl[min_level];
 			dtl[i] = 0.5*dtl[i-1];
+#ifdef COSMOLOGY
 			abox[i] = abox[min_level];
 			auni[i] = auni[min_level];
+#endif /* COSMOLOGY */
 		}
 
 		step = 0;
@@ -220,7 +236,7 @@ int main ( int argc, char *argv[]) {
 			}
 #endif		
 		}
-#endif /* defined(GRAVITY) || defined(RADIATIVE_TRANSFER) */
+#endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 #ifdef GRAVITY
 #ifdef HYDRO
@@ -240,33 +256,29 @@ int main ( int argc, char *argv[]) {
 #ifdef COSMOLOGY
 		abox[min_level] = abox_from_tcode(tl[min_level]);
 		auni[min_level] = auni_from_tcode(tl[min_level]);
-#else
-		abox[min_level] = auni[min_level];
-#endif
+#endif /* COSMOLOGY */
 		dt = dtl[min_level];
 
 		for ( i = min_level+1; i <= max_level; i++ ) {
 			tl[i] = tl[min_level];
 			dtl[i] = 0.5*dtl[i-1];
+#ifdef COSMOLOGY
 			abox[i] = abox[min_level];
 			auni[i] = auni[min_level];
+#endif /* COSMOLOGY */
 		}
 
 		for ( i = min_level; i <= max_level; i++ ) {
 			cart_debug("num_cells_per_level[%u] = %u", i, num_cells_per_level[i] );
 		}
 
-#if defined(RADIATIVE_TRANSFER)
+#ifdef RADIATIVE_TRANSFER
 		for ( level = min_level; level <= max_level; level++ ) {
 			cart_debug("assigning density on level %u", level );
 			assign_density( level );
 		}
-#endif /* defined(RADIATIVE_TRANSFER) */
+#endif /* RADIATIVE_TRANSFER */
 	} 
-
-#ifdef COOLING
-	init_cooling();
-#endif /* COOLING */
 
 	end_time( INIT_TIMER );
 
@@ -278,7 +290,7 @@ int main ( int argc, char *argv[]) {
 	while ( 1 ) {
 
 #ifdef COSMOLOGY
-		cart_debug("a = %e, dt = %e", auni[min_level], dt  );
+	        cart_debug("a = %e, t = %e, dt = %e", auni[min_level], tl[min_level], dt  );
 
 		if ( auni[min_level] >= auni_end ) {
 			break;
@@ -329,12 +341,12 @@ int main ( int argc, char *argv[]) {
 
 			dt = 0.5*min( dtl[min_level], restart_dt );
 		
-#if defined(RADIATIVE_TRANSFER)
+#ifdef RADIATIVE_TRANSFER
 			for ( level = min_level; level <= max_level; level++ ) {
 			  cart_debug("assigning density on level %u", level );
 			  assign_density( level );
 			}
-#endif /* defined(RADIATIVE_TRANSFER) */
+#endif /* RADIATIVE_TRANSFER */
 	
 		} else {
 			step++;

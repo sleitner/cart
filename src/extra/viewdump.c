@@ -1,16 +1,16 @@
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include <mpi.h>
-
-#include "defs.h"
-#include "tree.h"
+#include "auxiliary.h"
 #include "iterators.h"
 #include "parallel.h"
 #include "refinement_indicators.h"
+#include "tree.h"
 #include "viewdump.h"
-#include "auxiliary.h"
+
 
 FILE *output;
 float plane;

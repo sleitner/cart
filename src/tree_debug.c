@@ -1,18 +1,18 @@
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include <mpi.h>
-
-#include "defs.h"
-#include "tree.h"
-#include "particle.h"
-#include "sfc.h"
-#include "parallel.h"
+#include "auxiliary.h"
 #include "cell_buffer.h"
 #include "iterators.h"
+#include "parallel.h"
+#include "particle.h"
+#include "sfc.h"
 #include "starformation.h"
-#include "auxiliary.h"
+#include "tree.h"
+
 
 void check_map() {
 	int i, j, k;

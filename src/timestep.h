@@ -1,33 +1,18 @@
 #ifndef __TIMESTEP_H__
 #define __TIMESTEP_H__
 
-#include "defs.h"
-#include "tree.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
 
-#define min_courant_velocity    1e-6
 
-extern double auni_init;
-extern double auni_end;
-extern double t_init;
-extern double t_end;
+#include <mpi.h>
 
 extern int max_steps;
-extern int output_frequency;
-extern int restart_frequency;
-extern int particle_output_frequency;
-extern int grid_output_frequency;
-extern int tracer_output_frequency;
+extern double timelimit;
 
-extern int max_cfl_sync_level;
-
-extern double cfl_run;
-extern double cfl_max;
-extern double particle_cfl;
-extern double max_time_inc;
-extern double min_time_dec;
-extern double max_da;
-extern double max_dt;
-extern double max_frac_da;
+void config_init_timestep();
+void config_verify_timestep();
 
 int global_timestep( double dt );
 int timestep( int level, MPI_Comm local_comm );
@@ -38,15 +23,22 @@ void hydro_timestep( int level, int *courant_cell, double *velocity );
 #endif
 
 extern int step;
-extern double dtl[max_level-min_level+1];
-extern double dtl_old[max_level-min_level+1];
-extern double tl[max_level-min_level+1];
-extern double tl_old[max_level-min_level+1];
 
-extern double abox[max_level-min_level+1];
-extern double abox_old[max_level-min_level+1];
-extern double auni[max_level-min_level+1];
+extern double t_init;
+extern double t_end;
+DECLARE_LEVEL_ARRAY(double,dtl);
+DECLARE_LEVEL_ARRAY(double,dtl_old);
+DECLARE_LEVEL_ARRAY(double,tl);
+DECLARE_LEVEL_ARRAY(double,tl_old);
 
-extern int num_steps_on_level[max_level-min_level+1];
+#ifdef COSMOLOGY
+extern double auni_init;
+extern double auni_end;
+DECLARE_LEVEL_ARRAY(double,abox);
+DECLARE_LEVEL_ARRAY(double,abox_old);
+DECLARE_LEVEL_ARRAY(double,auni);
+#endif /* COSMOLOGY */
+
+DECLARE_LEVEL_ARRAY(int,num_steps_on_level);
 
 #endif

@@ -2,6 +2,11 @@
 #define __EXT_LOS_H__
 
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 /*
 //  Buffer for keeping information used during the LOS traversal
 */

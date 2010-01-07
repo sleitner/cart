@@ -8,8 +8,6 @@ typedef struct TIMER {
 	double total_time;
 } timer;
 
-extern double timelimit;
-
 #define		TOTAL_TIME			0
 #define		INIT_TIMER			1
 #define		RESTART_TIMER			2

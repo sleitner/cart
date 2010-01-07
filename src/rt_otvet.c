@@ -1,24 +1,21 @@
-#include "defs.h"
-#ifdef RADIATIVE_TRANSFER
+#include "config.h"
+#if defined(RADIATIVE_TRANSFER) && defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
-
-#include "auxiliary.h"
-#include "constants.h"
-#include "timestep.h"
-#include "units.h"
-
-#include "rt_tree.h"
-#include "rt_utilities.h"
-
-
-#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
-
-
-#include "rt_transfer.h"
-
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
+
+#include "auxiliary.h"
+#include "cell_buffer.h"
+#include "iterators.h"
+#include "parallel.h"
+#include "rt_global.h"
+#include "rt_transfer.h"
+#include "rt_utilities.h"
+#include "timestep.h"
+#include "tree.h"
+#include "units.h"
+
 
 
 int rtOtvetMaxNumIter = 10;
@@ -91,10 +88,10 @@ void rtAfterAssignDensityTransferOtvet(int level, int num_level_cells, int *leve
 #define varG(iL)    cell_var(indL2G[iL],ivarG)
 
 #define srcL(iL)    cell_rt_source(indL2G[iL])
-#define srcG(iL)    rt_source_Avg.Value
+#define srcG(iL)    rtGlobals[RT_SOURCE_AVG].Value
 
 #define otfL(iL)    cell_var(indL2G[iL],RT_VAR_OT_FIELD)
-#define otfG(iL)    rt_ot_field_Avg.Value
+#define otfG(iL)    rtGlobals[RT_OT_FIELD_AVG].Value
 
 
 void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
@@ -332,7 +329,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	{
 	  if(work)
 	    {
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rt_glob_Avg)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rtGlobals)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  varL(iL) = otfL(iL);
@@ -351,9 +348,13 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  /*
 	  // Number of iterations needed for the signal propagation speed to less or equal c.
 	  */
-	  xiUnit = (mpc/clight/year)*r0/hubble/(t0*abox[level]);
+	  xiUnit = units->length/(constants->c*units->time);
 	  nit0 = 1 + (int)(dtl[level]/xiUnit/cell_size[level]);
-	  if(nit > nit0) nit = nit0;
+	  if(nit > nit0)
+	    {
+	      cart_debug("OTVET: reducing iteration count from %d to %d",nit,nit0);
+	      nit = nit0;
+	    }
 #endif
 
 #ifdef DEBUG
@@ -368,7 +369,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  */
 	  if(work)
 	    {
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rt_glob_Avg,rhs)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rtGlobals,rhs)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  rhs[iL] = srcL(iL);
@@ -383,7 +384,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  */
 	  if(work)
 	    {
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rt_glob_Avg,rhs)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rtGlobals,rhs)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  rhs[iL] = srcG(iL);
@@ -398,7 +399,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  */
 	  if(work)
 	    {
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rt_glob_Avg)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rtGlobals)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  if(varL(iL) < 0.0) varL(iL) = 0.0;
@@ -725,5 +726,4 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Diag(int iL, int *indL2G, floa
     ;
 }
 
-#endif  // defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
-#endif  // RADIATIVE_TRANSFER
+#endif /* RADIATIVE_TRANSFER && RT_TRANSFER && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */

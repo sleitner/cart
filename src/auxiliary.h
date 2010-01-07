@@ -61,6 +61,17 @@ const char* check_option0(const char* option, const char* name);
 const char* check_option1(const char* option, const char* name, const char *default_value);
 
 /*
+//  Useful macros
+*/
+#ifndef min
+#define min(x,y)        (((x) < (y)) ? (x): (y))
+#endif
+#ifndef max
+#define max(x,y)        (((x) > (y)) ? (x): (y))
+#endif
+#define sign(x,y)       ( (y>=0) ? fabs(x) : -fabs(x) )
+
+/*
 //  Macros for memory leak locating
 */
 #define cart_alloc_bytes(size)     cart_alloc_worker(size,__FILE__,__LINE__)

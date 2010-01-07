@@ -1,18 +1,24 @@
 #ifndef __IO_H__
 #define __IO_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 #define MAX_OUTPUTS	256
 
-extern char output_directory[256];
-extern char logfile_directory[256];
-extern char jobname[256];
-extern char requeue_command[256];
-extern float outputs[MAX_OUTPUTS];
-extern int num_outputs;
+extern char output_directory[];
+extern char logfile_directory[];
+extern char jobname[];
+extern char requeue_command[];
 extern int current_output;
 extern int last_restart_step;
 
-extern int num_output_files;
+extern int output_frequency;
+
+void config_init_io();
+void config_verify_io();
 
 void reorder( char *buffer, int size );
 

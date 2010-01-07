@@ -1,19 +1,22 @@
-#include "defs.h"
+#include "config.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 
 #include "auxiliary.h"
+#include "cosmology.h"
 #include "hydro.h"
 #include "iterators.h"
 #include "load_balance.h"
 #include "parallel.h"
 #include "particle.h"
+#include "refinement.h"
 #include "refinement_indicators.h"
 #include "sfc.h"
 #include "starformation.h"
 #include "timestep.h"
+#include "tree.h"
 #include "units.h"
 
 
@@ -353,7 +356,7 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
       /*
       //  Set species arrays
       */
-      particle_species_mass[species] = levelHeader->Mlev/aM0;
+      particle_species_mass[species] = levelHeader->Mlev*constants->Msun/units->mass;
       ntot = levelHeader->Nlev;
     }
   else
@@ -362,7 +365,7 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
       //  Set species arrays
       */
 #ifdef HYDRO
-      particle_species_mass[species] = 1.0 - Omegab0/Omega0;
+      particle_species_mass[species] = 1.0 - cosmology->OmegaB/cosmology->OmegaM;
 #else
       particle_species_mass[species] = 1.0;
 #endif
@@ -377,8 +380,8 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
 
   num_pages = (ntot+fileHeader->Nrec-1)/fileHeader->Nrec;
 
-  xFac = 1.0/r0;
-  vFac = fileHeader->aBegin/v0;
+  xFac = 1.0/units->length_in_chimps;
+  vFac = constants->kms/units->velocity;
 
   /*
   // Skip to the appropriate record
@@ -562,13 +565,14 @@ void gicReadParticleData(const char *rootname, char *type)
   cosmology_set(OmegaL,manifest->OmegaL);
   cosmology_set(h,manifest->h100);
   cosmology_set(DeltaDC,fileHeader->DeltaDC);
-  Lbox = manifest->dx*num_grid;
+  box_size = manifest->dx*num_grid;
 
   auni[min_level] = fileHeader->aBegin;
   tl[min_level] = tcode_from_auni(auni[min_level]);
   abox[min_level] = abox_from_auni(auni[min_level]);
 
-  init_units();
+  units_reset();
+  units_update(min_level);
 
   num_row = 4*fileHeader->dims[0];  /* Empirical number to reduce the # of communications */
   num_particles_total = fileHeader->Ntot;
@@ -664,18 +668,18 @@ void gicAssignCellData(int cell, float w, float delta, float vx, float vy, float
   cell_momentum(cell,1) += d*vy;
   cell_momentum(cell,2) += d*vz;
 
-  cell_gas_gamma(cell) = gamma;
-  cell_gas_internal_energy(cell) =  cell_gas_density(cell)*temIn/(gamma-1)*(1.0-Y_p+0.25*Y_p);
-  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
+  cell_gas_gamma(cell) = constants->gamma;
+  cell_gas_internal_energy(cell) =  cell_gas_density(cell)*temIn/(constants->gamma-1)*(1.0-constants->Yp+0.25*constants->Yp);
+  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(constants->gamma-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell) + cell_gas_kinetic_energy(cell);
 
 #ifdef RADIATIVE_TRANSFER
-  cell_HI_density(cell) = cell_gas_density(cell)*rtXH*(1.0-fracHII);
-  cell_HII_density(cell) = cell_gas_density(cell)*rtXH*fracHII;
-  cell_HeI_density(cell) = cell_gas_density(cell)*rtXHe;
+  cell_HI_density(cell) = cell_gas_density(cell)*constants->XH*(1.0-fracHII);
+  cell_HII_density(cell) = cell_gas_density(cell)*constants->XH*fracHII;
+  cell_HeI_density(cell) = cell_gas_density(cell)*constants->XHe;
   cell_HeII_density(cell) = cell_gas_density(cell)*0.0;
   cell_HeIII_density(cell) = cell_gas_density(cell)*0.0;
-  cell_H2_density(cell) = cell_gas_density(cell)*rtXH*2.0e-6;
+  cell_H2_density(cell) = cell_gas_density(cell)*constants->XH*2.0e-6;
 #endif
 
   if(!cell_is_leaf(cell))
@@ -765,15 +769,15 @@ void gicReadGasData(const char *rootname, char *type)
   */
   fracB = cosmology->OmegaB/cosmology->OmegaM;
   fracHII = 1.2e-5*sqrt(cosmology->Omh2)/cosmology->Obh2;
-  q = auni[min_level]*137.0*pow(Omegab0*hubble*hubble/0.022,0.4);
-  temIn = T_CMB0/auni[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
+  q = auni[min_level]*137.0*pow(cosmology->Obh2/0.022,0.4);
+  temIn = 2.728/auni[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
 
   if(local_proc_id == MASTER_NODE)
     {
       cart_debug("Initial temperature: %f",temIn);
     }
 
-  temIn *= auni[min_level]*auni[min_level]*wmu/T0;
+  temIn /= units->temperature;
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -817,7 +821,7 @@ void gicReadGasData(const char *rootname, char *type)
   vy = buffer[2];
   vz = buffer[3];
 
-  vFac = fileHeader->aBegin/v0;
+  vFac = constants->kms/units->velocity;
 
   dMin =  1.0e35;
   dMax = -1.0e35;

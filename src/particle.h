@@ -1,8 +1,10 @@
 #ifndef __PARTICLE_H__
 #define __PARTICLE_H__
 
-#include "defs.h"
-#include "tree.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
 
 #ifdef PARTICLES 
 

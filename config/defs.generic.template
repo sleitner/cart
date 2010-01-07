@@ -1,6 +1,3 @@
-#ifndef __DEFS_H__
-#define __DEFS_H__
-
 
 --#define HYDRO
 --#define GRAVITY
@@ -10,20 +7,20 @@
 --#define PARTICLES
 --#define REFINEMENT
 --#define RADIATIVE_TRANSFER
---#define CLOUDY_COOLING
 
 --#define LAPIDUS
 --#define DENSGRADSMOOTH
 --#define PRESSURE_FLOOR
 --#define ADVECT_SPECIES
+--#define PRESSURELESS_FLUID
+--#define ELECTRON_ION_NONEQUILIBRIUM
 
---#define METALCOOLING
+--#define NO_METALCOOLING
 --#define ENRICH
 --#define ENRICH_SNIa
 --#define FEEDBACK
 --#define FEEDBACK_SNIa
 --#define STELLARMASSLOSS
-
 
 --#define DEBUG
 --#define DEBUG_MEMORY_USE
@@ -40,4 +37,3 @@
 --#define num_particles		        <set value here>
 --#define num_star_particles            <set value here>
 
-#endif

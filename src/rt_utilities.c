@@ -1,5 +1,4 @@
-#include "defs.h"      
-
+#include "config.h"
 
 #include <mpi.h>
 #include <stdio.h>
@@ -7,12 +6,10 @@
 
 #include "auxiliary.h"
 #include "parallel.h"
+#include "rt_solver.h"
+#include "rt_utilities.h"
 #include "tree.h"
 
-#include "rt_utilities.h"
-#ifdef RADIATIVE_TRANSFER
-#include "rt_solver.h"
-#endif
 
 /*
 // **************************************************************
@@ -211,44 +208,6 @@ void rtuGetLinearArrayMaxMin(int n, float *arr, float *max, float *min)
 
   cart_free(vmax);
   cart_free(vmin);
-}
-
-void rtuInitArrayAverage(int n, struct rtArrayAverageData *out)
-{
-  int i, level;
-
-  for(i=0; i<n; i++)
-    {
-      out[i].Value = 0.0;
-      for(level=min_level; level<=max_level; level++)
-	{
-	  out[i].LocalLevelSum[level-min_level] = out[i].GlobalLevelSum[level-min_level] = 0.0;
-	}
-    }
-}
-
-
-void rtuUpdateArrayAverage(int level, int n, struct rtArrayAverageData *out, MPI_Comm local_comm)
-{
-  int i, lev;
-
-  for(i=0; i<n; i++)
-    {
-      /*
-      //  Reduce local values
-      */
-      MPI_Allreduce(out[i].LocalLevelSum+(level-min_level),out[i].GlobalLevelSum+(level-min_level),1,MPI_FLOAT,MPI_SUM,local_comm);
-
-      /*
-      //  Update global average
-      */
-      out[i].Value = 0.0;
-      for(lev=min_level; lev<=max_level; lev++)
-	{
-	  out[i].Value += out[i].GlobalLevelSum[lev-min_level];
-	}
-      out[i].Value /= num_root_cells;
-    }
 }
 
 

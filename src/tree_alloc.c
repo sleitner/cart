@@ -1,17 +1,18 @@
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "defs.h"
+#include "auxiliary.h"
+#include "cell_buffer.h"
+#include "hydro_tracer.h"
+#include "iterators.h"
+#include "parallel.h"
+#include "particle.h"
+#include "sfc.h"
 #include "tree.h"
 #include "tree_linkedlist.h"
-#include "cell_buffer.h"
-#include "sfc.h"
-#include "parallel.h"
-#include "iterators.h"
-#include "particle.h"
-#include "hydro_tracer.h"
-#include "auxiliary.h"
 
 int next_free_oct = 0;
 int free_oct_list = NULL_OCT;

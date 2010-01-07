@@ -1,10 +1,11 @@
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "defs.h"
-#include "tree.h"
 #include "auxiliary.h"
+#include "tree.h"
 
 void cell_interpolation_neighbors( int cell, int child_number, int neighbor[nDim] ) {
 	int i;

@@ -1,21 +1,25 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include "config.h"
 
-#include "power.h"
-#include "tree.h"
-#include "auxiliary.h"
-#include "timestep.h"
-#include "particle.h"
-#include "starformation.h"
-#include "units.h"
-#include "constants.h"
-#include "iterators.h"
+#ifdef COSMOLOGY
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <srfftw.h>
 #include <sfftw.h>
 
-#ifdef ANALYSIS 
+#include "auxiliary.h"
+#include "cosmology.h"
+#include "iterators.h"
+#include "parallel.h"
+#include "particle.h"
+#include "starformation.h"
+#include "tree.h"
+#include "timestep.h"
+#include "units.h"
+
+#include "power.h"
 
 #define num_power_foldings	5
 #define power_mesh_refinements	9		/* 512 mesh */
@@ -61,7 +65,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	double stellar_mass, total_stellar_mass;
 	int bin, index;
 
-	fb = Omegab0 / Omega0;
+	fb = cosmology->OmegaB / cosmology->OmegaM;
 	mass_factor = ((float)(num_power_mesh)/(float)(num_grid*num_grid*num_grid));
 
 	if ( power_type == POWER_TYPE_GAS || power_type == POWER_TYPE_STARS || power_type == POWER_TYPE_BARYONS ) {
@@ -341,15 +345,15 @@ void compute_power_spectrum( char *filename, int power_type ) {
 			/* now write out modes */
 			for ( i = 0; i < power_mesh_size; i++ ) {
 				if ( num_modes[i] > 0 ) {
-					wk = avg_k[i]/(float)num_modes[i] * (2.*M_PI*(float)(1<<m)/Lbox);
-					Pk = power[i]/(float)num_modes[i] * (Lbox*Lbox*Lbox) / 
+					wk = avg_k[i]/(float)num_modes[i] * (2.*M_PI*(float)(1<<m)/box_size);
+					Pk = power[i]/(float)num_modes[i] * (box_size*box_size*box_size) / 
 						(float)(power_mesh_size*power_mesh_size*power_mesh_size)/
 						(float)(power_mesh_size*power_mesh_size*power_mesh_size);
 
 					if ( i == 0 ) {
 						cart_debug("power[%u] = %e", i, power[i] );
 						cart_debug("power_mesh_size^3 = %e", (float)(power_mesh_size*power_mesh_size*power_mesh_size) );
-						cart_debug("Lbox^3 = %e", (Lbox*Lbox*Lbox) );
+						cart_debug("box_size^3 = %e", (box_size*box_size*box_size) );
 					}
 
 					fprintf(output, "%u %e %e %u\n", m, wk, Pk, num_modes[i] );
@@ -371,4 +375,4 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	cart_free( local_mesh );
 }
 
-#endif /* ANALYSIS */
+#endif /* COSMOLOGY */

@@ -1,13 +1,16 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-
-#include "tree.h"
-#include "auxiliary.h"
-#include "timestep.h"
-#include "poisson.h"
-
+#include "config.h"
 #ifdef GRAVITY
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
+#include "poisson.h"
+#include "timestep.h"
+#include "tree.h"
+#include "units.h"
+
 
 void poisson( int id, type_fft_complex *fft_density, type_fft_complex *dummy ) {
 	int i, j, k;
@@ -17,7 +20,7 @@ void poisson( int id, type_fft_complex *fft_density, type_fft_complex *dummy ) {
 	double lambda;
 	double trphi;
 
-	trphi = -6.0 / (4.0 * abox[min_level] * (double)(num_grid*num_grid*num_grid) );
+	trphi = -6.0 * units->potential / (4.0 * (double)(num_grid*num_grid*num_grid) );
 
 	/* precompute G(k) */
 	lambda = M_PI/(double)num_grid;

@@ -1,11 +1,12 @@
-#include "defs.h"
+#include "config.h"
 
 #include <math.h>
 #include <stdlib.h>
-
-#include "los.h"
+#include <strings.h>
 
 #include "auxiliary.h"
+#include "healpix.h"
+#include "los.h"
 #include "parallel.h"
 #include "tree.h"
 
@@ -15,7 +16,7 @@
 */
 void losTraverseSegment(int id, double pos0[3], double theta, double phi, double len, int floor_level, int (*worker)(int id, int cell, double r1, double r2, losBuffer data), losSegment *segment)
 {
-  int i, j, cell, level, ret = 0;
+  int j, cell, level, ret = 0;
   double e[3], posBox[nDim], posCell[nDim];
   double x, h, r = 0.0;
   int start = 1;

@@ -1,15 +1,25 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "config.h"
 
-#include "defs.h"
-#include "tree.h"
+
+float refinement_volume_min[nDim] = { 0.0, 0.0, 0.0 };
+float refinement_volume_max[nDim] = { num_grid, num_grid, num_grid };
+
+
+#ifdef REFINEMENT
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
 #include "cell_buffer.h"
+#include "control_parameter.h"
 #include "iterators.h"
 #include "refinement.h"
-#include "refinement_operations.h"
 #include "refinement_indicators.h"
+#include "refinement_operations.h"
 #include "timing.h"
-#include "auxiliary.h"
+#include "tree.h"
+
 
 int cells_to_refine[num_octs];
 int num_cells_to_refine;
@@ -18,9 +28,46 @@ float split_tolerance		= 0.8;
 float join_tolerance		= 0.2;
 
 int num_diffusion_steps		= 4;
-float reaction_increment	= 0.1;
 float diffusion_coefficient	= 0.15;
+float reaction_increment	= 0.1;
 float momentum_increment	= 0.4;
+
+
+void config_init_refinement()
+{
+  control_parameter_add3(control_parameter_float,&split_tolerance,"ref:split-tolerance","split_tolerance","wsplit","the dimensionless tolerance for adaptively splitting a given cell. Should be above <ref:join-tolerance> and below 1.");
+
+  control_parameter_add3(control_parameter_float,&join_tolerance,"ref:join-tolerance","join_tolerance","wjoin","the dimensionless tolerance for adaptively un-splitting (joining) a given cell. Should be above 0 and below <ref:split-tolerance>.");
+
+  control_parameter_add2(control_parameter_int,&num_diffusion_steps,"ref:diffusion-steps","num_diffusion_steps","number of diffusion steps for smoothing the refinement indicator field.");
+
+  control_parameter_add2(control_parameter_float,&diffusion_coefficient,"ref:diffusion-coefficient","diffusion_coefficient","the diffusion coefficient for smoothing the refinement indicator field.");
+
+  control_parameter_add2(control_parameter_float,&reaction_increment,"ref:reaction-increment","reaction_increment","--ask Doug--.");
+
+  control_parameter_add2(control_parameter_float,&momentum_increment,"ref:momentum-increment","momentum_increment","--ask Doug--.");
+
+  config_init_refinement_indicators();
+}
+
+
+void config_verify_refinement()
+{
+  cart_assert(split_tolerance>0.0 && split_tolerance<1.0);
+
+  cart_assert(join_tolerance>0.0 && join_tolerance<1.0);
+
+  cart_assert(num_diffusion_steps >= 0);
+
+  cart_assert(diffusion_coefficient > 0.0);
+
+  cart_assert(reaction_increment > 0.0);
+
+  cart_assert(momentum_increment > 0.0);
+
+  config_verify_refinement_indicators();
+}
+
 
 void modify( int level, int op ) {
 	int i, j;
@@ -150,7 +197,7 @@ void diffusion_step( int level, int icell ) {
 			if ( cell_is_refined( neighbors[i] ) && sign[i]*cell_momentum(neighbors[i],dir[i]) > 0.0  ) {
 				new_indicator += momentum_increment*refinement_indicator( neighbors[i], 1 );
 			}
-#endif /* defined(HYDRO) && defined(MOMENTUM_DIFFUSION) */
+#endif /* HYDRO && MOMENTUM_DIFFUSION */
 		}
 	}
 
@@ -323,3 +370,4 @@ void derefine( int level ) {
 	cart_free( parent_root_sfc );
 }
 
+#endif /* REFINEMENT */

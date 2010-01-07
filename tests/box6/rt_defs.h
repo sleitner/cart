@@ -1,11 +1,9 @@
-#ifdef __RT_INCLUDING_DEFS
-
-
 /*
 //  Radiative transfer switches: only have effect when RADIATIVE_TRANSFER
 //  switch in defs.h is switched on.
 //  ---------------------------------------------------------------------
 */
+
 
 /*
 //  Produce diagnostic output 
@@ -91,16 +89,7 @@
 /*
 //  Keep the signal propagation speed equal c. 
 */
-/* #define RT_SIGNALSPEED_TO_C */
-
-
-/*
-//  Set the floor for the gast-to-dust ratio. May be needed to force the
-//  switch from primordial, metal-free star formation to normal star
-//  formation if the resolution is not high enough to resolve first stars
-//  properly.
-*/
-#define RT_DUST_TO_GAS_FLOOR 0.001
+#define RT_SIGNALSPEED_TO_C 
 
 
 /*
@@ -130,8 +119,3 @@
 */
 #define RT_PARALLEL_USE_MPI
 
-#else
-
-#error "rt_def.h file should never be included directly"
-
-#endif  /* __RT_INCLUDING_DEFS */

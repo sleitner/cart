@@ -1,27 +1,33 @@
-#include "defs.h"      
-
+#include "config.h"
 
 #include <math.h>
-#include <mpi.h>
 #include <stdio.h>
 
-#include "../auxiliary.h"
-#include "../timestep.h"
-#include "../tree.h"
-#include "../units.h"
-#include "../rt_utilities.h"
+#include "auxiliary.h"
+#include "cosmology.h"
+#include "parallel.h"
+#include "particle.h"
+#include "starformation.h"
+#include "rt_solver.h"
+#include "rt_utilities.h"
+#include "timestep.h"
+#include "tree.h"
+#include "units.h"
 
-#ifdef RADIATIVE_TRANSFER
-#include "../rt_solver.h"
+#include "halo_finder.h"
+#include "ifrit.h"
+#include "utils.h"
+
+
+float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvar, int *varid);
+
+
+#ifdef STARFORM
+extern double sf_min_stellar_particle_mass;
 #endif
 
-#include "ifrit.h"
 
-
-float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvar, int *varid);
-
-
-int extWriteIfritFile(int level, int *nbinIn, double *bbIn, int nvars, int *varid, const char *filename)
+int iOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, int nvars, int *varid)
 {
   int i, ntemp, nbin[3];
   double bb[6];
@@ -46,7 +52,7 @@ int extWriteIfritFile(int level, int *nbinIn, double *bbIn, int nvars, int *vari
       bb[2*i+1] = num_grid;
     }
 
-  vars = extUniformGrid_Sample(level,nbin,bb,nvars,varid);
+  vars = iUniformGrid_Sample(level,nbin,bb,nvars,varid);
  
   if(local_proc_id == MASTER_NODE)
     {
@@ -75,8 +81,304 @@ int extWriteIfritFile(int level, int *nbinIn, double *bbIn, int nvars, int *vari
       for(i=0; i<nvars; i++) cart_free(vars[i]);
       cart_free(vars);
     }
-
    return 0;
+}
+
+
+#ifdef PARTICLES
+
+double gasdev()
+{
+  static int iset = 0;
+  static double gset;
+  double v1, v2, r2, fac;
+
+  if(iset)
+    {
+      iset = 0;
+      return gset;
+    }
+  else
+    {
+      do
+	{
+	  v1 = 2*cart_rand() - 1;
+	  v2 = 2*cart_rand() - 1;
+	  r2 = v1*v1 + v2*v2;
+	}
+      while(r2>1.0 || r2<1.0e-300);
+
+      iset = 1;
+      fac = sqrt(-2*log(r2)/r2);
+      gset = v1*fac;
+      return v2*fac;
+    }
+}
+
+
+long iParticles_WriteArray(const char *filename, double *bb, int flags, float *arr, int idx, int nrec)
+{
+  const float dr = 0.33;
+  int i, j, k, size, rank, ntemp, nsub;
+  char s[999];
+  double pos;
+  float val;
+  long ntot, nloc = 0L;
+  double tot = 0.0;
+  FILE *F;
+#ifdef STARFORM
+  float dm_star_min = sf_min_stellar_particle_mass * constants->Msun / units->mass;
+#endif
+
+  /*
+  //  Write to a file in order of a proc rank
+  */
+  MPI_Comm_size(MPI_COMM_WORLD,&size);
+  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
+  if(local_proc_id == MASTER_NODE)
+    {
+      if(filename != NULL)
+	{
+	  F = fopen(filename,"a");
+	  cart_assert(F != NULL);
+	  if(idx > -1) ntemp = nrec*sizeof(double); else ntemp = nrec*sizeof(float);
+	  fwrite(&ntemp,sizeof(int),1,F);
+	  fclose(F);
+	}
+    }
+
+  for(i=0; i<size; i++)
+    {
+      MPI_Barrier(MPI_COMM_WORLD);
+      if(i == rank)
+	{
+	  if(filename != NULL)
+	    {
+	      F = fopen(filename,"a");
+	      cart_assert(F != NULL);
+	    }
+	  for(j=0; j<num_particles; j++)
+	    {
+	      if(particle_id[j]!=NULL_PARTICLE &&
+#ifdef STARFORM
+		 particle_id_is_star(particle_id[j])==(flags&I_FLAG_STARS) &&
+#endif
+		 particle_x[j][0]>bb[0] && particle_x[j][0]<bb[1]
+#if (nDim > 1)
+		 && particle_x[j][1]>bb[2] && particle_x[j][1]<bb[3]
+#if (nDim > 2)
+		 && particle_x[j][2]>bb[4] && particle_x[j][2]<bb[5]
+#endif
+#endif
+		 )
+		{
+		  nsub = 1;
+#ifdef STARFORM
+		  if(particle_id_is_star(particle_id[j])==(flags&I_FLAG_STARS) && (flags&I_FLAG_SPLIT_STARS))
+		    {
+		      nsub = (int)(0.5+particle_mass[j]/dm_star_min);
+		      cart_assert(nsub > 0);
+		    }
+#endif
+		  nloc += nsub;
+		  if(filename != NULL)
+		    {
+		      if(idx > -1)
+			{
+			  fwrite(particle_x[j]+idx,sizeof(double),1,F);
+			  for(k=1; k<nsub; k++)
+			    {
+			      pos = particle_x[j][idx] + dr*cell_size[particle_level[j]]*gasdev();
+			      fwrite(&pos,sizeof(double),1,F);
+			    }
+			}
+		      else
+			{
+			  val = arr[j];
+			  tot += val;
+			  if(flags & I_FLAG_ATTR_IS_MASS) val /= nsub;
+			  for(k=0; k<nsub; k++)
+			    {
+			      fwrite(&val,sizeof(float),1,F);
+			    }
+			}
+		    }
+		}
+	    }
+	  if(filename != NULL)
+	    {
+	      fclose(F);
+	    }
+	}
+    }
+
+  if(flags & I_FLAG_ATTR_IS_MASS)
+    {
+      cart_debug("Total particle mass: %le",tot*units->mass/constants->Msun);
+    }
+
+  if(local_proc_id == MASTER_NODE)
+    {
+      if(filename != NULL)
+	{
+	  F = fopen(filename,"a");
+	  cart_assert(F != NULL);
+	  fwrite(&ntemp,sizeof(int),1,F);
+	  fclose(F);
+	}
+    }
+
+  MPI_Allreduce(&nloc,&ntot,1,MPI_LONG,MPI_SUM,MPI_COMM_WORLD);
+
+  return ntot;
+
+}
+
+
+long iParticles_WriteBasicFile(const char *filename, double *bb, int flags)
+{
+  int i, j, k, size, rank, ntemp;
+  FILE *F;
+  float w;
+  long ntot;
+
+  ntot = iParticles_WriteArray(NULL,bb,flags,NULL,-1,0);
+
+  cart_debug("Saving %ld particles...",ntot);
+
+  if(ntot*4 != (int)(ntot*4))
+    {
+      cart_debug("Too many particles to output: %ld.",ntot);
+      return 0L;
+    }
+
+  if(local_proc_id == MASTER_NODE)
+    {
+      F = fopen(filename,"w");
+      if(F == 0)
+	{
+	  cart_debug("Unable to open file %s for writing.",filename);
+	  return 0L;
+	}
+      ntemp = sizeof(int); fwrite(&ntemp,sizeof(int),1,F);
+      ntemp = ntot;        fwrite(&ntemp,sizeof(int),1,F);
+      ntemp = sizeof(int); fwrite(&ntemp,sizeof(int),1,F);
+
+      ntemp = 6*sizeof(float); fwrite(&ntemp,sizeof(int),1,F);
+      w = bb[0]; fwrite(&w,sizeof(float),1,F);
+      w = bb[2]; fwrite(&w,sizeof(float),1,F);
+      w = bb[4]; fwrite(&w,sizeof(float),1,F);
+      w = bb[1]; fwrite(&w,sizeof(float),1,F);
+      w = bb[3]; fwrite(&w,sizeof(float),1,F);
+      w = bb[5]; fwrite(&w,sizeof(float),1,F);
+      ntemp = 6*sizeof(float); fwrite(&ntemp,sizeof(int),1,F);
+      fclose(F);
+    }
+
+  iParticles_WriteArray(filename,bb,flags,NULL,0,ntot);
+#if (nDim > 1)
+  iParticles_WriteArray(filename,bb,flags,NULL,1,ntot);
+#if (nDim > 2)
+  iParticles_WriteArray(filename,bb,flags,NULL,2,ntot);
+#endif
+#endif
+
+  iParticles_WriteArray(filename,bb,flags|I_FLAG_ATTR_IS_MASS,particle_mass,-1,ntot);
+
+  return ntot;
+}
+
+
+void iOutputParticles(const char *fileroot, double *bb)
+{
+  int j;
+  float *arr;
+  char str[999];
+  long ntot;
+
+  /*
+  //  Dark matter particles
+  */
+  strcpy(str,fileroot);
+  strcat(str,"-parts.bin");
+  iParticles_WriteBasicFile(str,bb,0);
+
+#ifdef STARFORM
+  /*
+  //  Stellar particles
+  */
+  strcpy(str,fileroot);
+  strcat(str,"-stars.bin");
+  ntot = iParticles_WriteBasicFile(str,bb,I_FLAG_STARS);
+
+  iParticles_WriteArray(str,bb,I_FLAG_STARS,star_initial_mass,-1,ntot);
+
+  arr = cart_alloc(float,num_particles);
+
+  for(j=0; j<num_particles; j++) if(particle_id[j]!=NULL_PARTICLE && particle_id_is_star(particle_id[j]))
+    {
+      arr[j] = tphys_from_tcode(particle_t[j]) - tphys_from_tcode(star_tbirth[j]);
+    }
+
+  iParticles_WriteArray(str,bb,I_FLAG_STARS,arr,-1,ntot);
+
+  cart_free(arr);
+
+#ifdef ENRICH
+  iParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_II,-1,ntot);
+#ifdef ENRICH_SNIa
+  iParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_Ia,-1,ntot);
+#endif /* ENRICH_SNIa */
+#endif /* ENRICH */
+
+#endif /* STARFORM */
+}
+#endif /* PARTICLES */
+
+
+void iOutputHalo(const char *fileroot, int floor_level, float zoom, const halo *h, int nvars, int *varid)
+{
+  const int nbin1 = 256;
+  int j, nbin[] = { nbin1, nbin1, nbin1 };
+  double bb[6], pos[3], dbb;
+  float dmax;
+  char str[999];
+
+  if(h == NULL)
+    {
+#ifdef HYDRO
+      extFindMaxVar(HVAR_GAS_DENSITY,&dmax,pos,-1.0);
+#else
+      extFindMaxVar(VAR_DENSITY,&dmax,pos,-1.0);
+#endif
+    }
+  else
+    {
+      for(j=0; j<nDim; j++) pos[j] = h->pos[j];
+    }
+  
+  dbb = zoom*nbin1*pow(0.5,(double)floor_level);
+
+  bb[0] = pos[0] - 0.5*dbb;
+  bb[1] = pos[0] + 0.5*dbb;
+  bb[2] = pos[1] - 0.5*dbb;
+  bb[3] = pos[1] + 0.5*dbb;
+  bb[4] = pos[2] - 0.5*dbb;
+  bb[5] = pos[2] + 0.5*dbb;
+
+  if(local_proc_id == MASTER_NODE)
+    {
+      cart_debug("Rebinning for IFrIT at (%lf,%lf,%lf) with size %lf",pos[0],pos[1],pos[2],dbb);
+    }
+
+  strcpy(str,fileroot);
+  strcat(str,"-mesh.bin");
+  iOutputMesh(str,max_level,nbin,bb,nvars,varid);
+
+#ifdef PARTICLES
+  iOutputParticles(fileroot,bb);
+#endif /* PARTICLES */
 }
 
 
@@ -88,7 +390,7 @@ int extWriteIfritFile(int level, int *nbinIn, double *bbIn, int nvars, int *vari
 //
 // ************************************************
 */
-long extUniformGrid_GetSize(int level, int nbin[3], double bb[6])
+long iUniformGrid_GetSize(int level, int nbin[3], double bb[6])
 {
   int i, j, k, cell;
   long n;
@@ -118,12 +420,11 @@ long extUniformGrid_GetSize(int level, int nbin[3], double bb[6])
 }
 
 
-void extUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, int *varid, float **buf, long *loc)
+void iUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, int *varid, float **buf, long *loc)
 {
   int i, j, k, var, cell;
   long offset, l;
   double pos[3];
-  double uDen = den0/pow(abox[min_level],3.0);
 
   l = 0;
   for(k=0; k<nbin[2]; k++)
@@ -146,35 +447,37 @@ void extUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, in
 			  buf[var][l] = cell_var(cell,varid[var]);
 			}
 #ifdef HYDRO
-		      else if(varid[var]>=EXT_FRACTION && varid[var]<EXT_FRACTION+num_vars)
+		      else if(varid[var]>=I_FRACTION && varid[var]<I_FRACTION+num_vars)
 			{
-			  buf[var][l] = cell_var(cell,varid[var]-EXT_FRACTION)/cell_gas_density(cell);
+			  buf[var][l] = cell_var(cell,varid[var]-I_FRACTION)/cell_gas_density(cell);
 			}
-#endif  // HYDRO
+#endif /* HYDRO */
 		      else switch(varid[var])
 			{
 #ifdef RADIATIVE_TRANSFER
-			case EXT_GAS_TEMPERATURE:
+			case I_GAS_TEMPERATURE:
 			  {
-			    buf[var][l] = rtTemInK(cell);
+			    buf[var][l] = units->temperature*cell_gas_temperature(cell);
 			    break;
 			  }
-#endif  // RADIATIVE_TRANSFER
-			case EXT_CELL_LEVEL:
+#endif /* RADIATIVE_TRANSFER */
+			case I_CELL_LEVEL:
 			  {
 			    buf[var][l] = cell_level(cell);
 			    break;
 			  }
-			case EXT_LOCAL_PROC:
+			case I_LOCAL_PROC:
 			  {
 			    buf[var][l] = local_proc_id;
 			    break;
 			  }
-			case EXT_GAS_NUMBER_DENSITY:
+#ifdef HYDRO
+			case I_GAS_NUMBER_DENSITY:
 			  {
-			    buf[var][l] = uDen*cell_gas_density(cell);
+			    buf[var][l] = units->number_density*cell_gas_density(cell);
 			    break;
 			  }
+#endif /* HYDRO */
 			default:
 			  {
 			    buf[var][l] = 0.0;
@@ -190,7 +493,7 @@ void extUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, in
 }
 
 
-float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int *varid)
+float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int *varid)
 {
   int i, ip;
   long l, ncells;
@@ -214,7 +517,7 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
 	  */
 	  if(ip == 0)
 	    {
-	      ncells = extUniformGrid_GetSize(level,nbin,bb);
+	      ncells = iUniformGrid_GetSize(level,nbin,bb);
 	    }
 	  else
 	    {
@@ -232,7 +535,7 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
 	  */
 	  if(ip == 0)
 	    {
-	      extUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
+	      iUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
 	    }
 	  else
 	    {
@@ -266,7 +569,7 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
       /*
       //  Measure & transfer buffer size
       */
-      ncells = extUniformGrid_GetSize(level,nbin,bb);
+      ncells = iUniformGrid_GetSize(level,nbin,bb);
       MPI_Send(&ncells,1,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
 
       /*
@@ -278,7 +581,7 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
       /*
       //  Fill & transfer buffers
       */
-      extUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
+      iUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
 
       MPI_Send(loc,ncells,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
       for(i=0; i<nvars; i++) MPI_Send(buf[i],ncells,MPI_FLOAT,MASTER_NODE,0,MPI_COMM_WORLD);
@@ -295,44 +598,3 @@ float** extUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, i
   return vars;
 }
 
-
-/*
-//  Helper functions
-*/
-void extFindMaxVar(int var, float *val, double *pos)
-{
-  MESH_RUN_DECLARE(level,cell);
-  float vMax = -1.0e35;
-  int cellMax = 0;
-  struct
-  {
-    float val;
-    int rank;
-  } in, out;
-
-  cart_assert(var>=0 && var<num_vars);
-
-  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
-  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
-  if(cell_is_leaf(cell) && vMax<cell_var(cell,var))
-    {
-      vMax = cell_var(cell,var);
-      cellMax = cell;
-    }
-  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
-  MESH_RUN_OVER_LEVELS_END;
-  
-  in.val = vMax;
-  MPI_Comm_rank(MPI_COMM_WORLD,&in.rank);
-  MPI_Allreduce(&in,&out,1,MPI_FLOAT_INT,MPI_MAXLOC,MPI_COMM_WORLD);
-
-  *val = out.val;
-  if(pos != NULL)
-    {
-      if(local_proc_id == out.rank)
-	{
-	  cell_position_double(cellMax,pos);
-	}
-      MPI_Bcast(pos,3,MPI_DOUBLE,out.rank,MPI_COMM_WORLD);
-    }
-}

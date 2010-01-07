@@ -1,11 +1,12 @@
+#include "config.h"
+#ifdef HYDRO
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "defs.h"
-#include "tree.h"
-#include "constants.h"
 #include "auxiliary.h"
+#include "tree.h"
 
 #define gammin  	(1.01)
 #define gammax  	(10.0)
@@ -14,8 +15,8 @@
 #define diffusion	(0.1)
 #define dviscmax	(0.1)
 #define drhomax		(0.2)
+#define small           1.0e-30
 
-#ifdef HYDRO
 
 void riemann( double stl[5], double str[5], double sta[4] ) {
 	double p_l, p_r, p0, bgam_l, rgam_l, gam_l, xl2, xl3;
@@ -24,7 +25,7 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	double p1, ul_0, ur_0, p_0, p_1, xxl, w2l, ul1, xxr, w2r, ur1;
 	double p2, devi, dev, u, rho_s, u_s, p_s, bgam_s, gam_s;
 	double a_s, b_s, c_s, w_s, rho, gam, xx4, xx5;
-	double a2, a3, a23, fs, indd, ind_r;
+	double a2, a3, fs, indd, ind_r;
 
 	int iter;
 

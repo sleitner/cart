@@ -1,108 +1,27 @@
-#include "defs.h"
-#ifdef RADIATIVE_TRANSFER
+#include "config.h"
+#if defined(RADIATIVE_TRANSFER) && defined(RT_TRANSFER)
 
 #include <math.h>
 
 #include "auxiliary.h"
+#include "iterators.h"
 #include "logging.h"
 #include "particle.h"
+#include "rt_global.h"
+#include "rt_utilities.h"
 #include "starformation.h"
 #include "timestep.h"
 #include "tree.h"
 #include "units.h"
 
-#include "rt_c2f.h"
-#include "rt_utilities.h"
+#include "F/frt_c.h"
 
-
-#ifdef RT_VAR_SOURCE
-
-float rt_src_rate;
-
-
-void rtInitSource(int level)
-{
-  /* Time the source is on (20 Myr) */
-  const float ShiningTime = 2.0e7;
-
-  rt_src_rate = (t0*abox[level]*abox[level])/ShiningTime;
-}
-
-
-float rtSource(int ipart)
-{
-  int istar;
-  float tPrev;
-
-#if defined(PARTICLES) && defined(STARFORM)
-  if(!particle_is_star(ipart)) return 0.0;
-#endif
-
-#ifdef RT_TEST
-  return 1.0;
-#endif
-
-#if defined(PARTICLES) && defined(STARFORM)
-  /*
-  //  The convention is different from HART
-  */
-  istar = ipart;
-  /*
-  // ******************************************************************
-  //
-  //     EXTREMELY IMPORTANT!!!!!
-  //
-  //  Specific form of this function depends on the order in which things
-  //  happen in ART_Step. Right now this assumes that Move_Level is done
-  //  before Assign_Density so that when we call this function, pt(is)
-  //  is already pdt(is) after the real moment when this star starts emitting
-  //  energy. So, the right quantity is the intergral from pt-pdt to pt
-  //  (so that the total number of emitted photons does not depend on the time
-  //  step).
-  //
-  // ******************************************************************
-  */
-  tPrev = (float)(particle_t[istar]-star_tbirth[istar]-particle_dt[ipart]);
-  if(tPrev < 0.0) tPrev = 0.0;
-
-  if(rt_src_rate*tPrev < 100)
-    {
-      return exp(-rt_src_rate*tPrev)*(1.0-exp(-rt_src_rate*particle_dt[ipart]))/particle_dt[ipart];
-    }
-  else
-    {
-      return 0.0;
-    }
-#else
-  return 1.0;
-#endif /* defined(PARTICLES) && defined(STARFORM) */
-}
-
-#endif  /* RT_VAR_SOURCE */
-
-
-#ifdef RT_TRANSFER
-
-
-#include "rt_transfer.h"
-
-
-struct rtArrayAverageData rt_glob_Avg[2];
 
 void rtTransferSplitUpdate(int level);
-void rtTransferUpdateFields(int nvar, int var0, struct rtArrayAverageData *out); 
-void f2c_wrapper(frtinitruntransfer)(f2c_intg *nfreq);
-void f2c_wrapper(frtstepbegintransfer)();
-void f2c_wrapper(frtpreparetablestransfer)(f2c_real *rfAvg);
-#if (RT_CFI == 1)
-void f2c_wrapper(frttransfercomputecellabs)(f2c_intg *L, f2c_real *Zsol, f2c_real *denB, f2c_real *denH1, f2c_real *denG1, f2c_real *denG2, f2c_real *denMH, f2c_real *abc, f2c_real *abc1);
-#else
-void f2c_wrapper(frttransfercomputecellabs)(f2c_intg *L, f2c_real *Zsol, f2c_real *denB, f2c_real *denH1, f2c_real *denG1, f2c_real *denG2, f2c_real *denMH, f2c_real *abc);
-#endif
-
+void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalAverageData *out); 
 
 #ifndef RT_VAR_SOURCE
-void rtTransferUpdateUniformSource(rtArrayAverageData *avg);
+void rtTransferUpdateUniformSource(rtGlobalAverageData *avg);
 #endif
 
 
@@ -152,7 +71,7 @@ int rtIsThereWork(MPI_Comm local_comm)
 
   return 0;
 
-#endif /* defined(PARTICLES) && defined(STARFORM) */
+#endif /* PARTICLES && STARFORM */
 }
 
 
@@ -161,11 +80,11 @@ void rtInitRunTransfer()
 #ifdef RT_SINGLE_SOURCE
   int i;
 #endif
-  f2c_intg val = rt_num_frequencies;
+  frt_intg val = rt_num_frequencies;
 
-  f2c_wrapper(frtinitruntransfer)(&val);
+  frtCall(initruntransfer)(&val);
 
-  rtuInitArrayAverage(rt_num_glob,rt_glob_Avg);
+  rtGlobalAverageInit(rtNumGlobals,rtGlobals);
 
 #ifdef RT_SINGLE_SOURCE
   rtSingleSourceVal = 0.0;
@@ -182,7 +101,7 @@ void rtInitRunTransfer()
 
 void rtStepBeginTransfer()
 {
-  f2c_wrapper(frtstepbegintransfer)();
+  frtCall(stepbegintransfer)();
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
@@ -190,7 +109,7 @@ void rtStepBeginTransfer()
 
 #endif
 
-  rtTransferUpdateFields(rt_num_glob,RT_VAR_SOURCE,rt_glob_Avg);
+  rtTransferUpdateFields(rtNumGlobals,RT_VAR_SOURCE,rtGlobals);
 }
 
 
@@ -203,7 +122,7 @@ void rtLevelUpdateTransfer(int level, MPI_Comm local_comm)
 {
   if(!rtIsThereWork(local_comm)) return;
 
-  rtuUpdateArrayAverage(level,rt_num_glob,rt_glob_Avg,local_comm);
+  rtGlobalAverageUpdate(level,rtNumGlobals,rtGlobals,local_comm);
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
@@ -234,20 +153,20 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
       cell_rt_source(level_cells[i]) *= cell_volume_inverse[level];
     }
 
-#else  // PARTICLES
+#else  /* PARTICLES */
 
 #ifdef RT_SINGLE_SOURCE
   /*
   // Set the source field from a single source
   */
   rtTransferAssignSingleSourceDensity(level);
-#else  // RT_SINGLE_SOURCE
+#else  /* RT_SINGLE_SOURCE */
 
 #error "Invalid set of switches: either PARTICLES or RT_SINGLE_SOURCE must be defined."
 
-#endif  // RT_SINGLE_SOURCE
+#endif /* RT_SINGLE_SOURCE */
 
-#endif  // PARTICLES
+#endif /* PARTICLES */
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
   /* Need only local cells */
@@ -260,7 +179,7 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
     {
       sum += cell_rt_source(level_cells[i]);
     }
-  rt_source_Avg.LocalLevelSum[level-min_level] = sum;
+  rtGlobals[RT_SOURCE_AVG].LocalLevelSum[level-min_level] = sum;
 
 #ifdef RT_VAR_OT_FIELD
   sum = 0.0;
@@ -269,10 +188,10 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
     {
       sum += cell_var(level_cells[i],RT_VAR_OT_FIELD);
     }
-  rt_ot_field_Avg.LocalLevelSum[level-min_level] = sum;
-#endif // RT_VAR_OT_FIELD
+  rtGlobals[RT_OT_FIELD_AVG].LocalLevelSum[level-min_level] = sum;
+#endif /* RT_VAR_OT_FIELD */
 
-#endif // RT_VAR_SOURCE
+#endif /* RT_VAR_SOURCE */
 }
 
 
@@ -315,7 +234,7 @@ void rtTransferSplitUpdate(int level)
 }
 
 
-void rtTransferUpdateFields(int nvar, int var0, struct rtArrayAverageData *out)
+void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalAverageData *out)
 {
   int i;
   double buffer[rt_num_vars];
@@ -342,7 +261,7 @@ void rtTransferUpdateFields(int nvar, int var0, struct rtArrayAverageData *out)
 
   for(level=min_level; level<=max_level; level++)
     {
-      rtuUpdateArrayAverage(level,nvar,out,MPI_COMM_WORLD);
+      rtGlobalAverageUpdate(level,nvar,out,MPI_COMM_WORLD);
     }
 }
 
@@ -356,7 +275,7 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 {
   int i, cell;
   float Zsol;
-  f2c_real buffer[5];
+  frt_real buffer[5];
 
   /* turn ifreq into a fortran index */
   ifreq++;
@@ -365,22 +284,13 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
   for(i=0; i<ncells; i++)
     {
       cell = cells[i];
-
-#ifdef RT_DUST
-#ifdef ENRICH
-      Zsol = cell_gas_metallicity_II(cell);
-#ifdef ENRICH_SNIa
-      Zsol += cell_gas_metallicity_Ia(cell);
-#endif
-      Zsol /= (Zsolar*cell_gas_density(cell));
+#if defined(RT_DUST) && defined(ENRICH)
+      Zsol = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
       Zsol = 0.0;
-#endif
-#else
-      Zsol = 0.0;
-#endif  // RT_DUST
+#endif /* RT_DUST && ENRICH */
 
-      if(sizeof(f2c_real) != sizeof(float))  /* Optimization */
+      if(sizeof(frt_real) != sizeof(float))  /* Optimization */
 	{
 	  buffer[0] = cell_gas_density(cell);
 	  buffer[1] = cell_HI_density(cell);
@@ -388,31 +298,45 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 	  buffer[3] = cell_HeII_density(cell);
 	  buffer[4] = cell_H2_density(cell);
 #if (RT_CFI == 1)
-	  f2c_wrapper(frttransfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,abc[0]+i,abc[1]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,abc[0]+i,abc[1]+i);
 #else
-	  f2c_wrapper(frttransfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,abc[0]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,abc[0]+i);
 #endif
 	}
       else
 	{
 #if (RT_CFI == 1)
-	  f2c_wrapper(frttransfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),abc[0]+i,abc[1]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),abc[0]+i,abc[1]+i);
 #else
-	  f2c_wrapper(frttransfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),abc[0]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),abc[0]+i);
 #endif
 	}
+
+#ifdef RT_DEBUG
+      if(abc[0][i]<0.0 || isnan(abc[0][i]))
+	{
+	  cart_debug("Oops: %d %d %g",i,cell,abc[0][i]);
+	  cart_debug("Z:    %g",Zsol);
+	  cart_debug("rho:  %g",cell_gas_density(cell));
+	  cart_debug("Hi:   %g",cell_HI_density(cell));
+	  cart_debug("HeI:  %g",cell_HeI_density(cell));
+	  cart_debug("HeII: %g",cell_HeII_density(cell));
+	  cart_debug("H2:   %g",cell_H2_density(cell));
+	  cart_error("Negative absorption");
+	}
+#endif
     }
 }
 
 
-void f2c_wrapper(rtexttransfergetaveragefields)(f2c_intg *nfields, f2c_real *rfAvg)
+void frtCall(externalgetaveragefields)(frt_intg *nfields, frt_real *rfAvg)
 {
   int i;
-  struct rtArrayAverageData tmp[rt_num_frequencies];
+  struct rtGlobalAverageData tmp[rt_num_frequencies];
   
   cart_assert(rt_num_frequencies == (*nfields));
 
-  rtuInitArrayAverage(rt_num_frequencies,tmp);
+  rtGlobalAverageInit(rt_num_frequencies,tmp);
 
   /*
   //  Compute global properties for all frequencies 
@@ -425,9 +349,9 @@ void f2c_wrapper(rtexttransfergetaveragefields)(f2c_intg *nfields, f2c_real *rfA
 }
 
 
-void f2c_wrapper(rtexttransfergetglobalabs)(f2c_intg *nfields, f2c_real *abcAvg)
+void frtCall(externalgetglobalabs)(frt_intg *nfields, frt_real *abcAvg)
 {
-  int i, ifield, n = *nfields;
+  int i, j, ifield, n = *nfields;
   double buffer[3*rt_num_frequencies];
   MESH_RUN_DECLARE(level,cell);
   float *abc[2], *abc1, w;
@@ -466,12 +390,12 @@ void f2c_wrapper(rtexttransfergetglobalabs)(f2c_intg *nfields, f2c_real *abcAvg)
 	  buffer[3*i+1] += w*cell_volume[level];
 	  buffer[3*i+2] += w*abc1[_Index]*cell_volume[level];
 #ifdef RT_DEBUG
-	  if(w < 0.0) 
+	  if(w<0.0 || isnan(w)) 
 	    {
 	      cart_debug("Oops: %d %d %d %d %g",i,ifield,_Index,cell,w);
-	      for(i=0; i<num_vars; i++)
+	      for(j=0; j<num_vars; j++)
 		{
-		  cart_debug("Var: %d %g",i,cell_var(cell,i));
+		  cart_debug("Var: %d %g",j,cell_var(cell,j));
 		}
 	      cart_error("Negative radiation field");
 	    }
@@ -639,7 +563,6 @@ void rtTransferAssignSingleSourceDensity(int level)
   }
 }
 
-#endif  // defined(RT_SINGLE_SOURCE) && defined(RT_VAR_SOURCE)
+#endif /* RT_SINGLE_SOURCE && RT_VAR_SOURCE */
+#endif /* RADIATIVE_TRANSFER && RT_TRANSFER */
 
-#endif  // RT_TRANSFER
-#endif  // RADIATIVE_TRANSFER

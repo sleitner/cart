@@ -1,9 +1,11 @@
 #ifndef __PACK_H__
 #define __PACK_H__
 
-#include "defs.h"
-#include "tree.h"
-#include "parallel.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 #include "skiplist.h"
 
 #define	PACK_COMPLETED		(-1)

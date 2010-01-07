@@ -1,13 +1,21 @@
 #ifndef __RT_TREE_H__
 #define __RT_TREE_H__
 
-
-#include "rt_config.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
 
 
 /*
 //  Some numbers that depend on the settings in rt_defs.h 
 */
+#ifdef RADIATIVE_TRANSFER
+
+#ifndef RT_CONFIGURED
+#error "Missing rt_config.h include."
+#endif
+
+
 #ifdef RT_TRANSFER
 
 /*
@@ -23,7 +31,7 @@
 #define rt_et_offset            (rt_grav_vars_offset+2)
 #define rt_freq_offset          (rt_grav_vars_offset+2+rt_num_et_vars)
 
-#endif  /* RT_TRANSFER_METHOD == RT_METHOD_OTVET */
+#endif /* RT_TRANSFER_METHOD == RT_METHOD_OTVET */
 
 
 #if !defined(rt_num_frequencies) || !defined(rt_freq_offset)
@@ -34,24 +42,13 @@
 #define rt_num_disk_vars        rt_num_frequencies
 #define rt_disk_offset          rt_freq_offset
 
-#else
+#else  /* RT_TRANSFER */
 
 #define rt_num_vars             0
 #define rt_num_disk_vars        0
 #define rt_disk_offset          rt_grav_vars_offset
 
-#endif
+#endif /* RT_TRANSFER */
+#endif /* RADIATIVE_TRANSFER */
 
-
-/*
-//  RT needs both COOLING and ADVECT_SPECIES to be set 
-*/
-#ifndef COOLING
-#define COOLING
-#endif
-
-#ifndef ADVECT_SPECIES
-#define ADVECT_SPECIES
-#endif
-
-#endif  /* __RT_TREE_H__ */
+#endif /* __RT_TREE_H__ */

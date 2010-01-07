@@ -1,6 +1,13 @@
 #ifndef __COSMOLOGY_H__
 #define __COSMOLOGY_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
+#ifdef COSMOLOGY
+
 /*
 //  INTERNAL DECLARATIONS
 */
@@ -50,15 +57,21 @@ COSMOLOGY_DECLARE_PRIMARY_PARAMETER(DeltaDC);
 */
 void cosmology_copy(const struct CosmologyParameters *c);
 
+
+/*
+//  Check that all required cosmological parameters have been set.
+//  The minimum set is OmegaM, OmegaB, and h. By default, zero OmegaL,
+//  OmegaK, and the DC mode are assumed.
+*/
+int cosmology_is_set();
+
 /*
 //  Manual initialization. This does not need to be called, 
 //  the initialization is done automatically on the first call
-//  to a relevant fucntion.
+//  to a relevant function.
 */
 void cosmology_init();
 
-
-#ifdef COSMOLOGY
 
 /*
 //  Set the range of global scale factors for thread-safe
@@ -70,13 +83,14 @@ void cosmology_set_thread_safe_range(double amin, double amax);
 //  Direct functions take the global cosmological scale factor as the argument.
 //  These functionsare are thread-safe if called with the argument in the
 //  range set by a prior call to cosmology_set_thread_safe_range(...).
-//  Calling with the argument outside that range is ok, but breaks
+//  Calling them with the argument outside that range is ok, but breaks
 //  thread-safety assurance.
 */
 double  aBox(double a);
 double tCode(double a);
 double tPhys(double a);
 double dPlus(double a);
+double qPlus(double a); /* Q+ = a^2 dD+/(H0 dt) */
 
 /*
 //  Inverse conversions (converting other variables to the global 
@@ -107,7 +121,7 @@ double inv_dPlus(double dplus);
 #define tphys_from_tcode(tcode)  tPhys(inv_tCode(tcode))
 #define dplus_from_tcode(tcode)  dPlus(inv_tCode(tcode))
 
-#endif  /* COSMOLOGY */
+#endif /* COSMOLOGY */
 
-#endif  /* __COSMOLOGY_H__ */
+#endif /* __COSMOLOGY_H__ */
 

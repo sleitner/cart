@@ -1,10 +1,12 @@
 #ifndef __HYDRO_TRACER_H__
 #define __HYDRO_TRACER_H__
 
-#include "defs.h"
-#include "tree.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
 
-#ifdef HYDRO_TRACERS
+
+#if defined(HYDRO) && defined(HYDRO_TRACERS)
 
 #define NULL_TRACER (-1)
 
@@ -46,6 +48,6 @@ void join_tracer_list( int icell );
 void insert_tracer( int icell, int part );
 void delete_tracer( int icell, int part );
 
-#endif /* HYDRO_TRACERS */
+#endif /* defined(HYDRO) && defined(HYDRO_TRACERS) */
 
 #endif

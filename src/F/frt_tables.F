@@ -1,6 +1,5 @@
-#include "defs.h"      
+#include "../config.h"      
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 C
 C
 C
@@ -42,6 +41,11 @@ C  the effective cross-section (from W&D 2003, ApJ 528, 296)
 C
       d_pPAH = 0.5
       d_sPAH = 3.4e-21/CSSTAR
+C
+C  Effective dust cross-section for the MW in the LW band
+C  (for H2 formation)
+C
+      d_sDUST = 2.0e-21/CSSTAR
 C
 C  Radiation tables
 C
@@ -396,8 +400,8 @@ C
       acLTstp = (acLTmax-acLTmin)/(real(NTEM)-1)
 
 C$OMP PARALLEL DO DEFAULT(NONE), 
-C$OMP+PRIVATE(lc,tem,altem,q,p,alt10,srt,alt,alH1,alG1,alG2,s,
-C$OMP+ tev,x,itl,itu,rC1a,rC2e,rC2a,rN1e,
+C$OMP+PRIVATE(lc,tem,altem,q,p,alt10,srt,alH1,alG1,alG2,s,
+C$OMP+ tev,x,itl,itu,so,sp,rC1a,rC2e,rC2a,rN1e,
 C$OMP+ rO1a,rMg2e,rSi2e,rSi2a,rS2e,rFe2e,rFe2a,rO1e)
 C$OMP+SHARED(acLTmin,acLTstp,acLT,acTEM,acSQT,RateAtom,RateChem,
 C$OMP+ dsd93,nsd93,sd93lt,sd93c0,sd93c1,RateHigh)
@@ -413,6 +417,7 @@ C$OMP+ dsd93,nsd93,sd93lt,sd93c0,sd93c1,RateHigh)
          acSQT(lc) = srt
 
          alt10 = log10(tem)
+         tev = tem/T1eV
 C
 C  Atomic rates
 C
@@ -421,7 +426,6 @@ C
          alG2 = 2.0*TG2/tem
          q = 1.0/tem**1.5
          p = 1.0/(1.0+sqrt(tem/1.0e5))
-         alt = alt10 - 1.0
 
          if(alH1 .gt. 2.0e2) then
             s = 0.0
@@ -460,11 +464,12 @@ C
 C  HeII rates are from Hummer & Storey, MNRAS, 297, 1073 with
 C  correction for altem>4.4 by Massimo Ricotti
 C
-         if(alt .lt. 3.4) then
-            RateAtom(irateRAiG2,lc) = 1.0e-11/srt*(10.85-2.34*alt+
-     .           0.019*alt**3)
-            RateAtom(irateRAcG2,lc) = 1.0e-11/srt*( 9.92-2.37*alt+
-     .           0.030*alt**3)*(1.381e-16/CFSTAR)*tem
+         x = alt10 - 1.0
+         if(x .lt. 3.4) then
+            RateAtom(irateRAiG2,lc) = 1.0e-11/srt*(10.85-2.34*x+
+     .           0.019*x**3)
+            RateAtom(irateRAcG2,lc) = 1.0e-11/srt*( 9.92-2.37*x+
+     .           0.030*x**3)*(1.381e-16/CFSTAR)*tem
          else
             RateAtom(irateRAiG2,lc) = 2.31e-10/tem**0.681
             RateAtom(irateRAcG2,lc) = 1.96e-10/tem**0.669*
@@ -483,11 +488,12 @@ C
          RateAtom(irateRBcH2,lc) = (3.435e-30/CFSTAR)*tem*alH1**1.970/
      .        (1.0+(alH1/2.250)**0.376)**3.720
 
-         if(alt .lt. 3.4) then
-            RateAtom(irateRBiG2,lc) = 1.0e-11/srt*(9.28-2.31*alt+
-     .           0.016*alt**3)
-            RateAtom(irateRBcG2,lc) = 1.0e-11/srt*(8.35-2.37*alt+
-     .           0.028*alt**3)*(1.381e-16/CFSTAR)*tem
+         x = alt10 - 1.0
+         if(x .lt. 3.4) then
+            RateAtom(irateRBiG2,lc) = 1.0e-11/srt*(9.28-2.31*x+
+     .           0.016*x**3)
+            RateAtom(irateRBcG2,lc) = 1.0e-11/srt*(8.35-2.37*x+
+     .           0.028*x**3)*(1.381e-16/CFSTAR)*tem
          else
             RateAtom(irateRBiG2,lc) = 5.13e-10/tem**0.817
             RateAtom(irateRBcG2,lc) = 5.93e-10/tem**0.870*
@@ -526,289 +532,537 @@ C
 C  Chemical rates
 C
 #ifdef RT_CHEMISTRY
-
-         tev = tem/T1eV
-         alt = alt10
-
+C
+C   1. H + e -> Hm + g
+C
 #if (RT_H2_RATE == 1)
-C
-C  Molecular Hydrogen (MH) rates (from Shapiro & Kang, 1987)
-C
          if(tem .gt. 1.5e4) then
-            RateChem(irateMHi07,lc) = 10.0**(-14.10+0.1175*alt-
-     .           9.813e-3*alt**2)
+            s = 10.0**(-14.10+0.1175*alt10-9.813e-3*alt10**2)
          else
-            RateChem(irateMHi07,lc) = 1.0e-18*tem
+            s = 1.0e-18*tem
          endif
-
+#elif (RT_H2_RATE == 2)
+         s = 1.4e-18*tem**0.928*exp(-tem/16200)
+#else
+         if(tem .lt. 6.0e3) then
+            s = 10.0**(-17.845+7.62e-1*alt10+1.52e-1*alt10**2-
+     .           3.27e-2*alt10**3)
+         else
+            s = 10.0**(-16.420+2.00e-1*alt10-5.45e-3*alt10**4+
+     .           4.04e-5*alt10**6)
+         endif
+#endif
+         RateChem(irateMHi01,lc) = s
+C
+C   2. Hm + H -> H2 + e
+C
+#if (RT_H2_RATE == 1)
          if(tem .gt. 1.0e4) then
-            RateChem(irateMHi08,lc) = 10.0**(-8.78+0.113*alt-
-     .           3.475e-2*alt**2)
+            s = 10.0**(-8.78+1.13e-1*alt10-3.48e-2*alt10**2)
          else
-            RateChem(irateMHi08,lc) = 1.3e-9
+            s = 1.3e-9
          endif
-
+#elif (RT_H2_RATE == 2)
+         if(tem .gt. 300.) then
+            s = 4.0e-9*tem**(-0.17)
+         else
+            s = 1.5e-9
+         endif
+#else
+         s = 1.3e-9
+#endif
+         RateChem(irateMHi02,lc) = s
+C
+C   3. H + Hp -> H2p + g
+C
+#if (RT_H2_RATE == 1)
          if(tem .gt. 6.7e3) then
-            RateChem(irateMHi09,lc) = 5.81e-16*(tem/56200.0)**
-     .           (3.1619-0.6657*alt)
+            s = 5.81e-16*(tem/5.62e4)**(3.16-0.67*alt10)
          else
-            RateChem(irateMHi09,lc) = 1.85e-23*tem**1.8
+            s = 1.85e-23*tem**1.8
          endif
-
-         RateChem(irateMHi10,lc) = 6.0e-10
-            
-         RateChem(irateMHi11,lc) = 1.12e-10*exp(-7.035e4/tem)
-            
-         RateChem(irateMHi12,lc) = 2.4e-9*exp(-21200.0/tem)
-            
-         if(tem .gt. 2500.0) then
-            RateChem(irateMHi13,lc) = 9.69e-13*exp(-11.323/
-     .           (altem-7.28))
+#elif (RT_H2_RATE == 2)
+         s = 10.0**(-19.38-1.52*alt10+1.12*alt10**2-0.127*alt10**3)
+#else
+         s = 10.0**(-19.38-1.52*alt10+1.12*alt10**2-0.127*alt10**3)
+#endif
+         RateChem(irateMHi03,lc) = s
+C
+C   4. H + H2p -> H2 + Hp
+C
+#if (RT_H2_RATE == 1)
+         s = 6.0e-10
+#elif (RT_H2_RATE == 2)
+         s = 6.4e-10
+#else
+         s = 6.4e-10
+#endif
+         RateChem(irateMHi04,lc) = s
+C
+C   5. H + H2p -> H2 + Hp
+C
+#if (RT_H2_RATE == 1)
+         s = 4.0e-6/srt
+#elif (RT_H2_RATE == 2)
+         s = 5.7e-6/tem**0.5 + 6.3e-8 - 9.2e-11*tem**0.5 + 4.4e-13*tem
+#else
+         s = 2.4e-6/srt*(1+tem/2.0e4)
+#endif
+         RateChem(irateMHi05,lc) = s
+C
+C   6. H + H2p -> H2 + Hp
+C
+#if (RT_H2_RATE == 1)
+         s = 2.25e-6/tem**0.4
+#elif (RT_H2_RATE == 2)
+         s = 2.0e-7/tem**0.5
+#else
+         s = 1.32e-6/max(617.0,tem)**0.76
+#endif
+         RateChem(irateMHi06,lc) = s
+C
+C   7. H2 + Hp -> H2p + H
+C
+#if (RT_H2_RATE == 1)
+         s = 2.4e-9*exp(-2.12e4/tem)
+#elif (RT_H2_RATE == 2)
+         if(tem .gt. 1.0e4) then
+            s = 1.5e-10*exp(-1.40e4/tem)
          else
-            RateChem(irateMHi13,lc) = 0.0
+            s = 3.0e-10*exp(-2.11e4/tem)
          endif
+#else
+C
+C This rate from G&A08 is a bad fitting form and causes some weird behavior
+C  for very low T. Use G&P instead.
+C
+*         s = (-3.32e-7+3.37e-7*alt10-1.45e-7*alt10**2+3.42e-8*alt10**3-
+*     .        4.78e-9*alt10**4+3.97e-10*alt10**5-1.82e-11*alt10**6+
+*     .        3.53e-13*alt10**7)*exp(-2.12e4/tem)
+         if(tem .gt. 1.0e4) then
+            s = 1.5e-10*exp(-1.40e4/tem)
+         else
+            s = 3.0e-10*exp(-2.11e4/tem)
+         endif
+#endif
+         RateChem(irateMHi07,lc) = s
+C
+C   8. H2 + e -> H + H + e
+C
+#if (RT_H2_RATE == 1)
 C
 C  This is Shapiro & Kang 98 rate
 C
-*         RateChem(irateMHi14,lc) = 4.38e-10*exp(-102000.0/tem)*
-*     .          (tem/(1.0+tem/1.0e5))**0.35
+*         s = 4.38e-10*exp(-1.02e5/tem)*(tem/(1.0+tem/1.0e5))**0.35
 C
 C  This is Donahue & Shull 91 rate (a smaller one)
 C
-         RateChem(irateMHi14,lc) = 5.6e-11*exp(-102000.0/tem)*
-     .        (tem/(1.0+tem/1.0e5))**0.5
-
-         RateChem(irateMHi15,lc) = 1.18e-10*exp(-6.95e4/tem)
-
-         RateChem(irateMHi16,lc) = 4.0e-12*exp(-8750/tem)*
-     .        (2.0*tem/(1.0+tem/16000.0))
-
-         RateChem(irateMHi17,lc) = 5.3e-20*exp(-8750/tem)*
-     .        (2.0*tem/(1.0+tem/16000.0))**2.17
-            
-         RateChem(irateMHi18,lc) = 4.0e-6/srt
-
+         s = 5.6e-11*exp(-1.02e5/tem)*(tem/(1.0+tem/1.0e5))**0.5
+#elif (RT_H2_RATE == 2)
+         s = 4.4e-10*tem**0.35*exp(-1.02e5/tem)
+#else
+         s = 4.49e-9*tem**0.11*exp(-1.02e5/tem)
+#endif
+         RateChem(irateMHi08,lc) = s
+C
+C   9. H2 + H -> H + H + H
+C
+#if (RT_H2_RATE == 1)
+         s = 1.12e-10*exp(-7.035e4/tem)
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 6.67e-12*tem**0.5*exp(-(1+6.36e4/tem))
+#endif
+         RateChem(irateMHi09,lc) = s
+C
+C  10. H2 + H2 -> H2 + H + H
+C
+#if (RT_H2_RATE == 1)
+         s = 1.18e-10*exp(-6.95e4/tem)
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 6.0e-30*tem**4.19/(1+6.76e-6*tem)**5.69*exp(-5.47e4/tem)
+#endif
+         RateChem(irateMHi10,lc) = s
+C
+C  11. H2 + He -> H + H + He
+C
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 10.0**(-27.029+3.80*alt10-2.95e4/tem)
+#endif
+         RateChem(irateMHi11,lc) = s
+C
+C  14. Hm + e -> H + e + e
+C
+#if (RT_H2_RATE == 1)
+         s = 4.0e-12*exp(-8.75e3/tem)*(2*tem/(1+tem/1.6e4))
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = exp(-18.018+2.36*altem-2.83e-1*altem**2+1.62e-2*altem**3-
+     .        3.37e-2*altem**4+1.18e-2*altem**5-1.66e-3*altem**6+
+     .        1.07e-4*altem**7-2.63e-6*altem**8)
+#endif
+         RateChem(irateMHi14,lc) = s
+C
+C  15. Hm + H -> H + H + e
+C
+#if (RT_H2_RATE == 1)
+         s = 5.3e-20*exp(-8.75e3/tem)*(2*tem/(1+tem/1.6e4))**2.17
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         if(tev .lt. 0.1) then
+            s = 2.56e-9*tem**1.78
+         else
+            s = exp(-20.372+1.14*altem-1.42e-1*altem**2+
+     .           8.46e-3*altem**3-1.43e-3*altem**4+2.01e-4*altem**5+
+     .           8.66e-5*altem**6-2.59e-5*altem**7+2.46e-6*altem**8-
+     .           8.07e-8*altem**9)
+         endif
+#endif
+         RateChem(irateMHi15,lc) = s
+C
+C  16. Hp + Hm -> H2p + e
+C
+#if (RT_H2_RATE == 1)
          if(tem .gt. 1.0e4) then
-            RateChem(irateMHi19,lc) = 4.0e-4/tem**1.4*
-     .           exp(-15100.0/tem)
+            s = 4.0e-4/tem**1.4*exp(-1.51e4/tem)
          else
-            RateChem(irateMHi19,lc) = 1.0e-8/tem**0.4
+            s = 1.0e-8/tem**0.4
          endif
-
-         RateChem(irateMHi20,lc) = 2.25e-6/tem**0.4
-         
-         RateChem(irateMHi21,lc) = 4.0e-6/srt
-
-#define RT_H2_RATE_SET
+#elif (RT_H2_RATE == 2)
+         if(tem .gt. 8.0e3) then
+            s = 9.6e-7/tem**0.9
+         else
+            s = 6.9e-9/tem**0.35
+         endif
+#else
+         if(tem .gt. 8.0e3) then
+            s = 9.6e-7/tem**0.9
+         else
+            s = 6.9e-9/tem**0.35
+         endif
 #endif
-#if (RT_H2_RATE == 2)
+         RateChem(irateMHi16,lc) = s
 C
-C  Molecular Hydrogen (MH) rates (from Abel et al.)
+C  21. Hm + H2p -> H2 + H
 C
-         if(tem .gt. 6.e3) then
-            RateChem(irateMHi07,lc) = 3.802e-17*tem**(0.1998*
-     .           log10(tem))*exp(4.0415e-5*(log10
-     .           (tem))**6-5.447e-3*(log10(tem))**4)
-         else
-            RateChem(irateMHi07,lc) = 1.429e-18*tem**0.7620*
-     .           tem**(0.1523*log10(tem))*
-     .           tem**(-3.274e-2*(log10(tem))**2)
-         endif
-
-         if(tev .gt. 0.1) then
-            RateChem(irateMHi08,lc) = exp(-20.06913897+0.22898*
-     .           log(tev)+3.5998377e-2*(log(tev))**2-
-     .           4.55512e-3*(log(tev))**3-3.10511544e-4*(log
-     .           (tev))**4+1.0732940e-5*(log(tev))**5-
-     .           8.36671960e-6*(log(tev))**6+2.23830623e-7*
-     .           (log(tev))**7)
-         else
-            RateChem(irateMHi08,lc) = 1.428e-9
-         endif
-            
-         if(tev .gt. 0.577) then
-            RateChem(irateMHi09,lc) = 5.81e-16*(0.20651*
-     .           tev)**(-0.2891*log10(0.20651*tev))
-         else
-            RateChem(irateMHi09,lc) = 3.833e-16*tev**1.8
-         endif
-            
-         RateChem(irateMHi10,lc) = 6.4e-10
-
-         RateChem(irateMHi11,lc) = 1.067e-10*tev**2.012*
-     .        exp(-4.463/tev*(1.+0.2472*tev)**3.512)
-
-         RateChem(irateMHi12,lc) = exp(-24.24914687+3.40082444*
-     .        log(tev)-3.89800396*(log(tev))**2+2.04558782*
-     .        (log(tev))**3-0.541618285*(log(tev))**4+
-     .        8.41077503e-2*(log(tev))**5-7.87902615e-3*
-     .        (log(tev))**6+4.13839842e-4*(log(tev))**7-
-     .        9.36345888e-6*(log(tev))**8)
-
-         RateChem(irateMHi13,lc) = 0.0
-
-         RateChem(irateMHi14,lc) = 5.6e-11*tem**0.5*
-     .        exp(-102124/tem)
-
-         RateChem(irateMHi15,lc) = 0.0
-
-         RateChem(irateMHi16,lc) = exp(-18.01849334+2.3608522*
-     .        log(tev)-0.28274430*(log(tev))**2+1.62331664e-2*
-     .        (log(tev))**3-3.36501203e-2*(log(tev))**4+
-     .        1.17832978e-2*(log(tev))**5-1.65619470e-3*
-     .        (log(tev))**6+1.06827520e-4*(log(tev))**7-
-     .        2.63128581e-6*(log(tev))**8)
-         
-         if(tev .gt. 0.1) then
-            RateChem(irateMHi17,lc) = exp(-20.37260896+
-     .           1.13944933*log(tev)-0.14210135*(log(tev))**2+
-     .           8.4644554e-3*(log(tev))**3-1.4327641e-3*
-     .           (log(tev))**4+2.0122503e-4*(log(tev))**5+
-     .           8.6639632e-5*(log(tev))**6-2.5850097e-5*
-     .           (log(tev))**7+2.4555012e-6*(log(tev))**8-
-     .           8.0683825e-8*(log(tev))**9)
-         else
-            RateChem(irateMHi17,lc) =2.5634e-9*tev**1.78186
-         endif
-
-         RateChem(irateMHi18,lc) = 7.e-8*(tem/1.d2)**(-0.5)
-
-         if(tev .gt. 1.719) then
-            RateChem(irateMHi19,lc) = 8.4258e-10*tev**(-1.4)*
-     .           exp(-1.301/tev)
-         else
-            RateChem(irateMHi19,lc) = 2.291e-10*tev**(-0.4)
-         endif
-
-         if(tem .ge. 617) then
-            RateChem(irateMHi20,lc) = 1.32e-6*tem**(-0.76)
-         else
-            RateChem(irateMHi20,lc) = 1.e-8
-         endif
-
-         RateChem(irateMHi21,lc) = 5.e-7*(1.e2/tem)**0.5
-
-#define RT_H2_RATE_SET
+#if (RT_H2_RATE == 1)
+         s = 4.0e-6/srt
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 4.0e-6/srt
 #endif
-#if (RT_H2_RATE == 3)
+         RateChem(irateMHi21,lc) = s
 C
-C  Molecular Hydrogen (MH) rates (from Galli & Palla)
+C  22. Hm + H2p -> H + H + H
 C
-         RateChem(irateMHi07,lc) = 1.4e-18*tem**0.928*
-     .        exp(-tem/16200)
-        
-         if(tem .gt. 300.) then
-            RateChem(irateMHi08,lc) = 4.0e-9*tem**(-0.17)
-         else
-            RateChem(irateMHi08,lc) = 1.5e-9
-         endif
-
-         RateChem(irateMHi09,lc) = 10.**(-19.38 - 1.523*alt + 
-     .        1.118*alt**2 - 0.1269*alt**3)
-
-         RateChem(irateMHi10,lc) = 6.4e-10
-
-         RateChem(irateMHi11,lc) = 0.0
-
-         if(tem .gt. 10000.0) then
-            RateChem(irateMHi12,lc) = 1.5e-10*exp(-14000/tem)
-         else
-            RateChem(irateMHi12,lc) = 3.0e-10*exp(-21050/tem)
-         endif
-
-         RateChem(irateMHi13,lc) = 2.7e-8/tem**1.27*
-     .        exp(-43000/tem)      
-
-         RateChem(irateMHi14,lc) = 4.4e-10*tem**0.35*
-     .        exp(-102000/tem)
-
-         RateChem(irateMHi15,lc) = 0.0
-
-         RateChem(irateMHi16,lc) = 0.0
-            
-         RateChem(irateMHi17,lc) = 0.0
-
-         RateChem(irateMHi18,lc) = 5.7e-6/tem**0.5 + 6.3e-8 - 
-     .        9.2e-11*tem**0.5 + 4.4e-13*tem
-
-         if(tem .gt. 8000.0) then
-            RateChem(irateMHi19,lc) = 9.6e-7/tem**0.9
-         else
-            RateChem(irateMHi19,lc) = 6.9e-9/tem**0.35
-         endif
-
-         RateChem(irateMHi20,lc) = 2.0e-7/tem**0.5
-         
-         RateChem(irateMHi21,lc) = 0.0
-
-#define RT_H2_RATE_SET
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 1.4e-7*(300/tem)**0.5
 #endif
-
-#ifndef RT_H2_RATE_SET
-#error "Incorrect value for RT_H2_RATE: must be 1, 2, or 3"
+         RateChem(irateMHi22,lc) = s
+C
+C  23. H2 + e -> Hm + H
+C
+#if (RT_H2_RATE == 1)
+         if(tem .gt. 2.5e3) then
+            s = 9.69e-13*exp(-11.32/(altem-7.28))
+         else
+            s = 0.0
+         endif
+#elif (RT_H2_RATE == 2)
+         s = 2.7e-8/tem**1.27*exp(-4.3e4/tem)      
+#else
+         s = 2.7e-8/tem**1.27*exp(-4.3e4/tem)      
 #endif
-
-#if (RT_H2_COOL == 1)
+         RateChem(irateMHi23,lc) = s
 C
-C     Lepp & Shull cooling (something wrong)
+C  *****************
 C
+C  Reaction 24 and 25 destroy H2 at NH>1e23 way too efficiently.
+C  Something must be wrong with them (probably rates go to zero
+C  at low T).
+C
+C  *****************
+C
+C  24. H2 + Hep -> He + H + Hp
+C
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+C
+C  G&A have a plus sign under the exponent, but that must be a typo, it causes 
+C  truly weird results.
+C
+         s = 3.7e-14*exp(-35/tem)
+#endif
+         RateChem(irateMHi24,lc) = s
+C
+C  25. H2 + Hep -> H2p + He
+C
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 7.2e-15
+#endif
+         RateChem(irateMHi25,lc) = s
+C
+C  26. Hep + H -> He + Hp
+C
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+C
+C  I have no idea where this formula is coming from. G&A refer to 
+C  Zygelman et al. 1989, PhRA, 40, 2340, but results there are not 
+C  consistent with that fit. Their table is consistent with a flat rate
+C  of 8e-15 until T=1e3. With no data above T=1e3, I chop the rate off
+C  just in case.
+C
+*         s = 1.2e-15*(tem/300)**0.25
+         s = 8.0e-15*exp(-tem/3.0e3)
+#endif
+         RateChem(irateMHi26,lc) = s
+C
+C  27. He + Hp -> Hep + H
+C
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         if(tem .lt. 1.0e4) then
+            s = 1.26e-9/tem**0.75*exp(-1.28e5/tem)
+         else
+C
+C This grows too fast, clump it at T=1e7
+C
+*            s = 4.0d-37*tem**4.74
+            s = 6.05e-4*min(1.0,tem/1.0e7)**4.74
+         endif
+#endif
+         RateChem(irateMHi27,lc) = s
+C
+C  28. Hep + Hm -> He + H
+C
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 2.32e-7*(300/tem)**0.52*exp(-tem/2.24e4)
+#endif
+         RateChem(irateMHi28,lc) = s
+C
+C  29. He + Hm -> He + H + e
+C
+#if (RT_H2_RATE == 1)
+         s = 0.0
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         s = 4.1e-17*tem**2*exp(-1.99e4/tem)
+#endif
+         RateChem(irateMHi29,lc) = s
+C
+C  H2 formation on dust: from Cazauz & Spaans (ApJ, 611, 40)
+C
+*         RateChem(irateMHiDU,lc) = 3.5e-18*sqrt(tem/100.0)/
+*     .        (1+0.4*sqrt((tem+d_temGr)/100)+0.2*tem/100+
+*     .        0.08*(tem/100)**2)
+C
+C  H2 formation on dust: empirical rate from Wolfire et al (arXiv:0803.0138)
+C
+         RateChem(irateMHiDU,lc) = 3.5e-17
+C
+C  Dust: from Draine, ApJ, 245, 880
+C
+         RateChem(irateMHcDU,lc) = (2.0e-22/CFSTAR)*(tem/1.0e6)**1.5/
+     .        (1+(tem/1.36e7)**1.5)
+C
+C  H2 cooling
+C
+C  1. collisions with H
+C
+#if (RT_H2_RATE == 1)
          if(tem .gt. 1635.0) then
-            RateChem(irateMHcLV,lc) = (8.18e-25/CFSTAR)*srt*
-     .           exp(-1000.0/tem)
+            so = (8.18e-25/CFSTAR)*srt*exp(-1.0e3/tem)
          else
-            RateChem(irateMHcLV,lc) = (1.15e-25/CFSTAR)*
-     .           exp(tem/125.0-(tem/577.0)**2)
+            so = (1.15e-25/CFSTAR)*exp(tem/125-(tem/577)**2)
          endif
 
          if(tem .gt. 4031.0) then
-            RateChem(irateMHcLR,lc) = (1.66e-22/CFSTAR)*
-     .           exp(-9243.0/tem)
+            so = so + (1.66e-22/CFSTAR)*exp(-9.24e3/tem)
          else
-            x = log10(tem/1e4)
-            RateChem(irateMHcLR,lc) = 1.2*10.0**(-22.9-0.553*x-
-     .           1.148*x**2)/CFSTAR
+            x = log10(tem/1.0e4)
+            so = so + 1.2*10.0**(-22.9-0.553*x-1.148*x**2)/CFSTAR
          endif
-
-#define RT_H2_COOL_SET
-#endif
-#if (RT_H2_COOL == 2)
+         sp = so
+#elif (RT_H2_RATE == 2)
+         so = 10.0**(-103.0+97.59*alt10-48.05*alt10**2+10.80*alt10**3-
+     .        0.9032*alt10**4-log10(CFSTAR))
+         sp = so
+#else
 C
-C  Galli & Palla cooling (low density limit n<10^3 cm^-3)
+C  Factor q is my correction to reproduce G&P behaviour at T>1e4 - the
+C  G&A rates vlow up unphysically at >1e4
 C
-         RateChem(irateMHcLV,lc) = 0.
-         
-         RateChem(irateMHcLR,lc) = 10.**(-103.0+97.59*alt-
-     .        48.05*alt**2+10.80*alt**3-0.9032*alt**4)/CFSTAR
-         
-#define RT_H2_COOL_SET
+         q = exp(-(tem/17000)**2)
+         x = log10(min(10.0,tem/1.0e3))
+         if(tem .lt. 100) then
+            so = 5.09e-27/CFSTAR*sqrt(tem/1.0e3)*exp(-853/tem)
+         else if(tem .lt. 1.0e3) then
+            so = 10.0**(-24.331+4.440*x-4.046*x**2-1.139*x**3+
+     .           9.809*x**4+8.627*x**5-log10(CFSTAR))
+         else
+            so = 10.0**(-24.329+4.611*x-3.950*x**2+12.363*x**3-
+     .           32.403*x**4+48.853*x**5-38.542*x**6+12.067*x**7-
+     .           log10(CFSTAR))*q
+         endif
+         if(tem .lt. 100) then
+            sp = 8.16e-26/CFSTAR*sqrt(tem/1.0e3)*exp(-510/tem)
+         else if(tem .lt. 1.0e3) then
+            sp = 10.0**(-24.216+3.323*x-11.642*x**2-35.553*x**3-
+     .           35.106*x**4-10.922*x**5-log10(CFSTAR))
+         else
+            sp = 10.0**(-24.216+4.205*x-1.316*x**2-1.655*x**3+
+     .           4.178*x**4-0.569*x**5-3.382*x**6+1.090*x**7-
+     .           log10(CFSTAR))*q
+         endif
 #endif
-
-#ifndef RT_H2_COOL_SET
-#error "Incorrect value for RT_H2_COOL: must be 1 or 2"
+         RateChem(irateMHcH1o,lc) = so
+         RateChem(irateMHcH1p,lc) = sp
+C
+C  2. collisions with ortho-H2
+C
+#if (RT_H2_RATE == 1)
+         so = 0.0
+         sp = 0.0
+#elif (RT_H2_RATE == 2)
+         so = 0.0
+         sp = 0.0
+#else
+         so = 10.0**(-24.020+2.269*x-1.020*x**2+0.835*x**3-0.408*x**4+
+     .        0.096*x**5-log10(CFSTAR))*q
+         sp = 10.0**(-24.126+2.325*x-1.008*x**2+0.548*x**3-0.337*x**4+
+     .        0.207*x**5-log10(CFSTAR))*q
 #endif
+         RateChem(irateMHcMOo,lc) = so
+         RateChem(irateMHcMOp,lc) = sp
+C
+C  3. collisions with para-H2
+C
+#if (RT_H2_RATE == 1)
+         so = 0.0
+         sp = 0.0
+#elif (RT_H2_RATE == 2)
+         so = 0.0
+         sp = 0.0
+#else
+         so = 10.0**(-23.749+1.767*x-0.586*x**2+0.311*x**3-0.175*x**4+
+     .        0.185*x**5-log10(CFSTAR))*q
+         sp = 10.0**(-23.890+1.855*x-0.556*x**2+0.284*x**3-0.205*x**4+
+     .        0.131*x**5-log10(CFSTAR))*q
+#endif
+         RateChem(irateMHcMPo,lc) = so
+         RateChem(irateMHcMPp,lc) = sp
+C
+C  4. collisions with He
+C
+#if (RT_H2_RATE == 1)
+         so = 0.0
+         sp = 0.0
+#elif (RT_H2_RATE == 2)
+         so = 0.0
+         sp = 0.0
+#else
+         so = 10.0**(-23.775+2.407*x-1.234*x**2+0.740*x**3-0.259*x**4+
+     .        0.121*x**5-log10(CFSTAR))*q
+         sp = 10.0**(-23.489+1.821*x-0.591*x**2+0.423*x**3-0.302*x**4+
+     .        0.129*x**5-log10(CFSTAR))*q
+#endif
+         RateChem(irateMHcG1o,lc) = so
+         RateChem(irateMHcG1p,lc) = sp
+C
+C  5. collisions with Hp
+C
+#if (RT_H2_RATE == 1)
+         so = 0.0
+         sp = 0.0
+#elif (RT_H2_RATE == 2)
+         so = 0.0
+         sp = 0.0
+#else
+         so = 10.0**(-21.707+1.390*x-0.350*x**2+0.075*x**3-0.232*x**4+
+     .        0.069*x**5-log10(CFSTAR))*q
+         sp = 10.0**(-21.757+1.400*x-0.372*x**2+0.062*x**3-0.372*x**4+
+     .        0.233*x**5-log10(CFSTAR))*q
+#endif
+         RateChem(irateMHcH2o,lc) = so
+         RateChem(irateMHcH2p,lc) = sp
+C
+C  6. collisions with e
+C
+#if (RT_H2_RATE == 1)
+         so = 0.0
+         sp = 0.0
+#elif (RT_H2_RATE == 2)
+         so = 0.0
+         sp = 0.0
+#else
+         so = 10.0**(-21.703+0.761*x+0.506*x**2+0.050*x**3-0.104*x**4-
+     .        0.036*x**5-log10(CFSTAR))*exp(-845/tem)*q
+         if(tem .lt. 1.0e3) then
+            sp = 10.0**(-22.818+0.957*x+0.793*x**2+0.568*x**3-
+     .           0.279*x**4+0.056*x**5-log10(CFSTAR))*exp(-510/tem)
+         else
+            sp = q*10.0**(-22.818+0.669*x-7.119*x**2-11.177*x**3+
+     .           7.047*x**4-1.647*x**5-log10(CFSTAR))*exp(-510/tem)
+         endif
+#endif
+         RateChem(irateMHcFEo,lc) = so
+         RateChem(irateMHcFEp,lc) = sp
 C
 C  Other H2 rates
 C
-         RateChem(irateMHcUE,lc) = 4.476*(1.602e-12/CFSTAR)*
-     .        (RateChem(irateMHi13,lc)+RateChem(irateMHi14,lc))
+         RateChem(irateMHc08,lc) = 4.476*(1.602e-12/CFSTAR)*
+     .        (RateChem(irateMHi08,lc)+RateChem(irateMHi23,lc))
       
-         RateChem(irateMHcUH,lc) = 4.476*(1.602e-12/CFSTAR)*
-     .        RateChem(irateMHi11,lc)
+         RateChem(irateMHc09,lc) = 4.476*(1.602e-12/CFSTAR)*
+     .        RateChem(irateMHi09,lc)
 
-         RateChem(irateMHcUM,lc) = 4.476*(1.602e-12/CFSTAR)*
+         RateChem(irateMHc10,lc) = 4.476*(1.602e-12/CFSTAR)*
+     .        RateChem(irateMHi10,lc)
+
+         RateChem(irateMHc14,lc) = 0.75*(1.602e-12/CFSTAR)*
+     .        RateChem(irateMHi14,lc)
+
+         RateChem(irateMHc15,lc) = 0.75*(1.602e-12/CFSTAR)*
      .        RateChem(irateMHi15,lc)
-
-         RateChem(irateMHc16,lc) = 0.75*(1.602e-12/CFSTAR)*
-     .        RateChem(irateMHi16,lc)
-
-         RateChem(irateMHc17,lc) = 0.75*(1.602e-12/CFSTAR)*
-     .        RateChem(irateMHi17,lc)
 C
 C  heavy elements (HE) rates
 C
 C  1. SD93 re-interpolation
 C
-         itl = 1 + int((alt-sd93lt(1))/dsd93)
+         itl = 1 + int((alt10-sd93lt(1))/dsd93)
          if(itl .lt. 1) then
             RateChem(irateZHcTA,lc) = 0.0
             RateChem(irateZHcTB,lc) = 0.0
@@ -817,10 +1071,10 @@ C
             if(itl .ge. nsd93) itl = nsd93 - 1
             itu = itl + 1
             RateChem(irateZHcTA,lc) = (sd93c0(itl) + 
-     .           (sd93c0(itu)-sd93c0(itl))/dsd93*(alt-sd93lt(itl)))/
+     .           (sd93c0(itu)-sd93c0(itl))/dsd93*(alt10-sd93lt(itl)))/
      .           CFSTAR
             RateChem(irateZHcTB,lc) = (sd93c1(itl) + 
-     .           (sd93c1(itu)-sd93c1(itl))/dsd93*(alt-sd93lt(itl)))/
+     .           (sd93c1(itu)-sd93c1(itl))/dsd93*(alt10-sd93lt(itl)))/
      .           CFSTAR
             RateChem(irateZHcTC,lc) = log(1.0+tem/1.0e8)
          endif
@@ -871,51 +1125,46 @@ C
      .        (1.0+(tem/2.0e4)**4)/CFSTAR
 
 C
-C  Dust: from Draine, ApJ, 245, 880
-C
-         RateChem(irateMHcDU,lc) = (2.0e-22/CFSTAR)*(tem/1.0e6)**1.5/
-     .        (1+(tem/1.36e7)**1.5)
-C
-C  H2 formation on dust: from Cazauz & Spaans (ApJ, 611, 40)
-C
-*         RateChem(irateMHiDU,lc) = 3.5e-18*sqrt(tem/100.0)/
-*     .        (1+0.4*sqrt((tem+d_temGr)/100)+0.2*tem/100+
-*     .        0.08*(tem/100)**2)
-C
-C  H2 formation on dust: empirical rate from Wolfire et al (arXiv:0803.0138)
-C
-         RateChem(irateMHiDU,lc) = 3.5e-17
-C
 C  High density regime
 C
 #ifdef RT_HIGH_DENSITY
 
-         alt = alt10 - 4
+         x = alt10 - 4
 C
 C  Shapiro & Kang 87
 C
-         RateHigh(irateHDi11,lc) = 1.20e-9*exp(-5.24e4/tem)*
-     .        10.0**(4.0-0.416*alt-0.327*alt**2)
+         RateHigh(irateHDi09,lc) = 1.20e-9*exp(-5.24e4/tem)*
+     .        10.0**(4.0-0.416*x-0.327*x**2)
 
-         RateHigh(irateHDi15,lc) = 1.30e-9*exp(-5.33e4/tem)*
-     .        10.0**(4.845-1.3*alt+1.62*alt**2)
+         RateHigh(irateHDi10,lc) = 1.30e-9*exp(-5.33e4/tem)*
+     .        10.0**(4.845-1.3*x+1.62*x**2)
+C
+C  30. H + H + H -> H2 + H
+C
+#if (RT_H2_RATE == 1)
+         s = 5.5e-29/tem
+#elif (RT_H2_RATE == 2)
+         s = 0.0
+#else
+         if(tem .lt. 300) then
+            s = 1.14e-31/tem**0.38
+         else
+            s = 3.9e-30/tem
+         endif
+#endif
+         RateHigh(irateHDi30,lc) = s
+         RateHigh(irateHDi31,lc) = s/8.0
+         RateHigh(irateHDi32,lc) = 6.9e-32/tem**0.4
 
-         RateHigh(irateHDi22,lc) = 5.5e-29/tem
-
-         RateHigh(irateHDc08,lc) = 1.0e6/srt*(1.4+
+         RateHigh(irateHDc02,lc) = 1.0e6/srt*(1.4+
      .        1.6*exp(-(400/tem)**2))/CFSTAR
 C
-C  Hollenbach & McKee, 1979, ApJS, 41, 555
+C  Critical density (Hollenbach & McKee, 1979, ApJS, 41, 555)
 C
-         RateHigh(irateHDcLV,lc) = (6.7e-19*exp(-5.86e3/tem) +
-     .        1.6e-18*exp(-11.7e3/tem))/CFSTAR
+         RateHigh(irateHDcNC,lc) = 0.7e6/srt*exp(1.2e3/(tem+1.2e3))
 
-         RateHigh(irateHDcLR,lc) = (9.5e-22*(tem/1.0e3)**3.76/
-     .        (1+0.12*(tem/1.0e3)**2.1)*exp(-(0.13e3/tem)**3) +
-     .        3.0e-24*exp(-0.51e3/tem))/CFSTAR
-
-#endif  /* RT_HIGH_DENSITY */
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_HIGH_DENSITY */
+#endif /* RT_CHEMISTRY */
 
       enddo
 C
@@ -1031,7 +1280,7 @@ C
          wpTab(iptabCi31,lr) = csMH31(lr)
          wpTab(iptabCi32,lr) = csMH32(lr)
          wpTab(iptabCiLW,lr) = csMHLW(lr)
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
       enddo
  
 #ifdef RT_XRAYS
@@ -1121,10 +1370,10 @@ C
       do lr=1,NRAD
          sumiLW = sumiLW + angAvg(lr)*csMHLW(lr)
       enddo
-#endif  /* RT_LWBANDS */
+#endif /* RT_LWBANDS */
       pRate0(iptabCiLW) = max(0.0,facPhot*sumiLW)
 
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 
 #ifdef RT_TRANSFER
 
@@ -1188,12 +1437,12 @@ C
       do lr=1,NRAD
          sumiLW = sumiLW + guvEff(lr)*csMHLW(lr)
       enddo
-#endif  /* RT_LWBANDS */
+#endif /* RT_LWBANDS */
       sgpRate0(iptabCiLW) = max(0.0,facPhot*sumiLW*facLX)
 
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 
-#endif  /* RT_TRANSFER */
+#endif /* RT_TRANSFER */
 C
 C  Lyman-series absorption, averaged over a fraction of unit redshift
 C  (currently the XISTEP: over one bin)
@@ -1277,7 +1526,7 @@ C
       call frtLocalIntegrateRates_OT(iptabDim,wpTab,
      .     iptabOT,iptabMax,sgpOT)
 #endif
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lo1,lo2,lo3,tauH1l,tauG1l,tauG2l,itind,itind2,j,
@@ -1407,7 +1656,7 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
          enddo
       enddo
 
-#endif  /* defined(RT_TABLES) && !defined(RT_DUST) */
+#endif /* RT_TABLES && !RT_DUST */
 
 #ifdef RT_XRAYS
       call frtFillRadiationTablesSE
@@ -1461,7 +1710,7 @@ C
          itab(1) = itab(1) + 1
       else
 
-#endif  /* defined(RT_TABLES) && !defined(RT_DUST) */
+#endif /* RT_TABLES && !RT_DUST */
 
          do j=1,jmax
             pRate(j) = 0.0
@@ -1474,7 +1723,7 @@ C
 #ifdef RT_CHEMISTRY
          call frtIntegrateRates_OT(iptabDim,wpTab,
      .        iptabOT,jmax,pRate)
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 
          call frtIntegrateRates_H1(iptabDim,wpTab,
      .        iptabH1,jmax,pRate,
@@ -1492,23 +1741,23 @@ C
             pRate(j) = facPhot*max(0.0,pRate(j))
          enddo
 
-#endif  /* defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST) */
+#endif /* RT_NARROWTABLE || !RT_TABLES || RT_DUST */
 
 #if defined(RT_TABLES) && !defined(RT_DUST)
       endif
-#endif  /* defined(RT_TABLES) && !defined(RT_DUST) */
+#endif /* RT_TABLES && !RT_DUST */
 
 #ifdef RT_CHEMISTRY
       pRate(iptabCiLW) = pRate0(iptabCiLW)
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 
-#else   /* RT_EXTERNAL_BACKGROUND */
+#else  /* RT_EXTERNAL_BACKGROUND */
 
       do j=1,iptabDim
          pRate(j) = 0.0
       enddo
 
-#endif  /* RT_EXTERNAL_BACKGROUND */
+#endif /* RT_EXTERNAL_BACKGROUND */
 C
 C  Local field
 C
@@ -1526,7 +1775,7 @@ C
          itab(1) = itab(1) + 1
       else
 
-#endif  /* defined(RT_TABLES) && !defined(RT_DUST) */
+#endif /* RT_TABLES && !RT_DUST */
 
          do j=1,jmax
             sgpRate(j) = 0.0
@@ -1539,7 +1788,7 @@ C
 #ifdef RT_CHEMISTRY
          call frtLocalIntegrateRates_OT(iptabDim,wpTab,
      .        iptabOT,jmax,sgpRate)
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 
          call frtLocalIntegrateRates_H1(iptabDim,wpTab,
      .        iptabH1,jmax,sgpRate,
@@ -1557,17 +1806,17 @@ C
             sgpRate(j) = facLX*facPhot*max(0.0,sgpRate(j))
          enddo
 
-#endif  /* defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST) */
+#endif /* RT_NARROWTABLE || !RT_TABLES || RT_DUST */
 
 #if defined(RT_TABLES) && !defined(RT_DUST)
       endif
-#endif  /* defined(RT_TABLES) && !defined(RT_DUST) */
+#endif /* RT_TABLES && !RT_DUST */
 
 #ifdef RT_CHEMISTRY
       sgpRate(iptabCiLW) = sgpRate0(iptabCiLW)
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 
-#endif  /* RT_TRANSFER */
+#endif /* RT_TRANSFER */
 
 
 #ifdef RT_XRAYS
@@ -1602,9 +1851,9 @@ C
      .     sgpRateSE(istabPhH1w1))
       sgpRate(iptabPhG1) = max(0.0,sgpRate(iptabPhG1) -
      .     sgpRateSE(istabPhG1w1))
-#endif  /* RT_TRANSFER */
+#endif /* RT_TRANSFER */
 
-#endif  /* RT_XRAYS */
+#endif /* RT_XRAYS */
 
       par(iparCFH1) = 1.0
       par(iparCFG1) = 1.0
@@ -1633,7 +1882,7 @@ C
       pRate(iptabCiLW) = pRate(iptabCiLW) + rf(irfNorm)*
      .     sgpRate(iptabCiLW)
 #endif
-#endif  /* RT_TRANSFER */
+#endif /* RT_TRANSFER */
 
 #if (RT_CFI == 2)
       ch = CHeat(par(iparRhoB),y)

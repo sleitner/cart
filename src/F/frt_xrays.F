@@ -1,6 +1,5 @@
-#include "defs.h"
+#include "../config.h"
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 #ifdef RT_XRAYS
 C
 C
@@ -169,7 +168,7 @@ C
                      pTabSE(j,itind) = log(1.0e-35+facPhot*pG2(j))
                   else
                      pTabSE(j,itind) = -1000.0
-                  endif                     
+                  endif                  
 #endif
 #ifdef RT_TRANSFER
                   if(sgpG2(j) .gt. 0.0) then
@@ -193,7 +192,7 @@ C
          enddo
       enddo
 
-#endif  // defined(RT_TABLES) && !defined(RT_DUST)
+#endif /* RT_TABLES && !RT_DUST */
 
       return
       end
@@ -236,7 +235,7 @@ C
          itab(1) = itab(1) + 1
       else
 
-#endif  // defined(RT_TABLES) && !defined(RT_DUST)
+#endif /* RT_TABLES && !RT_DUST */
 
          do j=1,istabDim
             pRate1(j) = 0.0
@@ -262,7 +261,7 @@ C
             pRate1(j) = facPhot*max(0.0,pRate1(j))
          enddo
 
-#endif  // defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
+#endif /* RT_NARROWTABLE || !RT_TABLES || RT_DUST */
 
 #if defined(RT_TABLES) && !defined(RT_DUST)
       endif
@@ -285,7 +284,7 @@ C
          itab(1) = itab(1) + 1
       else
 
-#endif  // defined(RT_TABLES) && !defined(RT_DUST)
+#endif /* RT_TABLES && !RT_DUST */
 
          do j=1,istabDim
             sgpRate1(j) = 0.0
@@ -311,13 +310,13 @@ C
             sgpRate1(j) = facLX*facPhot*max(0.0,sgpRate1(j))
          enddo
 
-#endif  // defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
+#endif /* RT_NARROWTABLE || !RT_TABLES || RT_DUST */
 
 #if defined(RT_TABLES) && !defined(RT_DUST)
       endif
-#endif  // defined(RT_TABLES) && !defined(RT_DUST)
+#endif /* RT_TABLES && !RT_DUST */
 
-#endif  //  RT_TRANSFER
+#endif /* RT_TRANSFER */
 
       x = max(0.0,min(1.0,1.0-(y(ieqXH1)+y(ieqXG2)+2*y(ieqXG1))/XFEMAX))
       fh1 = se1fun(x,SE1H1A,SE1H1B,SE1H1C)

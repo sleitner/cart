@@ -1,6 +1,5 @@
-#include "defs.h"
+#include "../config.h"
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 #ifdef RT_TRANSFER
 C
 C
@@ -42,7 +41,7 @@ C
 C
 C  Using a callback
 C
-      call rtextTransferGetAverageFields(2*NSETS,rfAvg)
+      call frtExternalGetAverageFields(2*NSETS,rfAvg)
 C
       do L=1,NSETS
 
@@ -141,7 +140,7 @@ C
 C
 C  Using a callback
 C
-      call rtextTransferGetGlobalAbs(NSETS,abc)
+      call frtExternalGetGlobalAbs(NSETS,abc)
 
 #ifdef RT_DEBUG
       call frtQueryId(id)
@@ -241,7 +240,7 @@ C
 
       return
       end
-#endif  /* RT_TRANSFER_FLUX_CONSERVING */
+#endif /* RT_TRANSFER_FLUX_CONSERVING */
 C
 C  *******************
 C
@@ -374,7 +373,7 @@ C
 
       return
       end
-#endif  /* RT_TRANSFER_FLUX_CONSERVING */
+#endif /* RT_TRANSFER_FLUX_CONSERVING */
 C
 C  Absoprtion coefficient for 1 cell at frequency bin lr.
 C
@@ -420,8 +419,8 @@ C
 
       return
       end
-#endif  /* RT_TRANSFER */
-#endif  /* RADIATIVE_TRANSFER */
+#endif /* RT_TRANSFER */
+#endif /* RADIATIVE_TRANSFER */
 
       subroutine frtDummyTransfer(i)
       i = 0

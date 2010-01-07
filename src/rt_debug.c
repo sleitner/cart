@@ -1,8 +1,5 @@
-#include "defs.h"      
-#ifdef RADIATIVE_TRANSFER
-#include "rt_config.h"
-
-#ifdef RT_DEBUG
+#include "config.h"
+#if defined(RADIATIVE_TRANSFER) && defined(RT_DEBUG)
 
 #include "rt_debug.h"
 
@@ -16,5 +13,4 @@
 struct rtDebugData rt_debug = { 0, 0, { 0.0, 0.0, 0.0 } };
 
 
-#endif  /* RT_DEBUG */
-#endif  /* RADIATIVE_TRANSFER */
+#endif /* RADIATIVE_TRANSFER && RT_DEBUG */

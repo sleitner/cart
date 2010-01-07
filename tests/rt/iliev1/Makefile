@@ -1,6 +1,5 @@
 TOP_DIR = ../../..
 SRC_DIR = $(TOP_DIR)/src
-PLATFORM = fulla
 
 compile: art
 

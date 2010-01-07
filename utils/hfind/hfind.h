@@ -14,8 +14,8 @@ c     ----------------------------------------------------------------
 
       parameter ( nil    = 0         )           ! integer zero 
       parameter ( zero   = 0.0       )           ! real zero
-      parameter ( nrow   = 512       )           ! # of particles  in 1D
-      parameter ( npmax  = 256**3    )           !
+      parameter ( nrow   = 512      )            ! # of particles  in 1D
+      parameter ( npmax  = 10000000 )            !
       parameter ( ncold  = nrow**3   )           !
       parameter ( npage  = nrow**2   )           !
       parameter ( nrecl  = npage * 6 )           !
@@ -24,7 +24,7 @@ c     ----------------------------------------------------------------
       parameter ( ncell  = ngrid**3  )           ! total # of grid cells
       parameter ( ncell0 = ngrid**3  )           ! # of 0-level cells in the original sim.
       parameter ( h      = 0.002     )           ! resolution in grid units
-      parameter ( nh     = 400000   )           ! max # of haloes
+      parameter ( nh     = 400000   )            ! max # of haloes
       parameter ( nhlimit= 1000000   )           ! limit to the # of potential halos
       parameter ( nspec  = 3         )           ! # of particle species
       parameter ( nbyteword = 1      )  

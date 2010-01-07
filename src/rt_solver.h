@@ -1,27 +1,35 @@
 #ifndef __RT_SOLVER_H__
 #define __RT_SOLVER_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
+#include <mpi.h>
 
 /*
 //  Usefull, RT-independent calls for diagnistics
 */
-void rtSetTemUnits();
-float rtTemInK(int cell);
+#ifdef HYDRO
 void rtGetSobolevFactors(int cell, int level, float *len, float *vel);
+#endif
 
 
 #ifdef RADIATIVE_TRANSFER
 
-#include "rt_tree.h"
-
-
-#ifdef RT_VAR_SOURCE
-void rtInitSource(int level);
-float rtSource(int ipart);
+#ifndef RT_CONFIGURED
+#error "Missing rt_config.h include."
 #endif
 
 
+void rtInitSource(int level);
+float rtSource(int ipart);
+
 void rtApplyCooling(int level, int num_level_cells, int *level_cells);
+
+void rtConfigInit();
+void rtConfigVerify();
 
 void rtInitRun();
 void rtStepBegin();
@@ -46,9 +54,12 @@ void rtAfterAssignDensity2(int level, int num_level_cells, int *level_cells);
 //  Usefull wrappers; they are slow, so should only be used for output
 */
 float rtTem(int cell);
+float rtDustToGas(int cell);
 void rtGetPhotoRates(int cell, float rate[]);
-void rtGetRadiationField(int cell, int n, int lxi[], float ngxi[]);
-void rtGetRadiationBackground(int *nPtr, float **wlenPtr, float **ngxiPtr);
+void rtGetRadiationField(int cell, int n, const int idxi[], float ngxi[]);
+void rtGetBinIds(int n, const float wlen[], int idxi[]);
+void rtGetBinWavelengths(int n, const int idxi[], float wlen[]);
 
-#endif  /* RADIATIVE_TRANSFER */
-#endif  /* __RT_SOLVER_H__ */
+#endif /* RADIATIVE_TRANSFER */
+
+#endif /* __RT_SOLVER_H__ */

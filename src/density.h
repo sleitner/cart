@@ -1,6 +1,11 @@
 #ifndef __DENSITY_H__
 #define __DENSITY_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
 void initialize_density( int level );

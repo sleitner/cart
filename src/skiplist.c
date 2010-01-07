@@ -1,8 +1,10 @@
-#include <stdlib.h>
+
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "auxiliary.h"
 #include "skiplist.h"
+
 
 skiplist *skiplist_init() {
 	int i;

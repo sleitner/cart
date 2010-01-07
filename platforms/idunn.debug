@@ -1,10 +1,10 @@
 # COMPILE OPTIONS
 
 # idunn (PG compilers)
-CFLAGS  = -g -Ktrap=fp 
+CFLAGS  = -g -Ktrap=fp -mcmodel=medium
 CC      = pgcc
-FFLAGS  = -g -Mbounds -Ktrap=fp 
+FFLAGS  = -g -Ktrap=fp -mcmodel=medium
 F77     = pgf77 
-INCLUDES = -I/idunn/scratch1/ext/include
-EXTRALIBS = -pgf77libs -L/idunn/scratch1/ext/lib -L/usr/lib64 -llammpio -llamf77mpi -lmpi -llam -laio -laio -lutil -lpthread 
+INCLUDES = -I/usr/lib64/openmpi/1.2.5-gcc/include -I/d/idunn/ext/include
+EXTRALIBS = -pgf77libs -R/usr/lib64/openmpi/1.2.5-gcc/lib -L/usr/lib64/openmpi/1.2.5-gcc/lib -L/d/idunn/ext/lib -lmpi -lmpi_f77
 

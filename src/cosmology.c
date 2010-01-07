@@ -1,5 +1,8 @@
-#include "defs.h"
+#include "config.h"
+#ifdef COSMOLOGY
+
 #include "auxiliary.h"
+#define ERROR(msg)       cart_error(msg)
 #define ASSERT(exp)      cart_assert(exp)
 #define NEWARR(size)     cart_alloc(double,size)
 #define DELETE(ptr)      cart_free(ptr)
@@ -10,6 +13,11 @@
 #include <string.h>
 
 
+#ifndef ERROR
+#include <stdio.h>
+#define ERROR(msg) { fprintf(stderr,"%s\n",msg); exit(1); }
+#endif
+
 #ifndef ASSERT
 #include <stdio.h>
 #define ASSERT(exp) { if(!(exp)) { fprintf(stderr,"Failed assertion %s, line: %d\n",#exp,__LINE__); exit(1); } }
@@ -17,7 +25,7 @@
 
 #ifndef NEWARR
 #include <stdlib.h>
-#define NEWARR(size)   (double *)malloc((size)*sizeof(double)
+#define NEWARR(size)   (double *)malloc((size)*sizeof(double))
 #endif
 
 #ifndef DELETE
@@ -29,12 +37,13 @@
 #include "cosmology.h"
 
 
-struct CosmologyParameters cosmology_internal_parameters = { 0.28, 0.234, 0.046, 0.72, 0.0, 0.0, 0.7, 0.0, 1 };
+struct CosmologyParameters cosmology_internal_parameters = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0 };
 const struct CosmologyParameters *cosmology = &cosmology_internal_parameters;
 
 
 struct CosmologyInternal
 {
+  int set;
   int ndex;
   int size;
   double *la;
@@ -46,7 +55,7 @@ struct CosmologyInternal
   double *qPlus;
   double aLow;
   double tCodeOffset;
-} cosmology_internal_data = { 200, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1.0e-2, 0.0 };
+} cosmology_internal_data = { 0, 25, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1.0e-2, 0.0 };
 
 #define c cosmology_internal_parameters
 #define d cosmology_internal_data
@@ -55,6 +64,12 @@ struct CosmologyInternal
 void cosmology_clear_table();
 void cosmology_fill_table(double amin, double amax);
 void cosmology_fill_table_abox(int istart, int n);
+
+
+int cosmology_is_set()
+{
+  return (c.OmegaM>0.0 && c.OmegaB>0.0 && c.h>0.0);
+}
 
 
 void cosmology_copy(const struct CosmologyParameters *ptr)
@@ -69,11 +84,9 @@ void cosmology_set_OmegaM(double v)
   if(v < 1.0e-3) v = 1.0e-3;
   if(fabs(c.OmegaM-v) > 1.0e-5)
     {
+      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
       c.OmegaM = v;
-      if(c.flat)
-	{
-	  c.OmegaL = 1.0 - c.OmegaM;
-	}
+      c.flat = (fabs(c.OmegaM+c.OmegaL-1.0) > 1.0e-5) ? 0 : 1;
       cosmology_clear_table();
     }
 }
@@ -83,12 +96,9 @@ void cosmology_set_OmegaL(double v)
 {
   if(fabs(c.OmegaL-v) > 1.0e-5)
     {
+      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
       c.OmegaL = v;
-      if(c.OmegaL<0.0 || c.OmegaL>0.999) c.flat = 0;
-      if(c.flat)
-	{
-	  c.OmegaM = 1.0 - c.OmegaL;
-	}
+      c.flat = (fabs(c.OmegaM+c.OmegaL-1.0) > 1.0e-5) ? 0 : 1;
       cosmology_clear_table();
     }
 }
@@ -97,9 +107,9 @@ void cosmology_set_OmegaL(double v)
 void cosmology_set_OmegaB(double v)
 {
   if(v < 0.0) v = 0.0;
-  if(v > c.OmegaM) v = c.OmegaM;
   if(fabs(c.OmegaB-v) > 1.0e-5)
     {
+      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
       c.OmegaB = v;
       cosmology_clear_table();
     }
@@ -110,23 +120,9 @@ void cosmology_set_h(double v)
 {
   if(fabs(c.h-v) > 1.0e-5)
     {
+      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
       c.h = v;
       cosmology_clear_table();
-    }
-}
-
-
-void cosmology_set_flat(int flat)
-{
-  if(!flat) flat = 1;
-  if(c.flat != flat)
-    {
-      c.flat = flat;
-      if(c.flat && fabs(c.OmegaM+c.OmegaL-1.0)>1.0e-5)
-	{
-	  c.OmegaL = 1.0 - c.OmegaM;
-	  cosmology_clear_table();
-	}
     }
 }
 
@@ -136,6 +132,7 @@ void cosmology_set_DeltaDC(double v)
   if(fabs(v) < 1.0e-3) v = 0.0;
   if(fabs(c.DeltaDC-v) > 1.0e-3)
     {
+      if(d.set) ERROR("Cosmology has been set fixed and cannot be changed.");
       c.DeltaDC = v;
       cosmology_clear_table();
     }
@@ -146,11 +143,19 @@ void cosmology_init()
 {
   if(d.size == 0) /* reset only if the state is dirty */
     {
+      if(!cosmology_is_set()) ERROR("Not all of the required cosmological parameters have been set; the minimum required set is (OmegaM,OmegaB,h).");
+
+      if(c.OmegaB > c.OmegaM) c.OmegaB = c.OmegaM;
       c.OmegaD = c.OmegaM - c.OmegaB;
       if(c.flat)
-	c.OmegaK = 0.0;
+	{
+	  c.OmegaK = 0.0;
+	  c.OmegaL = 1.0 - c.OmegaM;
+	}
       else
-	c.OmegaK = 1.0 - (c.OmegaM+c.OmegaL);
+	{
+	  c.OmegaK = 1.0 - (c.OmegaM+c.OmegaL);
+	}
       c.OmegaR = 5.837e-5/(c.h*c.h);
 
       c.Omh2 = c.OmegaM*c.h*c.h;
@@ -163,6 +168,13 @@ void cosmology_init()
       d.tCodeOffset = 0.0 - tCode(inv_aBox(1.0));
 #endif
     }      
+}
+
+
+void cosmology_set_fixed()
+{
+  cosmology_init();
+  d.set = 1;
 }
 
 
@@ -218,7 +230,7 @@ void cosmology_fill_table_piece(int istart, int n)
 
       d.tPhys[i] = tPhysFac*2*x*x*(2+sqrt(x+1))/(3*pow(1+sqrt(x+1),2.0));
       d.dPlus[i] = aeq*(x + 2.0/3.0 + (6*sqrt(1+x)+(2+3*x)*log(x)-2*(2+3*x)*log(1+sqrt(1+x)))/(log(64.0)-9));  /* long last term is the decaying mode generated after euality; it is very small for x > 10, I keep ot just for completeness; */
-      d.qPlus[i] = d.aUni[i]*cosmology_mu(d.aUni[i])*(1 + ((2+6*x)/(x*sqrt(1+x))+3*log(x)-6*log(1+sqrt(1+x)))/(log(64)-9)); /* this is a*mu*dDPlus/dt/H0 */
+      d.qPlus[i] = d.aUni[i]*cosmology_mu(d.aUni[i])*(1 + ((2+6*x)/(x*sqrt(1+x))+3*log(x)-6*log(1+sqrt(1+x)))/(log(64)-9)); /* this is a^2*dDPlus/dt/H0 */
 
       d.aBox[i] = d.aUni[i]*cosmology_dc_factor(d.dPlus[i]);
       d.tCode[i] = 1.0 - tCodeFac*asinh(sqrt(aeq/d.aBox[i]));
@@ -458,9 +470,6 @@ int cosmology_find_index(double v, double table[])
 }
 
 
-#ifdef COSMOLOGY
-
-
 /*
 //  Direct and inverse functions
 */
@@ -474,8 +483,8 @@ double inv_##name(double v) \
 { \
   int idx; \
   double *table; \
-  v -= offset; \
   if(d.size == 0) cosmology_init(); \
+  v -= offset; \
   table = d.name; \
   idx = cosmology_find_index(v,table); \
   while(idx < 0) \
@@ -497,5 +506,6 @@ DEFINE_FUN(aBox,0.0);
 DEFINE_FUN(tCode,d.tCodeOffset);
 DEFINE_FUN(tPhys,0.0);
 DEFINE_FUN(dPlus,0.0);
+DEFINE_FUN(qPlus,0.0);
 
-#endif  /* COSMOLOGY */
+#endif /* COSMOLOGY */

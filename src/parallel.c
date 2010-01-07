@@ -1,20 +1,64 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <mpi.h>
+#include "config.h"
 
-#include "tree.h"
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "auxiliary.h"
+#include "cell_buffer.h"
+#include "control_parameter.h"
+#include "index_hash.h"
+#include "parallel.h"
 #include "sfc.h"
 #include "tree.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "index_hash.h"
-#include "auxiliary.h"
+
 
 int num_procs;
 int local_proc_id;
 int proc_sfc_index[MAX_PROCS+1];
 
-unsigned int mpi_customization_mode = MPI_CUSTOM_NONE;
+
+unsigned int mpi_custom_flags = MPI_CUSTOM_NONE;
+
+
+#ifdef _OPENMP
+void control_parameter_set_omp_threads(const char *value, void *ptr, int ind)
+{
+  int n;
+  control_parameter_set_int(value,&n,ind);
+  if(n > 0)
+    {
+      if(n > omp_get_num_procs()) n = omp_get_num_procs();
+      omp_set_num_threads(n);
+    }
+}
+
+void control_parameter_list_omp_threads(FILE *stream, const void *ptr)
+{
+  int n = omp_get_num_threads();
+  control_parameter_list_int(stream,&n);
+}
+#endif
+
+
+void config_init_parallel()
+{
+#ifdef _OPENMP
+  ControlParameterOps control_parameter_omp_threads = { control_parameter_set_omp_threads, control_parameter_list_omp_threads };
+#endif
+
+  control_parameter_add2(control_parameter_int,&mpi_custom_flags,"@MPI:custom-flags","mpi_custom_flags","flags that can be set to customize MPI performance. This parameter is experimental and may be removed in the future.");
+
+#ifdef _OPENMP
+  control_parameter_add(control_parameter_omp_threads,(void *)control_parameter_set_omp_threads,"OMP:num_threads","number of OpenMP threads to use.");
+#endif
+}
+
+
+void config_verify_parallel()
+{
+}
+
 
 /*******************************************************  
  * init_parallel_grid

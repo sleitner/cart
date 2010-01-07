@@ -1,6 +1,5 @@
-#include "defs.h"      
+#include "../config.h"      
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 #ifdef RT_EXTERNAL_BACKGROUND
 C
 C  Add external background
@@ -177,14 +176,14 @@ C
      .           min(dxi,xigLW(lr)-xig(lrLWtr-1))
          enddo
       endif
-#endif  /* RT_LWBANDS */
+#endif /* RT_LWBANDS */
 
       return
       end
-#endif (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_HAARDT_MADAU)
+#endif /* (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_HAARDT_MADAU) */
 
-#endif  /* RT_EXTERNAL_BACKGROUND */
-#endif  /* RADIATIVE_TRANSFER */
+#endif /* RT_EXTERNAL_BACKGROUND */
+#endif /* RADIATIVE_TRANSFER */
       subroutine frtDummyBackground(i)
       i = 0
       end

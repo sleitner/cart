@@ -1,11 +1,14 @@
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
-#include "defs.h"
-#include "tree.h"
-#include "iterators.h"
 #include "auxiliary.h"
+#include "cell_buffer.h"
+#include "iterators.h"
+#include "tree.h"
+
 
 /*******************************************************
  * cell_count_leaves

@@ -1,6 +1,11 @@
 #ifndef __VIEWDUMP_H__
 #define __VIEWDUMP_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 #define DUMP_HVARS		0
 #define DUMP_GRAV_VARS		1
 #define DUMP_REFINEMENT_VARS	2

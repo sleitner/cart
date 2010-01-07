@@ -1,16 +1,15 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include "config.h"
+#if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
 
-#include "defs.h"
-#include "tree.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "auxiliary.h"
 #include "cooling.h"
-#include "units.h"
-#include "constants.h"
 #include "io.h"
+#include "units.h"
 
-#ifdef COOLING
 
 #define smallrate	(1e-30)
 #define nltmax		71
@@ -30,8 +29,6 @@ double ccl_rs[nlzmax][nldmax][nltmax];
 double f_ion[nrsmax][nlzmax][nldmax][nltmax];
 
 void init_cooling() {
-#ifdef CLOUDY_COOLING
-
 	FILE *data;
 	int irs, ilz, ild, ilt;
 	double d[9];
@@ -70,7 +67,7 @@ void init_cooling() {
 					cdum = max( cdum, ct_crit );
 					hdum = max( hdum, smallrate );
 
-					coolcl[irs][ilz][ild][ilt] = (cdum-hdum) * 1e23 * AL_SD;
+					coolcl[irs][ilz][ild][ilt] = cdum - hdum;
 					f_ion[irs][ilz][ild][ilt] = d[5] / pow( 10.0, d[1] );
 				}
 			}
@@ -78,13 +75,6 @@ void init_cooling() {
 	}
 
 	fclose(data);
-
-#endif /* CLOUDY_COOLING */
-
-#ifdef SD93_COOLING 
-	#error "Sutherland & Dopita cooling curves not implemented yet!"
-#endif
-
 }
 
 void set_cooling_redshift( double auni ) {
@@ -129,7 +119,6 @@ void set_cooling_redshift( double auni ) {
 }
 
 double cooling_rate( double rhogl, double T_g, double Z_met ) {
-#ifdef CLOUDY_COOLING
 	double Tlog;
 	int it1, it2;
 	int id1, id2;
@@ -157,13 +146,13 @@ double cooling_rate( double rhogl, double T_g, double Z_met ) {
 	id2 = min(id2,nld-1);
 
 	/* compute metallicity bin */
-#ifdef METALCOOLING
+#ifndef NO_METALCOOLING
 	iz1 = (int)((Z_met - Zlmin)*dlZi);
 	iz2 = iz1 + 1;
 #else
 	iz1 = 0;
 	iz2 = 0;
-#endif /* METALCOOLING */
+#endif /* NO_METALCOOLING */
 
 	iz1 = max(iz1,0);
 	iz1 = min(iz1,nlz-1);
@@ -195,9 +184,6 @@ double cooling_rate( double rhogl, double T_g, double Z_met ) {
 		d1*t2*d3 * ccl_rs[iz2][id1][it2] +
 		t1*d2*d3 * ccl_rs[iz2][id2][it1] +
 		d1*d2*d3 * ccl_rs[iz2][id2][it2];
-#else
-	return 0.0;
-#endif /* CLOUDY_COOLING */	
 }
 
 void test_cooling() {
@@ -235,6 +221,6 @@ void test_cooling() {
 	}
 }
 
-#endif /* COOLING */
+#endif /* COOLING && !RADIATIVE_TRANSFER */
 
 

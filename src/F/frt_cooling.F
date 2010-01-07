@@ -1,6 +1,5 @@
-#include "defs.h"
+#include "../config.h"
 #ifdef RADIATIVE_TRANSFER
-#include "../rt_config.h"
 C
 C  Follow cooling evolution of one resolution element
 C
@@ -31,6 +30,8 @@ C
       dimension w0(ieqDim), a0(ieqDim)
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       dimension avg(iavgDim), avg0(iavgMax1), avg1(iavgMax1)
+#else
+      dimension avg(1), avg0(1), avg1(1)
 #endif
 C
       dimension itab(2), pRate(iptabDim)
@@ -73,11 +74,7 @@ C
       par(iparSDp1) = par(iparZsol)
       par(iparSDp2) = 2.7*exp(-(par(iparZsol)/0.316)**3)
       par(iparSDp3) = 0.04*par(iparZsol)**2
-#ifdef RT_DUST_TO_GAS_FLOOR
-      par(iparDGas) = max(RT_DUST_TO_GAS_FLOOR,par(iparZsol))
-#else
-      par(iparDGas) = par(iparZsol)
-#endif
+      par(iparDGas) = frtDustToGas(par)
 
       par(iparRecB) = facRecB*par(iparRhoB)
 
@@ -90,19 +87,23 @@ C
 C  Correct for numerical diffusion, if needed
 C
       if(par(iparNumF) .gt. 1.0e-10) then
-         fH2 = y0(ieqXMH)/(0.5*XH)
-         fac = fH2*par(iparNumF)
-         y0(ieqXH1) = y0(ieqXH1)/(1+fac/max(1.0e-5,y0(ieqXH1)/XH))
-         y0(ieqXH2) = y0(ieqXH2)/(1+fac/max(1.0e-5,y0(ieqXH2)/XH))
+         XH1ll = max(yLimit(ieqXH1),min(XH,y0(ieqXH1)))
+         XMHll = max(yLimit(ieqXMH),min(0.5*XH,y0(ieqXMH)))
+         cdDUl = par(iparDGas)*(XH1ll+2*XMHll)*par(iparSobL)
+         sFact1 = exp(-0.3*d_sDUST*cdDUl)
+         fac = (1.0-sFact1)*par(iparNumF)
+         y0(ieqEin) = y0(ieqEin)/(1+fac*y0(ieqEin)/30.0)
+         y0(ieqXH1) = y0(ieqXH1)/(1+fac/max(1.0e-6,y0(ieqXH1)/XH))
+         y0(ieqXH2) = y0(ieqXH2)/(1+fac/max(1.0e-6,y0(ieqXH2)/XH))
       endif
 #endif
 
       call frtAdjust(y0,nEqs)
 
 #ifdef RT_DEBUG
-      idbmode = int(par(iparDeb))
-      idbpart = par(iparDeb) - idbmode 
-      if(idbmode .eq. 1) then
+      ideb1 = nint(par(iparDeb))/10
+      ideb2 = mod(nint(par(iparDeb)),10)
+      if(ideb1 .eq. 1) then
          open(unit=81, file='rt-debug.log', access='append')
          write(81,*) 'In cell-level debug: ', uDen*par(iparRhoB)
          write(6,*) 'In cell-level debug: ', uDen*par(iparRhoB)
@@ -128,7 +129,7 @@ C
       info = 9999
 
 #ifdef RT_DEBUG
-      if(idbmode .eq. 1) then
+      if(ideb1 .eq. 1) then
 #ifdef RT_VARIABLE_PRATES
          call frtGetPhotoRates(par,rf,itab,y0,pRate)
 #endif
@@ -145,8 +146,7 @@ C
 
  10   nStep = nStep + 1
 
-      call frtGetRates(par,rf,itab,
-     .     y0,w0,a0,avg0,pRate)
+      call frtGetRates(par,rf,itab,y0,w0,a0,avg0,pRate)
 C
 C  ODE Solver
 C
@@ -209,7 +209,7 @@ C
          enddo
 
 #ifdef RT_DEBUG
-         if(idbmode .eq. 1) then
+         if(ideb1 .eq. 1) then
             call frtDebugPrint1(81,nStep,t,dt,tFin,yf,ieqmax) 
          endif
 #endif
@@ -223,9 +223,9 @@ C
       endif
 
 #ifdef RT_DEBUG
-      if(idbmode .eq. 1) then
+      if(ideb1 .eq. 1) then
          close(81)
-         if(idbpart .gt. 0.0) call frtAbort
+         if(ideb2 .gt. 0) call frtAbort
       endif
 #endif
 
@@ -238,8 +238,8 @@ C
 
       avg(iavgNorm) = tFin
 
-#ifdef RT_HIGH_DENSITY
-      avg(iavgTemp) = frtTem(y0(ieqEin),y0,iLTE)
+#if !defined(RT_MONOATOMIC) && defined(RT_HIGH_DENSITY)
+      avg(iavgTemp) = frtTem(y0(ieqEin),y0,0)
 #else
       avg(iavgTemp) = frtTem(y0(ieqEin),y0)
 #endif
@@ -288,8 +288,8 @@ C
       y(ieqXG3) = fact*y(ieqXG3)
 
       if(Tmin.gt.0.0 .and. y(ieqEin).lt.10*Tmin) then
-#ifdef RT_HIGH_DENSITY
-         y(ieqEin) = max(y(ieqEin),frtEin(Tmin,y,iLTE))
+#if !defined(RT_MONOATOMIC) && defined(RT_HIGH_DENSITY)
+         y(ieqEin) = max(y(ieqEin),frtEin(Tmin,y,0))
 #else
          y(ieqEin) = max(y(ieqEin),frtEin(Tmin,y))
 #endif
@@ -336,8 +336,9 @@ C
       Xfell = XH2ll + XG2ll + 2*XG3ll  !! ignore contributions of H2+ and H-
 
       de = Xfell*den
-#ifdef RT_HIGH_DENSITY
-      tem = max(1.0e-3,Tmin,frtTem(Einll,y,iLTE)))
+#if !defined(RT_MONOATOMIC) && defined(RT_HIGH_DENSITY)
+      iLTE = 0
+      tem = max(1.0e-3,Tmin,frtTem(Einll,y,iLTE))
 #else
       tem = max(1.0e-3,Tmin,frtTem(Einll,y))
 #endif
@@ -359,18 +360,24 @@ C
 C
 #ifdef RT_CHEMISTRY
 C
+C  H2 dust-shielding model
+C
+      Xdust = par(iparDGas)*(XH1ll+2*XMHll)*ClumpH2
+      cdDUl = par(iparDGas)*(XH1ll+2*XMHll)*par(iparSobL)
+      sFact1 = exp(-d_sDUST*cdDUl)
+C
 C  H2 self-shielding model
 C
-      Xdust = par(iparDGas)*(XH1ll+2*XMHll)*d_clump
-      cdDUl = par(iparDGas)*(XH1ll+2*XMHll)*par(iparSobL)
-      cdMHl = XMHll*par(iparSobL)
-      sFact1 = frtShieldingFactorDust(cdDUl)
-      sFact2 = sFact1*frtShieldingFactorH2(cdMHl)
-      sFact1He = 1.0  !! sFact1
+      cdMHl = XMHll*CSSTAR*3.086e18*den*CohLenH2
+      sFact2 = max(1.0,cdMHl/(CSSTAR*1e14))**(-0.75)
+
+*      x = cdMHl/(CSSTAR*5e14)
+*      sFact2 = 0.965/(1+x)**2 + 
+*     .     0.035/(1+x)**0.5*exp(-8.5e-4*(1+x)**0.5)
+
 #else  /* RT_CHEMISTRY */
       sFact1 = 1.0
       sFact2 = 1.0
-      sFact1He = 1.0
 #endif /* RT_CHEMISTRY */
 C
 #ifdef RT_XLF_BUG_FIX1
@@ -388,7 +395,7 @@ C
 C
 C  Recombination rates
 C
-      if(modeAB .eq. 1) then
+      if(IREC .eq. 1) then
          RiH2l = aRate(irateRAiH2)
          RcH2l = aRate(irateRAcH2)
          RiG2l = aRate(irateRAiG2)
@@ -403,7 +410,7 @@ C
          avg(iavgRBG2) = 0.0
          avg(iavgRBG3) = 0.0
 #endif
-      else if(modeAB .eq. 2) then
+      else if(IREC .eq. 2) then
          RiH2l = aRate(irateRBiH2)
          RcH2l = aRate(irateRBcH2)
          RiG2l = aRate(irateRBiG2)
@@ -452,7 +459,7 @@ C
 C  He ionization rates
 C
       BG1 = aRate(irateCIiG1)*de + sFact1*pRate(iptabPiG1)
-      BG2 = aRate(irateCIiG2)*de + sFact1He*pRate(iptabPiG2)
+      BG2 = aRate(irateCIiG2)*de + sFact1*pRate(iptabPiG2)
       AG2 = (RiG2l+aRate(irateDRiG2))*de
       AG3 = RiG3l*de
 C
@@ -497,7 +504,7 @@ C
 
       aEinll = facCool*par(iparRhoB)*(CF_PPl+CF_FFl) !! Atomic cooling and Bremstrahlung
       wEinll = uTime*sFact1*(XH1ll*(facLya+pRate(iptabPhH1))+  !! PhotoHeating
-     .     XG1ll*pRate(iptabPhG1)) + sFact1He*XG2ll*pRate(iptabPhG2)
+     .     XG1ll*pRate(iptabPhG1)+XG2ll*pRate(iptabPhG2))
 
       aEinl2 = facCC*Xfell*tem  !! Compton cooling
       wEinl2 = facCC*Xfell*TemCMB  !! Compton heating
@@ -519,153 +526,84 @@ C
       enddo
 #endif
 
-      IF(sFact2 .gt. 1.0e-20) THEN
-
-         do j=1,irateChemC
-            cRate(j) = den*(ql*RateChem(j,il)+qu*RateChem(j,iu))
-         enddo
+      do j=1,irateChemC
+         cRate(j) = den*(ql*RateChem(j,il)+qu*RateChem(j,iu))
+      enddo
 #ifdef RT_HIGH_DENSITY
-         do j=1,irateHighC
-            hRate(j) = den*(ql*RateHigh(j,il)+qu*RateHigh(j,iu))
-         enddo
+      do j=1,irateHighC
+         hRate(j) = den*(ql*RateHigh(j,il)+qu*RateHigh(j,iu))
+      enddo
 #endif
 C
 C  H-minus rates
 C
-         aXHml = cRate(irateMHi08)*XH1ll +
-     .        cRate(irateMHi16)*Xfell + cRate(irateMHi17)*XH1ll +
-     .        cRate(irateMHi18)*XH2ll + cRate(irateMHi19)*XH2ll +
-     .        pRate(iptabCi27) + facH2CMB
+      aXHml = (cRate(irateMHi02)+cRate(irateMHi15))*XH1ll +
+     .     (cRate(irateMHi05)+cRate(irateMHi16))*XH2ll + 
+     .     cRate(irateMHi14)*Xfell + cRate(irateMHi28)*XG2ll +
+     .     cRate(irateMHi29)*XG1ll + facH2CMB +
+     .     sFact1*pRate(iptabCi27)
 
-         wXHml = cRate(irateMHi07)*XH1ll*Xfell +
-     .        cRate(irateMHi13)*XMHll*Xfell
+      wXHml = cRate(irateMHi01)*XH1ll*Xfell +
+     .     cRate(irateMHi23)*XMHll*Xfell
 #ifdef RT_8SPECIES
 C     
 C  H-minus non-equilibrium rates
 C
-         a(ieqXHm) = uTime*aXHml
-         w(ieqXHm) = uTime*wXHml
+      a(ieqXHm) = uTime*aXHml
+      w(ieqXHm) = uTime*wXHml
 #else
 C
 C  H-minus equilibrium
 C
-         XHmll = min(0.5*XH1ll,max(yLimit(ieqXHm),
-     .        wXHml/(1.0e-35+aXHml)))
+      XHmll = min(0.5*XH1ll,max(yLimit(ieqXHm),
+     .     wXHml/(1.0e-35+aXHml)))
 #endif
 C
 C  H2-plus rates
 C
-         aXHpl = cRate(irateMHi10)*XH1ll +
-     .        cRate(irateMHi20)*Xfell + pRate(iptabCi28) + 
-     .        pRate(iptabCi30)
+      pRate29 = sFact1*sFact2*pRate(iptabCi29)
 
-         wXHpl = cRate(irateMHi09)*XH1ll*XH2ll +
-     .        cRate(irateMHi12)*XMHll*XH2ll + cRate(irateMHi19)*
-     .        XH2ll*XHmll + pRate(iptabCi29)*XMHll
+      aXHpl = cRate(irateMHi04)*XH1ll + cRate(irateMHi06)*Xfell + 
+     .     sFact1*(pRate(iptabCi28)+pRate(iptabCi30))
+
+      wXHpl = cRate(irateMHi03)*XH1ll*XH2ll +
+     .     cRate(irateMHi07)*XMHll*XH2ll + 
+     .     cRate(irateMHi16)*XH2ll*XHmll + 
+     .     cRate(irateMHi25)*XMHll*XG2ll +
+     .     pRate29*XMHll
 C
 #ifdef RT_8SPECIES
 C
 C  H2-plus non-equilibrium rates
 C
-         a(ieqXHp) = uTime*aXHpl
-         w(ieqXHp) = uTime*wXHpl
+      a(ieqXHp) = uTime*aXHpl
+      w(ieqXHp) = uTime*wXHpl
 #else
 C
 C  H2-plus equilibrium
 C
-         XHpll = min(0.5*XH1ll,max(yLimit(ieqXHp),
-     .        wXHpl/(1.0e-35+aXHpl)))
+      XHpll = min(0.5*XH1ll,max(yLimit(ieqXHp),
+     .     wXHpl/(1.0e-35+aXHpl)))
+#endif
+C
+C  H2 ortho-to-para ratio
+C
+#ifdef RT_MONOATOMIC
+      rOP = 3.0
+#else
+#ifdef RT_HIGH_DENSITY
+      rOP = frtH2_op(tem,iLTE)
+#else
+      rOP = frtH2_op(tem)
+#endif
 #endif
 C
 C  MH gas-phase reactions and correction for HI. Because the abundance
 C  of H2+ and H- are always small, we ignore them as depositories of 
 C  hydrogen atoms.
 C
-         aXH1l = 2*(cRate(irateMHi08)*XHmll+cRate(irateMHi10)*XHpll)
-#ifdef RT_HIGH_DENSITY
-     .        + hRate(irateHDi22)*den*XH1ll**2 !! 3-body reaction
-#endif
-
-#ifdef RT_MONOATOMIC
-         r = 3.0
-#else
-#ifdef RT_HIGH_DENSITY
-         r = frtH2_op(tem,iLTE)
-#else
-         r = frtH2_op(tem)
-#endif
-#endif
-         pRate32 = (pRate(iptabCi31)+r*pRate(iptabCi32))/(1+r)
-
-         aXMHl = cRate(irateMHi12)*XH2ll + cRate(irateMHi13)*Xfell + 
-     .        cRate(irateMHi14)*Xfell + pRate(iptabCi29) + pRate32 + 
-     .        pRate(iptabCiLW) +
-#ifdef RT_HIGH_DENSITY
-     .        cRate(irateMHi11)*XH1ll/
-     .        (1+cRate(irateMHi11)*XH1ll/hRate(irateHDi11)) +
-     .        cRate(irateMHi15)*XMHll/
-     .        (1+cRate(irateMHi15)*XMHll/hRate(irateHDi15))
-#else
-     .        cRate(irateMHi11)*XH1ll +
-     .        cRate(irateMHi15)*XMHll
-#endif
-C
-C  Heating due to gas reactions
-C
-         wEinll = wEinll + 
-     .        uTime*sFact2*(T1eV*0.4*XMHll*(pRate(iptabCi29)+
-     .        pRate32+pRate(iptabCiLW)))
-C
-C  Cooling function
-C
-         CF_MHl = XHmll*(cRate(irateMHc16)*Xfell+
-     .        cRate(irateMHc17)*XH1ll)
-C
-C  From Shapiro & Kang
-C
-#ifdef RT_HIGH_DENSITY
-         CF_MHl = CF_MHl + 
-     .        1.602e-12*XH1ll*(3.53*XHmll*cRate(irateMHi08)+
-     .        1.38*XHpll*cRate(irateMHi10))*den/(den+hRate(irateHDc08))
-#endif
-
-      ELSE
-
-         do j=irateMHiDU,irateMHiDU
-            cRate(j) = den*(ql*RateChem(j,il)+qu*RateChem(j,iu))
-         enddo
-
-#ifdef RT_8SPECIES
-         a(ieqXHm) = 0.0
-         w(ieqXHm) = 0.0
-         a(ieqXHp) = 0.0
-         w(ieqXHp) = 0.0
-#endif
-
-         aXH1l = 0.0
-         aXMHl = 0.0
-
-         CF_MHl = 0.0
-
-      ENDIF
-C
-C  H2 (self-)shielding and formation on dust
-C
-      aXH1l = sFact2*aXH1l + 2*cRate(irateMHiDU)*Xdust
-      aXMHl = sFact2*aXMHl
-C
-C  Combining this all together: 
-C  production rate of HI = 2*destruction rate of H2;
-C  production rate of H2 = 0.5*destruction rate of HI;
-C
-      wXH1l = 2.0*aXMHl*XMHll
-      wXMHl = 0.5*aXH1l*XH1ll
-
-      a(ieqXH1) = a(ieqXH1) + uTime*aXH1l
-      w(ieqXH1) = w(ieqXH1) + uTime*wXH1l
-
-      a(ieqXMH) = uTime*aXMHl
-      w(ieqXMH) = uTime*wXMHl
+      pRateH2 = sFact1*sFact2*(pRate(iptabCiLW)+
+     .     (pRate(iptabCi31)+rOP*pRate(iptabCi32))/(1+rOP))
 
 #ifdef RT_TEST
 C
@@ -676,19 +614,133 @@ C
 C
 C  RT-TEST -----------------
 C
+#else  /* RT_TEST */
+#ifdef RT_HIGH_DENSITY
+      cRate3B = den*XH1ll*(hRate(irateHDi30)*XH1ll +  !! 3-body reaction
+     .     hRate(irateHDi31)*XMHll + hRate(irateHDi32)*XG1ll)
+      cRate09 = cRate(irateMHi09)*XH1ll/
+     .     (1+cRate(irateMHi09)*XH1ll*den/hRate(irateHDi09)) +
+     .     cRate(irateMHi10)*XMHll/
+     .     (1+cRate(irateMHi10)*XMHll*den/hRate(irateHDi10))
+#else
+      cRate3B = 0.0
+      cRate09 = cRate(irateMHi09)*XH1ll + cRate(irateMHi10)*XMHll
 #endif
 C
-C  Cooling function
+C  Combining this all together
 C
-      CF_MHl = CF_MHl + XMHll*(cRate(irateMHcUH)*XH1ll+
-     .     cRate(irateMHcUE)*Xfell+cRate(irateMHcUM)*XMHll) +
-#ifdef RT_HIGH_DENSITY
-     .     cRate(irateMHcLV)*XMHll*XH1ll/
-     .     (1+cRate(irateMHcLV)*XMHll*XH1ll/hRate(irateHDcLV)) +
-     .     cRate(irateMHcLR)*XMHll*XH1ll/
-     .     (1+cRate(irateMHcLR)*XMHll*XH1ll/hRate(irateHDcLR))
+#ifdef RT_CHEMISTRY_FULL_MODEL
+
+      aXH1l = cRate(irateMHi01)*Xfell + cRate(irateMHi02)*XHmll +
+     .     cRate(irateMHi03)*XH2ll + cRate(irateMHi04)*XHpll +
+     .     cRate(irateMHi26)*XG2ll + 2*cRate3B +
+     .     2*cRate(irateMHiDU)*Xdust
+
+      aXH2l = cRate(irateMHi03)*XH1ll + cRate(irateMHi07)*XMHll + 
+     .     (cRate(irateMHi05)+cRate(irateMHi16))*XHmll +
+     .     cRate(irateMHi27)*XG1ll
+
+      aXG1l = cRate(irateMHi27)*XH2ll + cRate(irateMHi29)*XHmll
+
+      aXG2l = (cRate(irateMHi24)+cRate(irateMHi25))*XMHll +
+     .     cRate(irateMHi26)*XH1ll + cRate(irateMHi28)*XHmll
+
+      aXMHl = cRate(irateMHi07)*XH2ll + cRate(irateMHi11)*XG1ll + 
+     .     (cRate(irateMHi08)+cRate(irateMHi23))*Xfell + 
+     .     cRate(irateMHi24)*XG2ll + cRate(irateMHi25)*XG2ll +
+     .     cRate09 + pRate29 + pRateH2
+
+      wXH1l = sFact1*(pRate(iptabCi27)*XHmll+pRate(iptabCi28)*XHpll) +
+     .     2*pRateH2*XMHll + 2*cRate(irateMHi05)*XH2ll*XHMll +
+     .     2*cRate(irateMHi06)*Xfell*XHpll + 
+     .     cRate(irateMHi07)*XH2ll*XMHll +
+     .     2*cRate(irateMHi08)*Xfell*XMHll + 2*cRate09*XMHll +
+     .     2*cRate(irateMHi11)*XG1ll*XMHll +
+     .     cRate(irateMHi14)*Xfell*XHmll +
+     .     cRate(irateMHi15)*XH1ll*XHmll +
+     .     cRate(irateMHi23)*Xfell*XMHll +
+     .     cRate(irateMHi24)*XG2ll*XMHll +
+     .     cRate(irateMHi27)*XG1ll*XH2ll +
+     .     cRate(irateMHi28)*XG2ll*XHmll +
+     .     cRate(irateMHi29)*XG1ll*XHmll
+
+      wXH2l = cRate(irateMHi04)*XH1ll*XHpll + 
+     .     cRate(irateMHi24)*XMHll*XG2ll +
+     .     cRate(irateMHi26)*XH1ll*XG2ll
+
+      wXG1l = aXG2l*XG2ll
+
+      wXG2l = aXG1l*XG1ll
+
+      wXMHl = XH1ll*(cRate(irateMHi02)*XHmll+cRate(irateMHi04)*XHpll+ 
+     .     cRate3B+cRate(irateMHiDU)*Xdust)
+
+      a(ieqXH1) = a(ieqXH1) + uTime*aXH1l
+      w(ieqXH1) = w(ieqXH1) + uTime*wXH1l
+
+      a(ieqXH2) = a(ieqXH2) + uTime*aXH2l
+      w(ieqXH2) = w(ieqXH2) + uTime*wXH2l
+
+      a(ieqXG1) = a(ieqXG1) + uTime*aXG1l
+      w(ieqXG1) = w(ieqXG1) + uTime*wXG1l
+
+      a(ieqXG2) = a(ieqXG2) + uTime*aXG2l
+      w(ieqXG2) = w(ieqXG2) + uTime*wXG2l
+
+      a(ieqXMH) = uTime*aXMHl
+      w(ieqXMH) = uTime*wXMHl
 #else
-     .     (cRate(irateMHcLV)+cRate(irateMHcLR))*XMHll*XH1ll
+C
+C  production rate of HI = 2*destruction rate of H2;
+C  production rate of H2 = 0.5*destruction rate of HI;
+C
+      aXMHl = pRateH2
+      aXH1l = 2*cRate(irateMHiDU)*Xdust
+
+      wXH1l = 2*aXMHl*XMHll
+
+      wXMHl = 0.5*aXH1l*XH1ll
+
+      a(ieqXH1) = a(ieqXH1) + uTime*aXH1l
+      w(ieqXH1) = w(ieqXH1) + uTime*wXH1l
+
+      a(ieqXMH) = uTime*aXMHl
+      w(ieqXMH) = uTime*wXMHl
+
+#endif /* RT_CHEMISTRY_FULL_MODEL */
+#endif /* RT_TEST */
+C
+C  Heating due to gas reactions
+C
+      wEinll = wEinll + uTime*T1eV*0.4*XMHll*pRateH2
+C
+C  Cooling function - exchange reactions
+C
+      CF_MHl = XMHll*(cRate(irateMHc08)*Xfell+cRate(irateMHc09)*XH1ll+
+     .     cRate(irateMHc10)*XMHll) + XHmll*(cRate(irateMHc14)*Xfell+
+     .     cRate(irateMHc15)*XH1ll)
+C
+C  From Shapiro & Kang
+C
+#ifdef RT_HIGH_DENSITY
+      CF_MHl = CF_MHl + 
+     .     (1.602e-12/CFSTAR)*XH1ll*(3.53*XHmll*cRate(irateMHi02)+
+     .     1.38*XHpll*cRate(irateMHi04))*den/(den+hRate(irateHDc02))
+#endif
+C
+C  Cooling function - level excitations
+C
+      qo = cRate(irateMHcH1o)*XH1ll + cRate(irateMHcH2o)*XH2ll +
+     .     cRate(irateMHcG1o)*XG1ll + cRate(irateMHcFEo)*Xfell +
+     .     XMHll*(rOP*cRate(irateMHcMOo)+cRate(irateMHcMPo))/(1+rOP)
+
+      qp = cRate(irateMHcH1p)*XH1ll + cRate(irateMHcH2p)*XH2ll +
+     .     cRate(irateMHcG1p)*XG1ll + cRate(irateMHcFEp)*Xfell +
+     .     XMHll*(rOP*cRate(irateMHcMOp)+cRate(irateMHcMPp))/(1+rOP)
+
+      CF_MHl = CF_MHl + XMHll*(rOP*qo+qp)/(1+rOP)
+#ifdef RT_HIGH_DENSITY
+     .     /(1+den/hRate(irateHDcNC))
 #endif
 C
 C ***********************************************
@@ -710,7 +762,7 @@ C
 C
 C  2. Low temperature part (Preston, Dalgarno&McCray)
 C
-      cfzLT = par(iparSDp1)*XH*((XH1ll+2*XMHll)*cRate(irateZLcTA)+
+      cfzLT = par(iparSDp1)*XH1ll*(XH1ll*cRate(irateZLcTA)+
      .     Xfell*cRate(irateZLcTX))
 
       CF_HEl = cfzLT + cfzHT
@@ -723,7 +775,7 @@ C
 C
 C  4. PAHs (chi is in comoving units since de is!!!)
 C
-      chi = sFact1*1.1e10*pRate(iptabCiLW)
+      chi = sFact1*1.05e10*pRate(iptabCiLW)
       psi = chi*sqrt(tem)/(max(de,1.0e-6*den)*d_pPAH)
       eps = 4.9e-2/(1+4.0e-3*psi**0.73) + 
      .     3.7e-2*(1.0e-4*tem)**0.7/(1+2.0e-4*psi)
@@ -760,7 +812,7 @@ C
       avg(iavgDust) = 0.0
 #endif
 
-#endif  /* RT_CHEMISTRY */
+#endif /* RT_CHEMISTRY */
 C
 C  Turn cooling into heating below CMB (induced emission)
 C
@@ -777,6 +829,21 @@ C
       w(ieqEin) = max(0.0,wEinll+wEinl2+fac*aEinll*TemCMB+par(iparDTad))
 
 #endif
+
+      return
+      end
+C
+C
+C
+      function frtDustToGas(par)
+      include 'frt_base.inc'
+      dimension par(*)
+
+#ifdef RT_FIXED_ISM
+      frtDustToGas = D2Gmin
+#else
+      frtDustToGas = max(D2Gmin,par(iparZsol))
+#endif /* RT_FIXED_ISM */
 
       return
       end
@@ -820,40 +887,6 @@ C
       return
       end
 C
-C  Tumlinson et al phenomenological self-shielding: atomic+dust part
-C
-      function frtShieldingFactorDust(cdDust)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-
-      x = 2.5e-21*cdDust/CSSTAR
-      if(x .lt. 70) then
-         frtShieldingFactorDust = exp(-x)
-      else
-         frtShieldingFactorDust = 0.0
-      endif         
-
-      return
-      end
-C
-C  Tumlinson et al phenomenological self-shielding: molecular part
-C
-      function frtShieldingFactorH2(cdMH)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      parameter(omegaH2 = 0.5)
-
-      x = 2.0e-15*cdMH/CSSTAR
-      if(x .lt. 1.0e15) then
-         frtShieldingFactorH2 = (1-omegaH2)/(1+x)**2 + 
-     .        omegaH2/sqrt(1+x)*exp(-8.5e-4*sqrt(1+x))
-      else
-         frtShieldingFactorH2 = 0.0
-      endif
-
-      return
-      end
-C
 C
 C     
       subroutine frtGetPhotoRates(par,rf,itab,y,pRate)
@@ -862,6 +895,9 @@ C
 #ifdef RT_TRANSFER
       include 'frt_transfer.inc'
 #endif
+#ifdef RT_FIXED_ISM
+      include 'frt_spectrum.inc'
+#endif /* RT_FIXED_ISM */
       dimension par(*), rf(*)
       dimension itab(*)
       dimension y(*), pRate(*)
@@ -933,7 +969,7 @@ C
          endif
 
       else
-#endif  /* defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING) */
+#endif /* RT_TRANSFER && RT_TRANSFER_FLUX_CONSERVING */
 C
 C  Generic rates
 C
@@ -941,9 +977,20 @@ C
 
 #if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
       endif
-#endif  /* defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING) */
+#endif /* RT_TRANSFER && RT_TRANSFER_FLUX_CONSERVING */
 
 #endif
+
+#ifdef RT_FIXED_ISM
+      umw = EPSG_UV/5.0e-6
+      urf = pRate(iptabCiLW)*1.05e10
+      if(urf .gt. 0) then
+         q = umw/urf
+         do j=1,iptabDim
+            pRate(j) = pRate(j)*q
+         enddo
+      endif
+#endif /* RT_FIXED_ISM */
 
       return
       end
@@ -1242,7 +1289,7 @@ C
 
       return
       end
-#endif  /* RT_MONOATOMIC */
+#endif /* RT_MONOATOMIC */
 #ifdef RT_DEBUG
 C
 C  Debug helpers

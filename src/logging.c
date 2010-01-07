@@ -1,20 +1,25 @@
-#include <stdlib.h>
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "defs.h"
-#include "io.h"
-#include "timestep.h"
-#include "iterators.h"
-#include "timing.h"
-#include "units.h"
-#include "tree.h"
-#include "hydro.h"
-#include "particle.h"
 #include "auxiliary.h"
 #include "cell_buffer.h"
-#include "starformation.h"
+#include "cosmology.h"
+#include "hydro.h"
+#include "io.h"
+#include "iterators.h"
 #include "logging.h"
+#include "parallel.h"
+#include "particle.h"
+#include "starformation.h"
+#include "timestep.h"
+#include "timing.h"
+#include "tree.h"
+#include "units.h"
+
 
 FILE *steptimes;
 FILE *timing;
@@ -29,7 +34,7 @@ FILE *star_log;
 
 #ifdef DEBUG_MEMORY_USE
 unsigned long dmuReportAllocatedMemory();
-#endif  /* DEBUG_MEMORY_USE */
+#endif /* DEBUG_MEMORY_USE */
 
 
 void init_logging( int restart ) {
@@ -58,7 +63,11 @@ void init_logging( int restart ) {
 		}
 
 		if ( !restart || restart == 2 ) {
+#ifdef COSMOLOGY
 			fprintf(steptimes,"# step tl dtl auni abox dabox\n");
+#else
+			fprintf(steptimes,"# step tl dtl\n");
+#endif /* COSMOLOGY */
 		}
 
                 sprintf(filename, "%s/energy.log", logfile_directory );
@@ -69,7 +78,11 @@ void init_logging( int restart ) {
                 }
 
 		if ( !restart || restart == 2 ) {
+#ifdef COSMOLOGY
 			fprintf(energy, "# step tl a gas_thermal gas_kinetic gas_potential total_gas_energy baryon_mass particle_kinetic particle_potential total_particle_energy error\n");
+#else
+			fprintf(energy, "# step tl gas_thermal gas_kinetic gas_potential total_gas_energy baryon_mass particle_kinetic particle_potential total_particle_energy error\n");
+#endif /* COSMOLOGY */
 		}
 
 #ifdef STARFORM
@@ -81,7 +94,11 @@ void init_logging( int restart ) {
 		}
 
 		if ( !restart || restart == 2 ) {
+#ifdef COSMOLOGY
 			fprintf(star_log, "# step t dt a t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
+#else
+			fprintf(star_log, "# step t dt t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
+#endif /* COSMOLOGY */
 		}
 #endif /* STARFORM */
 	}
@@ -96,7 +113,11 @@ void init_logging( int restart ) {
 	if ( !restart || restart == 2 ) {
 		/* write header for timing file (total time treated specially) */
 		fprintf( timing, "# %u levels %u timers\n", num_refinement_levels+1, NUM_TIMERS-1 );
+#ifdef COSMOLOGY
 		fprintf( timing, "# step t a total_time" );
+#else
+		fprintf( timing, "# step t total_time" );
+#endif /* COSMOLOGY */
 		for ( i = 1; i < NUM_TIMERS; i++ ) {
 			fprintf( timing, " %s", timer_name[i] );
 		}
@@ -114,13 +135,17 @@ void init_logging( int restart ) {
 	if ( !restart || restart == 2 ) {
 		/* write header for workload file */
 		fprintf( workload, "# %u levels\n", num_refinement_levels+1 );
+#ifdef COSMOLOGY
 		fprintf( workload, "# step t a num_local_particles max_level" );
+#else
+		fprintf( workload, "# step t num_local_particles max_level" );
+#endif /* COSMOLOGY */
 		for ( i = min_level; i <= max_level; i++ ) {
 			fprintf( workload, " num_local_cells[%u] num_buffer_cells[%u]", i, i );
 		}
 #ifdef DEBUG_MEMORY_USE
 		fprintf( workload, " allocated_memory" );
-#endif  /* DEBUG_MEMORY_USE */
+#endif /* DEBUG_MEMORY_USE */
 		fprintf( workload, "\n" );
 		fflush(workload);
 	}
@@ -186,7 +211,11 @@ void log_diagnostics() {
 #endif
 	
 	/* log profiling information */
+#ifdef COSMOLOGY
 	fprintf( timing, "%u %e %e %e", step, tl[min_level], auni[min_level], current_time( TOTAL_TIME, min_level ) );
+#else
+	fprintf( timing, "%u %e %e", step, tl[min_level], current_time( TOTAL_TIME, min_level ) );
+#endif /* COSMOLOGY */
 	for ( level = min_level; level <= max_level; level++ ) {
 		for ( i = 1; i < NUM_TIMERS; i++ ) {
 			fprintf( timing, " %e", total_time(i, level) );
@@ -197,9 +226,17 @@ void log_diagnostics() {
 
 	/* log workload information */
 #ifdef PARTICLES
+#ifdef COSMOLOGY
 	fprintf( workload, "%u %e %e %u %u", step, tl[min_level], auni[min_level], num_local_particles, max_level_now() );
 #else
+	fprintf( workload, "%u %e %u %u", step, tl[min_level], num_local_particles, max_level_now() );
+#endif /* COSMOLOGY */
+#else
+#ifdef COSMOLOGY
 	fprintf( workload, "%u %e %e 0 %u", step, tl[min_level], auni[min_level], max_level_now() );
+#else
+	fprintf( workload, "%u %e 0 %u", step, tl[min_level], max_level_now() );
+#endif /* COSMOLOGY */
 #endif /* PARTICLES */
 
 	for ( i = min_level; i <= max_level; i++ ) {
@@ -207,12 +244,16 @@ void log_diagnostics() {
 	}
 #ifdef DEBUG_MEMORY_USE
 	fprintf( workload, " %lu",dmuReportAllocatedMemory());
-#endif  /* DEBUG_MEMORY_USE */
+#endif /* DEBUG_MEMORY_USE */
 	fprintf(workload, "\n");
 	fflush(workload);
 
 	/* log dependency information */
+#ifdef COSMOLOGY
 	fprintf( dependency, "%u %e %e", step, tl[min_level], auni[min_level] );
+#else
+	fprintf( dependency, "%u %e", step, tl[min_level] );
+#endif /* COSMOLOGY */
 	for ( level = min_level; level <= max_level; level++ ) {
 		for ( i = 0; i < num_procs; i++ ) {
 			if ( level == min_level ) {
@@ -238,7 +279,7 @@ void log_diagnostics() {
 			icell = level_cells[i];
 
 			if ( cell_is_leaf( icell ) ) {
-				gas_thermal += cell_volume[level]*cell_gas_pressure(icell)/(gamma-1.0);
+				gas_thermal += cell_volume[level]*cell_gas_pressure(icell)/(constants->gamma-1);
 
 				kinetic_energy = 0.0;
 				for ( j = 0; j < nDim; j++ ) {
@@ -275,7 +316,7 @@ void log_diagnostics() {
 #endif /* GRAVITY */
 
 #ifdef STARFORM
-	dtyears = dtl[min_level] * t0 * abox[min_level] * abox[min_level];
+	dtyears = dtl[min_level] * units->time / constants->yr;
 #ifdef COSMOLOGY
 	current_age = tphys_from_abox(abox[min_level]);
 #else
@@ -323,22 +364,33 @@ void log_diagnostics() {
 			cart_debug("resolved_volume[%u] = %e", level, resolved_volume[level] );
 			total_resolved_volume += resolved_volume[level];
 		}
-		total_resolved_volume *= (Lbox*Lbox*Lbox) / num_root_cells;
+#ifdef COSMOLOGY
+		total_resolved_volume *= pow(units->length/constants->Mpc/abox[min_level],3.0);
+#else
+		total_resolved_volume *= pow(units->length/constants->Mpc,3.0);
+#endif /* COSMOLOGY */
+
 
 		cart_debug("total_resolved_volume = %e", total_resolved_volume);
 
 		if ( total_resolved_volume > 0.0 ) {
-			sfr = d_stellar_initial_mass * aM0 * hubble * hubble * hubble / dtyears / total_resolved_volume;
+			sfr = d_stellar_initial_mass * units->mass / constants->Msun / dtyears / total_resolved_volume;
 		} else {
 			sfr = 0.0;
 		}
 
+#ifdef COSMOLOGY
 		fprintf( star_log, "%u %e %e %e %e %e %u %e %e %e %e %e\n", step, tl[min_level],
 			dtl[min_level], auni[min_level], current_age, dtyears, 
+#else
+		fprintf( star_log, "%u %e %e %e %e %u %e %e %e %e %e\n", step, tl[min_level],
+			dtl[min_level], current_age, dtyears, 
+#endif /* COSMOLOGY */
 			particle_species_num[num_particle_species-1],
-			total_stellar_mass*aM0, d_stellar_mass*aM0,
-			total_stellar_initial_mass*aM0, d_stellar_initial_mass*aM0,
-			sfr );
+			total_stellar_mass*units->mass/constants->Msun, 
+			d_stellar_mass*units->mass/constants->Msun,
+			total_stellar_initial_mass*units->mass/constants->Msun,
+			d_stellar_initial_mass*units->mass/constants->Msun, sfr );
 
 		fflush(star_log);
 	}
@@ -396,13 +448,18 @@ void log_diagnostics() {
 			kinetic_energy = 0.5*(ekin+ekin1);
 			if(aeu0 != 0.0) error = (kinetic_energy+total_particle_potential)/aeu0 - 1.0; else error = 0.0;
 		}
-#endif  /* COSMOLOGY */
+#endif /* COSMOLOGY */
 #else
 		error = 0.0;
 #endif /* PARTICLES */
 
+#ifdef COSMOLOGY
 		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e %e\n",
 			step, tl[min_level], auni[min_level], 
+#else
+		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e\n",
+			step, tl[min_level], 
+#endif /* COSMOLOGY */
 			total_gas_thermal, total_gas_kinetic, total_gas_potential, 
 			total_gas_thermal+total_gas_kinetic+total_gas_potential,
 			total_gas_mass,
@@ -411,8 +468,11 @@ void log_diagnostics() {
 			error );
 		fflush(energy);
 
-		fprintf(steptimes, "%u %e %e %e %e %e\n", step, tl[min_level], dtl[min_level], auni[min_level], abox[min_level],
-			abox[min_level]-abox_old[min_level] );
+#ifdef COSMOLOGY
+		fprintf(steptimes, "%u %e %e %e %e %e\n", step, tl[min_level], dtl[min_level], auni[min_level], abox[min_level], abox[min_level]-abox_old[min_level] );
+#else
+		fprintf(steptimes, "%u %e %e\n", step, tl[min_level], dtl[min_level] );
+#endif /* COSMOLOGY */
 		fflush(steptimes);
         }
 

@@ -1,8 +1,10 @@
 #ifndef __SFC_H__
 #define __SFC_H__
 
-#include "defs.h"
-#include "tree.h"
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
 
 #define	SLAB		0
 #define MORTON		1

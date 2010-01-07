@@ -5,8 +5,8 @@ compile: art
 
 include $(TOP_DIR)/Make.config
 
-art: .obj defs.h rt_defs.h $(OBJS) start.c .obj/extra/ifrit.o
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) .obj/extra/ifrit.o start.c -o art $(LIBS) $(EXTRALIBS)
+art: .obj defs.h rt_defs.h $(OBJS) start.c 
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start.c -o art $(LIBS) $(EXTRALIBS) 
 	which mpirun
 
 analysis: .obj $(OBJS) $(EXT_OBJS) defs.h rt_defs.h analysis.c

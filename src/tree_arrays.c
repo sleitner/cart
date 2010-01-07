@@ -1,4 +1,5 @@
-#include "defs.h"
+#include "config.h"
+
 #include "tree.h"
 
 const int external_direction[num_children][nDim] = {

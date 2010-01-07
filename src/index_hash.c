@@ -1,13 +1,14 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
+#include "config.h"
 
-#include "defs.h"
-#include "index_hash.h"
-#include "tree.h"
-#include "parallel.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "auxiliary.h"
+#include "index_hash.h"
+#include "parallel.h"
+#include "tree.h"
+
 
 /*******************************************************
  * next_largest_prime

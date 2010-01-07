@@ -2,7 +2,7 @@
 # Makefile for smooth.
 #
 CC = pgcc
-CFLAGS	= -O0 -Ktrap=fp 
+CFLAGS	= -O0 -mcmodel=medium
 LIBS	= -lm
 
 default:	smooth

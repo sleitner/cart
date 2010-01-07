@@ -1,30 +1,54 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <mpi.h>
+#include "config.h"
 
-#include "parallel.h"
-#include "tree.h"
-#include "defs.h"
-#include "particle.h"
-#include "iterators.h"
-#include "cell_buffer.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "auxiliary.h"
-#include "sfc.h"
-#include "pack.h"
-#include "timing.h"
-#include "io.h"
-#include "density.h"
-#include "timestep.h"
 #include "cache.h" 
+#include "cell_buffer.h"
+#include "control_parameter.h"
+#include "density.h"
 #include "hydro_tracer.h"
-#include "tree_linkedlist.h"
+#include "io.h"
+#include "iterators.h"
 #include "load_balance.h"
+#include "pack.h"
+#include "parallel.h"
+#include "particle.h"
+#include "sfc.h"
+#include "timestep.h"
+#include "timing.h"
+#include "tree.h"
+#include "tree_linkedlist.h"
+
 
 float cost_per_cell		= 1.0;
 float cost_per_particle		= 0.25;
 float est_buffer_fraction	= 0.5;
 int load_balance_frequency	= 0;
+
+
+void config_init_load_balance()
+{
+  control_parameter_add2(control_parameter_int,&load_balance_frequency,"frequency:load-balance","load_balance_frequency","frequency (in global time steps) for balancing the load across the nodes. Zero value disables load balancing altogether.");
+
+  control_parameter_add2(control_parameter_float,&cost_per_cell,"cost-per-cell","cost_per_cell","computational cost per cell. This parameter is used in load balancing.");
+
+  control_parameter_add2(control_parameter_float,&cost_per_particle,"cost-per-particle","cost_per_particle","computational cost per particle. This parameter is used in load balancing.");
+}
+
+
+void config_verify_load_balance()
+{
+  cart_assert(load_balance_frequency >= 0);
+
+  cart_assert(cost_per_cell > 0.0);
+
+  cart_assert(cost_per_particle > 0.0);
+}
+
+
 
 int divide_list_recursive( float *global_work, 
 		int *constrained_quantities, 
