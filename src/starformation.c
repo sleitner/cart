@@ -42,13 +42,13 @@ float star_formation_volume_max[nDim];
 DEFINE_LEVEL_ARRAY(int,star_formation_frequency);
 
 /* star formation parameters */
-int sf_recipe = 0;   /* default to the old-style recipe */
-int sf_min_level = min_level;  /* Minimum level on which create stars */
+int sf_recipe = 0;             /* default to the old-style recipe */
+int sf_min_level = min_level;  /* Minimum level on which to create stars */
 
 double sf_min_gas_number_density = 0.1;      /* in cm^{-3}; used to be called rho_SF */
 double sf_max_gas_temperature = 2.0e4;       /* in K; used to be called T_SF */
-double sf_timescale = 3.0e7;                 /* in yrs; used to be called tau_SF; called dtmin_SF in HART */
-double sf_sampling_timescale = 1.0e6;        /* in yrs; used to be called dtmin_SF; did not exist in HART */
+double sf_timescale = 3.0e7;                 /* in yrs; used to be called tau_SF, did not exist in HART */
+double sf_sampling_timescale = 1.0e6;        /* in yrs; used to be called dtmin_SF, also in HART */
 double sf_min_stellar_particle_mass = 0.0;   /* in Msun; used to be called dm_star_min */
 
 
@@ -65,9 +65,9 @@ void config_init_star_formation()
 
   control_parameter_add3(control_parameter_double,&sf_max_gas_temperature,"sf:max-gas-temperature","sf_max_gas_temperature","t_sf","the maximum gas temperature (in K) for star formation. No star formation is done in hotter gas.");
 
-  control_parameter_add3(control_parameter_double,&sf_timescale,"sf:timescale","sf_timescale","tau_sf","the timescale for star formation. Star formation in a given cell is assumed to continue with the constant rate for that period of time. This parameter used to be called 'dtmin_SF' in HART.");
+  control_parameter_add3(control_parameter_double,&sf_timescale,"sf:timescale","sf_timescale","tau_sf","the timescale for star formation. Star formation in a given cell is assumed to continue with the constant rate for that period of time.");
 
-  control_parameter_add3(control_parameter_double,&sf_sampling_timescale,"sf:sampling-timescale","sf_sampling_timescale","dtmin_sf","the timescale on which the conditions for star formation are checked. This is a numerical parameter only, no physical results should depend on it; its value should be sufficiently smaller than the <sf:timescale> parameter.");
+  control_parameter_add3(control_parameter_double,&sf_sampling_timescale,"sf:sampling-timescale","sf_sampling_timescale","dtmin_sf","the timescale on which the conditions for star formation are checked. This is a numerical parameter only, no physical results should depend on it; its value should be sufficiently smaller than the <sf:timescale> parameter.  This parameter used to be called 'dtmin_SF' in HART.");
 
   control_parameter_add3(control_parameter_double,&sf_min_stellar_particle_mass,"sf:min-stellar-particle-mass","sf_min_stellar_particle_mass","dm_star_min","minimum mass for a newly created stellar particle, in solar masses. This value should be small enough to avoid artifically boosting the SFR in the low density gas.");
 
@@ -330,7 +330,7 @@ void remap_star_ids() {
 					particle_id[ipart] >= particle_species_indices[num_particle_species] ) {
 	
 				block = ( particle_id[ipart] - particle_species_indices[num_particle_species] ) / num_procs;
-					proc = ( particle_id[ipart] - particle_species_indices[num_particle_species] ) % num_procs;
+				proc = ( particle_id[ipart] - particle_species_indices[num_particle_species] ) % num_procs;
 				new_id = particle_species_indices[num_particle_species] + block_ids[block];
 	
 				for ( i = 0; i < proc; i++ ) {

@@ -255,7 +255,7 @@ void hydro_sweep_1d( int level ) {
 						apply_hydro_fluxes( icell, -1.0, dxi, f[j] );
 					}
 				}
-                        }
+			}
 
 #pragma omp parallel for default(none), private(j,icell), shared(count,cell_list,level,f,dxi,dxi2)
 			for ( j = 0; j < count; j++ ) {
@@ -341,10 +341,10 @@ void hydro_magic( int level ) {
 				}	
 
 #if defined(DEBUG) && (DEBUG-0 > 9)
-                                cart_error("aborting...");
+				cart_error("aborting...");
 #endif
-                                failed = 1;
-	
+				failed = 1;
+
 				cell_gas_density(icell) = max( average_density/(float)num_neighbors, 
 								gas_density_floor );
 			}
@@ -720,7 +720,7 @@ void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[n
 }
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
-        int j;
+	int j;
 	double v[num_hydro_vars-1][4];
 	double c[2];
 

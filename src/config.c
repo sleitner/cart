@@ -1,5 +1,6 @@
 #include "config.h"
 
+#include <string.h>
 
 #include "auxiliary.h"
 #include "control_parameter.h"
@@ -137,7 +138,7 @@ void config_print_to_file(const char *filename)
 	}
     }
 
-  fprintf(f,"SVN $Revision$\n");
+  fprintf(f,"SVN Revision: %s\n", SVNREVISION );
   fprintf(f,title_sep);
 
   fprintf(f,"\n");

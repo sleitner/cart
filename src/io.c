@@ -2651,11 +2651,11 @@ void read_particles( char *header_filename, char *data_filename,
 
 #ifdef STARFORM
 	FILE *stellar_input;
-        int num_stars;
-        double st, sa;
-        int first_star, first_star_index, num_stars_to_read;
+	int num_stars;
+	double st, sa;
+	int first_star, first_star_index, num_stars_to_read;
 	long seek_amount, var_first;
-        float *pw, *pw0, *tbirth, *zstII, *zstIa;
+	float *pw, *pw0, *tbirth, *zstII, *zstIa;
 	float *star_page[MAX_PROCS];
 	int num_star_vars[MAX_PROCS];
 #ifdef ENRICH

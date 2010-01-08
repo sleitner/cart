@@ -57,11 +57,11 @@
 //  Computational domain setup
 */
 #define nDim			3
-#define num_grid		(1<<num_root_grid_refinements)		/* number of grid spaces in 1-d */
-#define num_root_cells		(1<<(nDim*num_root_grid_refinements))   /* total number of root cells */
-#define num_cells		(num_octs<<nDim)			/* number of cells in buffer */
-#define num_children		(1<<nDim)		
-#define num_neighbors		(2*nDim)
+#define num_grid		(1<<num_root_grid_refinements)          /* number of grid spaces in 1-d */
+#define num_root_cells	(1<<(nDim*num_root_grid_refinements))   /* total number of root cells */
+#define num_cells		(num_octs<<nDim)                        /* number of cells in buffer */
+#define num_children    (1<<nDim)		
+#define num_neighbors   (2*nDim)
 
 
 #if (nDim == 3)
