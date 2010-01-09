@@ -139,6 +139,7 @@ void config_print_to_file(const char *filename)
     }
 
   fprintf(f,"SVN Revision: %s\n", SVNREVISION );
+  fprintf(f,"SVN Branch: %s\n", SVNBRANCH );
   fprintf(f,title_sep);
 
   fprintf(f,"\n");
