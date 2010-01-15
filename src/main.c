@@ -159,16 +159,19 @@ int main ( int argc, char *argv[]) {
 	}
 	#endif
 
-	#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
-	init_fft();
-	#endif
-
 	/* set up mpi datatypes, timers, units, etc 
 	 * (init_units called in case units set in config file) */
 	init_auxiliary();
 	init_timers();
 	init_logging( restart );
 	init_cell_buffer();
+
+    start_time( TOTAL_TIME );
+    start_time( INIT_TIMER );
+
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
+    init_fft();
+#endif
 
 #ifdef PARTICLES
 	init_particles();
@@ -189,9 +192,6 @@ int main ( int argc, char *argv[]) {
 	init_cooling();
 #endif /* COOLING */
 #endif /* RADIATIVE_TRANSFER */
-
-	start_time( TOTAL_TIME );
-	start_time( INIT_TIMER );
 
 	if ( !restart ) {
 		/* set up an initial decomposition */
@@ -246,11 +246,15 @@ int main ( int argc, char *argv[]) {
 #endif /* HYDRO */
 #endif /* GRAVITY */
 
+#ifdef debug
 		check_map();
+#endif
 	} else {
 		read_restart(restart_a);
 		load_balance(); 
+#ifdef debug
 		check_map();
+#endif
 
 		choose_timestep( &dtl[min_level] );
 #ifdef COSMOLOGY

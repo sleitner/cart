@@ -8,31 +8,31 @@ typedef struct TIMER {
 	double total_time;
 } timer;
 
-#define		TOTAL_TIME			0
-#define		INIT_TIMER			1
+#define		TOTAL_TIME				0
+#define		INIT_TIMER				1
 #define		RESTART_TIMER			2
-#define		IO_TIMER			3
+#define		IO_TIMER				3
 #define		LOAD_BALANCE_TIMER		4
 #define		OUTPUT_TIMER			5
 #define		GRAVITY_TIMER			6
-#define		PARTICLE_ACCEL_TIMER		7
-#define		HYDRO_TIMER			8
+#define		PARTICLE_ACCEL_TIMER	7
+#define		HYDRO_TIMER				8
 #define		HYDRO_UPDATE_TIMER		9
 #define		HYDRO_ACCEL_TIMER		10
 #define		DENSITY_TIMER			11
 #define		MOVE_PARTS_TIMER		12
 #define		UPDATE_PARTS_TIMER		13
-#define		TRADE_PARTICLE_TIMER		14
+#define		TRADE_PARTICLE_TIMER	14
 #define		REFINEMENT_TIMER		15
 #define		SMOOTH_TIMER			16
 #define		SMOOTH_SETUP_TIMER		17
 #define		SMOOTH_COMMUNICATION_TIMER	18
-#define		FFT_TIMER			19
+#define		FFT_TIMER				19
 #define 	UPDATE_TIMER			20
 #define		UPDATE_SEND_TIMER		21
 #define		UPDATE_RECV_TIMER		22
-#define		BUILD_CELL_BUFFER_TIMER		23
-#define		DIFFUSION_STEP_TIMER		24
+#define		BUILD_CELL_BUFFER_TIMER	23
+#define		DIFFUSION_STEP_TIMER	24
 #define		SPLIT_BUFFER_TIMER		25
 #define		JOIN_BUFFER_TIMER		26
 #define		SELECT_LEVEL_TIMER		27
@@ -75,10 +75,13 @@ typedef struct TIMER {
 
 
 #define start_time(timerid) start_time_at_location(timerid,__FILE__,__LINE__)
-#define   end_time(timerid)   end_time_at_location(timerid,__FILE__,__LINE__)
+#define end_time(timerid)   end_time_at_location(timerid,__FILE__,__LINE__)
 
+#ifdef MPE_LOG
+extern int event[2*NUM_TIMERS];
+#endif
 
-extern const char *timer_name[];
+extern const char *timer_name[][2];
 
 void init_timers();
 void start_timing_level( int level );

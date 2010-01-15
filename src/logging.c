@@ -20,6 +20,9 @@
 #include "tree.h"
 #include "units.h"
 
+#ifdef MPE_LOG
+#include <mpe.h>
+#endif
 
 FILE *steptimes;
 FILE *timing;
@@ -57,7 +60,7 @@ void init_logging( int restart ) {
 		/* open log files */
 		sprintf(filename,"%s/times.log", logfile_directory );
 		steptimes = fopen(filename,mode);
-                                                                                                                                                            
+
 		if ( steptimes == NULL ) {
 			cart_error("Unable to open %s for writing!", filename );
 		}
@@ -70,12 +73,12 @@ void init_logging( int restart ) {
 #endif /* COSMOLOGY */
 		}
 
-                sprintf(filename, "%s/energy.log", logfile_directory );
-                energy = fopen(filename,mode);
+		sprintf(filename, "%s/energy.log", logfile_directory );
+		energy = fopen(filename,mode);
 
-                if ( energy == NULL ) {
-                        cart_error("Unable to open %s for writing!", filename );
-                }
+		if ( energy == NULL ) {
+			cart_error("Unable to open %s for writing!", filename );
+		}
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
@@ -119,7 +122,7 @@ void init_logging( int restart ) {
 		fprintf( timing, "# step t total_time" );
 #endif /* COSMOLOGY */
 		for ( i = 1; i < NUM_TIMERS; i++ ) {
-			fprintf( timing, " %s", timer_name[i] );
+			fprintf( timing, " %s", timer_name[i][0] );
 		}
 		fprintf( timing, "\n" );
 		fflush(timing);
@@ -164,6 +167,12 @@ void init_logging( int restart ) {
 }
 
 void finalize_logging() {
+#ifdef MPE_LOG
+	char filename[256];
+	sprintf( filename, "%s/mpe_log.dat", logfile_directory );
+	MPE_Finish_log(filename);
+#endif
+
 	if ( local_proc_id == MASTER_NODE ) {
 		/* close log files */
 		fclose(steptimes);
@@ -474,7 +483,7 @@ void log_diagnostics() {
 		fprintf(steptimes, "%u %e %e\n", step, tl[min_level], dtl[min_level] );
 #endif /* COSMOLOGY */
 		fflush(steptimes);
-        }
+	}
 
 #ifdef PARTICLES
 	ekin1 = total_particle_kinetic;
@@ -486,7 +495,6 @@ void log_diagnostics() {
 
 #ifdef DEBUG
 
-extern const char *timer_name[];
 double offset = 0.0;
 unsigned long record = 0;
 
@@ -512,12 +520,12 @@ void log_in_debug(int timerid, int start, const char *file, int line)
 	{
 	case 0:
 	  {
-	    fprintf(f,"%10lu: %s @ %d: %s done at %f sec.\n",record++,file,line,timer_name[timerid],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu: %s @ %d: %s done at %f sec.\n",record++,file,line,timer_name[timerid][1],MPI_Wtime()-offset);
 	    break;
 	  }
 	case 1:
 	  {
-	    fprintf(f,"%10lu: %s @ %d: %s started at %f sec.\n",record++,file,line,timer_name[timerid],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu: %s @ %d: %s started at %f sec.\n",record++,file,line,timer_name[timerid][1],MPI_Wtime()-offset);
 	    break;
 	  }
 	default:

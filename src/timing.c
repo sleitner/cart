@@ -2,70 +2,77 @@
 
 #include <mpi.h>
 
+#ifdef MPE_LOG
+#include <mpe.h>
+#endif
+
 #include "auxiliary.h"
 #include "logging.h"
 #include "timing.h"
-//#include "tree.h"
 
 timer timers[num_refinement_levels+1][NUM_TIMERS];
 int current_timer_level;
 
-const char *timer_name[] = {
-	"total",
-	"init",
-	"restart",
-	"io",
-	"load_balance",
-	"output",
-	"gravity",
-	"particle_accel",
-	"hydro",
-	"hydro_update",
-	"hydro_accel",
-	"density",
-	"move_parts",
-	"update_parts",
-	"trade_particles",
-	"refinement",
-	"smooth",
-	"smooth_setup",
-	"smooth_communication",
-	"fft",
-	"update",
-	"update_send",
-	"update_recv",
-	"build_cell_buffer",
-	"diffusion_step",
-	"split_buffer",
-	"join_buffer",
-	"select_level",
-	"select_level_optimize_level",
-	"max_level",
-	"hydro_accel_update",
-	"diffusion_update",
-	"modify_update",
-	"prolongate_update",
-	"smooth_update",
-	"restrict_update",
-	"fft_update",
-	"particle_accel_update",
-	"merge_densities_update",
-	"hydro_particle_update",
-	"work",
-	"communication",
-	"particle_write_io",
-	"particle_read_io",
-	"gas_write_io",
-	"gas_read_io",
-	"cooling",
-	"merge_density",
+#ifdef MPE_LOG
+int event[2*NUM_TIMERS];
+#endif 
+
+const char *timer_name[][2] = {
+{	"total", "blue" }, 
+{	"init", "blue" },
+{	"restart", "blue" }, 
+{	"io", "orange" }, 
+{	"load_balance", "blue" }, 
+{	"output", "orange" }, 
+{	"gravity", "blue" }, 
+{	"particle_accel", "blue" }, 
+{	"hydro", "blue" }, 
+{	"hydro_update", "red" }, 
+{	"hydro_accel", "blue" }, 
+{	"density", "blue" }, 
+{	"move_parts", "blue" }, 
+{	"update_parts", "blue" }, 
+{	"trade_particles", "red" }, 
+{	"refinement", "red" }, 
+{	"smooth", "blue" }, 
+{	"smooth_setup", "blue" }, 
+{	"smooth_communication", "red" }, 
+{	"fft", "blue" }, 
+{	"update", "red" }, 
+{	"update_send", "red" }, 
+{	"update_recv", "red" },
+{	"build_cell_buffer", "green" }, 
+{	"diffusion_step", "blue" }, 
+{	"split_buffer", "red" },
+{	"join_buffer", "red" }, 
+{	"select_level", "green" }, 
+{	"select_level_optimize_level", "green" },
+{	"max_level", "red" },
+{	"hydro_accel_update", "red" },
+{	"diffusion_update", "red" },
+{	"modify_update", "red" },
+{	"prolongate_update", "red" },
+{	"smooth_update", "red" },
+{	"restrict_update", "red" },
+{	"fft_update", "red" },
+{	"particle_accel_update", "red" },
+{	"merge_densities_update", "red" },
+{	"hydro_particle_update", "red" },
+{	"work", "green" },
+{	"communication", "red" },
+{	"particle_write_io", "orange" },
+{	"particle_read_io", "orange" },
+{	"gas_write_io", "orange" },
+{	"gas_read_io", "orange" },
+{	"cooling", "blue" },
+{	"merge_density", "red" },
 #ifdef RADIATIVE_TRANSFER
-	"RT_tables",
-	"RT_cooling",
-	"RT_level_update",
-	"RT_after_density",
+{	"RT_tables", "green" },
+{	"RT_cooling", "green" },
+{	"RT_level_update", "blue" },
+{	"RT_after_density", "blue" },
 #endif
-	"level_total"
+{	"level_total" "blue" },
 };
 
 void init_timers() {
@@ -81,6 +88,15 @@ void init_timers() {
 	}
 
 	current_timer_level = min_level;
+
+#ifdef MPE_LOG
+	MPE_Init_log();
+	for ( i = 0; i < NUM_TIMERS; i++ ) {
+        MPE_Log_get_state_eventIDs( &event[2*i], &event[2*i+1]);
+		MPE_Describe_state( event[2*i], event[2*i+1], timer_name[i][0], timer_name[i][1] );
+	}
+	MPE_Start_log();
+#endif /* MPE_LOG */
 }
 
 void start_time_at_location( int timerid, const char *file, int line ) {
@@ -89,7 +105,9 @@ void start_time_at_location( int timerid, const char *file, int line ) {
 
 	timers[current_timer_level][timerid].current_time = MPI_Wtime();
 
-	//MPE_Log_event(2*timerid+0,0,timer_name[timerid]);
+#ifdef MPE_LOG
+	MPE_Log_event( event[2*timerid], current_timer_level, timer_name[timerid][0] );
+#endif
 
 #ifdef DEBUG
 	log_in_debug(timerid,1,file,line);
@@ -104,7 +122,9 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 
 	elapsed = MPI_Wtime() - timers[current_timer_level][timerid].current_time;
 
-	//MPE_Log_event(2*timerid+1,0,timer_name[timerid]);
+#ifdef MPE_LOG
+	MPE_Log_event( event[2*timerid+1], current_timer_level, timer_name[timerid][0] );
+#endif /* MPE_LOG */
 
 	timers[current_timer_level][timerid].last_time = elapsed;	
 	timers[current_timer_level][timerid].total_time += elapsed;
