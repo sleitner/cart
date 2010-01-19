@@ -63,7 +63,9 @@ int rtIsThereWork(MPI_Comm local_comm)
       num_local = particle_species_num[0];
     }
 
+  start_time( COMMUNICATION_TIMER );
   MPI_Allreduce(&num_local,&num_global,1,MPI_INT,MPI_MAX,local_comm);
+  end_time( COMMUNICATION_TIMER );
 
   return (num_global > 0);
 

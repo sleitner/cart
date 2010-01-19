@@ -233,6 +233,9 @@ int global_timestep( double dt ) {
 	int sf;
 	double dtratio;
 
+	start_time( LEVEL_TIMER );
+	start_time( WORK_TIMER );
+
 	/* set old vars */
 	for ( i = min_level; i <= max_level; i++ ) {
 		tl_old[i] = tl[i];
@@ -285,11 +288,15 @@ int global_timestep( double dt ) {
 	}
 #endif /* STARFORM */
 
+	end_time( WORK_TIMER );
+
 	ret = timestep( min_level, MPI_COMM_WORLD );
 	current_step_level = -1;
 
 	/* check if any other processors had problems (violation of CFL condition) */
+	start_time( COMMUNICATION_TIMER );
 	MPI_Allreduce( &ret, &global_ret, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD );
+	end_time( COMMUNICATION_TIMER );
 
 	/* do a last refinement step (without allowing derefinement */
 	if ( global_ret != -1 ) {
@@ -310,11 +317,14 @@ int global_timestep( double dt ) {
 		remap_star_ids();
 #endif /* STARFORM */
 
-#ifdef RADIATIVE_TRANSFER
+#ifdef RADIATIVE_TRANSFER	
+		start_time( WORK_TIMER );
 		rtStepEnd();
+		end_time( WORK_TIMER );
 #endif /* RADIATIVE_TRANSFER */
 	}
 
+	end_time(LEVEL_TIMER);
 	return global_ret;
 }
 
@@ -360,11 +370,9 @@ int timestep( int level, MPI_Comm local_comm )
 	hydro_copy_vars( level, COPY_ZERO_REF, COPY_SPLIT_NEIGHBORS );	
 #endif /* HYDRO */
 
-#ifdef GRAVITY
-#ifdef PARTICLES
+#if defined(GRAVITY) && defined(PARTICLES)
 	compute_accelerations_particles(level);
-#endif /* PARTICLES */
-#endif /* GRAVITY */
+#endif /* GRAVITY && PARTICLES */
 	
 	if ( level < max_level && level < max_level_now() ) {
 		step_ret = timestep( level + 1, child_comm );
@@ -391,7 +399,9 @@ int timestep( int level, MPI_Comm local_comm )
 			for ( step = 0; step < 1<<(nlevel - level); step++ ) {
 
 				if ( nlevel <= max_cfl_sync_level ) {
+					start_time( COMMUNICATION_TIMER );
 					MPI_Allreduce( &ret, &true_ret, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD );
+					end_time( COMMUNICATION_TIMER );
 
 					if ( true_ret < 0 ) {
 						end_time( LEVEL_TIMER );
@@ -417,7 +427,9 @@ int timestep( int level, MPI_Comm local_comm )
 		}
 	}
 
+	start_time( WORK_TIMER );
 	units_update(level);
+	end_time( WORK_TIMER );
 
 #ifdef GRAVITY
 	if ( level > min_level && level < max_level ) {
@@ -433,6 +445,7 @@ int timestep( int level, MPI_Comm local_comm )
 #endif /* GRAVITY */
 	
 	/* test if timestep is still valid */
+	start_time( WORK_TIMER );
 	hydro_timestep( level, &courant_cell, &velocity );
 	dt_needed = cfl_max * cell_size[level] / velocity;
 
@@ -449,9 +462,12 @@ int timestep( int level, MPI_Comm local_comm )
 
 		ret = -1;
 	}
+	end_time( WORK_TIMER );
 
 	if ( level <= max_cfl_sync_level ) {
+		start_time( COMMUNICATION_TIMER );
 		MPI_Allreduce( &ret, &true_ret, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD );
+		end_time( COMMUNICATION_TIMER );
 
 		if ( true_ret < 0 ) {
 			end_time( LEVEL_TIMER );
@@ -499,7 +515,9 @@ int timestep( int level, MPI_Comm local_comm )
 
 #ifdef STARFORM
 	/* update cell values changed by starformation and feedback */
+	start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 	update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+	end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 #endif /* STARFORM */
 
 #endif /* PARTICLES */
@@ -552,10 +570,14 @@ void choose_timestep( double *dt ) {
 	double velocity;
 	double level_velocity;
 	int courant_cell, level_courant_cell;
-        double adum1, dda;
+	double adum1, dda;
 	double dt_new, dt_min;
 
+	start_time( CHOOSE_TIMESTEP_TIMER );
+
 #ifdef CONSTANT_TIMESTEP
+
+	start_time( WORK_TIMER );
 
 	if ( *dt == 0.0 ) {
 		*dt = max_dt;
@@ -565,7 +587,11 @@ void choose_timestep( double *dt ) {
 	rtModifyTimeStep(dt);
 #endif /* RADIATIVE_TRANSFER */
 
+	end_time( WORK_TIMER ):
+
 #else 
+
+	start_time( WORK_TIMER );
 
 	dt_new = 0.0;
 
@@ -612,10 +638,15 @@ void choose_timestep( double *dt ) {
 	}
 #endif /* PARTICLES */
 
+	end_time( WORK_TIMER );
+
 	start_time( COMMUNICATION_TIMER );
+	start_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );
 	MPI_Reduce( &dt_new, &dt_min, 1, MPI_DOUBLE, MPI_MIN, MASTER_NODE, MPI_COMM_WORLD );
+	end_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );
 	end_time( COMMUNICATION_TIMER );
 
+	start_time( WORK_TIMER );
 	if ( local_proc_id == MASTER_NODE ) {
 		/* if a cfl condition forces a decrease in the timestep,
 		 * force it to be at least min_time_dec smaller so we avoid
@@ -628,7 +659,7 @@ void choose_timestep( double *dt ) {
 		}
 
 #ifdef COSMOLOGY
-	        adum1 = abox_from_tcode( tl[min_level] );
+		adum1 = abox_from_tcode( tl[min_level] );
 
 		if ( dt_new > 0.0 ) {
 			dda = abox_from_tcode( min( tl[min_level] + dt_new, tcode_from_abox(adum1*max_a_inc) ) ) - adum1;  /* dt_new could be very large, it can break cosmology module */
@@ -666,12 +697,17 @@ void choose_timestep( double *dt ) {
 		cart_debug("chose %e as our next timestep", dt_new );
 		*dt = dt_new;
 	}
+	end_time( WORK_TIMER );
 
 	start_time( COMMUNICATION_TIMER );
+	start_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );
 	MPI_Bcast( dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	end_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );	
 	end_time( COMMUNICATION_TIMER );
 
 #endif /* CONSTANT_TIMESTEP */
+
+	end_time( CHOOSE_TIMESTEP_TIMER );
 }
 
 #ifdef HYDRO

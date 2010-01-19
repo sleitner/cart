@@ -6,6 +6,7 @@
 
 #include "auxiliary.h"
 #include "parallel.h"
+#include "timing.h"
 #include "rt_solver.h"
 #include "rt_utilities.h"
 #include "tree.h"
@@ -73,7 +74,9 @@ void rtuInitRun()
 void rtuGlobalAverage(int n, double *lBuffer)
 {
   double gBuffer[n];
+  start_time( COMMUNICATION_TIMER );
   MPI_Allreduce(lBuffer,gBuffer,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  end_time( COMMUNICATION_TIMER );
   memcpy(lBuffer,gBuffer,n*sizeof(double));
 }
 
@@ -262,8 +265,10 @@ void rtuCheckGlobalValue(int val, char *name, MPI_Comm local_comm)
 {
   int gMin, gMax;
 
+  start_time( COMMUNICATION_TIMER );
   MPI_Allreduce(&val,&gMin,1,MPI_INT,MPI_MIN,local_comm);
   MPI_Allreduce(&val,&gMax,1,MPI_INT,MPI_MAX,local_comm);
+  end_time( COMMUNICATION_TIMER );
 
   if(val!=gMin || val!=gMax)
     {

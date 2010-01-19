@@ -42,6 +42,7 @@ void copy_potential( int level ) {
 	int num_level_cells;
 	int *level_cells;
 
+	start_time( GRAVITY_TIMER );
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
@@ -53,6 +54,7 @@ void copy_potential( int level ) {
 	cart_free( level_cells );
 
 	end_time( WORK_TIMER );
+	end_time( GRAVITY_TIMER );
 }
 
 void interpolate_potential( int level ) {
@@ -62,6 +64,7 @@ void interpolate_potential( int level ) {
 	int *level_cells;
 	double dtdt2;
 
+	start_time( GRAVITY_TIMER );
 	start_time( WORK_TIMER );
 
 	dtdt2 = 0.5 * dtl[level]/dtl_old[level];
@@ -77,6 +80,7 @@ void interpolate_potential( int level ) {
 	cart_free( level_cells );
 
 	end_time( WORK_TIMER );
+	end_time( GRAVITY_TIMER );
 }
 #endif /* HYDRO */
 
@@ -873,9 +877,10 @@ void restrict_to_level( int level ) {
 	int num_level_cells;
 	int *level_cells;
 
+	start_time( GRAVITY_TIMER );
 	start_time( WORK_TIMER );
                                                                                                                   
-        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell,sum,j), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
@@ -896,6 +901,8 @@ void restrict_to_level( int level ) {
 	start_time( RESTRICT_UPDATE_TIMER );
 	update_buffer_level( level, restrict_vars, 1 );
 	end_time( RESTRICT_UPDATE_TIMER );
+
+	end_time( GRAVITY_TIMER );
 }
 
 /* compute potential on min_level */
@@ -920,6 +927,7 @@ void compute_accelerations_hydro( int level ) {
 	int num_level_cells;
 	int *level_cells;
 
+	start_time( GRAVITY_TIMER );
 	start_time( HYDRO_ACCEL_TIMER );
 	start_time( WORK_TIMER );
 
@@ -968,6 +976,7 @@ void compute_accelerations_hydro( int level ) {
 #endif
 
 	end_time( HYDRO_ACCEL_TIMER );
+	end_time( GRAVITY_TIMER );
 }
 #endif /* HYDRO */
 
@@ -984,8 +993,8 @@ void compute_accelerations_particles( int level ) {
 	int num_level_cells;
 	int *level_cells;
 
+	start_time( GRAVITY_TIMER );
 	start_time( PARTICLE_ACCEL_TIMER );
-        
 	start_time( WORK_TIMER );
 
 #ifdef COSMOLOGY
@@ -1029,6 +1038,7 @@ void compute_accelerations_particles( int level ) {
 	end_time( PARTICLE_ACCEL_UPDATE_TIMER );
 
 	end_time( PARTICLE_ACCEL_TIMER );
+	end_time( GRAVITY_TIMER );
 }
 #endif /* PARTICLES */
 

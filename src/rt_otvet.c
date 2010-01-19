@@ -317,8 +317,11 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
       /*
       //  Make sure all procs have the same abcMin/Max
       */
+      start_time( COMMUNICATOR_TIMER );
       MPI_Allreduce(&abcMin,&abcMin1,1,MPI_FLOAT,MPI_MIN,local_comm);
       MPI_Allreduce(&abcMax,&abcMax1,1,MPI_FLOAT,MPI_MAX,local_comm);
+      end_time( COMMUNICATION_TIMER );
+
       abcMin = abcMin1;
       abcMax = abcMax1;
 
@@ -536,7 +539,9 @@ C$OMP+SHARED(var,varL,ivar,indLG,nTotCells)
 	      if(var(iL) < 0.0) var(iL) = 0;
 	    }
 	}
+      start_time( RT_SOLVE_EQUATION_UPDATE_TIMER );
       update_buffer_level(level,&ivar,1);
+      end_time( RT_SOLVE_EQUATION_UPDATE_TIMER );
     }
 
 #ifdef RTO_CACHE_VARS

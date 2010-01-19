@@ -13,8 +13,8 @@ open FILE, "$directory/timing.000.log" or die "Unable to load timing file!\n";
 $line = <FILE>;
 ($num_levels,$num_timers) = ($line =~ /^\# (\d+) levels (\d+) timers/ );
 
-print "$num_levels levels\n";
-print "$num_timers timers\n";
+$num_real_levels = $num_levels -1;
+print "$num_real_levels levels, $num_timers timers\n";
 
 $line = <FILE>;
 chomp $line;
@@ -52,6 +52,15 @@ while ( $line = <FILE> ) {
 
 	print "Step: $step total time: $current_step\n";
 
+	$headerline = sprintf "%30s %10s", "Levels:", "Global";
+	for $level ( 1 .. $num_levels-1 ) {
+		$headerline = sprintf "%s %8u  ", $headerline, $level-1;
+	}
+	$headerline = sprintf "%s  %8s %5s\n", $headerline, "Total", "%";
+
+	print $headerline;	
+	print (("-" x length($headerline)) . "\n");
+
 	for $timer ( 0 .. $num_timers-1 ) {
 		printf "%30s", $timer_labels[$timer];
 		$sum = 0;
@@ -59,7 +68,7 @@ while ( $line = <FILE> ) {
 			printf " %10.3f", $current_timers[$level*$num_timers + $timer];
 			$sum += $current_timers[$level*$num_timers + $timer];
 		}
-		printf "%10.3f %6.2f\n", $sum, 100.0*$sum/$current_step;
+		printf "%10.2f %6.2f\n", $sum, 100.0*$sum/$current_step;
 	}
 }
 

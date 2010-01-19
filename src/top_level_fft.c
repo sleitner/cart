@@ -32,7 +32,7 @@ void init_fft() {
 /* could move plan creation here if we like... */
 }
 
-/* compute FFT on min_level (WILL BE REWRITTEN!) */
+/* compute FFT on min_level  */
 void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_fft_op worker)
 {
 	int coords[3];
@@ -79,6 +79,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 		end_time( WORK_TIMER );
 
 		start_time( COMMUNICATION_TIMER );
+		start_time( FFT_COMMUNICATION_TIMER );
 
 		for ( p = 1; p < num_procs; p++ ) {
 			MPI_Recv( buffer, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT, p, 0, MPI_COMM_WORLD, &status );
@@ -91,11 +92,14 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 			}
 		}
 
+		end_time( FFT_COMMUNICATION_TIMER );
 		end_time( COMMUNICATION_TIMER );
 
 		/*
 		//  In principle, memory can be saved by overlaying this array with data[] and doing in-place FFT.
 		 */
+		start_time( WORK_TIMER );
+
 		fft_source = cart_alloc( type_fft_complex, num_grid*num_grid*(num_grid/2+1) );
 
 		#ifdef FFTW3
@@ -141,11 +145,12 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 						FFTW_ESTIMATE | FFTW_OUT_OF_PLACE );
 		#endif
 
+		end_time( WORK_TIMER );
+
 		/* compute FFT */
 		for ( var=0; var<num_out_vars; var++ ) {
 			start_time( WORK_TIMER );
 			(*worker)(var,fft_source,fft_output);
-			end_time( WORK_TIMER );
 
 			/* perform inverse transform to get result */
 			#ifdef FFTW3
@@ -162,7 +167,10 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 				#endif
 			#endif
 
+			end_time( WORK_TIMER );
+
 			start_time( COMMUNICATION_TIMER );
+			start_time( FFT_COMMUNICATION_TIMER );
 			for ( p = 1; p < num_procs; p++ ) {
 #pragma omp parallel for default(none), private(i,coords,index), shared(proc_sfc_index,p,data,buffer)
 				for ( i = 0; i < proc_sfc_index[p+1]-proc_sfc_index[p]; i++ ) {
@@ -173,6 +181,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 
 				MPI_Send( buffer, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT, p, 1, MPI_COMM_WORLD );
 			}
+			end_time( FFT_COMMUNICATION_TIMER );
 			end_time( COMMUNICATION_TIMER );
 
 			start_time( WORK_TIMER );
@@ -203,7 +212,8 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 		cart_free(data);
 	} else {
 		start_time( COMMUNICATION_TIMER );
-      
+      	start_time( FFT_COMMUNICATION_TIMER );
+
 #pragma omp parallel for default(none), private(i), shared(num_cells_per_level,cell_vars,buffer,in_var)
 		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
 			buffer[i] = cell_var(i,in_var);
@@ -219,6 +229,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 				cell_var(i,out_vars[var]) = buffer[i];
 			}
 		}
+		end_time( FFT_COMMUNICATION_TIMER );
 		end_time( COMMUNICATION_TIMER );
 	}
      

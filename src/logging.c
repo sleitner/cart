@@ -115,7 +115,7 @@ void init_logging( int restart ) {
 
 	if ( !restart || restart == 2 ) {
 		/* write header for timing file (total time treated specially) */
-		fprintf( timing, "# %u levels %u timers\n", num_refinement_levels+1, NUM_TIMERS-1 );
+		fprintf( timing, "# %u levels %u timers\n", num_refinement_levels+2, NUM_TIMERS-1 );
 #ifdef COSMOLOGY
 		fprintf( timing, "# step t a total_time" );
 #else
@@ -221,11 +221,11 @@ void log_diagnostics() {
 	
 	/* log profiling information */
 #ifdef COSMOLOGY
-	fprintf( timing, "%u %e %e %e", step, tl[min_level], auni[min_level], current_time( TOTAL_TIME, min_level ) );
+	fprintf( timing, "%u %e %e %e", step, tl[min_level], auni[min_level], current_time( TOTAL_TIME, min_level-1 ) );
 #else
-	fprintf( timing, "%u %e %e", step, tl[min_level], current_time( TOTAL_TIME, min_level ) );
+	fprintf( timing, "%u %e %e", step, tl[min_level], current_time( TOTAL_TIME, min_level-1 ) );
 #endif /* COSMOLOGY */
-	for ( level = min_level; level <= max_level; level++ ) {
+	for ( level = min_level-1; level <= max_level; level++ ) {
 		for ( i = 1; i < NUM_TIMERS; i++ ) {
 			fprintf( timing, " %e", total_time(i, level) );
 		}

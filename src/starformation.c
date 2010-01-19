@@ -9,6 +9,7 @@
 #include "control_parameter.h"
 #include "cosmology.h"
 #include "iterators.h"
+#include "timing.h"
 #include "parallel.h"
 #include "particle.h"
 #include "starformation.h"
@@ -65,7 +66,7 @@ void config_init_star_formation()
 
   control_parameter_add3(control_parameter_double,&sf_max_gas_temperature,"sf:max-gas-temperature","sf_max_gas_temperature","t_sf","the maximum gas temperature (in K) for star formation. No star formation is done in hotter gas.");
 
-  control_parameter_add3(control_parameter_double,&sf_timescale,"sf:timescale","sf_timescale","tau_sf","the timescale for star formation. Star formation in a given cell is assumed to continue with the constant rate for that period of time.");
+  control_parameter_add3(control_parameter_double,&sf_timescale,"sf:timescale","sf_timescale","tau_SF","the timescale for star formation. Star formation in a given cell is assumed to continue with the constant rate for that period of time.");
 
   control_parameter_add3(control_parameter_double,&sf_sampling_timescale,"sf:sampling-timescale","sf_sampling_timescale","dtmin_sf","the timescale on which the conditions for star formation are checked. This is a numerical parameter only, no physical results should depend on it; its value should be sufficiently smaller than the <sf:timescale> parameter.  This parameter used to be called 'dtmin_SF' in HART.");
 
@@ -178,6 +179,8 @@ void star_formation( int level, int time_multiplier )
 
   if ( level < sf_min_level) return;
 
+  start_time( WORK_TIMER );
+
   cell_fraction = 0.667 * cell_volume[level];
   dm_star_min = sf_min_stellar_particle_mass * constants->Msun / units->mass; 
 
@@ -208,6 +211,8 @@ void star_formation( int level, int time_multiplier )
 
   cart_free( sfr );
   cart_free( level_cells );
+
+  end_time( WORK_TIMER );
 }
 
 /*
@@ -296,6 +301,8 @@ void remap_star_ids() {
 	int *block_ids;
 	int proc_new_stars[MAX_PROCS];
 
+	start_time( COMMUNICATION_TIMER );
+
 	/* collect number of stars created */
 	MPI_Allgather( &num_new_stars, 1, MPI_INT, proc_new_stars, 1, MPI_INT, MPI_COMM_WORLD );
 
@@ -353,6 +360,8 @@ void remap_star_ids() {
 	particle_species_num[num_particle_species-1] += total_new_stars;
 	num_particles_total += total_new_stars;
 	num_new_stars = 0;
+
+	end_time( COMMUNICATION_TIMER );
 }
 
 #endif /* STARFORM */

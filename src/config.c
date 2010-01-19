@@ -48,12 +48,12 @@ void config_create_file(const char *filename)
 }
 
 
-void config_read_file(const char *filename)
-{
+void config_read_file(const char *filename) {
   FILE *configfile;
   char line[1024];
   char *tag, *value, *p;
-  int i;
+  int i; 
+  int bad_config = 0;
 
   configfile = fopen(filename,"r");
   if(configfile == NULL)
@@ -105,13 +105,18 @@ void config_read_file(const char *filename)
 	  {
 	    if(control_parameter_read(tag,value) != 0)
 	      {
-		cart_error("Unrecognized tag [%s] in parameter file %s", tag, filename );
+		cart_debug("Unrecognized tag [%s] in parameter file %s", tag, filename );
+        bad_config = 1;
 	      }
 	  }
 	}
     }
 
   fclose(configfile);
+
+  if ( bad_config ) {
+	cart_error("There were errors parsing parameter file %s", filename );
+  }
 
   config_verify();
 }

@@ -43,7 +43,9 @@ void rtGlobalAverageUpdate(int level, int n, struct rtGlobalAverageData *out, MP
       /*
       //  Reduce local values
       */
+	  start_time( COMMUNICATION_TIMER );
       MPI_Allreduce(out[i].LocalLevelSum+(level-min_level),out[i].GlobalLevelSum+(level-min_level),1,MPI_FLOAT,MPI_SUM,local_comm);
+	  end_time( COMMUNICATION_TIMER );
 
       /*
       //  Update global average

@@ -212,8 +212,10 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
       
       cart_free(parent_cells);
     }
-
+ 
+  start_time( RT_TREE_EMULATOR_UPDATE_TIMER );
   update_buffer_level(level,Vars,NumVars);
+  end_time( RT_TREE_EMULATOR_UPDATE_TIMER );
 
   /*
   // Smooth a few times
@@ -256,7 +258,9 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
 	    }
 	}
 
+      start_time( RT_TREE_EMULATOR_UPDATE_TIMER );
       update_buffer_level(level,Vars+1,NumVars-1);
+      end_time( RT_TREE_EMULATOR_UPDATE_TIMER );
     }
 
   cart_free(tmp);
@@ -403,7 +407,9 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
       cart_assert(proc != local_proc_id);
     }
 
+  start_time( COMMUNICATION_TIMER );
   MPI_Bcast(&srcLevel,1,MPI_INT,proc,MPI_COMM_WORLD);
+  end_time( COMMUNICATION_TIMER );
 
   eps1 = 0.01*cell_size[srcLevel]*cell_size[srcLevel];
   eps2 = 4*cell_size[srcLevel]*cell_size[srcLevel];
@@ -440,7 +446,9 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
 
   cart_free(level_cells);
 
+  start_time( RT_SINGLE_SOURCE_UPDATE_TIMER );
   update_buffer_level(level,Vars,NumVars);
+  end_time( RT_SINGLE_SOURCE_UPDATE_TIMER );
 }
 
 #endif /* RADIATIVE_TRANSFER && RT_TRANSFER && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */

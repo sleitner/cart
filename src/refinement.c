@@ -78,7 +78,7 @@ void modify( int level, int op ) {
 	int *level_cells;
 
 	const int diffuse_vars[1] = { VAR_REFINEMENT_DIFFUSION };
-        const int indicator_var[1] = { VAR_REFINEMENT_INDICATOR };
+	const int indicator_var[1] = { VAR_REFINEMENT_INDICATOR };
 
 	cart_assert( level >= min_level && level <= max_level );
 
@@ -125,8 +125,8 @@ void modify( int level, int op ) {
 		}
 		end_time( WORK_TIMER );
 
-                end_time( DIFFUSION_STEP_TIMER );
-        }
+		end_time( DIFFUSION_STEP_TIMER );
+	}
 
 	/* check refinement mask */
 #pragma omp parallel for default(none), private(i,icell,pos,j) shared(refinement_volume_min,refinement_volume_max,cell_vars,num_level_cells,level_cells)
@@ -145,7 +145,7 @@ void modify( int level, int op ) {
 	cart_free( level_cells );
 
 	start_time( MODIFY_UPDATE_TIMER );
-        update_buffer_level( level, indicator_var, 1 );
+	update_buffer_level( level, indicator_var, 1 );
 	end_time( MODIFY_UPDATE_TIMER );
 
 	/* do rest serially */
@@ -240,9 +240,7 @@ void refine( int level ) {
 	end_time( WORK_TIMER );
 
 	/* now worry about buffer cells */
-	start_time( SPLIT_BUFFER_TIMER );
 	split_buffer_cells( level, cells_to_refine, num_cells_to_refine );
-	end_time( SPLIT_BUFFER_TIMER );
 }
 
 void choose_cells_wanting_derefinement( int cell ) {
@@ -334,10 +332,16 @@ void derefine( int level ) {
 	for ( i = 0; i < num_level_cells; i++ ) {
 		choose_cells_wanting_derefinement( level_cells[i] );
 	}
+
+	end_time( WORK_TIMER );
 	
 	/* update so we know which buffer cells are derefined */
+	start_time( DEREFINE_UPDATE_TIMER );
 	update_buffer_level( level, refine_vars, 1 );
-	
+	end_time( DEREFINE_UPDATE_TIMER );
+
+	start_time( WORK_TIMER );
+
 	/* this loop needs to be serial for num_cells_to_refine++ */
 	for ( i = 0; i < num_level_cells; i++ ) {
 		choose_cells_to_derefine( level_cells[i] );
@@ -362,9 +366,7 @@ void derefine( int level ) {
 	end_time( WORK_TIMER );
 
 	/* now join buffer cells */
-	start_time( JOIN_BUFFER_TIMER );
 	join_buffer_cells( level, oct_list, parent_root_sfc, num_octs_eliminated );
-	end_time( JOIN_BUFFER_TIMER );
 
 	cart_free( oct_list );
 	cart_free( parent_root_sfc );

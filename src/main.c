@@ -61,10 +61,7 @@ int main ( int argc, char *argv[]) {
 	double restart_a;
 	const char *tmp;
 	char c;
-
-	#ifdef _OPENMP
 	struct utsname uname_info;
-	#endif
 
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &num_procs );
@@ -148,15 +145,11 @@ int main ( int argc, char *argv[]) {
 	#endif
 	}
 
-	cart_debug("my local pid = %u", getpid() );
+	uname(&uname_info);
+	cart_debug("host: %s pid = %u", uname_info.nodename, getpid() );
 
 	#ifdef _OPENMP
 	cart_debug("num openmp threads = %u", omp_get_max_threads() );
-
-	if ( num_procs > 1 ) {
-		uname(&uname_info);
-		cart_debug("node: %s", uname_info.nodename );
-	}
 	#endif
 
 	/* set up mpi datatypes, timers, units, etc 
@@ -246,15 +239,9 @@ int main ( int argc, char *argv[]) {
 #endif /* HYDRO */
 #endif /* GRAVITY */
 
-#ifdef debug
-		check_map();
-#endif
 	} else {
 		read_restart(restart_a);
 		load_balance(); 
-#ifdef debug
-		check_map();
-#endif
 
 		choose_timestep( &dtl[min_level] );
 #ifdef COSMOLOGY
@@ -284,17 +271,23 @@ int main ( int argc, char *argv[]) {
 #endif /* RADIATIVE_TRANSFER */
 	} 
 
+#ifdef debug
+	check_map();
+#endif
+
 	end_time( INIT_TIMER );
 
 	current_steps = 0;
 	last_restart_step = 0;
 
+    start_time( OUTPUT_TIMER );
 	run_output();
+	end_time( OUTPUT_TIMER );
 
 	while ( 1 ) {
 
 #ifdef COSMOLOGY
-	        cart_debug("a = %e, t = %e, dt = %e", auni[min_level], tl[min_level], dt  );
+		cart_debug("a = %e, t = %e, dt = %e", auni[min_level], tl[min_level], dt  );
 
 		if ( auni[min_level] >= auni_end ) {
 			break;
@@ -308,7 +301,7 @@ int main ( int argc, char *argv[]) {
 #endif /* COSMOLOGY */
 
 		if ( ( timelimit > 0.0 && current_steps > 0 && 
-				timelimit-current_time(TOTAL_TIME,min_level) < 1.5*last_time( LEVEL_TIMER, min_level ) ) ||
+				timelimit-current_time(TOTAL_TIME,min_level-1) < 1.5*last_time(LEVEL_TIMER, min_level-1) ) ||
 				( max_steps > 0 && current_steps >= max_steps ) ) {
 			cart_debug("reached time or step limit... writing restart");
 
@@ -370,7 +363,9 @@ int main ( int argc, char *argv[]) {
 			}
 
 			cart_debug("done with timestep %u at tl = %e", step, tl[min_level] );
+			start_time( IO_TIMER );
 			log_diagnostics();
+			end_time( IO_TIMER );
 		}
 	}
 

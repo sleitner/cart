@@ -331,6 +331,9 @@ void build_root_cell_buffer() {
 	int *buffer_indices;
 	int index;
 
+    start_time( BUILD_CELL_BUFFER_TIMER );
+    start_time( COMMUNICATION_TIMER );
+
 	if ( num_procs > 1 ) {
 		buffer_list = skiplist_init();
 
@@ -377,6 +380,9 @@ void build_root_cell_buffer() {
 	}
 
 	root_buffer_enabled = 1;
+
+	end_time( COMMUNICATION_TIMER );
+	end_time( BUILD_CELL_BUFFER_TIMER );
 }
 
 /*******************************************************
@@ -406,6 +412,7 @@ void build_cell_buffer()
 	}
 
 	start_time( BUILD_CELL_BUFFER_TIMER );
+	start_time( COMMUNICATION_TIMER );
 
 	cart_assert( buffer_enabled == 0 );
 
@@ -483,6 +490,7 @@ void build_cell_buffer()
 
 	buffer_enabled = 1;
 
+	end_time( COMMUNICATION_TIMER );
 	end_time( BUILD_CELL_BUFFER_TIMER );
 
 	cart_debug("buffer enabled");
@@ -569,6 +577,10 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 
 	float *buffer;
 	int recv_offset[MAX_PROCS];
+
+	if ( num_procs == 1 ) {
+		return;
+	}
 
 	start_time( COMMUNICATION_TIMER );
 	start_time( UPDATE_TIMER );
@@ -888,7 +900,9 @@ void merge_buffer_cell_densities( int level ) {
 
 	/* wait for sends */
 	start_time( COMMUNICATION_TIMER );
+	start_time( MERGE_DENSITIES_COMMUNICATION_TIMER );
 	MPI_Waitall( num_procs, sends, statuses );
+	end_time( MERGE_DENSITIES_COMMUNICATION_TIMER );
 	end_time( COMMUNICATION_TIMER );
 
 	cart_free( send_buffer );
@@ -928,6 +942,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 
 	cart_assert( level < max_level );
 
+	start_time( SPLIT_BUFFER_TIMER );
 	start_time( COMMUNICATION_TIMER );
 
 	/* need 2 ints to describe split root cell, 3 for all other levels */
@@ -1114,10 +1129,12 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 
 	/* now wait to receive from each proc */
 	do {
+		start_time( SPLIT_BUFFER_COMMUNICATION_TIMER );
 		MPI_Waitany( num_procs, receives, &proc, &status );
+		end_time( SPLIT_BUFFER_COMMUNICATION_TIMER );
 
-                if ( proc != MPI_UNDEFINED ) {
-                        MPI_Get_count( &status, MPI_INT, &buffer_size );
+		if ( proc != MPI_UNDEFINED ) {
+			MPI_Get_count( &status, MPI_INT, &buffer_size );
 
 			cart_assert( buffer_size % info_per_cell == 0 );
 
@@ -1158,7 +1175,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 				}
 			} else {
 				for ( j = 0; j < num_cells_to_recv; j++ ) {
-                                        cart_assert( buffer_cells_to_split[proc][3*j] != NULL_OCT );
+					cart_assert( buffer_cells_to_split[proc][3*j] != NULL_OCT );
 
 					oct_index = index_hash_lookup( buffer_oct_hash[proc],
 									 buffer_cells_to_split[proc][3*j] );
@@ -1198,7 +1215,9 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 	} while ( proc != MPI_UNDEFINED );
 
 	/* wait for all sends to complete */
+	start_time( SPLIT_BUFFER_COMMUNICATION_TIMER );
 	MPI_Waitall( 2*num_procs, sends, MPI_STATUSES_IGNORE );
+	end_time( SPLIT_BUFFER_COMMUNICATION_TIMER );
 
 	/* free all send buffers */
 	for ( proc = 0; proc < num_procs; proc++ ) {
@@ -1208,7 +1227,8 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 		}
 	}
 
-        end_time( COMMUNICATION_TIMER );
+	end_time( COMMUNICATION_TIMER );
+	end_time( SPLIT_BUFFER_TIMER );
 }
 
 int *oct_list;
@@ -1231,12 +1251,13 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 	MPI_Request receives[MAX_PROCS];
 	MPI_Request sends[MAX_PROCS];
 
+	start_time( JOIN_BUFFER_TIMER );
 	start_time( COMMUNICATION_TIMER );
 	
 	/* set up receives */
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( num_local_buffers[level+1][i] > 0 ) {
-		  buffer_octs_to_join[i] = cart_alloc(int, num_local_buffers[level+1][i] );
+			buffer_octs_to_join[i] = cart_alloc(int, num_local_buffers[level+1][i] );
 			MPI_Irecv( buffer_octs_to_join[i], num_local_buffers[level+1][i], 
 					MPI_INT, i, 0, MPI_COMM_WORLD, &receives[i] );
 		} else {
@@ -1299,8 +1320,10 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( num_local_buffers[level+1][i] > 0 ) {
+			start_time( JOIN_BUFFER_COMMUNICATION_TIMER );
 			MPI_Wait( &receives[i], &statuses[i] );
 			MPI_Get_count( &statuses[i], MPI_INT, &num_octs_joined );
+			end_time( JOIN_BUFFER_COMMUNICATION_TIMER );
 
 			for ( j = 0; j < num_octs_joined; j++ ) {
 				cart_assert( buffer_octs_to_join[i][j] >= 0 && buffer_octs_to_join[i][j] < num_octs );
@@ -1322,7 +1345,9 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 	}	
 
 	/* wait for all sends to complete */
+	start_time( JOIN_BUFFER_COMMUNICATION_TIMER );
 	MPI_Waitall( num_procs, sends, statuses );
+	end_time( JOIN_BUFFER_COMMUNICATION_TIMER );
 
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( num_remote_buffers[level+1][i] > 0 ) {
@@ -1331,4 +1356,5 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 	}	
 
 	end_time( COMMUNICATION_TIMER );
+	end_time( JOIN_BUFFER_TIMER );
 }

@@ -687,6 +687,7 @@ void load_balance() {
 	}
 
 	start_time( LOAD_BALANCE_TIMER );
+	start_time( COMMUNICATION_TIMER );
 
 	/* allocate space to store the work estimators */
 	local_work = cart_alloc(float, num_cells_per_level[min_level] );
@@ -744,9 +745,11 @@ void load_balance() {
 	}
 
 	/* gather all work to MASTER_NODE */
+	start_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 	MPI_Gatherv( local_work, num_cells_per_level[min_level], MPI_FLOAT,
 		global_work, receive_counts, proc_sfc_index, MPI_FLOAT,
 		MASTER_NODE, MPI_COMM_WORLD );
+	end_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 
 	if ( local_proc_id == MASTER_NODE ) {
 		for ( i = 0; i < num_procs; i++ ) {
@@ -755,9 +758,11 @@ void load_balance() {
 		}
 	}
 
+	start_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 	MPI_Gatherv( local_constraints, num_constraints*num_cells_per_level[min_level], MPI_INT,
 		global_constraints, receive_counts, receive_displacements, MPI_INT,
 		MASTER_NODE, MPI_COMM_WORLD );
+	end_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 
 	cart_free( local_work );
 	cart_free( local_constraints );
@@ -771,7 +776,9 @@ void load_balance() {
 	}
 
 	/* tell other processors which cells to expect */
+	start_time( LOAD_BALANCE_COMMUNICATION_TIMER );	
 	MPI_Bcast( &new_proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	end_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 
 	/* how many do we have now? */
 	new_num_local_root_cells = new_proc_sfc_index[local_proc_id+1] - new_proc_sfc_index[local_proc_id];
@@ -993,5 +1000,6 @@ void load_balance() {
 	/* reorder tracers? */
 #endif /* HYDRO_TRACERS */
 
+	end_time( COMMUNICATION_TIMER );
 	end_time( LOAD_BALANCE_TIMER );
 }

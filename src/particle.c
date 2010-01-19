@@ -458,6 +458,7 @@ void update_particle_list( int level ) {
 	end_time( WORK_TIMER );
 
 	start_time( COMMUNICATION_TIMER );
+	start_time( UPDATE_PARTS_COMMUNICATION_TIMER );
 
 	/* now collect particles which ended up in buffer cells */
 	for ( collect_level = min_level_modified; collect_level <= max_level_modified; collect_level++ ) {
@@ -489,6 +490,7 @@ void update_particle_list( int level ) {
 
 	trade_particle_lists( num_parts_to_send, particle_list_to_send, level );
 
+	end_time( UPDATE_PARTS_COMMUNICATION_TIMER );
 	end_time( COMMUNICATION_TIMER );
 	end_time( UPDATE_PARTS_TIMER );
 }
@@ -578,8 +580,10 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 		}
 	}
 
+	start_time( TRADE_PARTICLE_COMMUNICATION_TIMER );
 	MPI_Waitall( num_requests, send_count_requests, MPI_STATUSES_IGNORE );
 	MPI_Waitall( num_requests, recv_id_requests, MPI_STATUSES_IGNORE );
+	end_time( TRADE_PARTICLE_COMMUNICATION_TIMER );
 
 	/* set up receives */
 	for ( proc = 0; proc < num_procs; proc++ ) {
@@ -713,7 +717,9 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 	/* wait for receives and process particles */
 	num_pages_received = 0;
 	do {
+		start_time( TRADE_PARTICLE_COMMUNICATION_TIMER );
 		MPI_Waitany( num_procs, recv_id_requests, &proc, &status );
+		end_time( TRADE_PARTICLE_COMMUNICATION_TIMER );
 
 		if ( proc != MPI_UNDEFINED ) {
 			num_pages_received++;
@@ -804,7 +810,9 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 	} while ( proc != MPI_UNDEFINED );
 
 	/* wait for sends to complete */
+	start_time( TRADE_PARTICLE_COMMUNICATION_TIMER );
 	MPI_Waitall( num_send_requests, send_requests, MPI_STATUSES_IGNORE );
+	end_time( TRADE_PARTICLE_COMMUNICATION_TIMER );
 
 	/* de-allocate send buffers */
 	cart_free( send_id );
