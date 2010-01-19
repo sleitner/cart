@@ -65,7 +65,7 @@ void losTraverseSegment(int id, double pos0[3], double theta, double phi, double
 
 	  if(h > x) h = x;
 	}
-      cart_assert(h > 0.0);
+      if(h < 1.0e-5) h = 1.0e-5;
 
       h *= (1.01*cell_size[level]);
 

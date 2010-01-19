@@ -5,6 +5,9 @@
 */
 
 
+#define RT_FIXED_ISM
+
+
 /*
 //  Produce diagnostic output 
 */
@@ -95,7 +98,7 @@
 /*
 //  Enable computing the evolving cosmic background
 */
-#define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_HAARDT_MADAU
+/* #define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_HAARDT_MADAU */
 
 
 /*

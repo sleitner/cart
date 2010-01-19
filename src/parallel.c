@@ -21,37 +21,9 @@ int proc_sfc_index[MAX_PROCS+1];
 unsigned int mpi_custom_flags = MPI_CUSTOM_NONE;
 
 
-#ifdef _OPENMP
-void control_parameter_set_omp_threads(const char *value, void *ptr, int ind)
-{
-  int n;
-  control_parameter_set_int(value,&n,ind);
-  if(n > 0)
-    {
-      if(n > omp_get_num_procs()) n = omp_get_num_procs();
-      omp_set_num_threads(n);
-    }
-}
-
-void control_parameter_list_omp_threads(FILE *stream, const void *ptr)
-{
-  int n = omp_get_num_threads();
-  control_parameter_list_int(stream,&n);
-}
-#endif
-
-
 void config_init_parallel()
 {
-#ifdef _OPENMP
-  ControlParameterOps control_parameter_omp_threads = { control_parameter_set_omp_threads, control_parameter_list_omp_threads };
-#endif
-
   control_parameter_add2(control_parameter_int,&mpi_custom_flags,"@MPI:custom-flags","mpi_custom_flags","flags that can be set to customize MPI performance. This parameter is experimental and may be removed in the future.");
-
-#ifdef _OPENMP
-  control_parameter_add(control_parameter_omp_threads,(void *)control_parameter_set_omp_threads,"OMP:num_threads","number of OpenMP threads to use.");
-#endif
 }
 
 

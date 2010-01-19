@@ -340,7 +340,7 @@ void extFindProximityZones(const char *fname, int floor_level, int nside, int ha
       if(local_proc_id == MASTER_NODE)
 	{
 	  printf("\rHalo #%d proximity zone: %g %g %g\n",halos->list[ih].id,Rmin[0]*uKpc,Ravg[0]*uKpc,Rmax[0]*uKpc);
-	  fprintf(f,"%4d %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e\n",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir,units->velocity/constants->kms*halos->list[ih].vmax,units->length/constants->kpc*halos->list[ih].rvir,Ravg[0]*uKpc,Rmin[0]*uKpc,Rmax[0]*uKpc,Ravg[1]*uKpc,Rmin[1]*uKpc,Rmax[1]*uKpc,Ravg[2]*uKpc,Rmin[2]*uKpc,Rmax[2]*uKpc,Ravg[2]*uKpc,Rmin[2]*uKpc,Rmax[2]*uKpc);
+	  fprintf(f,"%4d %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e\n",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir,units->velocity/constants->kms*halos->list[ih].vmax,units->length/constants->kpc*halos->list[ih].rvir,Ravg[0]*uKpc,Rmin[0]*uKpc,Rmax[0]*uKpc,Ravg[1]*uKpc,Rmin[1]*uKpc,Rmax[1]*uKpc,Ravg[2]*uKpc,Rmin[2]*uKpc,Rmax[2]*uKpc,Ravg[3]*uKpc,Rmin[3]*uKpc,Rmax[3]*uKpc);
 	}
     }
 

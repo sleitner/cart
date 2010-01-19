@@ -12,6 +12,7 @@
 #include "refinement.h"
 #include "rt_solver.h"
 #include "starformation.h"
+#include "system.h"
 #include "timestep.h"
 #include "units.h"
 
@@ -116,11 +117,12 @@ void config_read_file(const char *filename)
 }
 
 
-void config_print_to_file(const char *filename)
+void config_print_to_file(const char *filename, int restart)
 {
   const char *title_sep = "******************************************\n";
   FILE *f;
   char pathname[256];
+  int n;
   
   if(local_proc_id != MASTER_NODE) return;
 
@@ -341,6 +343,26 @@ void config_print_to_file(const char *filename)
   fprintf(f,"!!!\n");
 
   control_parameter_print_hidden(f,0);
+
+  fprintf(f,"\n");
+  fprintf(f,"   SYSTEM SETTINGS\n");
+  fprintf(f,title_sep);
+
+  fprintf(f,"\n");
+  fprintf(f,"System hostname: %s\n",system_get_host_name());
+
+  MPI_Comm_size(MPI_COMM_WORLD,&n);
+  fprintf(f,"Number of MPI nodes: %d\n",n);
+
+#ifdef _OPENMP
+  n = omp_get_num_procs();
+#else
+  n = 1;
+#endif
+  fprintf(f,"Number of OpenMP threads: %d\n",n);
+
+  fprintf(f,"UTC time/date: %s",system_get_time_stamp(1));
+  fprintf(f,"Local time/date: %s",system_get_time_stamp(0));
 
   if(filename != NULL)
     {
