@@ -1,0 +1,10 @@
+# IAS Aurora (with custom compiled openMP enabled fftw)
+
+CFLAGS  = -fast -mp -mcmodel=medium
+CC      = mpicc
+FFLAGS  = -fast -mp -mcmodel=medium
+F77     = mpif77
+INCLUDES = -I/home/drudd/lib/fftw-2.1.5-pgcc-openmp/include \                                                                                     
+-L/home/drudd/lib/fftw-2.1.5-pgcc-openmp/lib -DFFT_OPENMP
+EXTRALIBS = 
+FFTWLIBS   = -lsrfftw_threads -lsrfftw -lsfftw_threads -lsfftw

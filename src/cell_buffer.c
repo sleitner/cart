@@ -332,7 +332,6 @@ void build_root_cell_buffer() {
 	int index;
 
     start_time( BUILD_CELL_BUFFER_TIMER );
-    start_time( COMMUNICATION_TIMER );
 
 	if ( num_procs > 1 ) {
 		buffer_list = skiplist_init();
@@ -381,7 +380,6 @@ void build_root_cell_buffer() {
 
 	root_buffer_enabled = 1;
 
-	end_time( COMMUNICATION_TIMER );
 	end_time( BUILD_CELL_BUFFER_TIMER );
 }
 
@@ -412,7 +410,6 @@ void build_cell_buffer()
 	}
 
 	start_time( BUILD_CELL_BUFFER_TIMER );
-	start_time( COMMUNICATION_TIMER );
 
 	cart_assert( buffer_enabled == 0 );
 
@@ -490,7 +487,6 @@ void build_cell_buffer()
 
 	buffer_enabled = 1;
 
-	end_time( COMMUNICATION_TIMER );
 	end_time( BUILD_CELL_BUFFER_TIMER );
 
 	cart_debug("buffer enabled");

@@ -51,6 +51,10 @@ void hart_init() {
 	hydro_eos( min_level );
 #endif /* HYDRO */
 
+	units_reset();
+	units_update( min_level );
+
+
 	cart_debug("tl[min_level] = %f", tl[min_level] );
 	cart_debug(" a[min_level] = %f", auni[min_level] );
 
@@ -75,8 +79,8 @@ void hart_init() {
 #endif /* PARTICLES */
 
 	if ( !buffer_enabled ) {
-	        cart_debug("building cell buffer");
-        	build_cell_buffer();
-	        repair_neighbors();
+		cart_debug("building cell buffer");
+		build_cell_buffer();
+		repair_neighbors();
 	}
 }

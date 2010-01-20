@@ -127,8 +127,18 @@ void config_print_to_file(const char *filename, int restart)
   const char *title_sep = "******************************************\n";
   FILE *f;
   char pathname[256];
+  char hostname[256];
+  char task_hostnames[MAX_PROCS][256]; 
+  int local_pid, pid[MAX_PROCS];
+  int proc;
   int n;
-  
+
+  system_get_host_name( hostname, 256 );
+  local_pid = system_get_pid(); 
+
+  MPI_Gather( hostname, 256, MPI_CHAR, task_hostnames, 256, MPI_CHAR, MASTER_NODE, MPI_COMM_WORLD );
+  MPI_Gather( &local_pid, 1, MPI_INT, pid, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+
   if(local_proc_id != MASTER_NODE) return;
 
   if(filename == NULL)
@@ -145,8 +155,8 @@ void config_print_to_file(const char *filename, int restart)
 	}
     }
 
-  fprintf(f,"SVN Revision: %s\n", SVNREVISION );
   fprintf(f,"SVN Branch: %s\n", SVNBRANCH );
+  fprintf(f,"SVN Revision: %s\n", SVNREVISION );
   fprintf(f,title_sep);
 
   fprintf(f,"\n");
@@ -354,17 +364,18 @@ void config_print_to_file(const char *filename, int restart)
   fprintf(f,title_sep);
 
   fprintf(f,"\n");
-  fprintf(f,"System hostname: %s\n",system_get_host_name());
-
-  MPI_Comm_size(MPI_COMM_WORLD,&n);
-  fprintf(f,"Number of MPI nodes: %d\n",n);
+  fprintf(f,"Number of MPI tasks: %d\n", num_procs );
 
 #ifdef _OPENMP
   n = omp_get_num_procs();
 #else
   n = 1;
 #endif
-  fprintf(f,"Number of OpenMP threads: %d\n",n);
+  fprintf(f,"Number of OpenMP threads (per-MPI task): %d\n",n);
+
+  for ( proc = 0; proc < num_procs; proc++ ) {
+     fprintf(f,"mpi task %3u hostname %s:%d\n", proc, task_hostnames[proc], pid[proc] );
+  }
 
   fprintf(f,"UTC time/date: %s",system_get_time_stamp(1));
   fprintf(f,"Local time/date: %s",system_get_time_stamp(0));

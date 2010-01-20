@@ -10,9 +10,7 @@
 
 #ifdef _OPENMP
 #include <omp.h>
-#include <sys/utsname.h>
 #endif
-
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
@@ -61,7 +59,6 @@ int main ( int argc, char *argv[]) {
 	double restart_a;
 	const char *tmp;
 	char c;
-	struct utsname uname_info;
 
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &num_procs );
@@ -144,9 +141,6 @@ int main ( int argc, char *argv[]) {
 		  }
 	#endif
 	}
-
-	uname(&uname_info);
-	cart_debug("host: %s pid = %u", uname_info.nodename, getpid() );
 
 	#ifdef _OPENMP
 	cart_debug("num openmp threads = %u", omp_get_max_threads() );

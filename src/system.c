@@ -7,13 +7,10 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
-
-char* system_get_host_name()
+void system_get_host_name( char *name, int len )
 {
-  const int len = 1024;
-  char name[len];
-
   if(gethostname(name,len) != 0)
     {
       strcpy(name,"unknown");
@@ -22,10 +19,11 @@ char* system_get_host_name()
     {
       name[len-1] = 0; /* just in case, gethostname does not guarantee null-terminated string. */
     }
-
-  return name;
 }
 
+int system_get_pid() {
+	return getpid();
+}	
 
 char* system_get_time_stamp(int utc)
 {

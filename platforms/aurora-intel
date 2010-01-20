@@ -1,0 +1,10 @@
+# IAS Aurora cluster (with custom compiled openMP enabled fftw)
+
+CFLAGS  = -O3 -openmp -ipo -xW -fpic
+CC      = mpicc
+FFLAGS  = -O3 -openmp -ipo -xW -fpic
+F77     = mpif77
+INCLUDES = -I/home/drudd/lib/fftw-2.1.5-intel-openmp/include \
+-L/home/drudd/lib/fftw-2.1.5-intel-openmp/lib -DFFT_OPENMP -L/usr/lib64
+EXTRALIBS =
+FFTWLIBS   = -lsrfftw_threads -lsrfftw -lsfftw_threads -lsfftw

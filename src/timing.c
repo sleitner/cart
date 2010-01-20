@@ -117,7 +117,10 @@ void init_timers() {
 
 void start_time_at_location( int timerid, const char *file, int line ) {
 	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
-	cart_assert( timers[current_timer_level+1][timerid].current_time == -1.0 );
+	if ( timers[current_timer_level+1][timerid].current_time != -1.0 ) {
+		cart_error("Timer already started @ %s:%u: level = %d, timerid = %u", 
+				file, line, current_timer_level, timerid );
+	}
 
 	timers[current_timer_level+1][timerid].current_time = MPI_Wtime();
 
