@@ -14,6 +14,11 @@
 timer timers[num_refinement_levels+2][NUM_TIMERS];
 int current_timer_level;
 
+int timer_is_exclusive[NUM_TIMERS];
+int last_exclusive_timer = -1;
+int current_exclusive_timer = -1;
+double last_counted_exclusive_time = 0.0;
+
 #ifdef MPE_LOG
 int event[2*NUM_TIMERS];
 #endif 
@@ -75,6 +80,7 @@ const char *timer_name[][2] = {
 { "select_level", "green" }, 
 { "max_level", "red" },
 { "communication", "red" },
+{ "allocation", "yellow" },
 { "work", "green" },
 #ifdef RADIATIVE_TRANSFER
 { "RT_tables", "green" },
@@ -102,6 +108,17 @@ void init_timers() {
 
 	current_timer_level = min_level-1;
 
+	/* set some times to be exclusive */
+	/* only one exclusive timer can be on at any given time */
+	/* gaps between one exclusive times going off and another going on are reported */
+	for ( j = 0; j < NUM_TIMERS; j++ ) timer_is_exclusive[j] = 0;
+
+	timer_is_exclusive[INIT_TIMER] = 1;
+	timer_is_exclusive[IO_TIMER] = 1;
+	timer_is_exclusive[LOAD_BALANCE_TIMER] = 1;
+	timer_is_exclusive[COMMUNICATION_TIMER] = 1;
+	timer_is_exclusive[WORK_TIMER] = 1;
+
 #ifdef MPE_LOG
 	MPE_Init_log();
 	for ( i = 0; i < NUM_TIMERS; i++ ) {
@@ -124,6 +141,19 @@ void start_time_at_location( int timerid, const char *file, int line ) {
 
 	timers[current_timer_level+1][timerid].current_time = MPI_Wtime();
 
+	if(timer_is_exclusive[timerid])
+	  {
+	    if(current_exclusive_timer != -1)
+	      {
+		cart_error("Timing error in %s:%u, exclusive timer %d is already active",file,line,current_exclusive_timer);
+	      }
+	    if(timers[current_timer_level+1][timerid].current_time-last_counted_exclusive_time > 0.001)
+	      {
+		cart_debug("Timing warning in %s:%u, unaccounted time gap %lg secs",file,line,timers[current_timer_level+1][timerid].current_time-last_counted_exclusive_time);
+	      }
+	    current_exclusive_timer = timerid;
+	  }
+	    
 #ifdef MPE_LOG
 	MPE_Log_event( event[2*timerid], current_timer_level, timer_name[timerid][0] );
 #endif
@@ -141,6 +171,17 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 
 	elapsed = MPI_Wtime() - timers[current_timer_level+1][timerid].current_time;
 
+	if(timer_is_exclusive[timerid])
+	  {
+	    if(current_exclusive_timer != timerid)
+	      {
+		cart_error("Timing error in %s:%u, non-unique exclusive timers %d and %d",file,line,timerid,current_exclusive_timer);
+	      }
+	    last_exclusive_timer = timerid;
+	    last_counted_exclusive_time = MPI_Wtime();
+	    current_exclusive_timer = -1;
+	  }
+	    
 #ifdef MPE_LOG
 	MPE_Log_event( event[2*timerid+1], current_timer_level, timer_name[timerid][0] );
 #endif /* MPE_LOG */

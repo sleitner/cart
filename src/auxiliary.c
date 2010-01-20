@@ -15,6 +15,7 @@
 #include "auxiliary.h"
 #include "parallel.h"
 #include "io.h"
+#include "timing.h"
 
 
 unsigned long int rng_seed = 0L;
@@ -456,6 +457,8 @@ void* cart_alloc_worker(size_t size, const char *file, int line)
 
   if(size > 0)
     {
+      start_time(ALLOCATION_TIMER);
+
       ptr = malloc( size );
 
       if(ptr == NULL)
@@ -470,13 +473,15 @@ void* cart_alloc_worker(size_t size, const char *file, int line)
       dmuRegister(ptr,size,file,line);
 
 #ifdef DEBUG_MEMORY_USE_VERBOSE
-	/* if allocating significant chunk (i.e. not skiplist nodes, report it */
-	if ( size > 65536 ) {
-		cart_debug("allocated %d bytes, %ld total", size,
-			dmuReportAllocatedMemory() );
+      /* if allocating significant chunk (i.e. not skiplist nodes, report it */
+      if( size > 65536)
+	{
+	  cart_debug("allocated %d bytes, %ld total",size,dmuReportAllocatedMemory() );
 	}
 #endif
 #endif
+
+      end_time(ALLOCATION_TIMER);
 
       return ptr;
     }
@@ -491,10 +496,12 @@ void cart_free_worker(void *ptr, const char *file, int line)
 {
   if(ptr != NULL)
     {
+      start_time(ALLOCATION_TIMER);
       free(ptr);
 #ifdef DEBUG_MEMORY_USE
       dmuUnRegister(ptr,file,line);
 #endif
+      end_time(ALLOCATION_TIMER);
     }
 }
 
