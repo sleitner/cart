@@ -3,6 +3,7 @@
 
 #include "parallel.h"
 #include "rt_global.h"
+#include "timing.h"
 #include "tree.h"
 
 
@@ -43,19 +44,21 @@ void rtGlobalAverageUpdate(int level, int n, struct rtGlobalAverageData *out, MP
       /*
       //  Reduce local values
       */
-	  start_time( COMMUNICATION_TIMER );
+      start_time( COMMUNICATION_TIMER );
       MPI_Allreduce(out[i].LocalLevelSum+(level-min_level),out[i].GlobalLevelSum+(level-min_level),1,MPI_FLOAT,MPI_SUM,local_comm);
-	  end_time( COMMUNICATION_TIMER );
+      end_time( COMMUNICATION_TIMER );
 
       /*
       //  Update global average
       */
+      start_time( WORK_TIMER );
       out[i].Value = 0.0;
       for(lev=min_level; lev<=max_level; lev++)
 	{
 	  out[i].Value += out[i].GlobalLevelSum[lev-min_level];
 	}
       out[i].Value /= num_root_cells;
+      end_time( WORK_TIMER );
     }
 }
 

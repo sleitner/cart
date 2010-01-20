@@ -312,6 +312,8 @@ void rtInitRun()
   frt_intg IPOP = rt_stellar_pop;
   frt_intg IREC = 0;
 
+  start_time(INIT_TIMER);
+
   rtuInitRun();
 
 #ifdef RT_TEST
@@ -334,6 +336,9 @@ void rtInitRun()
 #ifdef RT_TRANSFER
   rtInitRunTransfer();
 #endif
+
+  end_time(INIT_TIMER);
+
 }
 
 
@@ -491,9 +496,15 @@ void rtAfterAssignDensity1(int level)
 
 #ifdef RT_TRANSFER
   /* assumes buffer gas density is up to date */
+  start_time( WORK_TIMER );
   select_level(level,CELL_TYPE_ANY,&num_level_cells,&level_cells);
+  end_time( WORK_TIMER );
+
   rtAfterAssignDensityTransfer(level,num_level_cells,level_cells);
+
+  start_time( WORK_TIMER );
   cart_free(level_cells);
+  end_time( WORK_TIMER );
 #endif
 
   end_time(RT_AFTER_DENSITY_TIMER);

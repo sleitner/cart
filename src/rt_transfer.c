@@ -11,6 +11,7 @@
 #include "rt_utilities.h"
 #include "starformation.h"
 #include "timestep.h"
+#include "timing.h"
 #include "tree.h"
 #include "units.h"
 
@@ -149,11 +150,13 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
   // If we have a source field that was set inside density(...), 
   // turn the mass per cell into density.
   */
+  start_time( WORK_TIMER );
 #pragma omp parallel for default(none), private(i), shared(level,num_level_cells,level_cells,cell_vars,cell_volume_inverse)
   for(i=0; i<num_level_cells; i++)
     {
       cell_rt_source(level_cells[i]) *= cell_volume_inverse[level];
     }
+  end_time( WORK_TIMER );
 
 #else  /* PARTICLES */
 
@@ -175,6 +178,8 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
   rtAfterAssignDensityTransferOtvet(level,num_cells_per_level[level],level_cells);
 #endif
 
+  start_time( WORK_TIMER );
+
   sum = 0.0;
 #pragma omp parallel for default(none), private(i), shared(level,num_cells_per_level,level_cells,cell_vars,cell_child_oct), reduction(+:sum)
   for(i=0; i<num_cells_per_level[level]; i++) if(cell_is_leaf(level_cells[i]))
@@ -192,6 +197,8 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
     }
   rtGlobals[RT_OT_FIELD_AVG].LocalLevelSum[level-min_level] = sum;
 #endif /* RT_VAR_OT_FIELD */
+
+  end_time( WORK_TIMER );
 
 #endif /* RT_VAR_SOURCE */
 }
@@ -446,6 +453,8 @@ void rtTransferAssignSingleSourceDensity(int level)
   icell = cell_find_position_level( level, rtSingleSourcePos );
   if(icell==-1 || cell_level(icell)<level) return;
 
+  start_time( WORK_TIMER );
+
   size2 = 0.5*cell_size[level];
 
   x = rtSingleSourcePos[0];
@@ -563,6 +572,9 @@ void rtTransferAssignSingleSourceDensity(int level)
     mass = d11*dz1;
     cell_rt_source(icell) += mass;
   }
+
+  end_time( WORK_TIMER );
+
 }
 
 #endif /* RT_SINGLE_SOURCE && RT_VAR_SOURCE */

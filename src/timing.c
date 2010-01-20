@@ -83,9 +83,9 @@ const char *timer_name[][2] = {
 { "RT_after_density", "blue" },
 { "RT_tree_emulator_update", "red" },
 { "RT_single_source_update", "red" },
-{ "RT_solve_equation_update", "red" }
+{ "RT_solve_equation_update", "red" },
 #endif
-{ "level_total", "blue" },
+{ "level_total", "blue" }
 };
 
 void init_timers() {

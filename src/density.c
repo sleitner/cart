@@ -100,10 +100,6 @@ void assign_density( int level ) {
 
 #ifdef HYDRO
 	assign_hydro_density( level );
-#else /* HYDRO */
-#ifdef RADIATIVE_TRANSFER
-	rtAfterAssignDensity1(level);
-#endif
 #endif /* HYDRO */
 
 	end_time( DENSITY_TIMER );
@@ -129,12 +125,14 @@ void assign_hydro_density( int level ) {
 #endif
 	}
 
+	end_time( WORK_TIMER );
+
 #ifdef RADIATIVE_TRANSFER
 	rtAfterAssignDensity2(level,num_level_cells,level_cells);
 #endif
 
+	start_time( WORK_TIMER );
 	cart_free( level_cells );
-
 	end_time( WORK_TIMER );
 }
 #endif /* HYDRO */
