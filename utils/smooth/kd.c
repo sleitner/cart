@@ -7,7 +7,7 @@
 #include "kd.h"
 #include "tipsydefs.h"
 
-
+typedef float particle_float;
 #define MAX_ROOT_ITTR	32
 
 
@@ -120,7 +120,7 @@ int kdReadARTStars(KD kd,char *header, char *data, char *stardata, float *period
 	int num_particles;
 	int page_size;
 	int num_pages;	
-	float *input_page;
+	particle_float *input_page;
 	int num_parts_in_page;
 	int current_specie;
 	char desc[45];
@@ -217,7 +217,7 @@ int kdReadARTStars(KD kd,char *header, char *data, char *stardata, float *period
 	printf("%u pages\n", num_pages );
 
 	/* allocate page */
-	input_page = malloc( 6*page_size * sizeof(float) );
+	input_page = malloc( 6*page_size * sizeof(particle_float) );
 	assert( input_page != NULL );
 
 	kd->nParticles = num_stars;
@@ -248,16 +248,16 @@ int kdReadARTStars(KD kd,char *header, char *data, char *stardata, float *period
 		}
 
 		/* easiest to just read in entire page even though we're only using positions */
-		if ( fread( input_page, sizeof(float), 6*page_size, data_file ) != 6*page_size ) {
+		if ( fread( input_page, sizeof(particle_float), 6*page_size, data_file ) != 6*page_size ) {
 			fprintf(stderr,"Error reading page %u from data file!\n", i );
 			exit(1);
 		}
 
 		if ( endian ) {
 			for ( j = 0; j < num_parts_in_page; j++ ) {
-				reorder( (char *)&input_page[j], sizeof(float) );
-				reorder( (char *)&input_page[j+page_size], sizeof(float) );
-				reorder( (char *)&input_page[j+2*page_size], sizeof(float) );
+				reorder( (char *)&input_page[j], sizeof(particle_float) );
+				reorder( (char *)&input_page[j+page_size], sizeof(particle_float) );
+				reorder( (char *)&input_page[j+2*page_size], sizeof(particle_float) );
 			}
 		}
 			
@@ -305,7 +305,7 @@ int kdReadART(KD kd,char *header, char *data, float *period )
 	int num_pages;	
 	int num[10];
 	float mass[10];
-	float *input_page;
+	particle_float *input_page;
 	int num_parts_in_page;
 	int current_specie;
 	char desc[45];
@@ -412,7 +412,7 @@ int kdReadART(KD kd,char *header, char *data, float *period )
 	printf("%u pages\n", num_pages );
 
 	/* allocate page */
-	input_page = malloc( 6*page_size * sizeof(float) );
+	input_page = malloc( 6*page_size * sizeof(particle_float) );
 	assert( input_page != NULL );
 
 	kd->nParticles = num_particles;
@@ -441,16 +441,16 @@ int kdReadART(KD kd,char *header, char *data, float *period )
 		}
 
 		/* easiest to just read in entire page even though we're only using positions */
-		if ( fread( input_page, sizeof(float), 6*page_size, data_file ) != 6*page_size ) {
+		if ( fread( input_page, sizeof(particle_float), 6*page_size, data_file ) != 6*page_size ) {
 			fprintf(stderr,"Error reading page %u from data file!\n", i );
 			exit(1);
 		}
 
 		if ( endian ) {
 			for ( j = 0; j < num_parts_in_page; j++ ) {
-				reorder( (char *)&input_page[j], sizeof(float) );
-				reorder( (char *)&input_page[j+page_size], sizeof(float) );
-				reorder( (char *)&input_page[j+2*page_size], sizeof(float) );
+				reorder( (char *)&input_page[j], sizeof(particle_float) );
+				reorder( (char *)&input_page[j+page_size], sizeof(particle_float) );
+				reorder( (char *)&input_page[j+2*page_size], sizeof(particle_float) );
 			}
 		}
 			
