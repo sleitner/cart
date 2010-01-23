@@ -119,6 +119,8 @@ void init_timers() {
 	timer_is_exclusive[COMMUNICATION_TIMER] = 1;
 	timer_is_exclusive[WORK_TIMER] = 1;
 
+	last_counted_exclusive_time = MPI_Wtime();
+
 #ifdef MPE_LOG
 	MPE_Init_log();
 	for ( i = 0; i < NUM_TIMERS; i++ ) {

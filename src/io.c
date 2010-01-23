@@ -1434,7 +1434,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			if ( first_star == num_local_particles ) {
 				page_ids[0][0] = -1;
 			} else {
-	                        page_ids[0][0] = particle_id[particle_order[first_star]];
+				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
@@ -2542,7 +2542,8 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 		header->h100 = nbody_header.h100;
 		header->Wp5  = nbody_header.Wp5;
 		header->OmK0 = nbody_header.OmK0;
-		header->OmB0 = 1.0e-30;
+
+		header->OmB0 = 1.0e-4;
 
 		header->magic1    = nbody_header.magic1;
 		header->magic2    = nbody_header.magic2;
@@ -2584,7 +2585,10 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 		reorder( (char *)&header->h100, sizeof(float) );
 		reorder( (char *)&header->Wp5, sizeof(float) );
 		reorder( (char *)&header->OmK0, sizeof(float) );
-		reorder( (char *)&header->OmB0, sizeof(float) );
+
+		if ( !(*nbody_flag) ) {
+			reorder( (char *)&header->OmB0, sizeof(float) );
+		}
 
 		reorder( (char *)&header->magic1, sizeof(float) );
 		reorder( (char *)&header->DelDC, sizeof(float) );
@@ -2730,7 +2734,6 @@ void read_particles( char *header_filename, char *data_filename,
 #endif /* COSMOLOGY */
 
 		step		= header.istep;
-	
 		num_row		= header.Nrow;
 	
 		if ( nbody_flag ) {
@@ -2750,9 +2753,9 @@ void read_particles( char *header_filename, char *data_filename,
 		aeu0		= header.aeu0;
 
 #ifdef COSMOLOGY
-		ap0 		= abox_from_tcode( tl[min_level] - 0.5*dt );
+		ap0         = abox_from_tcode( tl[min_level] - 0.5*dt );
 #else
-		ap0             = 1.0;
+		ap0         = 1.0;
 #endif
 
 #ifndef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
@@ -2776,6 +2779,17 @@ void read_particles( char *header_filename, char *data_filename,
 			cart_error( "header.Nspecies > MAX_PARTICLE_SPECIES.  Increase and rerun.");
 		}
 
+		cart_debug("Particle unit conversions:");
+		cart_debug("grid_shift = %f", grid_shift );
+
+		if ( grid_change_flag ) {
+			cart_debug("grid_change_flag = %f", grid_change_flag );
+		}
+
+		if ( nbody_flag || grid_change_flag ) {
+			cart_debug("vfact = %e", vfact );
+		}
+				
 		num_particle_species = header.Nspecies;
 	
 		particle_species_indices[0] = 0;
@@ -2795,8 +2809,8 @@ void read_particles( char *header_filename, char *data_filename,
 		num_particles_total = particle_species_indices[num_particle_species];
 		cart_debug("num_particles_total = %u", num_particles_total );
 
-                num_parts_per_page = header.Nrow*header.Nrow;
-                num_parts_per_proc_page = num_parts_per_page/num_procs;
+		num_parts_per_page = header.Nrow*header.Nrow;
+		num_parts_per_proc_page = num_parts_per_page/num_procs;
 		num_pages = (num_particles_total-1) / num_parts_per_page + 1;
 
 		cart_assert( num_pages > 0 && num_parts_per_page*num_pages >= num_particles_total );
@@ -2873,7 +2887,7 @@ void read_particles( char *header_filename, char *data_filename,
 
 			/* allocate buffer space for particles on other processors */
 			for ( i = 1; i < num_procs; i++ ) {
-			        star_page[i] = cart_alloc(float, num_star_variables*num_parts_per_proc_page );
+				star_page[i] = cart_alloc(float, num_star_variables*num_parts_per_proc_page );
 				num_star_vars[i] = 0;
 			}
 		}
@@ -2883,7 +2897,7 @@ void read_particles( char *header_filename, char *data_filename,
 		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
 #endif /* COSMOLOGY */
 
 		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
@@ -2902,7 +2916,7 @@ void read_particles( char *header_filename, char *data_filename,
 
 		if ( num_sfcs > 0 ) {
 			/* create hash for quick checking if we should read in particles */
- 		        sfc_map = cart_alloc(int, num_root_cells );
+			sfc_map = cart_alloc(int, num_root_cells );
 
 			for ( i = 0; i < num_root_cells; i++ ) {
 				sfc_map[i] = 0;
@@ -2924,7 +2938,7 @@ void read_particles( char *header_filename, char *data_filename,
 
 		/* allocate buffer space for particles on other processors */
 		for ( i = 1; i < num_procs; i++ ) {
-		        page[i] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
+			page[i] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
 			page_ids[i] = cart_alloc(int, num_parts_per_proc_page );
 			count[i] = 0;
 			current_page[i] = 0;
@@ -2938,7 +2952,7 @@ void read_particles( char *header_filename, char *data_filename,
 
 		if ( timestep_filename != NULL ) {
 			for ( i = 1; i < num_procs; i++ ) {
-			        timestep_page[i] = cart_alloc(float, num_parts_per_proc_page );
+				timestep_page[i] = cart_alloc(float, num_parts_per_proc_page );
 			}
 		
 			timestep_input = fopen( timestep_filename, "r");

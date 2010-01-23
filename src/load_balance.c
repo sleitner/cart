@@ -687,7 +687,6 @@ void load_balance() {
 	}
 
 	start_time( LOAD_BALANCE_TIMER );
-	start_time( COMMUNICATION_TIMER );
 
 	/* allocate space to store the work estimators */
 	local_work = cart_alloc(float, num_cells_per_level[min_level] );
@@ -1000,6 +999,5 @@ void load_balance() {
 	/* reorder tracers? */
 #endif /* HYDRO_TRACERS */
 
-	end_time( COMMUNICATION_TIMER );
 	end_time( LOAD_BALANCE_TIMER );
 }

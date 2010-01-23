@@ -577,8 +577,6 @@ void choose_timestep( double *dt ) {
 
 #ifdef CONSTANT_TIMESTEP
 
-	start_time( WORK_TIMER );
-
 	if ( *dt == 0.0 ) {
 		*dt = max_dt;
 	}
@@ -587,11 +585,7 @@ void choose_timestep( double *dt ) {
 	rtModifyTimeStep(dt);
 #endif /* RADIATIVE_TRANSFER */
 
-	end_time( WORK_TIMER ):
-
 #else 
-
-	start_time( WORK_TIMER );
 
 	dt_new = 0.0;
 
@@ -638,15 +632,10 @@ void choose_timestep( double *dt ) {
 	}
 #endif /* PARTICLES */
 
-	end_time( WORK_TIMER );
-
-	start_time( COMMUNICATION_TIMER );
 	start_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );
 	MPI_Reduce( &dt_new, &dt_min, 1, MPI_DOUBLE, MPI_MIN, MASTER_NODE, MPI_COMM_WORLD );
 	end_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );
-	end_time( COMMUNICATION_TIMER );
 
-	start_time( WORK_TIMER );
 	if ( local_proc_id == MASTER_NODE ) {
 		/* if a cfl condition forces a decrease in the timestep,
 		 * force it to be at least min_time_dec smaller so we avoid
@@ -697,13 +686,10 @@ void choose_timestep( double *dt ) {
 		cart_debug("chose %e as our next timestep", dt_new );
 		*dt = dt_new;
 	}
-	end_time( WORK_TIMER );
 
-	start_time( COMMUNICATION_TIMER );
 	start_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );
 	MPI_Bcast( dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	end_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );	
-	end_time( COMMUNICATION_TIMER );
 
 #endif /* CONSTANT_TIMESTEP */
 

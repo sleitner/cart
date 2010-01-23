@@ -70,6 +70,12 @@ int main ( int argc, char *argv[]) {
 	}
 
 	/* load configuration file */
+	init_auxiliary();
+	init_timers();
+
+	start_time( TOTAL_TIME );
+	start_time( INIT_TIMER );
+
 	config_init();
 	if ( argc < 2 )
 	  {
@@ -148,13 +154,8 @@ int main ( int argc, char *argv[]) {
 
 	/* set up mpi datatypes, timers, units, etc 
 	 * (init_units called in case units set in config file) */
-	init_auxiliary();
-	init_timers();
 	init_logging( restart );
 	init_cell_buffer();
-
-    start_time( TOTAL_TIME );
-    start_time( INIT_TIMER );
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
     init_fft();
