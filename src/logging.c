@@ -162,7 +162,7 @@ void init_logging( int restart ) {
 
 
 #ifdef DEBUG
-	log_in_debug(-1,0,__FILE__,__LINE__);
+	debug_breakpoint(-1,0,__FILE__,__LINE__);
 #endif
 }
 
@@ -498,9 +498,8 @@ void log_diagnostics() {
 double offset = 0.0;
 unsigned long record = 0;
 
-void log_in_debug(int timerid, int start, const char *file, int line)
+void debug_breakpoint(int timerid, int start, const char *file, int line)
 {
-#if (DEBUG-0 > 1)
   char filename[256];
   FILE *f = 0;
   
@@ -520,12 +519,12 @@ void log_in_debug(int timerid, int start, const char *file, int line)
 	{
 	case 0:
 	  {
-	    fprintf(f,"%10lu: %s @ %d: %s done at %f sec.\n",record++,file,line,timer_name[timerid][1],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu: %s @ %d: %s done at %f sec.\n",record++,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
 	    break;
 	  }
 	case 1:
 	  {
-	    fprintf(f,"%10lu: %s @ %d: %s started at %f sec.\n",record++,file,line,timer_name[timerid][1],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu: %s @ %d: %s started at %f sec.\n",record++,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
 	    break;
 	  }
 	default:
@@ -535,6 +534,5 @@ void log_in_debug(int timerid, int start, const char *file, int line)
 	}
       fclose(f);
     }
-#endif
 }
 #endif

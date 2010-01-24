@@ -86,7 +86,6 @@ int main ( int argc, char *argv[]) {
 	  {
 	    config_read_file( argv[1] );
 	  }
-	config_print_to_file("config.log");
 
 	if ( argc == 2 ) {
 		restart = 0;
@@ -151,6 +150,8 @@ int main ( int argc, char *argv[]) {
 	#ifdef _OPENMP
 	cart_debug("num openmp threads = %u", omp_get_max_threads() );
 	#endif
+
+	config_print_to_file("config.log");
 
 	/* set up mpi datatypes, timers, units, etc 
 	 * (init_units called in case units set in config file) */

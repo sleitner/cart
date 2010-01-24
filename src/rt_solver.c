@@ -312,8 +312,6 @@ void rtInitRun()
   frt_intg IPOP = rt_stellar_pop;
   frt_intg IREC = 0;
 
-  start_time(INIT_TIMER);
-
   rtuInitRun();
 
 #ifdef RT_TEST
@@ -336,9 +334,6 @@ void rtInitRun()
 #ifdef RT_TRANSFER
   rtInitRunTransfer();
 #endif
-
-  end_time(INIT_TIMER);
-
 }
 
 

@@ -1,4 +1,6 @@
 
+#define DEBUG
+
 #define NATIVE_TCODE_NORMALIZATION
 
 #define HYDRO
