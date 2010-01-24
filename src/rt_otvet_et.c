@@ -427,9 +427,13 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
       cart_assert(proc != local_proc_id);
     }
 
+  end_time( WORK_TIMER );
+ 
   start_time( COMMUNICATION_TIMER );
   MPI_Bcast(&srcLevel,1,MPI_INT,proc,MPI_COMM_WORLD);
   end_time( COMMUNICATION_TIMER );
+
+  start_time( WORK_TIMER );
 
   eps1 = 0.01*cell_size[srcLevel]*cell_size[srcLevel];
   eps2 = 4*cell_size[srcLevel]*cell_size[srcLevel];
