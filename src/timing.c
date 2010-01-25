@@ -110,7 +110,9 @@ void init_timers() {
 			timers[i+1][j].current_time = -1.0;
 			timers[i+1][j].total_time = 0.0;
 			timers[i+1][j].last_time = 0.0;
+#ifdef DEBUG_TIMING                                                                                                                                
 			timers[i+1][j].last_wtime = 0.0;
+#endif
 		}
 	}
 
