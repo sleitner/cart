@@ -81,6 +81,8 @@ void set_cooling_redshift( double auni ) {
 	double rs, rs1, rs2, ac, bc;
 	int irs, irs1, irs2, ilz, ild, ilt;
 
+	start_time( WORK_TIMER );
+
 	rs = max( 1.0 / auni - 1.0, 0.0 );
 
 	/* find redshift bin */
@@ -116,6 +118,8 @@ void set_cooling_redshift( double auni ) {
 			}
 		}
 	}
+
+	end_time( WORK_TIMER );
 }
 
 double cooling_rate( double rhogl, double T_g, double Z_met ) {

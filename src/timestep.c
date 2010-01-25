@@ -260,6 +260,8 @@ int global_timestep( double dt ) {
 
 	units_update(min_level);
 
+	end_time( WORK_TIMER );
+
 #ifdef RADIATIVE_TRANSFER
 	rtStepBegin();
 	/* By default update tables once per step */
@@ -276,6 +278,9 @@ int global_timestep( double dt ) {
 #endif /* RADIATIVE_TRANSFER */
 
 #ifdef STARFORM
+
+	start_time( WORK_TIMER );
+
 	num_new_stars = 0;
 	last_star_id = particle_species_indices[num_particle_species]-1;
 
@@ -286,9 +291,10 @@ int global_timestep( double dt ) {
 		sf = min( sf, i );
 		star_formation_frequency[i] = 1 << sf;
 	}
-#endif /* STARFORM */
 
 	end_time( WORK_TIMER );
+
+#endif /* STARFORM */
 
 	ret = timestep( min_level, MPI_COMM_WORLD );
 	current_step_level = -1;
@@ -318,9 +324,7 @@ int global_timestep( double dt ) {
 #endif /* STARFORM */
 
 #ifdef RADIATIVE_TRANSFER	
-		start_time( WORK_TIMER );
 		rtStepEnd();
-		end_time( WORK_TIMER );
 #endif /* RADIATIVE_TRANSFER */
 	}
 
@@ -352,6 +356,7 @@ int timestep( int level, MPI_Comm local_comm )
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
 	
+	start_time( COMMUNICATION_TIMER );
         if(mpi_custom_flags & MPI_CUSTOM_SYNC)
           {
             /*
@@ -366,6 +371,8 @@ int timestep( int level, MPI_Comm local_comm )
 	refined = (level<max_level && level<max_level_now());
 	MPI_Comm_split(local_comm,refined,local_proc_id,&child_comm);
 
+	end_time( COMMUNICATION_TIMER );
+
 #ifdef HYDRO
 	hydro_copy_vars( level, COPY_ZERO_REF, COPY_SPLIT_NEIGHBORS );	
 #endif /* HYDRO */
@@ -374,6 +381,8 @@ int timestep( int level, MPI_Comm local_comm )
 	compute_accelerations_particles(level);
 #endif /* GRAVITY && PARTICLES */
 	
+	start_time( LOWER_LEVEL_TIMER );  /* this is for internal accounting only */
+
 	if ( level < max_level && level < max_level_now() ) {
 		step_ret = timestep( level + 1, child_comm );
 		current_step_level = level;
@@ -426,6 +435,8 @@ int timestep( int level, MPI_Comm local_comm )
 			cart_assert( fabs( tl[nlevel] - (tl[level]+dtl[level]) ) < 1e-6 );
 		}
 	}
+
+	end_time( LOWER_LEVEL_TIMER );
 
 	start_time( WORK_TIMER );
 	units_update(level);

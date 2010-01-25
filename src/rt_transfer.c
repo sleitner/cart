@@ -20,6 +20,8 @@
 
 void rtTransferSplitUpdate(int level);
 void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalAverageData *out); 
+void rtGetAverageRadiationField(frt_real *rfAvg);
+void rtGetAverageAbsorption(frt_real *abcAvg);
 
 #ifndef RT_VAR_SOURCE
 void rtTransferUpdateUniformSource(rtGlobalAverageData *avg);
@@ -85,7 +87,11 @@ void rtInitRunTransfer()
 #endif
   frt_intg val = rt_num_frequencies;
 
+  start_time(WORK_TIMER);
+
   frtCall(initruntransfer)(&val);
+
+  end_time(WORK_TIMER);
 
   rtGlobalAverageInit(rtNumGlobals,rtGlobals);
 
@@ -104,7 +110,18 @@ void rtInitRunTransfer()
 
 void rtStepBeginTransfer()
 {
-  frtCall(stepbegintransfer)();
+#ifdef RT_TRANSFER
+  frt_real abcAvg[rt_num_frequencies];
+  rtGetAverageAbsorption(abcAvg);
+#else
+  frt_real *abcAvg = NULL;
+#endif
+
+  start_time(WORK_TIMER);
+
+  frtCall(stepbegintransfer)(abcAvg);
+
+  end_time(WORK_TIMER);
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
@@ -151,11 +168,13 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
   // turn the mass per cell into density.
   */
   start_time( WORK_TIMER );
+
 #pragma omp parallel for default(none), private(i), shared(level,num_level_cells,level_cells,cell_vars,cell_volume_inverse)
   for(i=0; i<num_level_cells; i++)
     {
       cell_rt_source(level_cells[i]) *= cell_volume_inverse[level];
     }
+
   end_time( WORK_TIMER );
 
 #else  /* PARTICLES */
@@ -214,6 +233,8 @@ void rtTransferSplitUpdate(int level)
   double new_var;
   const double factor = ((double)(1.0/(1<<nDim)));
 
+  start_time(WORK_TIMER);
+
   if(level < max_level)
     {
       select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
@@ -240,6 +261,9 @@ void rtTransferSplitUpdate(int level)
 	}
       cart_free(level_cells);
     }
+
+  end_time(WORK_TIMER);
+
 }
 
 
@@ -248,6 +272,8 @@ void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalAverageData *out)
   int i;
   double buffer[rt_num_vars];
   MESH_RUN_DECLARE(level,cell);
+
+  start_time(WORK_TIMER);
 
   /*
   //  Compute per-level averages
@@ -267,6 +293,8 @@ void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalAverageData *out)
   for(i=0; i<nvar; i++) out[i].LocalLevelSum[level-min_level] = buffer[i];
   
   MESH_RUN_OVER_LEVELS_END;
+
+  end_time(WORK_TIMER);
 
   for(level=min_level; level<=max_level; level++)
     {
@@ -338,34 +366,39 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 }
 
 
-void frtCall(externalgetaveragefields)(frt_intg *nfields, frt_real *rfAvg)
+void rtGetAverageRadiationField(frt_real *rfAvg)
 {
   int i;
   struct rtGlobalAverageData tmp[rt_num_frequencies];
   
-  cart_assert(rt_num_frequencies == (*nfields));
-
   rtGlobalAverageInit(rt_num_frequencies,tmp);
 
   /*
   //  Compute global properties for all frequencies 
   */
   rtTransferUpdateFields(rt_num_frequencies,rt_freq_offset,tmp); 
+
+  start_time(WORK_TIMER);
+
   for(i=0; i<rt_num_frequencies; i++)
     {
       rfAvg[i] = tmp[i].Value;
     }
+
+  end_time(WORK_TIMER);
 }
 
 
-void frtCall(externalgetglobalabs)(frt_intg *nfields, frt_real *abcAvg)
+void rtGetAverageAbsorption(frt_real *abcAvg)
 {
-  int i, j, ifield, n = *nfields;
-  double buffer[3*rt_num_frequencies];
+  int i, j, ifield, n = rt_num_frequencies/2;
+  double lBuffer[3*n], gBuffer[3*n];
   MESH_RUN_DECLARE(level,cell);
   float *abc[2], *abc1, w;
 
-  for(i=0; i<3*n; i++) buffer[i] = 0.0;
+  start_time(WORK_TIMER);
+
+  for(i=0; i<3*n; i++) lBuffer[i] = 0.0;
   
   MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
 
@@ -395,9 +428,9 @@ void frtCall(externalgetglobalabs)(frt_intg *nfields, frt_real *abcAvg)
       if(cell_is_leaf(cell))
 	{
 	  w = cell_var(cell,ifield);
-	  buffer[3*i+0] += abc1[_Index]*cell_volume[level];
-	  buffer[3*i+1] += w*cell_volume[level];
-	  buffer[3*i+2] += w*abc1[_Index]*cell_volume[level];
+	  lBuffer[3*i+0] += abc1[_Index]*cell_volume[level];
+	  lBuffer[3*i+1] += w*cell_volume[level];
+	  lBuffer[3*i+2] += w*abc1[_Index]*cell_volume[level];
 #ifdef RT_DEBUG
 	  if(w<0.0 || isnan(w)) 
 	    {
@@ -420,19 +453,27 @@ void frtCall(externalgetglobalabs)(frt_intg *nfields, frt_real *abcAvg)
 
   MESH_RUN_OVER_LEVELS_END;
 
-  rtuGlobalAverage(3*n,buffer);
+  end_time(WORK_TIMER);
+
+  start_time( COMMUNICATION_TIMER );
+  MPI_Allreduce(lBuffer,gBuffer,3*n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  end_time( COMMUNICATION_TIMER );
+
+  start_time(WORK_TIMER);
 
   for(i=0; i<n; i++)
     {
-      if(buffer[3*i+1] > 1.0e-35)
+      if(gBuffer[3*i+1] > 1.0e-35)
 	{
-	  abcAvg[i] = buffer[3*i+2]/buffer[3*i+1];
+	  abcAvg[i] = gBuffer[3*i+2]/gBuffer[3*i+1];
 	}
       else
 	{
-	  abcAvg[i] = buffer[3*i+0]/num_root_cells;
+	  abcAvg[i] = gBuffer[3*i+0]/num_root_cells;
 	}
     }
+
+  end_time(WORK_TIMER);
 }
 
 

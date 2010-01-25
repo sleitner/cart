@@ -1,11 +1,21 @@
 #ifndef __TIMING_H__
 #define __TIMING_H__
 
+#ifndef CONFIGURED
+#error "Missing config.h include."
+#endif
+
+
 typedef struct TIMER {
 	int num_calls;
 	double current_time;
 	double last_time;
 	double total_time;
+#ifdef DEBUG_TIMING
+	double last_wtime;
+	const char* last_file;
+	int last_line;
+#endif
 } timer;
 
 #define	    TOTAL_TIME                              0
@@ -65,7 +75,8 @@ typedef struct TIMER {
 #define	    MAX_LEVEL_TIMER                         54
 #define	    COMMUNICATION_TIMER                     55
 #define	    ALLOCATION_TIMER                        56
-#define	    WORK_TIMER                              57
+#define	    LOWER_LEVEL_TIMER                       57
+#define	    WORK_TIMER                              58
 
 #ifdef RADIATIVE_TRANSFER
 

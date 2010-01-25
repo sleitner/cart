@@ -89,6 +89,9 @@ void analysis()
 #endif /* HYDRO */
 #endif
   int nvars = sizeof(varid)/sizeof(int);
+  const int nbin1 = 256;
+  int nbin[] = { nbin1, nbin1, nbin1 };
+  double bb[6];
 
   if(num_options < 1)
     {
@@ -197,7 +200,7 @@ void analysis()
 	    {
 	      cart_error("-ifrit=<halo-id>,<zoom> requires positive integer <halo-id> and a positive float number <zoom> as arguments.");
 	    }
-	  if(id>=0 && halos==NULL)
+	  if(id>0 && halos==NULL)
 	    {
 	      cart_debug("Halo list must be loaded for dumping IFrIT file for a given halo. Skipping this command.");
 	    }
@@ -205,7 +208,9 @@ void analysis()
 	    {
 	      if(halos == NULL)
 		{
-		  iOutputHalo("ifrit",floor_level,s,NULL,nvars,varid);
+		  bb[0] = bb[2] = bb[4] = 0.0;
+		  bb[1] = bb[3] = bb[5] = num_grid;
+		  iOutputMesh("ifrit-box.bin",floor_level,nbin,bb,nvars,varid);
 		}
 	      else
 		{

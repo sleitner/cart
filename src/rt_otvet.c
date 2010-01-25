@@ -119,7 +119,7 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
   float xiUnit;
 #endif
 
-  start_time( WORK_TIMER );
+  start_time(WORK_TIMER);
 
   /*
   // If there are no local cells, we do a dry run only
@@ -284,7 +284,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
   abc[1] = abc[0];
 #endif
 
-  end_time( WORK_TIMER );
+  end_time(WORK_TIMER);
 
   /*
   // Iterate over all non-zero frequencies, two at a time (local and global fields)
@@ -292,7 +292,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
   for(ifreq=0; ifreq<rt_num_frequencies/2; ifreq++)
     {
 
-      start_time( WORK_TIMER );
+      start_time(WORK_TIMER);
 
       ivarL = rt_freq_offset + ifreq;
       ivarG = ivarL + rt_num_frequencies/2;
@@ -320,15 +320,17 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  abcMax = 0.0;
 	}
 
-      end_time( WORK_TIMER );
+      end_time(WORK_TIMER);
 
       /*
       //  Make sure all procs have the same abcMin/Max
       */
-      start_time( COMMUNICATION_TIMER );
+      start_time(COMMUNICATION_TIMER);
+
       MPI_Allreduce(&abcMin,&abcMin1,1,MPI_FLOAT,MPI_MIN,local_comm);
       MPI_Allreduce(&abcMax,&abcMax1,1,MPI_FLOAT,MPI_MAX,local_comm);
-      end_time( COMMUNICATION_TIMER );
+
+      end_time(COMMUNICATION_TIMER);
 
       abcMin = abcMin1;
       abcMax = abcMax1;
@@ -339,7 +341,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
       if(abcMax*num_grid < tauMin)
 	{
 	  
-	  start_time( WORK_TIMER );
+	  start_time(WORK_TIMER);
 
 	  if(work)
 	    {
@@ -351,13 +353,13 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 		}
 	    }
 
-	  end_time( WORK_TIMER );
+	  end_time(WORK_TIMER);
 
 	}
       else
 	{
 
-	  start_time( WORK_TIMER );
+	  start_time(WORK_TIMER);
 
 	  /*
 	  //  Number of iterations
@@ -378,13 +380,13 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 #endif
 
 #ifdef DEBUG
-	  end_time( WORK_TIMER );
+	  end_time(WORK_TIMER);
 	  rtuCheckGlobalValue(ifreq,"Otvet:ifreq",local_comm);
 #ifdef RT_SIGNALSPEED_TO_C
 	  rtuCheckGlobalValue(nit0,"Otvet:nit0",local_comm);
 #endif
 	  rtuCheckGlobalValue(nit,"Otvet:nit",local_comm);
-	  start_time( WORK_TIMER );
+	  start_time(WORK_TIMER);
 #endif
 	  /*
 	  // Update local field
@@ -398,7 +400,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 		}
 	    }
 
-	  end_time( WORK_TIMER );
+	  end_time(WORK_TIMER);
 
 	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,indL2G,neib,info,abc[0],rhs,jac,dd,nit,work,rtOtvetLaplacian_GenericTensor_SplitStencil_Diag,rtOtvetLaplacian_GenericTensor_SplitStencil_Full);
 
@@ -408,13 +410,13 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  */
 	  if(work)
 	    {
-	      start_time( WORK_TIMER );
+	      start_time(WORK_TIMER);
 #pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rtGlobals,rhs)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  rhs[iL] = srcG(iL);
 		}
-	      end_time( WORK_TIMER );
+	      end_time(WORK_TIMER);
 	    }
 
 	  rtOtvetSolveFieldEquation(ivarG,level,num_level_cells,indL2G,neib,info,abc[1],rhs,jac,dd,nit,work,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full);
@@ -425,7 +427,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  */
 	  if(work)
 	    {
-	      start_time( WORK_TIMER );
+	      start_time(WORK_TIMER);
 
 #pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rtGlobals)
 	      for(iL=0; iL<num_level_cells; iL++)
@@ -439,12 +441,12 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 		  varG(iL) = 0.0;
 #endif
 		}
-	      end_time( WORK_TIMER );
+	      end_time(WORK_TIMER);
 	    }
 	}
     }
 
-  start_time( WORK_TIMER );
+  start_time(WORK_TIMER);
 
   cart_free(indL2G);
   cart_free(abc[0]);
@@ -461,7 +463,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
       cart_free(dd);
     }
 
-  end_time( WORK_TIMER );
+  end_time(WORK_TIMER);
 
 }
 
@@ -508,7 +510,7 @@ C$OMP+SHARED(var,varL,ivar,indLG,nTotCells)
   if(work)
     {
 
-      start_time( WORK_TIMER );
+      start_time(WORK_TIMER);
 
 #pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,dx,dWorker,rhs,dd)
       for(iL=0; iL<num_level_cells; iL++)
@@ -535,7 +537,7 @@ C$OMP+SHARED(var,varL,ivar,indLG,nTotCells)
 	  //dd[iL] = rhs[iL];
 	}
 
-      end_time( WORK_TIMER );
+      end_time(WORK_TIMER);
 
     }
 
@@ -544,7 +546,7 @@ C$OMP+SHARED(var,varL,ivar,indLG,nTotCells)
       if(work)
 	{
 
-	  start_time( WORK_TIMER );
+	  start_time(WORK_TIMER);
 
 	  /*
 	  // Compute Laplacian term
@@ -577,13 +579,13 @@ C$OMP+SHARED(var,varL,ivar,indLG,nTotCells)
 	      if(var(iL) < 0.0) var(iL) = 0;
 	    }
 
-	  end_time( WORK_TIMER );
+	  end_time(WORK_TIMER);
 
 	}
 
-      start_time( RT_SOLVE_EQUATION_UPDATE_TIMER );
+      start_time(RT_SOLVE_EQUATION_UPDATE_TIMER);
       update_buffer_level(level,&ivar,1);
-      end_time( RT_SOLVE_EQUATION_UPDATE_TIMER );
+      end_time(RT_SOLVE_EQUATION_UPDATE_TIMER);
     }
 
 #ifdef RTO_CACHE_VARS

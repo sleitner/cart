@@ -32,16 +32,12 @@ C
 C
 C
 C
-      subroutine frtSetGlobalRadiationFieldsTransfer()
+      subroutine frtSetGlobalRadiationFieldsTransfer(rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_transfer.inc'
       dimension w(NSETS), rfAvg(2*NSETS)
       include 'frt_inline.inc'
-C
-C  Using a callback
-C
-      call frtExternalGetAverageFields(2*NSETS,rfAvg)
 C
       do L=1,NSETS
 
@@ -82,33 +78,54 @@ C
 C
 C
 C
-      subroutine frtStepBeginTransfer
+      subroutine frtStepBeginTransfer(abcAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_transfer.inc'
+      dimension abcAvg(*)
 C
       common /RT_Transfer_Save1/ abcBeg(NSETS)
 C
-      call frtTransferGetGlobalAbs(abcBeg)
+      do i=1,NSETS
+         abcBeg(i) = abcAvg(i)
+      enddo
+
+#ifdef RT_DEBUG
+      call frtQueryId(id)
+      if(id .eq. 0) then
+         abe1 = abcAvg(1)
+         abe2 = abcAvg(2) - abe1*csH1n(lrG1tr)
+         abe3 = abcAvg(3) - abe1*csH1n(lrG2tr) - abe2*csG1n(lrG2tr)
+         write(6,*) 'RT: <abcH1> = ', abcAvg(1), abe1/csH1tr/uColumn
+         write(6,*) 'RT: <abcG1> = ', abcAvg(2), abe2/csG1tr/uColumn
+         write(6,*) 'RT: <abcG2> = ', abcAvg(3), abe3/csG2tr/uColumn
+      endif
+#endif
+
+      do i=1,NSETS
+         if(abcAvg(i) .lt. 0.0) then
+            write(0,*) 'RT_Transfer: fatal error, ',
+     .           'negative global absoprtion: ', i, abcAvg(i)
+            call frtAbort
+         endif
+      enddo
 
       return
       end
 C
 C  This is hard-coded for NSETS=3 case
 C
-      subroutine frtTransferComputeAverageAbs(axi)
+      subroutine frtTransferComputeAverageAbs(axi,abcAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_transfer.inc'
-      dimension axi(*)
+      dimension axi(*), abcAvg(*)
 C
       common /RT_Transfer_Save1/ abcBeg(NSETS)
       dimension abcEnd(NSETS)
 C
-      call frtTransferGetGlobalAbs(abcEnd)
-
       do i=1,NSETS
-         abcEnd(i) = 0.5*(abcEnd(i)+abcBeg(i))
+         abcEnd(i) = 0.5*(abcAvg(i)+abcBeg(i))
       enddo
 
       axiH1 = max(0.0,abcEnd(1)/facLX)
@@ -125,41 +142,6 @@ C
      .     -axiH1*csH1n(lrG2tr))
       do lr=lrG2tr,lrmax
          axi(lr) = axi(lr) + axiG2*csG2n(lr)
-      enddo
-
-      return
-      end
-C
-C
-C
-      subroutine frtTransferGetGlobalAbs(abc)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      include 'frt_transfer.inc'
-      dimension abc(*)
-C
-C  Using a callback
-C
-      call frtExternalGetGlobalAbs(NSETS,abc)
-
-#ifdef RT_DEBUG
-      call frtQueryId(id)
-      if(id .eq. 0) then
-         abe1 = abc(1)
-         abe2 = abc(2) - abe1*csH1n(lrG1tr)
-         abe3 = abc(3) - abe1*csH1n(lrG2tr) - abe2*csG1n(lrG2tr)
-         write(6,*) 'RT: <abcH1> = ', abc(1), abe1/csH1tr/uColumn
-         write(6,*) 'RT: <abcG1> = ', abc(2), abe2/csG1tr/uColumn
-         write(6,*) 'RT: <abcG2> = ', abc(3), abe3/csG2tr/uColumn
-      endif
-#endif
-
-      do i=1,NSETS
-         if(abc(i) .lt. 0.0) then
-            write(0,*) 'RT_Transfer: fatal error, ',
-     .           'negative global absoprtion: ', i, abc(i)
-            call frtAbort
-         endif
       enddo
 
       return

@@ -107,13 +107,14 @@ C
 C
 C
 C
-      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel)
+      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel,
+     .     rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
-      dimension guv(NRAD)
+      dimension guv(NRAD), rfAvg(*)
 C
       include 'frt_inline.inc'
 C
@@ -294,20 +295,22 @@ C$OMP+SHARED(angLoc)
 #endif /* RT_EXTERNAL_BACKGROUND != RT_BACKGROUND_SELFCONSISTENT */
 #endif /* RT_EXTERNAL_BACKGROUND */
 
-      call frtSetGlobalRadiationFields
+      call frtSetGlobalRadiationFields(rfAvg)
 
       return
       end
 C
 C
 C
-      subroutine frtSetGlobalRadiationFields
+      subroutine frtSetGlobalRadiationFields(rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
+      dimension rfAvg(*)
+C
       include 'frt_inline.inc'
-
+C
 #ifdef RT_TRANSFER
-      call frtSetGlobalRadiationFieldsTransfer
+      call frtSetGlobalRadiationFieldsTransfer(rfAvg)
 #endif
 
 C$OMP PARALLEL DO DEFAULT(NONE),
@@ -336,11 +339,12 @@ C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
 C
 C
 C
-      subroutine frtUpdateTables
+      subroutine frtUpdateTables(rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
+      dimension rfAvg(*)
 
-      call frtSetGlobalRadiationFields
+      call frtSetGlobalRadiationFields(rfAvg)
       call frtFillRadiationTables
 
       return
@@ -348,14 +352,14 @@ C
 C
 C
 C
-      subroutine frtStepEnd(vol,avg)
+      subroutine frtStepEnd(vol,parAvg,abcAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
       include 'frt_global.inc'
-      dimension avg(*)
+      dimension parAvg(*), abcAvg(*)
 C
       dimension axi(NRAD), sxi(NRAD), xib(NRAD)
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
@@ -403,10 +407,10 @@ C
 C
 C  Unpack global quantities
 C
-      duvin = avg(1)
+      duvin = parAvg(1)
 #ifdef RT_CHEMISTRY
-      XH1_va = avg(2)
-      XMH_va = avg(3)
+      XH1_va = parAvg(2)
+      XMH_va = parAvg(3)
 #endif
 
       call frtFinalizeGlobalFields(vol)
@@ -444,7 +448,7 @@ C$OMP+SHARED(axi,CRAD2,csDust,lrmin,lrmax,csLyS,gData)
  
 #ifdef RT_TRANSFER
      
-      call frtTransferComputeAverageAbs(axi)
+      call frtTransferComputeAverageAbs(axi,abcAvg)
 
 #else
 

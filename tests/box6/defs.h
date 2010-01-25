@@ -1,5 +1,5 @@
 
-#define DEBUG
+#define DEBUG_TIMING
 
 #define NATIVE_TCODE_NORMALIZATION
 

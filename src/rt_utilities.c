@@ -69,19 +69,6 @@ void rtuInitRun()
 
 
 /*
-//  Compute a global average of a buffer
-*/
-void rtuGlobalAverage(int n, double *lBuffer)
-{
-  double gBuffer[n];
-  start_time( COMMUNICATION_TIMER );
-  MPI_Allreduce(lBuffer,gBuffer,n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  end_time( COMMUNICATION_TIMER );
-  memcpy(lBuffer,gBuffer,n*sizeof(double));
-}
-
-
-/*
 // This routine returns 18 neighbors as if the whole mesh was uniform.
 // In particular, one neighbor of higher level will appear more than
 // once. The first 6 neighbors are exactly as returned by cell_all_neighbors.

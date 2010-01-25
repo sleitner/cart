@@ -81,6 +81,13 @@ void rtGetSobolevFactors(int cell, int level, float *len, float *vel)
 
 #include "F/frt_c.h"
 
+
+#ifdef RT_TRANSFER
+void rtGetAverageRadiationField(frt_real *rfAvg);
+void rtGetAverageAbsorption(frt_real *abcAvg);
+#endif
+
+
 #ifdef RT_DEBUG
 #include "rt_debug.h"
 #else
@@ -312,6 +319,8 @@ void rtInitRun()
   frt_intg IPOP = rt_stellar_pop;
   frt_intg IREC = 0;
 
+  start_time(WORK_TIMER);
+
   rtuInitRun();
 
 #ifdef RT_TEST
@@ -331,6 +340,8 @@ void rtInitRun()
   //frtCall(initrun)();
   frtCall(initrun2)(&Yp,&Tmin,&D2Gmin,&ClumpH2,&CohLenH2,&fGal,&fQSO,&IPOP,&IREC);
 
+  end_time(WORK_TIMER);
+
 #ifdef RT_TRANSFER
   rtInitRunTransfer();
 #endif
@@ -340,11 +351,20 @@ void rtInitRun()
 /* This function can be called more than once per top level step */ 
 void rtUpdateTables()
 {
+#ifdef RT_TRANSFER
+  frt_real rfAvg[rt_num_frequencies];
+  rtGetAverageRadiationField(rfAvg);
+#else
+  frt_real *rfAvg = NULL;
+#endif
+
   start_time(RT_TABLES_TIMER);
+  start_time(WORK_TIMER);
 
   /* Fill in the tables */
-  frtCall(updatetables)();
+  frtCall(updatetables)(rfAvg);
 
+  end_time(WORK_TIMER);
   end_time(RT_TABLES_TIMER);
 }
 
@@ -364,7 +384,18 @@ void rtStepBegin()
   frt_real Hubble = 0.0;
 #endif
 
-  frtCall(stepbegin)(&uDen,&uLen,&uTime,&dtStep,&aExp,&Hubble);
+#ifdef RT_TRANSFER
+  frt_real rfAvg[rt_num_frequencies];
+  rtGetAverageRadiationField(rfAvg);
+#else
+  frt_real *rfAvg = NULL;
+#endif
+
+  start_time(WORK_TIMER);
+
+  frtCall(stepbegin)(&uDen,&uLen,&uTime,&dtStep,&aExp,&Hubble,rfAvg);
+
+  end_time(WORK_TIMER);
 
 #ifdef RT_TRANSFER
   rtStepBeginTransfer();
@@ -405,12 +436,21 @@ void rtStepEnd()
 #ifdef RT_DEBUG
   int i;
 #endif
-  frt_real rVol = num_root_cells;
-  frt_real rAvg[3];
-  double *buffer;
+  frt_real vol = num_root_cells;
+  frt_real parAvg[3];
+  double lBuffer[4], gBuffer[4];
 
   MESH_RUN_DECLARE(level,cell);
   double sumSrc, sumRho, sumRhoHI, sumRhoH2;
+
+#ifdef RT_TRANSFER
+  frt_real abcAvg[rt_num_frequencies];
+  rtGetAverageAbsorption(abcAvg);
+#else
+  frt_real *abcAvg = NULL;
+#endif
+
+  start_time(WORK_TIMER);
 
   /*
   //    Averages over mesh variables and their derivatives
@@ -434,25 +474,30 @@ void rtStepEnd()
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
   MESH_RUN_OVER_LEVELS_END;
 
-  buffer = cart_alloc(double, 4 );
-  
-  buffer[0] = sumSrc;
-  buffer[1] = sumRho;
-  buffer[2] = sumRhoHI;
-  buffer[3] = sumRhoH2;
-  rtuGlobalAverage(4,buffer);
+  lBuffer[0] = sumSrc;
+  lBuffer[1] = sumRho;
+  lBuffer[2] = sumRhoHI;
+  lBuffer[3] = sumRhoH2;
 
-  rAvg[0] = buffer[0]/num_root_cells;
+  end_time(WORK_TIMER);
+
+  start_time( COMMUNICATION_TIMER );
+  MPI_Allreduce(lBuffer,gBuffer,4,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+  end_time( COMMUNICATION_TIMER );
+
+  start_time(WORK_TIMER);
+
+  parAvg[0] = gBuffer[0]/num_root_cells;
 #ifdef RT_CHEMISTRY
-  rAvg[1] = buffer[2]/buffer[1];
-  rAvg[2] = buffer[3]/buffer[1];
+  parAvg[1] = gBuffer[2]/gBuffer[1];
+  parAvg[2] = gBuffer[3]/gBuffer[1];
 #else
-  rAvg[1] = rAvg[2] = 0.0;
+  parAvg[1] = parAvg[2] = 0.0;
 #endif
 
-  cart_free(buffer);
+  frtCall(stepend)(&vol,parAvg,abcAvg);
 
-  frtCall(stepend)(&rVol,rAvg);
+  end_time(WORK_TIMER);
 
 #ifdef RT_TRANSFER
   rtStepEndTransfer();

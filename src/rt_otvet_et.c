@@ -67,7 +67,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
     {
       top_level_fft(RT_VAR_SOURCE,NumVars-1,Vars+1,rtOtvetTopLevelEddingtonTensor);
 
-      start_time( WORK_TIMER );
+      start_time(WORK_TIMER);
 
       /*
       //  Normalize
@@ -109,13 +109,13 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
 	    }
 	}
 
-      end_time( WORK_TIMER );
+      end_time(WORK_TIMER);
 
     }
   else
     {
 
-      start_time( WORK_TIMER );
+      start_time(WORK_TIMER);
 
       /*
       // We start with interpolating from parents
@@ -218,25 +218,25 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
       
       cart_free(parent_cells);
 
-      end_time( WORK_TIMER );
+      end_time(WORK_TIMER);
 
     }
  
-  start_time( RT_TREE_EMULATOR_UPDATE_TIMER );
+  start_time(RT_TREE_EMULATOR_UPDATE_TIMER);
   update_buffer_level(level,Vars,NumVars);
-  end_time( RT_TREE_EMULATOR_UPDATE_TIMER );
+  end_time(RT_TREE_EMULATOR_UPDATE_TIMER);
 
   /*
   // Smooth a few times
   */
-  start_time( WORK_TIMER );
+  start_time(WORK_TIMER);
   tmp = cart_alloc(float, num_level_cells*rt_num_et_vars);
-  end_time( WORK_TIMER );
+  end_time(WORK_TIMER);
 
   for(l=0; l<NumSmooth; l++)
     {
 
-      start_time( WORK_TIMER );
+      start_time(WORK_TIMER);
 
 #pragma omp parallel for default(none), private(i,j,k,cell,et,nb18), shared(level,num_level_cells,level_cells,cell_vars,tmp)
       for(i=0; i<num_level_cells; i++)
@@ -271,16 +271,16 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
 	    }
 	}
 
-      end_time( WORK_TIMER );
+      end_time(WORK_TIMER);
 
-      start_time( RT_TREE_EMULATOR_UPDATE_TIMER );
+      start_time(RT_TREE_EMULATOR_UPDATE_TIMER);
       update_buffer_level(level,Vars+1,NumVars-1);
-      end_time( RT_TREE_EMULATOR_UPDATE_TIMER );
+      end_time(RT_TREE_EMULATOR_UPDATE_TIMER);
     }
 
-  start_time( WORK_TIMER );
+  start_time(WORK_TIMER);
   cart_free(tmp);
-  end_time( WORK_TIMER );
+  end_time(WORK_TIMER);
 
 }
 
@@ -293,6 +293,8 @@ void rtOtvetComputeGreenFunctions()
   float norm;
   fftwnd_plan forward;
   fftw_real *gf[6];
+
+  start_time(WORK_TIMER);
 
   for(m=0; m<6; m++)
     {
@@ -372,6 +374,8 @@ void rtOtvetComputeGreenFunctions()
     }
   
   rfftwnd_destroy_plan(forward);
+
+  end_time(WORK_TIMER);
 }
 
 
@@ -409,7 +413,7 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
   double eps1, eps2, dr2, pos[nDim];
   int proc, coord[nDim];
 
-  start_time( WORK_TIMER );
+  start_time(WORK_TIMER);
 
   for(j=0; j<nDim; j++) coord[j] = (int)srcPos[j];
   index = sfc_index(coord);
@@ -427,13 +431,13 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
       cart_assert(proc != local_proc_id);
     }
 
-  end_time( WORK_TIMER );
+  end_time(WORK_TIMER);
  
-  start_time( COMMUNICATION_TIMER );
+  start_time(COMMUNICATION_TIMER);
   MPI_Bcast(&srcLevel,1,MPI_INT,proc,MPI_COMM_WORLD);
-  end_time( COMMUNICATION_TIMER );
+  end_time(COMMUNICATION_TIMER);
 
-  start_time( WORK_TIMER );
+  start_time(WORK_TIMER);
 
   eps1 = 0.01*cell_size[srcLevel]*cell_size[srcLevel];
   eps2 = 4*cell_size[srcLevel]*cell_size[srcLevel];
@@ -470,11 +474,11 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
 
   cart_free(level_cells);
 
-  end_time( WORK_TIMER );
+  end_time(WORK_TIMER);
 
-  start_time( RT_SINGLE_SOURCE_UPDATE_TIMER );
+  start_time(RT_SINGLE_SOURCE_UPDATE_TIMER);
   update_buffer_level(level,Vars,NumVars);
-  end_time( RT_SINGLE_SOURCE_UPDATE_TIMER );
+  end_time(RT_SINGLE_SOURCE_UPDATE_TIMER);
 }
 
 #endif /* RADIATIVE_TRANSFER && RT_TRANSFER && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */

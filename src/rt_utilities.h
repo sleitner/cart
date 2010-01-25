@@ -50,7 +50,6 @@ void rtuInitRun();
 /*
 // Helper functions
 */
-void rtuGlobalAverage(int n, double *buffer);
 void rtuGetStencil(int level, int cell, int nb[]);
 void rtuGetLinearArrayMaxMin(int n, float *arr, float *max, float *min);
 
