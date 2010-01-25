@@ -483,6 +483,7 @@ void config_init()
 #endif /* RADIATIVE_TRANSFER */
 
   config_init_parallel();
+  config_init_density();
 }
 
 
@@ -512,5 +513,6 @@ void config_verify()
 #endif /* RADIATIVE_TRANSFER */
 
   config_verify_parallel();
+  config_verify_density();
 }
 

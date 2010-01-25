@@ -30,7 +30,6 @@
 --#define PREFIX_JOBNAME_TO_OUTPUT_FILES
 
 
---#define MAX_LEVEL_DARK_DENSITY        <set value here>
 --#define num_root_grid_refinements	<set value here>
 --#define num_refinement_levels		<set value here>
 --#define num_octs			<set value here>

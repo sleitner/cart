@@ -7,6 +7,7 @@
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "control_parameter.h"
 #include "density.h"
 #include "iterators.h"
 #include "particle.h"
@@ -19,6 +20,24 @@
 #ifndef DENSITY_CHUNK_SIZE
 #define DENSITY_CHUNK_SIZE	16384
 #endif /* DENSITY_CHUNK_SIZE */
+
+
+int max_dark_matter_level = max_level;
+
+
+void assign_particle_density_smoothed( int level );
+
+
+void config_init_density()
+{
+  control_parameter_add2(control_parameter_int,&max_dark_matter_level,"max-dark-matter-level","max_dark_matter_level","maximum level for dark matter density assignment. The dark matter density is set to be uniform on lower levels.");
+}
+
+
+void config_verify_density()
+{
+  cart_assert(max_dark_matter_level>=min_level && max_dark_matter_level<=max_level);
+}
 
 
 void initialize_density( int level ) {
@@ -85,17 +104,11 @@ void assign_density( int level ) {
 	initialize_density(level);
 
 #ifdef PARTICLES
-
-#ifdef MAX_LEVEL_DARK_DENSITY
-	if ( level <= MAX_LEVEL_DARK_DENSITY ) {
+	if ( level <= max_dark_matter_level ) {
 		assign_particle_density( level );
 	} else {
 		assign_particle_density_smoothed( level );
 	}
-#else
-	assign_particle_density( level );
-#endif
-
 #endif /* PARTICLES */
 
 #ifdef HYDRO
@@ -325,7 +338,6 @@ void assign_particle_density( int level ) {
 	merge_buffer_cell_densities( level );
 }
 
-#ifdef MAX_LEVEL_DARK_DENSITY
 /* snl With a few more ifdefs all this could be done in the original routine */
 void assign_particle_density_smoothed( int level ) { 
 	int i, j, k;
@@ -352,13 +364,13 @@ void assign_particle_density_smoothed( int level ) {
 	
 	start_time( WORK_TIMER );
 
-	high_levels = level - MAX_LEVEL_DARK_DENSITY  ;
+	high_levels = level - max_dark_matter_level  ;
 	cart_assert ( high_levels > 0 );
 	children_at_level = pow( 2, 3*high_levels );
 
-	/* smoothed interpolation is done on MAX_LEVEL_DARK_DENSITY so sizes reflect this*/
-	size2 = 0.5*cell_size[MAX_LEVEL_DARK_DENSITY];
-	size_inverse = cell_size_inverse[MAX_LEVEL_DARK_DENSITY];
+	/* smoothed interpolation is done on max_dark_matter_level so sizes reflect this*/
+	size2 = 0.5*cell_size[max_dark_matter_level];
+	size_inverse = cell_size_inverse[max_dark_matter_level];
 
 	size2_star = 0.5*cell_size[level];
 	size_star_inverse = cell_size_inverse[level];
@@ -370,7 +382,7 @@ void assign_particle_density_smoothed( int level ) {
 		}
 
 		if ( i == num_particles-1 || count == DENSITY_CHUNK_SIZE ) {
-#pragma omp parallel for default(none), private(j,ipart,is_star), shared(count,level,size2,size_inverse,size2_star,size_star_inverse,particle_list,cell_list,mass_assigned,particle_species_indices,num_particle_species,particle_id)
+#pragma omp parallel for default(none), private(j,ipart,is_star), shared(count,level,size2,size_inverse,size2_star,size_star_inverse,particle_list,cell_list,mass_assigned,particle_species_indices,num_particle_species,particle_id,max_dark_matter_level)
 			for ( j = 0; j < count; j++ ) {
 				ipart = particle_list[j];
 #ifdef STARFORM				
@@ -384,8 +396,8 @@ void assign_particle_density_smoothed( int level ) {
 							ipart, &cell_list[num_children*j],
 							&mass_assigned[num_children*j] );
 				} else {
-					/* assign density of particles in list at MAX_LEVEL_DARK_DENSITY*/
-					find_single_particle_density( MAX_LEVEL_DARK_DENSITY, size2, size_inverse, 
+					/* assign density of particles in list at max_dark_matter_level*/
+					find_single_particle_density( max_dark_matter_level, size2, size_inverse, 
 							ipart, &cell_list[num_children*j],
 							&mass_assigned[num_children*j] );
 				}
@@ -474,6 +486,5 @@ void assign_particle_density_smoothed( int level ) {
 	merge_buffer_cell_densities( level );
 }
 
-#endif /* MAX_LEVEL_DARK_DENSITY */
 #endif /* PARTICLES */
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
