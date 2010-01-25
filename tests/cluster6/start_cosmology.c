@@ -1,13 +1,11 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
-#include <math.h>
-#include <mpi.h>
 
-#include "defs.h"
 #include "auxiliary.h"
 #include "tree.h"
-#include "particle.h"
+#include "particle.h"                                                                                                                              
 #include "sfc.h"
 #include "parallel.h"
 #include "cell_buffer.h"
@@ -56,6 +54,9 @@ void init_run() {
 	hydro_magic( min_level );
 	hydro_eos( min_level );
 #endif /* HYDRO */
+
+    units_reset();
+    units_update( min_level );
 
 	cart_debug("tl[min_level] = %f", tl[min_level] );
 	cart_debug(" a[min_level] = %f", auni[min_level] );

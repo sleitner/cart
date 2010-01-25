@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,7 +8,6 @@
 
 #include <mpi.h>
 
-#include "defs.h"
 #include "timestep.h"
 #include "tree.h"
 #include "io.h"
@@ -47,8 +48,6 @@ void read_hart_gas_ic( char *filename ) {
 		HVAR_MOMENTUM+1, HVAR_MOMENTUM+2,
 		HVAR_GAS_ENERGY, HVAR_INTERNAL_ENERGY };
 
-	cart_debug("in hart_read_gas_ics");
-
 	if ( local_proc_id == MASTER_NODE ) {
 		input = fopen(filename, "r");
 		if ( input == NULL ) {
@@ -85,10 +84,10 @@ void read_hart_gas_ic( char *filename ) {
 			reorder( (char *)&ncells, sizeof(int) );
 		}
 
-		Lbox = boxh;
+		//Lbox = boxh;
 		auni_init = ainit;
 
-		MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	
 		cart_debug("boxh = %f", boxh );
@@ -170,7 +169,7 @@ void read_hart_gas_ic( char *filename ) {
 			cart_free( page_indices[proc] );
 		}
 	} else {
-		MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
 		page[local_proc_id] = cart_alloc(float, num_grid*num_grid );
@@ -196,7 +195,7 @@ void read_hart_gas_ic( char *filename ) {
 
 	/* set gas gamma on root level */
 	for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-		cell_gas_gamma(i) = gamma;
+		cell_gas_gamma(i) =  constants->gamma;
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*wmu/wmu_e;
