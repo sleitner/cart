@@ -33,7 +33,6 @@ void read_restart( double aexpn );
 void restart_load_balance( char *grid_filename, char *particle_header_filename, char *particle_data );
 
 #ifdef PARTICLES
-#define PARTICLE_HEADER_MAGIC		(0.1234f)
 
 typedef struct {
 	float aunin;

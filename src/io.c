@@ -57,6 +57,9 @@ typedef double particle_float;
 #define MPI_PARTICLE_FLOAT	MPI_DOUBLE
 #endif
 
+#ifndef PARTICLE_HEADER_MAGIC
+#define PARTICLE_HEADER_MAGIC           (0.1234f)
+#endif
 
 /*
 //  For backward compatibility
@@ -1094,11 +1097,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		}
 
 		/* write jobname to header desc (head of file) */
+		snprintf( desc, 45, "%s", jobname );
 		for ( i = strlen(jobname); i < 45; i++ ) {
 			desc[i] = ' '; /* for fortran version */
 		}
 		desc[45] = 0;
-		snprintf( desc, 45, "%s", jobname );
 
 		size = sizeof(particle_header)+45;
 		fwrite( &size, sizeof(int), 1, output );

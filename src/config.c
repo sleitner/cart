@@ -5,6 +5,7 @@
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "cosmology.h"
+#include "density.h"
 #include "hydro.h"
 #include "io.h"
 #include "load_balance.h"
@@ -465,6 +466,7 @@ void config_init()
   config_init_io();
   config_init_load_balance();
   config_init_timestep();
+  config_init_density();
 
 #ifdef HYDRO
   config_init_hydro();
@@ -483,7 +485,6 @@ void config_init()
 #endif /* RADIATIVE_TRANSFER */
 
   config_init_parallel();
-  config_init_density();
 }
 
 
@@ -495,6 +496,7 @@ void config_verify()
   config_verify_io();
   config_verify_load_balance();
   config_verify_timestep();
+  config_verify_density();
 
 #ifdef HYDRO
   config_verify_hydro();
@@ -513,6 +515,5 @@ void config_verify()
 #endif /* RADIATIVE_TRANSFER */
 
   config_verify_parallel();
-  config_verify_density();
 }
 

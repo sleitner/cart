@@ -1,0 +1,40 @@
+#
+# DO NOT CHANGE THE REPOSITORY!!!
+# 1. Copy Makefile.template into any other directory <dir>, that directory 
+#    can be ANYWHERE on your file system.
+# 2. Rename it Makefile and set TOP_DIR below to the top directory of the 
+#    ART distribution.
+# 3. ART will be compiled in <dir>.
+# 4. You also need start.c. If you don't have it already, a standard one 
+#    will be created automatically during the first compilation. You can 
+#    then modify it as you see fit. 
+#
+TOP_DIR = # Needs to be set
+#
+#  The rest of this file does not need to be changed
+#
+SRC_DIR = $(TOP_DIR)/src
+
+compile: art
+
+include $(TOP_DIR)/Make.config
+
+start.c: 
+	cp -i $(TOP_DIR)/cosmology/gic/start.c.template start.c
+
+gic_reader.o: $(TOP_DIR)/cosmology/gic/gic_reader.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -c $(TOP_DIR)/cosmology/gic/gic_reader.c
+
+gic_init.o: $(DEFS) $(TOP_DIR)/cosmology/gic/gic_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -c $(TOP_DIR)/cosmology/gic/gic_init.c
+
+art: .obj $(DEFS) $(OBJS) start.c gic_init.o gic_reader.o 
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/gic -I$(SRC_DIR) $(INCLUDES) $(OBJS) gic_reader.o gic_init.o start.c -o art $(LIBS) $(EXTRALIBS)
+	which mpirun
+
+analysis: .obj $(DEFS) $(OBJS) $(EXT_OBJS) analysis.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) $(EXT_OBJS) analysis.c -o analysis $(LIBS) $(EXTRALIBS)
+	which mpirun
+
+clean:
+	rm -rf .obj *.il core start.o gic_init.o gic_reader.o art analysis

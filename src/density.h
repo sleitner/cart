@@ -8,6 +8,9 @@
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
+void config_init_density();
+void config_verify_density();
+
 void initialize_density( int level );
 void assign_density( int level );
 
