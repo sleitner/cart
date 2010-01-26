@@ -367,7 +367,7 @@ void config_print_to_file(const char *filename, int restart)
   fprintf(f,"Number of MPI tasks: %d\n", num_procs );
 
 #ifdef _OPENMP
-  n = omp_get_num_procs();
+  n = omp_get_num_threads();
 #else
   n = 1;
 #endif
