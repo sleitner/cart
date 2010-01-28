@@ -388,6 +388,7 @@ int timestep( int level, MPI_Comm local_comm )
 		current_step_level = level;
 		ret = min( ret, step_ret );
 		if ( ret == -1 && level < max_cfl_sync_level ) { 
+			end_time( LOWER_LEVEL_TIMER );
 			end_time( LEVEL_TIMER );
 			end_timing_level( level );
 			MPI_Comm_free( &child_comm );
@@ -397,6 +398,7 @@ int timestep( int level, MPI_Comm local_comm )
 		current_step_level = level;
 		ret = min( ret, step_ret );
 		if ( ret == -1 && level < max_cfl_sync_level ) { 
+			end_time( LOWER_LEVEL_TIMER );
 			end_time( LEVEL_TIMER );
 			end_timing_level( level );
 			MPI_Comm_free( &child_comm );
