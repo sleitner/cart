@@ -4525,7 +4525,7 @@ void write_grid_binary( char *filename ) {
 
 #ifdef HYDRO
 		fwrite( &size, sizeof(int), 1, output );
-		fwrite( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, output);
+		fwrite( level_sweep_dir, sizeof(int), maxlevel-minlevel+1, output);
 		fwrite( &size, sizeof(int), 1, output );
 #endif /* HYDRO */
 
