@@ -4428,7 +4428,7 @@ void write_grid_binary( char *filename ) {
 	if ( local_proc_id == MASTER_NODE ) {
 		size = 256*sizeof(char);
 		fwrite(&size, sizeof(int), 1, output );
-		fwrite(&jobname, sizeof(char), 256, output );
+		fwrite(jobname, sizeof(char), 256, output );
 		fwrite(&size, sizeof(int), 1, output );
 
 		/* istep, t, dt, adum, ainit */
@@ -5027,7 +5027,7 @@ void read_grid_binary( char *filename ) {
 			}
 		}
 
-		fread(&job, sizeof(char), 256, input );
+		fread(job, sizeof(char), 256, input );
 		fread(&size, sizeof(int), 1, input );
 
 		/* istep, t, dt, adum, ainit */
