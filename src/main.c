@@ -227,6 +227,12 @@ int main ( int argc, char *argv[]) {
 		}
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
+#ifdef HYDRO
+		for ( level = min_level; level <= max_level; level++ ) {
+			level_sweep_dir[level] = 0;
+		}
+#endif /* HYDRO */
+
 #ifdef GRAVITY
 #ifdef HYDRO
 		for ( level = min_level; level <= max_level; level++ ) {
