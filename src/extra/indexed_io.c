@@ -213,6 +213,10 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			}
 		}
 
+		for ( i = maxlevel+1; i <= max_level; i++ ) {
+			level_sweep_dir[i] = 0;
+		}
+
 		/* sfc ordering used */
 		fread( &size, sizeof(int), 1, input );
 		fread( &sfc_order, sizeof(int), 1, input);
