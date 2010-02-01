@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +11,7 @@
 #include "defs.h"
 #include "tree.h"
 #include "io.h"
+#include "cosmology.h"
 #include "units.h"
 #include "timestep.h"
 #include "parallel.h"
@@ -125,7 +128,7 @@ void read_hart_grid_binary( char *filename ) {
 		reorder( (char *)&h, sizeof(float) );
 	}
 
-	Lbox = boxh;
+	box_size = boxh;
 	cosmology_set(OmegaM, Om0 );
 	cosmology_set(OmegaL, Oml0 );
 	cosmology_set(OmegaB, Omb0 );
@@ -169,7 +172,7 @@ void read_hart_grid_binary( char *filename ) {
 
 	/* tl */
 	fread( &size, sizeof(int), 1, input );
-	fread( &tl, sizeof(double), maxlevel-minlevel+1, input );
+	fread( tl, sizeof(double), maxlevel-minlevel+1, input );
 	fread( &size, sizeof(int), 1, input);
 
 	if ( endian ) {
@@ -180,7 +183,7 @@ void read_hart_grid_binary( char *filename ) {
 
 	/* dtl */
 	fread( &size, sizeof(int), 1, input );
-	fread( &dtl, sizeof(double), maxlevel-minlevel+1, input);
+	fread( dtl, sizeof(double), maxlevel-minlevel+1, input);
 	fread( &size, sizeof(int), 1, input );
 
 	if ( endian ) {
@@ -191,7 +194,7 @@ void read_hart_grid_binary( char *filename ) {
 
 	/* tl_old */
 	fread( &size, sizeof(int), 1, input );
-	fread( &tl_old, sizeof(double), maxlevel-minlevel+1, input);
+	fread( tl_old, sizeof(double), maxlevel-minlevel+1, input);
 	fread( &size, sizeof(int), 1, input );
 
 	if ( endian ) {
@@ -202,7 +205,7 @@ void read_hart_grid_binary( char *filename ) {
 
 	/* dtl_old */
 	fread( &size, sizeof(int), 1, input );
-	fread( &dtl_old, sizeof(double), maxlevel-minlevel+1, input);
+	fread( dtl_old, sizeof(double), maxlevel-minlevel+1, input);
 	fread( &size, sizeof(int), 1, input );	
 
 	if ( endian ) {
@@ -213,7 +216,7 @@ void read_hart_grid_binary( char *filename ) {
 
 	/* iSO */
 	fread( &size, sizeof(int), 1, input );
-	fread( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
+	fread( level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
 	fread( &size, sizeof(int), 1, input );
 
 	if ( endian ) {
@@ -239,7 +242,6 @@ void read_hart_grid_binary( char *filename ) {
 	proc_sfc_index[1] = ncell0;
 
 	init_tree();
-	init_units(); 
 
 	/* create hash for hart oct index -> our oct index */
 	hart_oct_hash = index_hash_create( ncell0 );
@@ -551,11 +553,11 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite(&size, sizeof(int), 1, output );
 
 	/* boxh, Om0, Oml0, Omb0, hubble */
-	boxh = Lbox;
-        OmM0 = cosmology->OmegaM;
-        OmL0 = cosmology->OmegaL;
-        OmB0 = cosmology->OmegaB;
-        h100 = cosmology->h;
+	boxh = box_size;
+	OmM0 = cosmology->OmegaM;
+	OmL0 = cosmology->OmegaL;
+	OmB0 = cosmology->OmegaB;
+	h100 = cosmology->h;
 	size = 5*sizeof(float);
 
 	fwrite( &size, sizeof(int), 1, output );

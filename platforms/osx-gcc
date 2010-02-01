@@ -2,9 +2,9 @@
 
 # generic 
 CC      = mpicc
-CFLAGS  = -g 
+CFLAGS  = -O2
 F77     = mpif77
-FFLAGS  = -g 
-INCLUDES= -I/sw/include/
+FFLAGS  = -O2
+INCLUDES= -I/sw/include/ 
 EXTRALIBS= -L/sw/lib/
 

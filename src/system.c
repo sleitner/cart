@@ -5,6 +5,7 @@
 //  Only ported to Unix at present
 */
 #include <time.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/types.h>

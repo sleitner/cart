@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +39,9 @@ int main ( int argc, char *argv[]) {
 
 	init_auxiliary();
 	init_timers();
+
+	config_init();
+
 	init_parallel_grid();
 	init_tree();
 	init_cell_buffer();
@@ -46,7 +51,8 @@ int main ( int argc, char *argv[]) {
 #endif
 
 	read_grid_binary( argv[1] );	
-	init_units();
+    units_reset();
+    units_update(min_level);
 #ifdef COSMOLOGY
 	abox[min_level] = abox_from_tcode(tl[min_level]);
 	auni[min_level] = auni_from_tcode(tl[min_level]);

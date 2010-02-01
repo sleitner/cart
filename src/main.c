@@ -153,8 +153,7 @@ int main ( int argc, char *argv[]) {
 
 	config_print_to_file("config.log");
 
-	/* set up mpi datatypes, timers, units, etc 
-	 * (init_units called in case units set in config file) */
+	/* set up mpi datatypes, timers, units, etc */
 	init_logging( restart );
 	init_cell_buffer();
 

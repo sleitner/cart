@@ -9,7 +9,7 @@
 #include "cooling.h"
 #include "io.h"
 #include "units.h"
-
+#include "timing.h"
 
 #define smallrate	(1e-30)
 #define nltmax		71
