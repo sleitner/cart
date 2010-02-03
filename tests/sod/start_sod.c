@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -16,6 +18,7 @@
 #include "hydro.h"
 #include "iterators.h"
 #include "auxiliary.h"
+#include "cosmology.h"
 
 void run_output() {
 	char filename[256];
@@ -70,7 +73,7 @@ void init_run() {
 			cell_momentum(icell,1) = 0.0;
 			cell_momentum(icell,2) = 0.0;
 
-			cell_gas_gamma(icell) = gamma;
+			cell_gas_gamma(icell) = constants->gamma;
 
 			if ( pos[0] < (float)num_grid/2.0 ) {
 				cell_gas_density(icell) = 1.0;
@@ -87,18 +90,18 @@ void init_run() {
 		cart_free( level_cells );
 
 		update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+#ifdef REFINEMENT
 		modify( level, 1 );
+#endif
 	}
 
 	/* set time variables */
 	tl[min_level] = t_init;
 	dtl[min_level] = 0.0;
-        choose_timestep( &dtl[min_level] );
-        auni[min_level] = abox[min_level] = 1.0;
+	choose_timestep( &dtl[min_level] );
 
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		dtl[level] = 0.5*dtl[level-1];
 		tl[level] = tl[min_level];
-		auni[level] = abox[level] = auni[min_level];
 	}
 }

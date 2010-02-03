@@ -466,7 +466,10 @@ void config_init()
   config_init_io();
   config_init_load_balance();
   config_init_timestep();
+
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
   config_init_density();
+#endif
 
 #ifdef HYDRO
   config_init_hydro();
@@ -496,7 +499,10 @@ void config_verify()
   config_verify_io();
   config_verify_load_balance();
   config_verify_timestep();
+
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
   config_verify_density();
+#endif
 
 #ifdef HYDRO
   config_verify_hydro();
