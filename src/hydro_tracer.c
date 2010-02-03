@@ -17,6 +17,7 @@
 #include "timestep.h"
 #include "tree.h"
 #include "units.h"
+#include "cell_buffer.h"
 
 
 double tracer_x[num_tracers][nDim];

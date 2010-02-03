@@ -3520,18 +3520,26 @@ void write_hydro_tracers( char *filename ) {
 		fwrite(&size, sizeof(int), 1, output );
 		
 		/* istep, t, dt, adum, ainit */
+#ifdef COSMOLOGY
 		adum = auni[min_level];
 		ainit = auni_init;
+#else
+		adum = ainit = 1.0;
+#endif
+
 		size = sizeof(int) + 2*sizeof(double) + 2*sizeof(float);
 
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &step, sizeof(int), 1, output );
 		fwrite( &tl[min_level], sizeof(double), 1, output );
 		fwrite( &dtl[min_level], sizeof(double), 1, output );
+#ifdef COSMOLOGY
 		fwrite( &adum, sizeof(float), 1, output );
 		fwrite( &ainit, sizeof(float), 1, output );
+#endif
 		fwrite( &size, sizeof(int), 1, output );
 
+#ifdef COSMOLOGY
 		/* boxh, Om0, Oml0, Omb0, hubble */
 		boxh = box_size;
 		OmM0 = cosmology->OmegaM;
@@ -3547,6 +3555,7 @@ void write_hydro_tracers( char *filename ) {
 		fwrite( &OmB0, sizeof(float), 1, output );
 		fwrite( &h100, sizeof(float), 1, output );
 		fwrite( &size, sizeof(int), 1, output );
+#endif /* COSMOLOGY */
 
 		/* num_grid */
 		size = sizeof(int);
@@ -3891,10 +3900,13 @@ void read_hydro_tracers( char *filename ) {
 		fread( &step, sizeof(int), 1, input );
 		fread( &tmpt, sizeof(double), 1, input );
 		fread( &tmpdt, sizeof(double), 1, input );
+#ifdef COSMOLOGY
 		fread( &adum, sizeof(float), 1, input );
 		fread( &ainit, sizeof(float), 1, input );
+#endif /* COSMOLOGY */
 		fread( &size, sizeof(int), 1, input );
 
+#ifdef COSMOLOGY 
 		/* boxh, Om0, Oml0, Omb0, hubble */
 		fread( &size, sizeof(int), 1, input );
 		fread( &boxh, sizeof(float), 1, input );
@@ -3903,6 +3915,7 @@ void read_hydro_tracers( char *filename ) {
 		fread( &Omb0, sizeof(float), 1, input );
 		fread( &h, sizeof(float), 1, input );
 		fread( &size, sizeof(int), 1, input );
+#endif /* COSMOLOGY */
 
 		/* num_grid */
 		fread( &size, sizeof(int), 1, input );

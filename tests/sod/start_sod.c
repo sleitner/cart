@@ -49,6 +49,11 @@ void run_output() {
 	}
 
 	fclose(output);
+
+#ifdef HYDRO_TRACERS
+	sprintf( filename, "%s/tracers_%04u.dat", output_directory, step );
+	write_hydro_tracers( filename );
+#endif /* HYDRO_TRACERS */
 }
 
 void init_run() {
@@ -57,6 +62,8 @@ void init_run() {
 	int level, icell;
 	int num_level_cells;
 	int *level_cells;
+
+	units_set( 1.0, 1.0, 1.0 );
 
 	build_cell_buffer();
 	repair_neighbors();
@@ -94,6 +101,13 @@ void init_run() {
 		modify( level, 1 );
 #endif
 	}
+
+#ifdef HYDRO_TRACERS
+    cart_debug("setting hydro tracers");
+    set_hydro_tracers( min_level );
+#endif /* HYDRO_TRACERS */
+
+	units_reset();
 
 	/* set time variables */
 	tl[min_level] = t_init;

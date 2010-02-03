@@ -201,7 +201,7 @@ void config_verify_timestep()
 
   cart_assert(max_a_inc > 1.0);
 
-  cart_assert(max_da > 0.0);
+  cart_assert(max_da >= 0.0);
 #endif /* COSMOLOGY */
 
   cart_assert(!(t_init > t_end));
@@ -222,7 +222,7 @@ void config_verify_timestep()
 
   cart_assert(min_time_dec > 1.0);
 
-  cart_assert(max_dt > 0.0);
+  cart_assert(max_dt >= 0.0);
 }
 
 

@@ -82,7 +82,7 @@ void config_init_hydro()
 
 void config_verify_hydro()
 {
-  cart_assert(gas_temperature_floor > 0.0); 
+  cart_assert(gas_temperature_floor >= 0.0); 
 
   cart_assert(gas_density_floor > 0.0);
 
