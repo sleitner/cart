@@ -5,12 +5,11 @@
 
 #include "sfc.h"
 
-/* #define ELECTRON_ION_NONEQUILIBRIUM */
-
+/* #define ELECTRON_ION_NONEQUILIBRIUM  */
+/* #define ENRICH */
 
 #define num_children	(1<<nDim)
 #define num_grav_vars	2
-//#define ENRICH
 
 
 #define min(x,y)        (((x) < (y)) ? (x): (y))
@@ -31,21 +30,21 @@ const float cell_delta[num_children][nDim] = {
 };
 
 const char *variable_name[] = {
-        "hydro_gas_density",
-        "hydro_gas_energy",
+	"hydro_gas_density",
+	"hydro_gas_energy",
 	"hydro_momentum_x",
 	"hydro_momentum_y",
 	"hydro_momentum_z",
-        "hydro_gas_pressure",
+	"hydro_gas_pressure",
 	"hydro_gas_gamma",
-        "hydro_gas_internal_energy",
+	"hydro_gas_internal_energy",
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 	"hydro_electron_internal_energy",
 #endif
-	//#ifdef ENRICH
-        "hydro_metallicity_II",
+#ifdef ENRICH
+	"hydro_metallicity_II",
 	"hydro_metallicity_Ia"
-	//#endif
+#endif
 };
 
 void reorder( char *buffer, int size ) {
@@ -91,7 +90,7 @@ int main ( int argc, char *argv[] ) {
 	long total_cells[20];
 	int index;
 	int num_cells;
-	int num_hydro_vars,num_extra_hydro_vars;
+	int num_hydro_vars;
 	long root_file_index_ptr;
 	int current_root_index;
 	int *refined;
@@ -110,8 +109,8 @@ int main ( int argc, char *argv[] ) {
 	int sfc;
 	int coords[3], min_coords[3], max_coords[3];
 
-	if ( argc != 4 ) {
-		fprintf(stderr,"Usage: cart_create_indexed_grid input [:num_output_grid_files] output_grid_file num_extra_hydro_vars(enrich=2)\n");
+	if ( argc != 3 ) {
+		fprintf(stderr,"Usage: cart_create_indexed_grid input[:num_input_files] output_grid_file\n");
 		exit(1);
 	}
 
@@ -129,14 +128,6 @@ int main ( int argc, char *argv[] ) {
 		exit(1);
 	}
 	
-	num_extra_hydro_vars = atoi( argv[3] ); 
-	if ( num_extra_hydro_vars > 3 || num_extra_hydro_vars <0 ) {
-	        fprintf(stderr,"num_extra_hydro_vars for enrich and noneq-ions <4 only\n");
-	        fprintf(stderr,"wrong num_extra_hydro_vars in arg %d\n", num_extra_hydro_vars);
-	        exit(1);
-        }
-	
-
 	for ( i = 0; i < 10; i++ ) {
 		global_var_max[i] = -1e20;
 		global_var_min[i] = 1e20;
@@ -456,26 +447,21 @@ int main ( int argc, char *argv[] ) {
 				fwrite( star_formation_volume_max, sizeof(float), nDim, output );
 				fwrite( &size, sizeof(int), 1, output );
 
-				/*
-				 *#ifdef ENRICH
-				 *num_hydro_vars = 5+nDim+2;//snl
-				 *#else
-				 *num_hydro_vars = 5+nDim;//snl
-				 *#endif
-				*/
+#ifdef ENRICH
+				num_hydro_vars = 5+nDim+2;
+#else
+				num_hydro_vars = 5+nDim;
+#endif
 
-                		/* ncell0 */
-		                fread( &size, sizeof(int), 1, input );
+				/* ncell0 */
+				fread( &size, sizeof(int), 1, input );
 			} else {
-			  /*num_hydro_vars = 5+nDim;*/
+				num_hydro_vars = 5+nDim;
 			}
-			/*
-			 *#ifdef ELECTRON_ION_NONEQUILIBRIUM
-			 *num_hydro_vars++;
-			 *#endif
-			 */
-			num_hydro_vars = 5+nDim+num_extra_hydro_vars;
 
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+			num_hydro_vars++;
+#endif
 
 			printf("num_hydro_vars = %u\n", num_hydro_vars );
 
@@ -698,7 +684,6 @@ int main ( int argc, char *argv[] ) {
 
 						if ( num_read != root_next_level_count[index] ) {
 							printf("Error reading from file!\n" );
-							printf("check extra_num_hydro_vars=%d/%d\n",num_extra_hydro_vars, num_hydro_vars );
 							exit(1);
 						}
 
