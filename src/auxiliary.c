@@ -457,8 +457,6 @@ void* cart_alloc_worker(size_t size, const char *file, int line)
 
   if(size > 0)
     {
-      start_time(ALLOCATION_TIMER);
-
       ptr = malloc( size );
 
       if(ptr == NULL)
@@ -481,8 +479,6 @@ void* cart_alloc_worker(size_t size, const char *file, int line)
 #endif
 #endif
 
-      end_time(ALLOCATION_TIMER);
-
       return ptr;
     }
   else
@@ -496,12 +492,10 @@ void cart_free_worker(void *ptr, const char *file, int line)
 {
   if(ptr != NULL)
     {
-      start_time(ALLOCATION_TIMER);
       free(ptr);
 #ifdef DEBUG_MEMORY_USE
       dmuUnRegister(ptr,file,line);
 #endif
-      end_time(ALLOCATION_TIMER);
     }
 }
 

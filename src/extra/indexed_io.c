@@ -66,7 +66,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			cart_error( "Unable to open file %s for reading!", filename );
 		}
 
-                fread(&size, sizeof(int), 1, input );
+		fread(&size, sizeof(int), 1, input );
 		endian = 0;
 		if ( size != 256 ) {
 			reorder( (char *)&size, sizeof(int) );
@@ -78,8 +78,8 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			}
 		}
 
-                fread(&job, sizeof(char), 256, input );
-                fread(&size, sizeof(int), 1, input );
+		fread(job, sizeof(char), 256, input );
+		fread(&size, sizeof(int), 1, input );
 
 		/* istep, t, dt, adum, ainit */
 		fread( &size, sizeof(int), 1, input );

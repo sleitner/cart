@@ -86,7 +86,6 @@ const char *timer_name[][2] = {
 { "select_level", "green" }, 
 { "max_level", "red" },
 { "communication", "red" },
-{ "allocation", "yellow" },
 { "lower_level", "white" },  /* this is for internal accouting only */
 { "work", "green" },
 #ifdef RADIATIVE_TRANSFER
@@ -110,7 +109,7 @@ void init_timers() {
 			timers[i+1][j].current_time = -1.0;
 			timers[i+1][j].total_time = 0.0;
 			timers[i+1][j].last_time = 0.0;
-#ifdef DEBUG_TIMING                                                                                                                                
+#ifdef DEBUG_TIMING 
 			timers[i+1][j].last_wtime = 0.0;
 #endif
 		}
@@ -194,7 +193,7 @@ void start_time_at_location( int timerid, const char *file, int line ) {
 #endif
 
 #ifdef DEBUG
-        if(timerid != ALLOCATION_TIMER) debug_breakpoint(timerid,1,file,line);
+	debug_breakpoint(timerid,1,file,line);
 #endif
 }
 
@@ -231,7 +230,7 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 #endif /* DEBUG_TIMING */
 
 #ifdef DEBUG
-        if(timerid != ALLOCATION_TIMER) debug_breakpoint(timerid,0,file,line);
+	debug_breakpoint(timerid,0,file,line);
 #endif
 
 	return elapsed;

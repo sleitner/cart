@@ -74,9 +74,8 @@ typedef struct TIMER {
 #define	    SELECT_LEVEL_TIMER                      53
 #define	    MAX_LEVEL_TIMER                         54
 #define	    COMMUNICATION_TIMER                     55
-#define	    ALLOCATION_TIMER                        56
-#define	    LOWER_LEVEL_TIMER                       57
-#define	    WORK_TIMER                              58
+#define	    LOWER_LEVEL_TIMER                       56
+#define	    WORK_TIMER                              57
 
 #ifdef RADIATIVE_TRANSFER
 

@@ -545,7 +545,7 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	double logcoulomb;
 
 	double err[1] = { 1e-2 };
-        double params[5];
+	double params[5];
 	qss_system *sys;
 
 	t_begin	= tl[level];
