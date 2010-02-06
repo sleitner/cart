@@ -10,12 +10,12 @@
 
 #define gammin  	(1.01)
 #define gammax  	(10.0)
-#define eps		(1e-6)
+#define eps			(1e-6)
 #define maxit		(50)
 #define diffusion	(0.1)
 #define dviscmax	(0.1)
 #define drhomax		(0.2)
-#define small           1.0e-30
+#define small_R     1.0e-20
 
 
 void riemann( double stl[5], double str[5], double sta[4] ) {
@@ -59,22 +59,22 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	ul_0	= ul;
 	ur_0	= ur;
 	p_0	= p0;
-	p_1	= max( small, p1 );
+	p_1	= max( small_R, p1 );
 
 	/* Riemann solver - secant iterations for pressure */
 
 	/* first iteration */
 	xxl = ( al * p_1 + bl ) / ( p_1 + cl );
-	w2l = 1.0/sqrt(max(small, xxl * stl[0] * (p_1 + stl[2])));
+	w2l = 1.0/sqrt(max(small_R, xxl * stl[0] * (p_1 + stl[2])));
 	ul1 = stl[1] + ( stl[2] - p_1 ) * w2l;
 	xxr = ( ar * p_1 + br ) / ( p_1 + cr );
-	w2r = 1.0/sqrt(max(small, xxr * str[0] * (p_1 + str[2])));
+	w2r = 1.0/sqrt(max(small_R, xxr * str[0] * (p_1 + str[2])));
 	ur1 = str[1] + ( p_1 - str[2] ) * w2r;
-	p2 = max( small, 1.0000001 * p_1 - ( ur1 - ul1 ) 
+	p2 = max( small_R, 1.0000001 * p_1 - ( ur1 - ul1 ) 
 			* fabs( p_1 - p_0 )
 			/ ( fabs( ur1 - ur_0 )
 			   +fabs( ul1 - ul_0 )
-			   +small ) );
+			   +small_R ) );
 	p_0 = p_1;
 	p_1 = p2;
 	ul_0 = ul1;
@@ -85,16 +85,16 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	iter = 1;
 	while ( iter <= maxit && dev > eps ) {
 		xxl = ( al * p_1 + bl ) / ( p_1 + cl );
-		w2l = 1.0/sqrt(max(small, xxl * stl[0] * (p_1 + stl[2])));
+		w2l = 1.0/sqrt(max(small_R, xxl * stl[0] * (p_1 + stl[2])));
 		ul1 = stl[1] + ( stl[2] - p_1 ) * w2l;
 		xxr = ( ar * p_1 + br ) / ( p_1 + cr );
-		w2r = 1.0/sqrt(max(small, xxr * str[0] * (p_1 + str[2])));
+		w2r = 1.0/sqrt(max(small_R, xxr * str[0] * (p_1 + str[2])));
 		ur1 = str[1] + ( p_1 - str[2] ) * w2r;
-		p2 = max( small, 1.0000001 * p_1 - ( ur1 - ul1 )
+		p2 = max( small_R, 1.0000001 * p_1 - ( ur1 - ul1 )
 			* fabs( p_1 - p_0 )
 			/ ( fabs( ur1 - ur_0 )
 			+fabs( ul1 - ul_0 )
-			+small ) );
+			+small_R ) );
 		dev = fabs( p2 - p_1 ) / ( p2 + p_1 );
 		p_0 = p_1;
                 p_1 = p2;
@@ -121,8 +121,8 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	b_s	= ind_r * ( br - bl ) + bl;
 	c_s	= ind_r * ( cr - cl ) + cl;
 	w_s	= ( a_s * p_1 + b_s ) / ( p_1 + c_s );
-	w_s	= max( small, w_s * rho_s * ( p_1 + p_s ) );
-	rho	= max( small, rho_s / ( 1.0 - rho_s * ( p_1 - p_s ) / w_s ) );
+	w_s	= max( small_R, w_s * rho_s * ( p_1 + p_s ) );
+	rho	= max( small_R, rho_s / ( 1.0 - rho_s * ( p_1 - p_s ) / w_s ) );
 	gam	= gam_s + 2.0 * ( gam_s - 1.0 ) * ( 1.0 - gam_s / bgam_s ) 
 			/ ( p_1 + p_s ) * ( p_1 - p_s );
 	indd	= 2.0 * ind_r - 1.0;
@@ -202,8 +202,8 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	cp_l	= u_l + a_l;
 	cm_l	= u_l - a_l;
 	x_l	= 0.5 * (1.0 - dtx * max( (float)cp_l, 0.0 ));
-	rhow_l	= max( small, (float)(v[0][1] + x_l*dv[0][0]));
-	pw_l	= max( small, (float)(v[1][1] + x_l*dv[1][0]));
+	rhow_l	= max( small_R, (float)(v[0][1] + x_l*dv[0][0]));
+	pw_l	= max( small_R, (float)(v[1][1] + x_l*dv[1][0]));
 	uw_l	= v[2][1] + x_l * dv[2][0];
 	vw_l	= v[3][1] + x_l * dv[3][0];
 	ww_l	= v[4][1] + x_l * dv[4][0];
@@ -222,7 +222,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	v_l	= xx1*v0_l + xx2*vw_l;
 	w_l	= xx1*w0_l + xx2*ww_l;
 
-	stl[0]	= max( small,(float)(rhow_l / ( 1.0 - ( b0_l + b_l ) * rhow_l ) ) );
+	stl[0]	= max( small_R,(float)(rhow_l / ( 1.0 - ( b0_l + b_l ) * rhow_l ) ) );
 
 #ifdef GRAVITY_IN_RIEMANN
 	stl[1]	= uw_l - b_l * c_l + g[0];
@@ -230,7 +230,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	stl[1]	= uw_l - b_l * c_l;
 #endif
 
-	p_l	= max( small,(float)(pw_l + b_l * c2_l) );
+	p_l	= max( small_R,(float)(pw_l + b_l * c2_l) );
 	stl[2]	= p_l;
 	stl[3]	= v[6][1];
 	gam_l	= xx1 * ( gam0_l + 2.0 * ( 1.0 - v[5][1] / v[6][1] )
@@ -249,8 +249,8 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	cp_r    = u_r + a_r;
 	cm_r    = u_r - a_r;
 	x_r     = -(float)0.5*(1.0 + dtx * min( (float)cm_r, 0.0 ));
-	rhow_r  = max( small, (float)(v[0][2] + x_r*dv[0][1]));
-	pw_r    = max( small, (float)(v[1][2] + x_r*dv[1][1]));
+	rhow_r  = max( small_R, (float)(v[0][2] + x_r*dv[0][1]));
+	pw_r    = max( small_R, (float)(v[1][2] + x_r*dv[1][1]));
 	uw_r    = v[2][2] + x_r * dv[2][1];
 	vw_r    = v[3][2] + x_r * dv[3][1];
 	ww_r    = v[4][2] + x_r * dv[4][1];
@@ -269,7 +269,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	v_r     = xx1*v0_r + xx2*vw_r;
 	w_r     = xx1*w0_r + xx2*ww_r;
 
-	str[0]  = max( small,(float)(rhow_r / ( 1.0 - ( b0_r + b_r ) * rhow_r ) ) );
+	str[0]  = max( small_R,(float)(rhow_r / ( 1.0 - ( b0_r + b_r ) * rhow_r ) ) );
 
 #ifdef GRAVITY_IN_RIEMANN
 	str[1]	= uw_r - b_r * c_r + g[1];
@@ -277,7 +277,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	str[1]	= uw_r - b_r * c_r;
 #endif
 
-	p_r     = max( small,(float)(pw_r + b_r * c2_r) );
+	p_r     = max( small_R,(float)(pw_r + b_r * c2_r) );
 	str[2]  = p_r;
 	str[3]  = v[6][2];
 	gam_r   = xx1 * ( gam0_r + 2.0 * ( 1.0 - v[5][2] / v[6][2] )

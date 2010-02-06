@@ -198,7 +198,7 @@ void read_hart_gas_ic( char *filename ) {
 		cell_gas_gamma(i) =  constants->gamma;
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*wmu/wmu_e;
+		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*constants->wmu/constants->wmu_e;
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 	}
 }

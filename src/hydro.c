@@ -557,9 +557,9 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	Hdum = 0.0;
 #endif
 
-	nfact = 1.0e5*units->number_density/constants->wmu_e;
+	nfact = 1.0e5*units->number_density*(1.0/constants->wmu - 1.0/constants->wmu_e);
 	Tefact = units->temperature*constants->wmu_e*(constants->gamma-1)/1.0e7;
-	dEfact = pow(Tefact,-1.5)*units->time/(constants->yr*2.52e10)/(1.0-constants->wmu/constants->wmu_e);
+	dEfact = pow(Tefact,-1.5)*units->time/(constants->yr*6.3e8)/40.0/(1.0-constants->wmu/constants->wmu_e);  
 
 #pragma omp parallel default(none), shared(nfact,Tefact,dEfact,Hdum,cell_vars,t_begin,t_end,num_level_cells,level_cells,cell_child_oct,err,constants), private(i,icell,e_equil,e_curr,Te7,n_5,logcoulomb,dEfact_cell,params,sys)
 	{
