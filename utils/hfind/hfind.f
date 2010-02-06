@@ -32,17 +32,6 @@ c     ------------------------------------------------------------
 
       alpha = 1.5
 C
-C  Normalize wsp
-C
-      s = 0.0
-      do i=1,nspec
-         s = s + wsp(i)
-      enddo
-
-      do i=1,nspec
-         wsp(i) = wsp(i)/s
-      enddo
-C
       if (IARGC().lt.4) then
         write (*,*)
      &'usage: exe aexp[e.g. 0.999] Dmin Dvir r_find[/h comoving kpc]'

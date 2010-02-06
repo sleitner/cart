@@ -10,6 +10,12 @@ FC = pgf77
 FFLAGS = -fast -mp -mcmodel=medium
 LDFLAGS = -fast -mp -mcmodel=medium
 
+# BulldogM
+#FC = ifort
+#FFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel
+#LDFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel
+
+# gerneic ifort
 #FC = ifort
 #FFLAGS = -O2 -w -mcmodel=medium -i_dynamic 
 #LDFLAGS = -O2 -w -mcmodel=medium -i_dynamic 

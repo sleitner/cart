@@ -28,19 +28,11 @@ c     ----------------------------------------------------------------
       parameter ( nhlimit= 1000000   )           ! limit to the # of potential halos
       parameter ( nspec  = 3         )           ! # of particle species
       parameter ( nbyteword = 1      )  
-
-      parameter ( wpar = ((1.0*ngrid))**3/ncold )! particle weight
       parameter ( rhoaver= 1.0       )           ! average density of particles
       parameter ( rinit  = 100.0     )           ! initial halo radius in kpc
 
       parameter ( xn = (1.0*ngrid)+1.-1.E-7 )    ! boundary parameters
       parameter ( yn = (1.0*ngrid))       
-
-c.... relative weights of species (sum should be equal to one)
-
-      dimension wsp(nspec)
-      data wsp / 1.339286e-02, 1.071429e-01, 8.571429e-01 / 
-c      data wsp / 1.0 / 
 
 c.... grid arrays 
       common / GRID1 / iCL(nll,nll,nll)
@@ -119,8 +111,9 @@ c
       COMMON / TRUNCOM / Om,Omb,Omc,Omnu,Par(6),ns,qqscaleb,
      &                   QSCALE, SCALEL
 
-      common / ROW /	XPAR(npage),YPAR(npage),ZPAR(npage),
-     &			 VXX(npage), VYY(npage), VZZ(npage)
+      real*8        XPAR(npage), YPAR(npage), ZPAR(npage),
+     &                  VXX(npage), VYY(npage), VZZ(npage)
+      common / ROW /	XPAR,YPAR,ZPAR,VXX,VYY, VZZ
 
       DIMENSION         RECDAT(NRECL)  ,wspecies(10),lspecies(10)
       EQUIVALENCE    (RECDAT(1),XPAR(1)),
