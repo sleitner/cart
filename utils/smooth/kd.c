@@ -7,7 +7,7 @@
 #include "kd.h"
 #include "tipsydefs.h"
 
-typedef float particle_float;
+typedef double particle_float;
 #define MAX_ROOT_ITTR	32
 
 
@@ -181,7 +181,7 @@ int kdReadARTStars(KD kd,char *header, char *data, char *stardata, float *period
 
 	star_file = fopen( stardata, "r" );
         if ( star_file == NULL ) {
-                fprintf(stderr,"Unable to open %s!\n", star_file );
+                fprintf(stderr,"Unable to open %s!\n", stardata );
                 exit(1);
         }
 
