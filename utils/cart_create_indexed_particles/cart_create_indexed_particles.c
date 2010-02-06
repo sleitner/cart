@@ -12,7 +12,7 @@
 #define max(x,y)        (((x) > (y)) ? (x): (y))
 
 #define MAX_PARTICLE_SPECIES	10
-typedef float particle_float;
+typedef double particle_float;
 
 typedef struct {
 	float aexpn;
