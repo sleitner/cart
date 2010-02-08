@@ -17,6 +17,10 @@
 #include "timestep.h"
 #include "units.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 
 void config_verify();
 
@@ -368,6 +372,7 @@ void config_print_to_file(const char *filename, int restart)
   fprintf(f,"Number of MPI tasks: %d\n", num_procs );
 
 #ifdef _OPENMP
+#pragma omp parallel shared(n)
   n = omp_get_num_threads();
 #else
   n = 1;
