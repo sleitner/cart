@@ -5,9 +5,6 @@
 */
 
 
-#define RT_FIXED_ISM
-
-
 /*
 //  Produce diagnostic output 
 */
