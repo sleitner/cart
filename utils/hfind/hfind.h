@@ -111,11 +111,13 @@ c
       COMMON / TRUNCOM / Om,Omb,Omc,Omnu,Par(6),ns,qqscaleb,
      &                   QSCALE, SCALEL
 
+c     Change to real*4 for single-precision particle files
       real*8        XPAR(npage), YPAR(npage), ZPAR(npage),
      &                  VXX(npage), VYY(npage), VZZ(npage)
+      real*8        RECDAT(NRECL)
       common / ROW /	XPAR,YPAR,ZPAR,VXX,VYY, VZZ
 
-      DIMENSION         RECDAT(NRECL)  ,wspecies(10),lspecies(10)
+      DIMENSION      wspecies(10),lspecies(10)
       EQUIVALENCE    (RECDAT(1),XPAR(1)),
      +               (wspecies(1),extras(1)),
      +               (lspecies(1),extras(11)),
