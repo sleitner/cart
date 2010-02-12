@@ -2483,6 +2483,7 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 	nbody_particle_header nbody_header;
 	char desc[46];
 	int size;
+	char *p;
 
 	*nbody_flag = 0;
 	*endian = 0;
@@ -2502,6 +2503,10 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 	if ( !control_parameter_is_set("jobname") ) {
 		cart_debug("setting jobname to header value");
 		strcpy( jobname, desc );
+
+		/* trim spaces from jobname */
+		p = jobname + strlen(jobname);
+		while (*--p == ' ') *p = '\0';
 	}
 
 	if ( size != sizeof(particle_header)+45 ) {
