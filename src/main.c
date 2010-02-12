@@ -40,7 +40,7 @@
 void config_init();
 void config_read_file(const char *filename);
 void config_create_file(const char *filename);
-void config_print_to_file(const char *filename);
+void config_print_to_file(const char *filename, int restart);
 
 
 void init_run();
@@ -151,7 +151,7 @@ int main ( int argc, char *argv[]) {
 	cart_debug("num openmp threads = %u", omp_get_max_threads() );
 	#endif
 
-	config_print_to_file("config.log");
+	config_print_to_file("config.log", restart);
 
 	/* set up mpi datatypes, timers, units, etc */
 	init_logging( restart );

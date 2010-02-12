@@ -2499,6 +2499,11 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 
 	cart_debug( "Particle header file: %s", desc );
 
+	if ( !control_parameter_is_set("jobname") ) {
+		cart_debug("setting jobname to header value");
+		strcpy( jobname, desc );
+	}
+
 	if ( size != sizeof(particle_header)+45 ) {
 		if ( size == sizeof(nbody_particle_header)+45 ) {
 			*nbody_flag = 1;

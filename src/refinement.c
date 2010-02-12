@@ -30,8 +30,10 @@ float join_tolerance		= 0.2;
 int num_diffusion_steps		= 4;
 float diffusion_coefficient	= 0.15;
 float reaction_increment	= 0.1;
-float momentum_increment	= 0.4;
 
+#ifdef MOMENTUM_DIFFUSION 
+float momentum_increment	= 0.4;
+#endif /* MOMENTUM_DIFFUSION */
 
 void config_init_refinement()
 {
@@ -45,7 +47,9 @@ void config_init_refinement()
 
   control_parameter_add2(control_parameter_float,&reaction_increment,"ref:reaction-increment","reaction_increment","--ask Doug--.");
 
+#ifdef MOMENTUM_DIFFUSION
   control_parameter_add2(control_parameter_float,&momentum_increment,"ref:momentum-increment","momentum_increment","--ask Doug--.");
+#endif /* MOMENTUM_DIFFUSION */
 
   config_init_refinement_indicators();
 }
@@ -63,7 +67,9 @@ void config_verify_refinement()
 
   cart_assert(reaction_increment > 0.0);
 
+#ifdef MOMENTUM_DIFFUSION
   cart_assert(momentum_increment > 0.0);
+#endif 
 
   config_verify_refinement_indicators();
 }

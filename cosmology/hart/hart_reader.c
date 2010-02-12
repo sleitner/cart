@@ -84,10 +84,10 @@ void read_hart_gas_ic( char *filename ) {
 			reorder( (char *)&ncells, sizeof(int) );
 		}
 
-		//Lbox = boxh;
+		box_size = boxh;
 		auni_init = ainit;
 
-		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	
 		cart_debug("boxh = %f", boxh );
@@ -169,7 +169,7 @@ void read_hart_gas_ic( char *filename ) {
 			cart_free( page_indices[proc] );
 		}
 	} else {
-		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
 		page[local_proc_id] = cart_alloc(float, num_grid*num_grid );

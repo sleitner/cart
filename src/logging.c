@@ -15,6 +15,7 @@
 #include "parallel.h"
 #include "particle.h"
 #include "starformation.h"
+#include "control_parameter.h"
 #include "timestep.h"
 #include "timing.h"
 #include "tree.h"
@@ -45,7 +46,7 @@ void init_logging( int restart ) {
 	char mode[2];
 	char filename[256];
 
-	if ( logfile_directory[0] == '\0' ) {
+	if ( !control_parameter_is_set("directory:logs") ) {
 		strcpy( logfile_directory, output_directory );
 	}
 

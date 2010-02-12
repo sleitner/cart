@@ -1,5 +1,7 @@
 #include "config.h"
 
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "auxiliary.h"
@@ -153,7 +155,12 @@ void config_print_to_file(const char *filename, int restart)
   else
     {
       sprintf(pathname,"%s/%s",logfile_directory,filename);
-      f = fopen(pathname,"w");
+
+      if ( restart ) {
+	      f = fopen(pathname,"w");
+      } else {
+          f = fopen(pathname,"a");
+      }
       if(f == NULL)
 	{
 	  cart_error("Unable to open %s for writing!",pathname);
