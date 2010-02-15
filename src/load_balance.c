@@ -25,7 +25,11 @@
 
 float cost_per_cell		= 1.0;
 float cost_per_particle		= 0.25;
-float est_buffer_fraction	= 0.5;
+
+float reserve_cell_fraction = 0.3;
+#ifdef PARTICLES
+float reserve_particle_fraction = 0.1;
+#endif /* PARTICLES */
 int load_balance_frequency	= 0;
 
 
@@ -36,6 +40,12 @@ void config_init_load_balance()
   control_parameter_add2(control_parameter_float,&cost_per_cell,"cost-per-cell","cost_per_cell","computational cost per cell. This parameter is used in load balancing.");
 
   control_parameter_add2(control_parameter_float,&cost_per_particle,"cost-per-particle","cost_per_particle","computational cost per particle. This parameter is used in load balancing.");
+
+  control_parameter_add3(control_parameter_float,&reserve_cell_fraction,"reserve-cell-fraction","reserve_cell_fraction","est_buffer_fraction","Fraction of cells held in reserve for cell buffer and refinement.  This parameter is used in load balancing.");
+
+#ifdef PARTICLES
+  control_parameter_add2(control_parameter_float,&reserve_particle_fraction,"reserve-particle-fraction","reserve_cell_fraction","Fraction of particles held in reserve for cell buffer and refinement.  This parameter is used in load balancing.");
+#endif
 }
 
 
@@ -43,9 +53,15 @@ void config_verify_load_balance()
 {
   cart_assert(load_balance_frequency >= 0);
 
-  cart_assert(cost_per_cell > 0.0);
+  cart_assert(cost_per_cell >= 0.0);
 
-  cart_assert(cost_per_particle > 0.0);
+  cart_assert(cost_per_particle >= 0.0);
+
+  cart_assert(reserve_cell_fraction >= 0.0 && reserve_cell_fraction < 1.0);
+
+#ifdef PARTICLES
+  cart_assert(reserve_particle_fraction >= 0.0 && reserve_particle_fraction < 1.0);
+#endif
 }
 
 
@@ -401,10 +417,10 @@ void load_balance_entire_volume( float *global_work,
 	FILE *partition;
 #endif
 
-	per_proc_constraints[0] = (1.0-est_buffer_fraction)*(double)num_cells;
+	per_proc_constraints[0] = (1.0-reserve_cell_fraction)*(double)num_cells;
 
 #ifdef PARTICLES
-	per_proc_constraints[1] = 0.9*num_particles;
+	per_proc_constraints[1] = (1.0-reserve_particle_fraction)*num_particles;
 #endif /* PARTICLES */
 
 	/* compute total work */
