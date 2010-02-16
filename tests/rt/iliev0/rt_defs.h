@@ -1,10 +1,12 @@
-#ifdef __RT_INCLUDING_DEFS
-
 /*
 //  Radiative transfer switches: only have effect when RADIATIVE_TRANSFER
 //  switch in defs.h is switched on.
 //  ---------------------------------------------------------------------
 */
+
+
+/* #define RT_DEBUG */
+
 
 /*
 //  Produce diagnostic output 
@@ -87,6 +89,12 @@
 
 
 /*
+//  Enable computing the evolving cosmic background
+*/
+#define RT_EXTERNAL_BACKGROUND -1
+
+
+/*
 //  Mode of ionization clumping factor:
 //  0:  no clumping factors
 //  1:  use clumping factors in external RF only
@@ -100,8 +108,3 @@
 */
 #define RT_TEST -1
 
-#else
-
-#error "rt_def.h file should never be included directly"
-
-#endif  /* __RT_INCLUDING_DEFS */

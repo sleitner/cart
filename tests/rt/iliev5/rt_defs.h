@@ -1,11 +1,3 @@
-#ifdef __RT_INCLUDING_DEFS
-
-
-
-#define RT_DEBUG
-
-
-
 /*
 //  Radiative transfer switches: only have effect when RADIATIVE_TRANSFER
 //  switch in defs.h is switched on.
@@ -113,8 +105,3 @@
 */
 #define RT_TEST 5
 
-#else
-
-#error "rt_def.h file should never be included directly"
-
-#endif  /* __RT_INCLUDING_DEFS */

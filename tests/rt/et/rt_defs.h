@@ -1,9 +1,5 @@
-#ifdef __RT_INCLUDING_DEFS
-
-
 
 #define RT_DEBUG
-
 #define RT_SINGLE_SOURCE
 
 
@@ -114,8 +110,3 @@
 */
 #define RT_TEST 10
 
-#else
-
-#error "rt_def.h file should never be included directly"
-
-#endif  /* __RT_INCLUDING_DEFS */

@@ -1,9 +1,10 @@
 #ifndef __DEFS_H__
 #define __DEFS_H__
 
-#define DEBUG 2
+#define DEBUG
 
 #define HYDRO 
+#define REFINEMENT
 #define RADIATIVE_TRANSFER
 #define CONSTANT_TIMESTEP
 

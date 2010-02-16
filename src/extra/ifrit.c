@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "auxiliary.h"
 #include "cosmology.h"
@@ -19,7 +20,7 @@
 #include "utils.h"
 
 
-float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvar, int *varid);
+float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvar, int *varid);
 
 
 #ifdef STARFORM
@@ -27,7 +28,7 @@ extern double sf_min_stellar_particle_mass;
 #endif
 
 
-int iOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, int nvars, int *varid)
+int ifritOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, int nvars, int *varid)
 {
   int i, ntemp, nbin[3];
   double bb[6];
@@ -52,7 +53,7 @@ int iOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, int 
       bb[2*i+1] = num_grid;
     }
 
-  vars = iUniformGrid_Sample(level,nbin,bb,nvars,varid);
+  vars = ifritUniformGrid_Sample(level,nbin,bb,nvars,varid);
  
   if(local_proc_id == MASTER_NODE)
     {
@@ -87,7 +88,7 @@ int iOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, int 
 
 #ifdef PARTICLES
 
-double gasdev()
+double ifrit_gasdev()
 {
   static int iset = 0;
   static double gset;
@@ -116,7 +117,7 @@ double gasdev()
 }
 
 
-long iParticles_WriteArray(const char *filename, double *bb, int flags, float *arr, int idx, int nrec)
+long ifritParticles_WriteArray(const char *filename, double *bb, int flags, float *arr, int idx, int nrec)
 {
   const float dr = 0.33;
   int i, j, k, size, rank, ntemp, nsub;
@@ -189,7 +190,7 @@ long iParticles_WriteArray(const char *filename, double *bb, int flags, float *a
 			  fwrite(particle_x[j]+idx,sizeof(double),1,F);
 			  for(k=1; k<nsub; k++)
 			    {
-			      pos = particle_x[j][idx] + dr*cell_size[particle_level[j]]*gasdev();
+			      pos = particle_x[j][idx] + dr*cell_size[particle_level[j]]*ifrit_gasdev();
 			      fwrite(&pos,sizeof(double),1,F);
 			    }
 			}
@@ -236,14 +237,14 @@ long iParticles_WriteArray(const char *filename, double *bb, int flags, float *a
 }
 
 
-long iParticles_WriteBasicFile(const char *filename, double *bb, int flags)
+long ifritParticles_WriteBasicFile(const char *filename, double *bb, int flags)
 {
   int i, j, k, size, rank, ntemp;
   FILE *F;
   float w;
   long ntot;
 
-  ntot = iParticles_WriteArray(NULL,bb,flags,NULL,-1,0);
+  ntot = ifritParticles_WriteArray(NULL,bb,flags,NULL,-1,0);
 
   cart_debug("Saving %ld particles...",ntot);
 
@@ -276,21 +277,21 @@ long iParticles_WriteBasicFile(const char *filename, double *bb, int flags)
       fclose(F);
     }
 
-  iParticles_WriteArray(filename,bb,flags,NULL,0,ntot);
+  ifritParticles_WriteArray(filename,bb,flags,NULL,0,ntot);
 #if (nDim > 1)
-  iParticles_WriteArray(filename,bb,flags,NULL,1,ntot);
+  ifritParticles_WriteArray(filename,bb,flags,NULL,1,ntot);
 #if (nDim > 2)
-  iParticles_WriteArray(filename,bb,flags,NULL,2,ntot);
+  ifritParticles_WriteArray(filename,bb,flags,NULL,2,ntot);
 #endif
 #endif
 
-  iParticles_WriteArray(filename,bb,flags|I_FLAG_ATTR_IS_MASS,particle_mass,-1,ntot);
+  ifritParticles_WriteArray(filename,bb,flags|I_FLAG_ATTR_IS_MASS,particle_mass,-1,ntot);
 
   return ntot;
 }
 
 
-void iOutputParticles(const char *fileroot, double *bb)
+void ifritOutputParticles(const char *fileroot, double *bb)
 {
   int j;
   float *arr;
@@ -302,7 +303,7 @@ void iOutputParticles(const char *fileroot, double *bb)
   */
   strcpy(str,fileroot);
   strcat(str,"-parts.bin");
-  iParticles_WriteBasicFile(str,bb,0);
+  ifritParticles_WriteBasicFile(str,bb,0);
 
 #ifdef STARFORM
   /*
@@ -310,25 +311,29 @@ void iOutputParticles(const char *fileroot, double *bb)
   */
   strcpy(str,fileroot);
   strcat(str,"-stars.bin");
-  ntot = iParticles_WriteBasicFile(str,bb,I_FLAG_STARS);
+  ntot = ifritParticles_WriteBasicFile(str,bb,I_FLAG_STARS);
 
-  iParticles_WriteArray(str,bb,I_FLAG_STARS,star_initial_mass,-1,ntot);
+  ifritParticles_WriteArray(str,bb,I_FLAG_STARS,star_initial_mass,-1,ntot);
 
   arr = cart_alloc(float,num_particles);
 
   for(j=0; j<num_particles; j++) if(particle_id[j]!=NULL_PARTICLE && particle_id_is_star(particle_id[j]))
     {
+#ifdef COSMOLOGY
       arr[j] = tphys_from_tcode(particle_t[j]) - tphys_from_tcode(star_tbirth[j]);
+#else
+      arr[j] = particle_t[j] - star_tbirth[j];
+#endif
     }
 
-  iParticles_WriteArray(str,bb,I_FLAG_STARS,arr,-1,ntot);
+  ifritParticles_WriteArray(str,bb,I_FLAG_STARS,arr,-1,ntot);
 
   cart_free(arr);
 
 #ifdef ENRICH
-  iParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_II,-1,ntot);
+  ifritParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_II,-1,ntot);
 #ifdef ENRICH_SNIa
-  iParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_Ia,-1,ntot);
+  ifritParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_Ia,-1,ntot);
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
 
@@ -337,7 +342,7 @@ void iOutputParticles(const char *fileroot, double *bb)
 #endif /* PARTICLES */
 
 
-void iOutputHalo(const char *fileroot, int floor_level, float zoom, const halo *h, int nvars, int *varid)
+void ifritOutputHalo(const char *fileroot, int floor_level, float zoom, const halo *h, int nvars, int *varid)
 {
   const int nbin1 = 256;
   int j, nbin[] = { nbin1, nbin1, nbin1 };
@@ -374,10 +379,10 @@ void iOutputHalo(const char *fileroot, int floor_level, float zoom, const halo *
 
   strcpy(str,fileroot);
   strcat(str,"-mesh.bin");
-  iOutputMesh(str,max_level,nbin,bb,nvars,varid);
+  ifritOutputMesh(str,max_level,nbin,bb,nvars,varid);
 
 #ifdef PARTICLES
-  iOutputParticles(fileroot,bb);
+  ifritOutputParticles(fileroot,bb);
 #endif /* PARTICLES */
 }
 
@@ -390,7 +395,7 @@ void iOutputHalo(const char *fileroot, int floor_level, float zoom, const halo *
 //
 // ************************************************
 */
-long iUniformGrid_GetSize(int level, int nbin[3], double bb[6])
+long ifritUniformGrid_GetSize(int level, int nbin[3], double bb[6])
 {
   int i, j, k, cell;
   long n;
@@ -420,7 +425,7 @@ long iUniformGrid_GetSize(int level, int nbin[3], double bb[6])
 }
 
 
-void iUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, int *varid, float **buf, long *loc)
+void ifritUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, int *varid, float **buf, long *loc)
 {
   int i, j, k, var, cell;
   long offset, l;
@@ -493,7 +498,7 @@ void iUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, int 
 }
 
 
-float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int *varid)
+float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int *varid)
 {
   int i, ip;
   long l, ncells;
@@ -517,7 +522,7 @@ float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int
 	  */
 	  if(ip == 0)
 	    {
-	      ncells = iUniformGrid_GetSize(level,nbin,bb);
+	      ncells = ifritUniformGrid_GetSize(level,nbin,bb);
 	    }
 	  else
 	    {
@@ -535,7 +540,7 @@ float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int
 	  */
 	  if(ip == 0)
 	    {
-	      iUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
+	      ifritUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
 	    }
 	  else
 	    {
@@ -569,7 +574,7 @@ float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int
       /*
       //  Measure & transfer buffer size
       */
-      ncells = iUniformGrid_GetSize(level,nbin,bb);
+      ncells = ifritUniformGrid_GetSize(level,nbin,bb);
       MPI_Send(&ncells,1,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
 
       /*
@@ -581,7 +586,7 @@ float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int
       /*
       //  Fill & transfer buffers
       */
-      iUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
+      ifritUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
 
       MPI_Send(loc,ncells,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
       for(i=0; i<nvars; i++) MPI_Send(buf[i],ncells,MPI_FLOAT,MASTER_NODE,0,MPI_COMM_WORLD);
@@ -597,4 +602,6 @@ float** iUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int
 
   return vars;
 }
+
+const struct IFRIT_NAMESPACE ifrit = { ifritOutputMesh, ifritOutputHalo };
 

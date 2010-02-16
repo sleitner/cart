@@ -11,6 +11,10 @@
 #include "rt_utilities.h"
 #include "tree.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 
 /*
 // **************************************************************

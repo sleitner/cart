@@ -11,7 +11,7 @@
 //  This file contains wrappers for system portability only
 */
 void system_get_host_name( char *, int );
-int sytem_get_pid();
+int system_get_pid();
 char* system_get_time_stamp(int utc);
 
 #endif

@@ -1,11 +1,12 @@
 #ifndef __DEFS_H__
 #define __DEFS_H__
 
-#define DEBUG 2
+#define DEBUG
 
 #define HYDRO 
 #define STARFORM
 #define PARTICLES
+#define REFINEMENT
 #define CONSTANT_TIMESTEP
 #define RADIATIVE_TRANSFER
 

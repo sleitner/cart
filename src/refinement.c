@@ -24,6 +24,8 @@ float refinement_volume_max[nDim] = { num_grid, num_grid, num_grid };
 int cells_to_refine[num_octs];
 int num_cells_to_refine;
 
+int refinement_is_static        = 0;
+
 float split_tolerance		= 0.8;
 float join_tolerance		= 0.2;
 
@@ -37,6 +39,8 @@ float momentum_increment	= 0.4;
 
 void config_init_refinement()
 {
+  control_parameter_add2(control_parameter_int,&refinement_is_static,"ref:static","refinement_is_static","the dimensionless tolerance for adaptively splitting a given cell. Should be above <ref:join-tolerance> and below 1.");
+
   control_parameter_add3(control_parameter_float,&split_tolerance,"ref:split-tolerance","split_tolerance","wsplit","the dimensionless tolerance for adaptively splitting a given cell. Should be above <ref:join-tolerance> and below 1.");
 
   control_parameter_add3(control_parameter_float,&join_tolerance,"ref:join-tolerance","join_tolerance","wjoin","the dimensionless tolerance for adaptively un-splitting (joining) a given cell. Should be above 0 and below <ref:split-tolerance>.");
@@ -57,6 +61,8 @@ void config_init_refinement()
 
 void config_verify_refinement()
 {
+  cart_assert(refinement_is_static==0 || refinement_is_static==1);
+
   cart_assert(split_tolerance>0.0 && split_tolerance<1.0);
 
   cart_assert(join_tolerance>0.0 && join_tolerance<1.0);
@@ -88,7 +94,7 @@ void modify( int level, int op ) {
 
 	cart_assert( level >= min_level && level <= max_level );
 
-	if ( level == max_level ) {
+	if ( refinement_is_static || level==max_level ) {
 		/* don't bother marking indicators, we won't
 		 * be doing a refine or derefine call */
 		return;

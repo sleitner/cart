@@ -4,6 +4,7 @@
 #define DEBUG
 
 #define HYDRO 
+#define REFINEMENT
 #define RADIATIVE_TRANSFER
 #define CONSTANT_TIMESTEP
 

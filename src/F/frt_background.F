@@ -19,7 +19,9 @@ C
 #elif (RT_EXTERNAL_BACKGROUND == RT_BACKGROUND_HAARDT_MADAU)
       call frtBackgroundHM(aa,ang,ang2)
 #else
+#ifndef RT_TEST
 #error "Invalid value for RT_EXTERNAL_BACKGROUND"
+#endif
 #endif
 
       return

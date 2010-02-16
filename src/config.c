@@ -157,9 +157,9 @@ void config_print_to_file(const char *filename, int restart)
       sprintf(pathname,"%s/%s",logfile_directory,filename);
 
       if ( restart ) {
-	      f = fopen(pathname,"w");
+	      f = fopen(pathname,"a");
       } else {
-          f = fopen(pathname,"a");
+          f = fopen(pathname,"w");
       }
       if(f == NULL)
 	{

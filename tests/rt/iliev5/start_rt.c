@@ -1,47 +1,38 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
+
+#include "config.h"
+
 #include <math.h>
-#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "defs.h"
-#include "tree.h"
-#include "sfc.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "iterators.h"
-#include "load_balance.h"
-#include "timestep.h"
-#include "refinement.h"
-#include "refinement_indicators.h"
-#include "refinement_operations.h"
-#include "timing.h"
-#include "units.h"
-#include "hydro.h"
-#include "hydro_tracer.h"
-#include "gravity.h"
-#include "density.h"
-#include "io.h"
 #include "auxiliary.h"
-
-#include "rt_solver.h"
+#include "cell_buffer.h"
+#include "hydro.h"
+#include "iterators.h"
+#include "logging.h"
+#include "parallel.h"
+#include "refinement.h"
 #include "rt_utilities.h"
+#include "timestep.h"
+#include "tree.h"
+#include "units.h"
 
+#include "extra/healpix.h"
 #include "extra/ifrit.h"
 
 
-#define N50             0.05
-#define T_i             1.0e2
-#define BottomLevel     3
+const float N50 = 0.05;
+const float T_i = 1.0e2;
+const int BottomLevel = 2;
 
 
 extern float rtSingleSourceVal;
 extern double rtSingleSourcePos[nDim];
 
 double tStart;
+extern int rtOtvetMaxNumIter;
+
+void units_set_art(double OmegaM, double h, double Lbox);
 
 
 void refine_level( int cell, int level )
@@ -80,14 +71,14 @@ void rt_initial_conditions( int cell )
   cell_momentum(cell,2) = 0.0;
   cell_gas_gamma(cell) = (5.0/3.0);
 
-  cell_gas_internal_energy(cell) = T_i*wmu/T0*auni[0]*auni[0]/(gamma-1)*(rtXH+rtXHe);
+  cell_gas_internal_energy(cell) = T_i/units->temperature/(constants->gamma-1);
 
-  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
+  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(constants->gamma-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell);
 
-  cell_HI_density(cell) = rtXH;
+  cell_HI_density(cell) = 1.0;
   cell_HII_density(cell) = 0.0;
-  cell_HeI_density(cell) = rtXHe;
+  cell_HeI_density(cell) = 1.0e-10;
   cell_HeII_density(cell) = 0.0;
   cell_HeIII_density(cell) = 0.0;
   cell_H2_density(cell) = 0.0;
@@ -117,7 +108,7 @@ void run_output()
 {
   const int nvars = 5;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { EXT_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, EXT_GAS_TEMPERATURE, EXT_CELL_LEVEL, EXT_LOCAL_PROC };
+  int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -128,12 +119,12 @@ void run_output()
   bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.25);
 
   sprintf(filename,"OUT/out.%05d.bin",step);
-  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
+  ifrit.OutputMesh(filename,max_level,nbin,bb,nvars,varid);
 
   done = 0;
   if(local_proc_id == MASTER_NODE)
     {
-      tPhys = 1.0e-6*pow(auni[0],2)*t0*(tl[0]-tStart);
+      tPhys = units->time*(tl[0]-tStart)/constants->Myr;
       printf("Output: %d,  Time: %lg\n",step,tPhys);
       if(tPhys > 499.0) done = 1;
     }
@@ -151,34 +142,19 @@ void run_output()
 
 void init_run()
 {
-   int i, level, cell;
+   int i, level;
    int num_level_cells;
    int *level_cells;
-   float astart;
+   float astart, hubble;
+   const float n0 = 1.0e-3;
 
    /* set units */
-   astart = 0.1;
-   cosmology_set(h,1.0);
-   Lbox = 4*15e-3/(astart*hubble);
-   cosmology_set(OmegaM,1.0e-3*pow(astart,3)/(1.123e-5*cosmology->h*cosmology->h));
-   cosmology_set(OmegaB,cosmology->OmegaM);
-   cosmology_set(OmegaL,0.0);
-   auni[min_level] = astart;
-   abox[min_level] = astart;
+   astart = 1;
+   hubble = 1;
+   units_set_art(n0*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*15e-3/(astart*hubble));
 
-   init_units();
-
-   /* create array with all hydro variable indices */
-   for ( i = 0; i < num_hydro_vars; i++ )
-     {
-       all_hydro_vars[i] = HVAR_GAS_DENSITY + i;
-     }
-   
-   for ( i = 0; i < nDim; i++ )
-     {
-       refinement_volume_min[i] = 0.0;
-       refinement_volume_max[i] = num_grid;
-     }
+   units_reset();
+   units_update(min_level);
 
    cart_debug("in init");
 
@@ -230,13 +206,15 @@ void init_run()
    /* set time variables */
    tStart = tl[min_level] = 0.0;
 
-   dtl[min_level] = 1.0e7/(t0*astart*astart);
+   dtl[min_level] = 10*constants->Myr/units->time;
    choose_timestep( &dtl[min_level] );
 
    /* source */
-   rtSingleSourceVal = N50*t0*pow(astart,2)/(1.05e11*Omega0/hubble*pow(r0,3));
+   rtSingleSourceVal = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
    rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.375*num_grid;
    
+   //rtOtvetMaxNumIter = 30;
+
    cart_debug("done with initialization");
    
    check_map();

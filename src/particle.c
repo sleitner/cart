@@ -1214,15 +1214,15 @@ void build_mesh() {
 #ifdef COSMOLOGY
 	abox[min_level] = abox_from_tcode(tl[min_level]);
 	auni[min_level] = auni_from_tcode(tl[min_level]);
-#else
-	abox[min_level] = auni[min_level];
 #endif
 
 	for ( i = min_level+1; i <= max_level; i++ ) {
 		tl[i] = tl[min_level];
 		dtl[i] = 0.5*dtl[i-1];
+#ifdef COSMOLOGY
 		abox[i] = abox[min_level];
 		auni[i] = auni[min_level];
+#endif
 	}
 
 #ifdef REFINEMENT

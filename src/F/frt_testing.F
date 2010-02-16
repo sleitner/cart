@@ -84,13 +84,13 @@ C  Test #0
 C
 #if (RT_TEST == -1)
       tyr = uTime*dtStep/(365.25*86400)
-      if(tyr .gt. 0.7e5*(10**0.1-1.0)) then
+      if(tyr .gt. 0.99e5*(10**0.1-1.0)) then
          do lr = 1,NRAD
             angUni(lr) = 0.0
          enddo
       endif
 
-      write(6,*) angUni(lrH1tr)
+      write(6,*) 'angUni(lrH1tr): ', angUni(lrH1tr), tyr
 
       if(tyr .gt. 4.0e7) then
          call frtAbort

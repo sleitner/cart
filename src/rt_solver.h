@@ -60,6 +60,8 @@ void rtGetRadiationField(int cell, int n, const int idxi[], float ngxi[]);
 void rtGetBinIds(int n, const float wlen[], int idxi[]);
 void rtGetBinWavelengths(int n, const int idxi[], float wlen[]);
 
+void rtModifyTimeStep(double *dt);
+
 #endif /* RADIATIVE_TRANSFER */
 
 #endif /* __RT_SOLVER_H__ */

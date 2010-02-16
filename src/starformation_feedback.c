@@ -2,6 +2,7 @@
 #ifdef STARFORM
 
 #include <math.h>
+#include <string.h>
 
 #include "auxiliary.h"
 #include "control_parameter.h"

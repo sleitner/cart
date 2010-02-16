@@ -24,8 +24,12 @@ struct HALO;
 #define I_FLAG_ATTR_IS_MASS   4
 
 
-int iOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, int nvars, int *varid);
+struct IFRIT_NAMESPACE
+{
+  int (*OutputMesh)(const char *filename, int level, int *nbinIn, double *bbIn, int nvars, int *varid);
+  void (*OutputHalo)(const char *fname, int floor_level, float zoom, const struct HALO *h, int nvars, int *varid);
+};
 
-void iOutputHalo(const char *fname, int floor_level, float zoom, const struct HALO *h, int nvars, int *varid);
+extern const struct IFRIT_NAMESPACE ifrit;
 
 #endif  /* __EXT_IFRIT_H__ */

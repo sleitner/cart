@@ -46,10 +46,6 @@ void init_logging( int restart ) {
 	char mode[2];
 	char filename[256];
 
-	if ( !control_parameter_is_set("directory:logs") ) {
-		strcpy( logfile_directory, output_directory );
-	}
-
 	if ( restart ) {
 		mode[0] = 'a';
 	} else {

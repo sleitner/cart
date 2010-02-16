@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -7,39 +9,30 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "defs.h"
-#include "tree.h"
-#include "sfc.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "iterators.h"
-#include "load_balance.h"
-#include "timestep.h"
-#include "refinement.h"
-#include "refinement_indicators.h"
-#include "refinement_operations.h"
-#include "viewdump.h"
-#include "timing.h"
-#include "units.h"
-#include "hydro.h"
-#include "hydro_tracer.h"
-#include "gravity.h"
-#include "density.h"
-#include "io.h"
 #include "auxiliary.h"
+#include "cell_buffer.h"
+#include "density.h"
+#include "hydro.h"
+#include "iterators.h"
+#include "logging.h"
+#include "parallel.h"
 #include "particle.h"
-#include "starformation.h"
-
-#include "rt_solver.h"
+#include "refinement.h"
 #include "rt_utilities.h"
+#include "starformation.h"
+#include "timestep.h"
+#include "tree.h"
+#include "units.h"
 
+#include "extra/healpix.h"
+#include "extra/ifrit.h"
 
-#define BottomLevel     6
+const int BottomLevel = 6;
 
 extern float rtSingleSourceVal;
 extern double rtSingleSourcePos[nDim];
 
-void pix2ang_nest( long nside, long ipix, double *theta, double *phi);
+void units_set_art(double OmegaM, double h, double Lbox);
 
 
 void refine_level( int cell, int level )
@@ -79,14 +72,14 @@ void rt_initial_conditions( int cell )
   cell_momentum(cell,2) = 0.0;
   cell_gas_gamma(cell) = (5.0/3.0);
 
-  cell_gas_internal_energy(cell) = 1.0e4*wmu/T0*aexp[0]*aexp[0]/(gamma-1)*(rt_XH+rt_XHe);
+  cell_gas_internal_energy(cell) = 1.0e4/units->temperature/(constants->gamma-1)*(constants->XH+constants->XHe);
 
-  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
+  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(constants->gamma-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell);
 
-  cell_HI_density(cell) = rt_XH;
+  cell_HI_density(cell) = constants->XH;
   cell_HII_density(cell) = 0.0;
-  cell_HeI_density(cell) = rt_XHe;
+  cell_HeI_density(cell) = constants->XHe;
   cell_HeII_density(cell) = 0.0;
   cell_HeIII_density(cell) = 0.0;
   cell_H2_density(cell) = 0.0;
@@ -122,7 +115,7 @@ void SaveProfile(char *filename)
   const float dlr = 0.05;
   const int n = 1 + (int)((lrmax-lrmin)/dlr);
 
-  int i, j, cell;
+  int i, cell;
   long ipix;
   float lr;
   double theta, phi, s1, s2, w;
@@ -143,7 +136,7 @@ void SaveProfile(char *filename)
 
       for(ipix=0; ipix<npix; ipix++)
 	{
-	  pix2ang_nest(nside,ipix,&theta,&phi);
+	  hp_pix2ang_nest(nside,ipix,&theta,&phi);
 	  pos[0] = rtSingleSourcePos[0] + r*sin(theta)*cos(phi);
 	  pos[1] = rtSingleSourcePos[1] + r*sin(theta)*sin(phi);
 	  pos[2] = rtSingleSourcePos[2] + r*cos(theta);
@@ -186,20 +179,19 @@ void SaveProfile(char *filename)
 void rtOtvetTreeEmulatorEddingtonTensor(int level);
 void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos);
 
+
 void run_output()
 {
   const int nvars = 8;
   int i, level, varid[nvars], nbin[3];
   double bb[6];
-  int num_level_cells;
-  int *level_cells;
 
   for(i=0; i<6; i++) varid[i] = rt_et_offset + i;
   varid[6] = RT_VAR_OT_FIELD;
-  varid[7] = RTU_CELL_LEVEL;
+  varid[7] = I_CELL_LEVEL;
 
   nbin[0] = num_grid;
-  for(i=0; i<=BottomLevel, nbin[0]<256; i++) nbin[0] *= 2;
+  for(i=0; i<=BottomLevel && nbin[0]<256; i++) nbin[0] *= 2;
   nbin[1] = nbin[2] = nbin[0];
   
   bb[0] = bb[2] = bb[4] = 0.5*num_grid - pow(0.5,1.0+BottomLevel)*nbin[0];
@@ -231,9 +223,8 @@ void run_output()
       rtOtvetTreeEmulatorEddingtonTensor(level);
     }
 
-  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,"OUT/out_te.bin");
+  ifrit.OutputMesh("OUT/out_te.bin",max_level,nbin,bb,nvars,varid);
   //SaveProfile("OUT/prof_te.res");
-
 
   finalize_logging();
   MPI_Finalize();
@@ -246,21 +237,16 @@ void init_run()
   int i, j, species, id, level, cell;
   int num_level_cells;
   int *level_cells;
-  //   char filename[128];
-  //   int min_index, max_index;
-  float astart;
+  float astart, hubble;
   double pos[3];
 
   /* set units */
-  astart = 0.1;
-  hubble = 1.0;
-  Lbox = 4*15e-3/(astart*hubble);
-  Omega0 = 1.0e-3*pow(astart,3)/(1.123e-5*hubble*hubble);
-  Omegab0 = Omega0;
-  OmegaL0 = 0.0;
-  aexp[min_level] = astart;
+  astart = 1;
+  hubble = 1;
+  units_set_art(1.0e-3*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*6.6e-3/(astart*hubble));
 
-  init_units();
+  units_reset();
+  units_update(min_level);
 
   /* source */
   rtSingleSourceVal = 1.0;
@@ -317,14 +303,13 @@ void init_run()
   /* set time variables */
   tl[min_level] = 0.0;
   
-  dtl[min_level] = 1.0e7/(t0*astart*astart);
+  dtl[min_level] = 10*constants->Myr/units->time;
   choose_timestep( &dtl[min_level] );
 
   for ( level = min_level+1; level <= max_level; level++ )
     {
       dtl[level] = 0.5*dtl[level-1];
       tl[level] = tl[min_level];
-      aexp[level] = aexp[min_level];		
     }
 
   /* particles */

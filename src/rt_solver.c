@@ -410,7 +410,9 @@ void rtStepBegin()
 	cell = cell_find_position(rt_debug.Pos);
 	cart_debug("In cell-level debug for cell %d/%d",cell,cell_level(cell));
 	cart_debug("RT_HVAR_OFFSET: %d",RT_HVAR_OFFSET);
+#ifdef RT_VAR_SOURCE
 	cart_debug("RT_VAR_SOURCE: %d",RT_VAR_SOURCE);
+#endif
 	cart_debug("rt_grav_vars_offset: %d",rt_grav_vars_offset);
 #ifdef RT_TRANSFER
 	cart_debug("rt_num_vars: %d",rt_num_vars);
@@ -772,7 +774,7 @@ float rtDustToGas(int cell)
   //    Cell volume in code units
   */
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
-  rPar[frtPAR_VOL] = cell_volume[level];
+  rPar[frtPAR_VOL] = cell_volume[cell_level(cell)];
 #endif
   /*
   //    Metallicity in units of solar
@@ -815,10 +817,11 @@ void rtGetPhotoRates(int cell, float rate[])
 #ifdef RT_TRANSFER
   frt_real rBuffer[rt_num_frequencies];
   frt_real rRadField0[2];
+  frt_real rf[1+2*rt_num_frequencies];
 #else
   frt_real *rBuffer = 0, *rRadField0 = 0;
+  frt_real *rf = 0;
 #endif
-  frt_real rf[1+2*rt_num_frequencies];
   frt_real *rRadField1 = rBuffer;
   frt_intg iTab[2];
 
@@ -896,10 +899,11 @@ void rtGetRadiationField(int cell, int n, const int idxi[], float ngxi[])
 #ifdef RT_TRANSFER
   frt_real rBuffer[rt_num_frequencies];
   frt_real rRadField0[2];
+  frt_real rf[1+2*rt_num_frequencies];
 #else
   frt_real *rBuffer = 0, *rRadField0 = 0;
+  frt_real *rf = 0;
 #endif
-  frt_real rf[1+2*rt_num_frequencies];
   frt_real *rRadField1 = rBuffer;
   frt_intg lr;
 
@@ -914,7 +918,9 @@ void rtGetRadiationField(int cell, int n, const int idxi[], float ngxi[])
   else
     {
       level = cell_level(cell);
+#ifdef RT_TRANSFER
       frtCall(transferpackradiationfield)(rPar,rVar,rRadField0,rRadField1,rf);
+#endif
 
       rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
 

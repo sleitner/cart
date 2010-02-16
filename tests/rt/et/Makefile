@@ -1,13 +1,12 @@
 TOP_DIR = ../../..
 SRC_DIR = $(TOP_DIR)/src
-PLATFORM = fulla
 
 compile: art
 
 include $(TOP_DIR)/Make.config
 
-art: .obj $(OBJS) defs.h start_rt.c pix2ang_nest.o mk_pix2xy.o
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_rt.c -o art $(LIBS) $(EXTRALIBS) pix2ang_nest.o mk_pix2xy.o
+art: .obj $(OBJS) $(DEFS) start_rt.c .obj/extra/healpix.o .obj/extra/ifrit.o .obj/extra/utils.o
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_rt.c -o art $(LIBS) $(EXTRALIBS) .obj/extra/healpix.o .obj/extra/ifrit.o .obj/extra/utils.o
 
 clean:
-	rm -rf $(OBJS) .obj .obj/F start_rt.o art core *.il
+	rm -rf .obj start_rt.o art core *.il
