@@ -1,0 +1,13 @@
+# COMPILE OPTIONS
+
+CC		= mpicc
+CFLAGS  = -m64 -xHOST -O3 -ipo -fpic -openmp
+FFLAGS  = -m64 -xHOST -O3 -ipo -fpic -openmp
+#CFLAGS  = -m64 -xHOST -g -ipo -fpic -check-uninit -debug all  -openmp
+#FFLAGS  = -m64 -xHOST -g -ipo -fpic -openmp
+F77     = mpif77
+INCLUDES = -I/home/dhr9/include/ -L/home/dhr9/lib/ -DFFT_OPENMP
+#INCLUDES = -I/home/dhr9/include/ -L/home/dhr9/lib/
+EXTRALIBS = 
+FFTWLIBS   = -lsrfftw_threads -lsrfftw -lsfftw_threads -lsfftw
+#FFTWLIBS = -lsrfftw -lsfftw
