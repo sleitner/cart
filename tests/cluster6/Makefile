@@ -19,7 +19,7 @@ logs:
 	@mkdir logs
 
 ICs:
-	@svn checkout https://www.drudd.com/svn/cart/data/cluster6 ICs
+	@svn checkout https://www.drudd.com/svn/cart/data/cluster6/ICs ICs
 
 prep: DAT logs ICs 
 	
