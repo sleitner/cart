@@ -210,7 +210,7 @@ void analysis()
 		{
 		  bb[0] = bb[2] = bb[4] = 0.0;
 		  bb[1] = bb[3] = bb[5] = num_grid;
-		  iOutputMesh("ifrit-box.bin",floor_level,nbin,bb,nvars,varid);
+		  ifrit.OutputMesh("ifrit-box.bin",floor_level,nbin,bb,nvars,varid);
 		}
 	      else
 		{
@@ -218,7 +218,7 @@ void analysis()
 		    {
 		      cart_debug("There is no halo with id=%d. Skipping this command.",id);
 		    }
-		  else iOutputHalo("ifrit",floor_level,s,&halos->list[id],nvars,varid);
+		  else ifrit.OutputHalo("ifrit",floor_level,s,&halos->list[id],nvars,varid);
 		}
 	    }
 	  continue;

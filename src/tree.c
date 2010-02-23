@@ -791,7 +791,7 @@ float cell_gas_temperature(int cell)
 #ifdef RADIATIVE_TRANSFER
       return rtTem(cell);
 #else
-      return cell_gas_internal_energy(cell)/(constants->wmu*(cell_gas_gamma(cell)-1)*cell_gas_density(cell));
+      return (cell_gas_gamma(cell)-1)*constants->wmu*cell_gas_internal_energy(cell)/cell_gas_density(cell);
 #endif
     }
   else return 0.0;
