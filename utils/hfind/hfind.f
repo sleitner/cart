@@ -21,8 +21,6 @@ c     ------------------------------------------------------------
 
       include 'hfind.h'
       character*40 FileName
-      character digits(0:9)
-      data digits / '0', '1', '2', '3', '4', '5A', '6', '7', '8', '9' / 
       character*5 aname
       character*256 fname1, fname2, fname3, datpath, respath
       integer ldpath, lrpath
@@ -904,7 +902,6 @@ c
       do ic1 = 1 , nhalo
         if ( nhp(ic1) .gt. nmin ) then 
         ih = ih + 1
-        write(*,*) 'halo #',ic1,' nhp =',nhp(ic1)
         rkpc   = rh(ic1) * rg2kpc
         amassh = pmmsun * amh(ic1)
         xmpc  = (xh(ic1)-1.) * rg2Mpc
@@ -1099,7 +1096,6 @@ c
             enddo  ! end j 
           enddo  ! end i
 
-          write(*,*) ih, inp
           write(21) ih, inp, (ind(i), i=1,inp), (bind(i), i=1,inp)
 
         endif
@@ -2013,7 +2009,7 @@ c.... read control information and check whether it has proper structure
  100  format (1X,'Header=>',A45,/
      &           1X,' A=',F8.3,' A0=',F8.3,' Ampl=',F8.3,' Step=',F8.3,/
      &           1X,' I =',I4,' WEIGHT=',F8.3,' Ekin=',3E12.3,/
-     &           1X,' Nrow=',I4,' Ngrid=',I4,' Nrecl=',I6,/
+     &           1X,' Nrow=',I4,' Ngrid=',I4,' Nrecl=',I8,/
      &           1x,' Omega_0=',F7.3,' OmLam_0=',F7.4,
      &              ' Omegab_0=',F7.3,' Hubble=',f7.3)
       if ( NGRIDC .ne. NGRID ) then 
@@ -2041,12 +2037,12 @@ c       rescale masses for purposes of computing properties
       endif
 
       
-      nbyte  = nrecl * 4
+      nbyte  = nrecl * floatsize
       nacces = nbyte / nbyteword
  
       open ( 22 , file = fname2(1:nfn2), access = 'direct',
-     &          status = 'unknown', recl = nacces      )
- 
+     &          status = 'unknown', recl = nacces )
+
       rewind 23
 
 c     Only the first specie is used for halo finding

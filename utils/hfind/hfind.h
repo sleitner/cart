@@ -14,20 +14,20 @@ c     ----------------------------------------------------------------
 
       parameter ( nil    = 0         )           ! integer zero 
       parameter ( zero   = 0.0       )           ! real zero
-      parameter ( nrow   = 512      )            ! # of particles  in 1D
-      parameter ( npmax  = 10000000 )            !
+      parameter ( nrow   = 512       )            ! # of particles  in 1D
+      parameter ( npmax  = 5000000  )            !
       parameter ( ncold  = nrow**3   )           !
       parameter ( npage  = nrow**2   )           !
       parameter ( nrecl  = npage * 6 )           !
-      parameter ( ngrid  = 64  )           ! # of grid cells in 1D
-      parameter ( nll    = 128 )           ! # of chain mesh cells in 1D
+      parameter ( ngrid  = 128       )           ! # of grid cells in 1D
+      parameter ( nll    = 128       )           ! # of chain mesh cells in 1D
       parameter ( ncell  = ngrid**3  )           ! total # of grid cells
       parameter ( ncell0 = ngrid**3  )           ! # of 0-level cells in the original sim.
       parameter ( h      = 0.002     )           ! resolution in grid units
-      parameter ( nh     = 400000   )            ! max # of haloes
+      parameter ( nh     = 400000    )            ! max # of haloes
       parameter ( nhlimit= 1000000   )           ! limit to the # of potential halos
-      parameter ( nspec  = 3         )           ! # of particle species
-      parameter ( nbyteword = 1      )  
+      parameter ( floatsize = 8      )
+      parameter ( nbyteword = 4      )  
       parameter ( rhoaver= 1.0       )           ! average density of particles
       parameter ( rinit  = 100.0     )           ! initial halo radius in kpc
 
@@ -114,8 +114,8 @@ c
 c     Change to real*4 for single-precision particle files
       real*8        XPAR(npage), YPAR(npage), ZPAR(npage),
      &                  VXX(npage), VYY(npage), VZZ(npage)
-      real*8        RECDAT(NRECL)
-      common / ROW /	XPAR,YPAR,ZPAR,VXX,VYY, VZZ
+      real*8		RECDAT(NRECL)
+	  common / ROW / xpar, ypar, zpar, vxx, vyy, vzz
 
       DIMENSION      wspecies(10),lspecies(10)
       EQUIVALENCE    (RECDAT(1),XPAR(1)),
