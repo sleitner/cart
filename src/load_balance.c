@@ -420,7 +420,7 @@ void load_balance_entire_volume( float *global_work,
 	per_proc_constraints[0] = (1.0-reserve_cell_fraction)*(double)num_cells;
 
 #ifdef PARTICLES
-	per_proc_constraints[1] = (1.0-reserve_particle_fraction)*num_particles;
+	per_proc_constraints[1] = (1.0-reserve_particle_fraction)*(double)num_particles;
 #endif /* PARTICLES */
 
 	/* compute total work */
@@ -724,10 +724,11 @@ void load_balance() {
 		level_cost = (float)(1<<level); 
 
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-		#pragma omp parallel for private(icell,root,num_parts,ipart)
+		/* THIS LOOP MUST REMAIN SERIAL, or protect local_work/local_constraints (Doug - 2/27/2010) */
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
-			root = cell_parent_root_cell( icell );
+			root = cell_parent_root_sfc( icell ) - proc_sfc_index[local_proc_id];
+			cart_assert( root >= 0 && root < num_cells_per_level[min_level] );
 
 			local_work[root] += cost_per_cell * level_cost;
 			local_constraints[num_constraints*root]++;
