@@ -1,5 +1,6 @@
-#include "defs.h"
+#include "config.h"
 
+#include <stdio.h>
 #include <math.h>
 
 #include "auxiliary.h"
@@ -13,11 +14,9 @@
 #include "timestep.h"
 #include "tree.h"
 #include "units.h"
+#include "cosmology.h"
 
 #include "rt_utilities.h"
-
-#include "extra/ifrit.h"
-
 
 #define BottomLevel     1
 
@@ -79,9 +78,9 @@ void rt_initial_conditions( int cell )
   cell_momentum(cell,2) = 0.0;
   cell_gas_gamma(cell) = (5.0/3.0);
 
-  cell_gas_internal_energy(cell) = 1.0e3/T0*abox[0]*abox[0]/(gamma-1)*rho;
+  cell_gas_internal_energy(cell) = (1.0e3/units->temperature)*rho;
 
-  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(gamma-1);
+  cell_gas_pressure(cell) = cell_gas_internal_energy(cell)*(cell_gas_gamma(cell)-1);
   cell_gas_energy(cell) = cell_gas_internal_energy(cell);
 }
 
@@ -107,27 +106,6 @@ void set_rt_initial_conditions(void)
 
 void run_output()
 {
-  const int nvars = 4;
-  const int nbin1 = num_grid * (1 << BottomLevel);
-  int varid[] = { HVAR_GAS_DENSITY, HVAR_PRESSURE, EXT_CELL_LEVEL, EXT_LOCAL_PROC };
-  int nbin[] = { nbin1, nbin1, nbin1 };
-  double bb[6];
-  int done;
-  double tPhys;
-  char filename[99];
-
-  bb[0] = bb[2] = bb[4] = 0.0;
-  bb[1] = bb[3] = bb[5] = num_grid;
- 
-  sprintf(filename,"OUT/out.%05d.bin",step);
-  extWriteIfritFile(max_level,nbin,bb,nvars,varid,filename);
-
-  if(step == 4)
-    {
-      finalize_logging();
-      MPI_Finalize();
-      exit(0);
-    }
 }
 
 
@@ -138,17 +116,20 @@ void init_run()
    int *level_cells;
    float astart;
    double pos[3];
+   float hubble;
 
    /* set units */
    astart = 0.1;
-   cosmology_set(h,1.0);
-   Lbox = 1.6e-3/(astart*hubble);
+   hubble = 1.0;
+   cosmology_set(h,hubble);
+   cosmology_set(OmegaL,0.0);
    cosmology_set(OmegaM,3.2*pow(astart,3)/(1.123e-5*hubble*hubble));
    cosmology_set(OmegaB,cosmology->OmegaM);
-   cosmology_set(OmegaL,0.0);
+   box_size = 1.6e-3/(astart*hubble);
+   units_set_art(cosmology->OmegaM,cosmology->h,box_size);
    abox[min_level] = astart;
 
-   init_units();
+   units_reset();
    
    for ( i = 0; i < nDim; i++ )
      {
@@ -203,7 +184,7 @@ void init_run()
    /* set time variables */
    tl[min_level] = 0.0;
 
-   dtl[min_level] = 1.0e7/(t0*astart*astart);
+   dtl[min_level] = 1.0e7/(units->time*constants->yr);
    choose_timestep( &dtl[min_level] );
 
    for ( level = min_level+1; level <= max_level; level++ )
