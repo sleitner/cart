@@ -123,7 +123,7 @@ float rt_clumping_factor = 30.0;
 /*
 //  H2 coherence length (in pc)
 */
-float rt_H2_coherence_length = 0.3;
+float rt_coherence_length = 0.3;
 
 
 void rtPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_real *rRadField0, frt_real **pRadField1);
@@ -204,7 +204,7 @@ void rtConfigInit()
 
   control_parameter_add(control_parameter_float,&rt_clumping_factor,"@rt:clumping-factor","the clumping factor of the neutral gas");
 
-  control_parameter_add(control_parameter_float,&rt_H2_coherence_length,"@rt:H2-coherence-length","the coherence length of molecular gas (in parsecs)");
+  control_parameter_add(control_parameter_float,&rt_coherence_length,"@rt:coherence-length","the coherence length of molecular gas (in parsecs)");
 }
 
 
@@ -220,7 +220,7 @@ void rtConfigVerify()
 
   cart_assert(!(rt_clumping_factor < 1.0));
 
-  cart_assert(rt_H2_coherence_length > 0.0);
+  cart_assert(rt_coherence_length > 0.0);
 }
 
 
@@ -313,7 +313,7 @@ void rtInitRun()
   frt_real Tmin = gas_temperature_floor;
   frt_real D2Gmin = rt_dust_to_gas_floor;
   frt_real ClumpH2 = rt_clumping_factor;
-  frt_real CohLenH2 = rt_H2_coherence_length;
+  frt_real CohLenH2 = rt_coherence_length;
   frt_real fGal = rt_uv_emissivity_stars;
   frt_real fQSO = rt_uv_emissivity_quasars;
   frt_intg IPOP = rt_stellar_pop;
@@ -331,7 +331,7 @@ void rtInitRun()
   frtCall(setrun).Tmin = gas_temperature_floor;
   frtCall(setrun).D2Gmin = rt_dust_to_gas_floor;
   frtCall(setrun).ClumpH2 = rt_clumping_factor;
-  frtCall(setrun).CohLenH2 = rt_H2_coherence_length;
+  frtCall(setrun).CohLenH2 = rt_coherence_length;
   frtCall(setrun).fGal = rt_uv_emissivity_stars;
   frtCall(setrun).fQSO = rt_uv_emissivity_quasars;
   frtCall(setrun).IPOP = rt_stellar_pop;

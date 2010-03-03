@@ -23,7 +23,7 @@ unsigned int mpi_custom_flags = MPI_CUSTOM_NONE;
 
 void config_init_parallel()
 {
-  control_parameter_add2(control_parameter_int,&mpi_custom_flags,"@MPI:custom-flags","mpi_custom_flags","flags that can be set to customize MPI performance. This parameter is experimental and may be removed in the future.");
+  control_parameter_add2(control_parameter_int,&mpi_custom_flags,"@mpi:custom-flags","mpi_custom_flags","flags that can be set to customize MPI performance. This parameter is experimental and may be removed in the future.");
 }
 
 

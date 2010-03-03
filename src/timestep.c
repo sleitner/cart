@@ -177,13 +177,13 @@ void config_init_timestep()
   control_parameter_add2(control_parameter_int,&max_cfl_sync_level,"max-cfl-sync-level","max_cfl_sync_level","maximum level at which the CFL conditions are synchronized across separate nodes.");
 
 #ifdef HYDRO 
-  control_parameter_add3(control_parameter_cflrun,&cfl_run,"CFL-run","cfl_run","cfl","the CFL number for setting the time-step.");
+  control_parameter_add3(control_parameter_cflrun,&cfl_run,"cfl-run","cfl_run","cfl","the CFL number for setting the time-step.");
 
-  control_parameter_add3(control_parameter_cflmax,&cfl_max,"CFL-max","cfl_max","cfl","the maximum acceptable CFL number. If this number is exceeded, the time-step needs to be redone. It is a good sense to set this number just a little bit higher than <CFL-run>, to avoid extra restarts due to numerical noise.");
+  control_parameter_add3(control_parameter_cflmax,&cfl_max,"cfl-max","cfl_max","cfl","the maximum acceptable CFL number. If this number is exceeded, the time-step needs to be redone. It is a good sense to set this number just a little bit higher than <CFL-run>, to avoid extra restarts due to numerical noise.");
 #endif /* HYDRO */
 
 #ifdef PARTICLES
-  control_parameter_add2(control_parameter_double,&particle_cfl,"particle-CFL","particle_cfl","the CFL number for particle dynamics. In HYDRO mode this number is usually not needed, as the grid CFL conditions superceeds that of particles. Setting it to zero disables this limit.");
+  control_parameter_add2(control_parameter_double,&particle_cfl,"particle-cfl","particle_cfl","the CFL number for particle dynamics. In HYDRO mode this number is usually not needed, as the grid CFL conditions superceeds that of particles. Setting it to zero disables this limit.");
 #endif /* PARTICLES */
 
   control_parameter_add2(control_parameter_double,&max_time_inc,"max-timestep-increment","max_time_inc","the largest factor by which the time-step is allowed to increase.");
