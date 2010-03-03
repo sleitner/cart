@@ -55,7 +55,7 @@ void control_parameter_set_imf(const char *value, void *ptr, int ind)
 
   for(i=0; i<n; i++)
     {
-      if(strcmp(str,IMF_fun[i].name) == 0)
+      if(strcmp(value,IMF_fun[i].name) == 0)
 	{
 	  imf.type = i;
 	}
