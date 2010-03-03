@@ -63,7 +63,7 @@ void control_parameter_set_imf(const char *value, void *ptr, int ind)
 
   if(imf.type < 0)
     {
-      cart_debug("String '%s' is not a valid name of IMF. Valid names are:");
+      cart_debug("String '%s' is not a valid name of IMF. Valid names are:",value);
       for(i=0; i<n; i++) cart_debug("%s",IMF_fun[i].name);
       cart_error("ART is terminating.");
     }
