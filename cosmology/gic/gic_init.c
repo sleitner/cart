@@ -1144,6 +1144,14 @@ void gic_init()
   int dc_off = 0;
 
   /*
+  //  Make sure we have a blank slate
+  */
+  if(cosmology_is_set())
+    {
+      cart_error("Cosmology is set before GIC files are read. Cosmological parameters should be set in the config file when using the GIc reader.");
+    }
+
+  /*
   //  Where do we get the root name? Use options for now
   */
   if(local_proc_id == MASTER_NODE)
