@@ -504,7 +504,7 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
 }
 
 
-void gicReadParticleData(const char *rootname, char *type)
+void gicReadParticleData(const char *rootname, char *type, int dc_off)
 {
   const int lMax = 6;
   int l, L;
@@ -564,7 +564,13 @@ void gicReadParticleData(const char *rootname, char *type)
   cosmology_set(OmegaB,manifest->OmegaB);
   cosmology_set(OmegaL,manifest->OmegaL);
   cosmology_set(h,manifest->h100);
-  cosmology_set(DeltaDC,fileHeader->DeltaDC);
+  if(dc_off){ 
+    cosmology_set(DeltaDC,0.0);
+  }else{
+    cosmology_set(DeltaDC,fileHeader->DeltaDC);
+  }
+   
+
   box_size = manifest->dx*num_grid;
 
   auni[min_level] = fileHeader->aBegin;
@@ -1201,7 +1207,7 @@ void gic_init()
 #endif
 
   gicBalanceLoad(rootname,type);
-  gicReadParticleData(rootname,type);
+  gicReadParticleData(rootname,type,dc_off);
   cart_debug("read in particles");
 
 #ifdef HYDRO
@@ -1214,8 +1220,6 @@ void gic_init()
   hydro_eos(min_level);
 
 #endif /* HYDRO */
-
-  if(dc_off) cosmology_set(DeltaDC,0.0);
 
   cart_debug("tl[min_level] = %f", tl[min_level] );
   cart_debug("au[min_level] = %f", auni[min_level] );
