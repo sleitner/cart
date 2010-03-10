@@ -415,6 +415,7 @@ int timestep( int level, MPI_Comm local_comm )
 					end_time( COMMUNICATION_TIMER );
 
 					if ( true_ret < 0 ) {
+						end_time( LOWER_LEVEL_TIMER );
 						end_time( LEVEL_TIMER );
 						end_timing_level( level );
 						MPI_Comm_free( &child_comm );
