@@ -1148,6 +1148,7 @@ void gic_init()
   const char *tmp, *rootname;
   char type[2];
   int dc_off = 0;
+  double aexp0, aexpv, vFac ;
 
   /*
   //  Make sure we have a blank slate
@@ -1156,7 +1157,7 @@ void gic_init()
     {
       cart_error("Cosmology is set before GIC files are read. Cosmological parameters should be set in the config file when using the GIc reader.");
     }
-
+  
   /*
   //  Where do we get the root name? Use options for now
   */
@@ -1208,7 +1209,7 @@ void gic_init()
 
   gicBalanceLoad(rootname,type);
   gicReadParticleData(rootname,type,dc_off);
-  cart_debug("read in particles");
+  cart_debug("read in particles with velocity on the whole step");
 
 #ifdef HYDRO
 
@@ -1225,6 +1226,7 @@ void gic_init()
   cart_debug("au[min_level] = %f", auni[min_level] );
   cart_debug("ab[min_level] = %f", abox[min_level] );
   cart_debug("DC mode = %f", cosmology->DeltaDC );
+  cosmology_set_fixed();
 
   for(level=min_level+1; level<=max_level; level++)
     {
@@ -1233,13 +1235,21 @@ void gic_init()
       abox[level] = abox[min_level];
     }
 
+  cart_debug("choose timestep and set velocity on the half step");
   dtl[min_level] = 0.0;
   choose_timestep( &dtl[min_level] );
+  aexpv = abox_from_tcode( tl[min_level] - 0.5*dtl[min_level]  ); //sam
+  aexp0 = abox[min_level];
+  vFac = ( dPlus(aexpv) * aexpv * cosmology_mu(aexpv)/(aexpv*aexpv) ) / ( dPlus(aexp0) * aexp0 * cosmology_mu(aexp0)/(aexp0*aexp0) ) ;
+  cart_debug("vFac(aexpv)/vFac(aexp0)=%f",vFac);
 
   for(i=0; i<num_particles; i++) if(particle_level[i] != FREE_PARTICLE_LEVEL)
     {
       particle_t[i] = tl[min_level];
       particle_dt[i] = dtl[min_level];
+      particle_v[i][0] *= vFac;
+      particle_v[i][1] *= vFac;
+      particle_v[i][2] *= vFac;
     }
 
 #ifdef STARFORM
