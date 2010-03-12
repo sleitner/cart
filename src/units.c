@@ -80,6 +80,14 @@ void control_parameter_set_OmegaB(const char *value, void *ptr, int ind)
 }
 
 
+void control_parameter_set_DeltaDC(const char *value, void *ptr, int ind)
+{
+  double v;
+  control_parameter_set_double(value,&v,ind);
+  cosmology_set(DeltaDC,v);
+}
+
+
 void control_parameter_set_h(const char *value, void *ptr, int ind)
 {
   double v;
@@ -95,6 +103,7 @@ void config_init_units()
   ControlParameterOps control_parameter_OmegaM =  { control_parameter_set_OmegaM,  control_parameter_list_double };
   ControlParameterOps control_parameter_OmegaL =  { control_parameter_set_OmegaL,  control_parameter_list_double };
   ControlParameterOps control_parameter_OmegaB =  { control_parameter_set_OmegaB,  control_parameter_list_double };
+  ControlParameterOps control_parameter_DeltaDC=  { control_parameter_set_DeltaDC, control_parameter_list_double };
   ControlParameterOps control_parameter_h =       { control_parameter_set_h,       control_parameter_list_double };
 #endif /* COSMOLOGY */
 
@@ -142,6 +151,8 @@ void config_init_units()
   control_parameter_add2(control_parameter_OmegaL,(void *)&(cosmology->OmegaL),"%OmegaL","omegal0","cosmological constant matter density parameter.");
 
   control_parameter_add2(control_parameter_OmegaB,(void *)&(cosmology->OmegaB),"%OmegaB","omegab0","baryonic matter density parameter.");
+
+  control_parameter_add2(control_parameter_DeltaDC,(void *)&(cosmology->DeltaDC),"%DeltaDC","deltadc","DC mode: DeltaDC");
 
   control_parameter_add2(control_parameter_h,(void *)&(cosmology->h),"%h","hubble","hubble constant in 100 km/s/Mpc.");
 
