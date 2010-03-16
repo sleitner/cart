@@ -17,6 +17,7 @@
 #include "io.h"
 #include "iterators.h"
 #include "load_balance.h"
+#include "logging.h" 
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
@@ -243,6 +244,9 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	char filename3[256];
 	char filename4[256];
 	char filename_gas[256];
+#ifdef LOG_STAR_CREATION
+	char filename_sclog[256];
+#endif
 #ifdef HYDRO
 #ifdef HYDRO_TRACERS
 	char filename_tracers[256];
@@ -456,8 +460,50 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	}
 
 	save_auxiliary();
-	last_restart_step = step;
 
+#ifdef STARFORM
+#ifdef LOG_STAR_CREATION
+	if ( local_proc_id == MASTER_NODE ) { 
+	  switch(gas_filename_flag) //same switch as hydro which is required anyway for LOG_STAR_CREATION
+	    {
+	    case WRITE_SAVE:
+	      {
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+#ifdef COSMOLOGY
+		sprintf( filename_sclog, "%s/%s_a%06.4f.dsc", output_directory, jobname, auni[min_level] );
+#else
+		sprintf( filename_sclog, "%s/%s_a%06d.dsc", output_directory, jobname, step );
+		cart_error("LOG_STAR_CREATION isn't setup to run without cosmology yet");
+#endif /* COSMOLOGY */
+#else
+#ifdef COSMOLOGY
+		sprintf( filename_sclog, "%s/star_creation_a%06.4f.dat", output_directory, auni[min_level] );
+#else
+		sprintf( filename_sclog, "%s/star_creation_a%06d.dat", output_directory, step );
+		cart_error("LOG_STAR_CREATION define isn't setup to run without cosmology yet");
+#endif /* COSMOLOGY */
+#endif
+		combine_star_creation_log(); 
+		finalize_star_creation_log( filename_sclog );
+		break;
+	      }
+	    case WRITE_BACKUP:
+	      {
+		//sprintf( filename_sclog, "%s/%s_2.dsc", output_directory, jobname );
+		combine_star_creation_log(); 
+		break;
+	      }
+	    default:
+	      {
+		//sprintf( filename_sclog, "%s/%s.dsc", output_directory, jobname );
+		combine_star_creation_log(); 
+	      }
+	    }
+	}
+#endif /*LOG_STAR_CREATION */
+#endif /*STARFORM */
+
+	last_restart_step = step;
 	end_time ( IO_TIMER );
 }
 

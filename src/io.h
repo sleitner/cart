@@ -1,10 +1,12 @@
+
+
+
 #ifndef __IO_H__
 #define __IO_H__
 
 #ifndef CONFIGURED
 #error "Missing config.h include."
 #endif
-
 
 #define MAX_OUTPUTS	256
 
@@ -16,6 +18,9 @@ extern int current_output;
 extern int last_restart_step;
 
 extern int output_frequency;
+
+extern int num_outputs;
+extern float outputs[];
 
 void config_init_io();
 void config_verify_io();

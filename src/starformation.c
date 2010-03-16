@@ -205,6 +205,9 @@ void star_formation( int level, int time_multiplier )
 	  dm_star = min( max(sfr[i]*dt_SF*cell_volume[level],dm_star_min), cell_fraction * cell_gas_density(icell) );
 
 	  /* create the new star */
+#ifdef LOG_STAR_CREATION	  
+	  log_star_creation( icell, dm_star);
+#endif
 	  create_star_particle( icell, dm_star );
 	}
     }

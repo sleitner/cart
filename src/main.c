@@ -270,6 +270,9 @@ int main ( int argc, char *argv[]) {
 			assign_density( level );
 		}
 #endif /* RADIATIVE_TRANSFER */
+#ifdef LOG_STAR_CREATION
+		check_restart_star_creation();
+#endif
 	} 
 
 #ifdef debug
@@ -345,6 +348,12 @@ int main ( int argc, char *argv[]) {
 			  assign_density( level );
 			}
 #endif /* RADIATIVE_TRANSFER */
+
+#ifdef LOG_STAR_CREATION
+			if ( local_proc_id == MASTER_NODE ){
+			  wipe_temp();
+			}
+#endif
 	
 		} else {
 			step++;

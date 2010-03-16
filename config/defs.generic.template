@@ -21,6 +21,7 @@
 --#define FEEDBACK
 --#define FEEDBACK_SNIa
 --#define STELLARMASSLOSS
+--#define LOG_STAR_CREATION
 
 --#define DEBUG
 --#define DEBUG_MEMORY_USE

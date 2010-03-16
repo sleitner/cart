@@ -33,6 +33,9 @@ FILE *dependency;
 
 #ifdef STARFORM
 FILE *star_log;
+#ifdef LOG_STAR_CREATION
+FILE *star_creation_log;
+#endif
 #endif /* STARFORM */
 
 
@@ -40,6 +43,242 @@ FILE *star_log;
 unsigned long dmuReportAllocatedMemory();
 #endif /* DEBUG_MEMORY_USE */
 
+#ifdef STARFORM
+#ifdef LOG_STAR_CREATION
+void log_star_creation( int icell, double mass ){
+  char filename[256];
+  FILE *f;
+  static int first_time = 1;
+  int level;
+
+  sprintf(filename,"%s/star_temp.%03u.log",output_directory,local_proc_id);
+  
+  if(first_time ){
+    first_time = 0;
+    f = fopen(filename,"w");
+  }else {f = fopen(filename,"a");}
+  if ( f == NULL ) {cart_error("Unable to open %s for writing!", filename );
+  } else {
+    level=cell_level(icell);
+    fprintf(f,"%f %d %e %e\n",
+	    auni_from_tcode(tl[level]),level,
+	    mass*units->mass/constants->Msun, 
+	    cell_gas_density(icell)*units->density*units->length/(constants->Msun/pow(constants->pc,2))  
+	    );
+    fclose(f);
+  }
+}
+
+void check_restart_star_creation(){
+  /* Don't want ot restart from jobname.d and have a corrupt/empty/inaccurate restart_sc file.
+   * Match the number of stars since the last output ae in the code to the number of stars listed in screst.
+   */
+  double last_ae;
+  float fdummy;
+  int local_count_stars,count_stars, nsclog, iout,i;
+  int max_len=256;
+  char str_buf[max_len+1];
+  char filename_screst[256];
+  FILE *fp;
+  cart_debug("checking the restart_star_creation file for consistency with stars in memory");
+  sprintf(filename_screst,"%s/restart_star_creation.log",output_directory);
+
+  local_count_stars = 0;  count_stars = 0;
+  for ( i = 0; i < num_star_particles; i++ ) {
+    if ( particle_level[i] != FREE_PARTICLE_LEVEL && particle_is_star(i) ) {
+      local_count_stars++ ;
+    }
+  }
+  MPI_Reduce( &local_count_stars, &count_stars, 1, MPI_INT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+
+  /*read in the last labeled restart*/ 
+  if ( local_proc_id == MASTER_NODE ) {
+    cart_debug("At check_restart_sc %d stars exist",count_stars);
+
+    iout=1;while ( iout < num_outputs && auni[min_level] >= outputs[iout] ) {iout++;}
+    iout--;
+
+    if( count_stars == 0 ){ // no stars: wipe restart
+      last_ae = auni[min_level];
+      wipe_restart_star_creation( last_ae );
+    } 
+    else{ // starting from labeled restart: wipe restart (last stars were recorded) 
+      if(auni_from_abox(abox_old[min_level]) < outputs[iout] && auni[min_level] > outputs[iout]){  
+	last_ae = auni[min_level];
+	wipe_restart_star_creation( last_ae );
+      } 
+      else {
+	if((fp=fopen(filename_screst,"r")) == NULL) {
+	  cart_error("restart_sc must contain last_ae if (not just initialized after a labeled output or no stars exist)");
+	} else {
+	  if(fgets(str_buf, max_len + 1, fp) != NULL){/* read last_ae if it exists */
+	    i = sscanf(str_buf, "%f", &fdummy);
+	    last_ae=fdummy;
+	    cart_debug("found last_ae=%f restart_sc file",last_ae);
+	  }else {
+	    cart_error("restart_sc must contain last_ae if it has not just been initialized after a labeled output or no stars exist");
+	  }
+	  fclose(fp);
+	}
+      }
+    }
+    /* check last_ae is inside relevant interval */
+    if( last_ae < outputs[iout] || last_ae > auni[min_level] ){
+      cart_error("bad last_ae: %f < %f || %f > %f",last_ae,outputs[iout],last_ae,auni[min_level]);
+    }
+    cart_debug("outputs check: iout=%d a=%f last_ae=%f outi=%f outi+1=%f",i, auni[min_level],last_ae,outputs[iout],outputs[iout+1]);
+  }
+  MPI_Bcast(&last_ae, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+
+  if(last_ae != auni[min_level]){
+    /*count stars since the last restart*/ 
+    local_count_stars = 0; count_stars = 0;
+    for ( i = 0; i < num_star_particles; i++ ) {
+      if ( particle_level[i] != FREE_PARTICLE_LEVEL && particle_is_star(i) ) {
+	if ( auni_from_tcode(star_tbirth[i]) > last_ae ) {
+	  local_count_stars++ ;
+	}
+      }
+    }
+    MPI_Reduce( &local_count_stars, &count_stars, 1, MPI_INT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+    
+    /* make sure your restart_sc file matches the number of stars since the last backup to a labeled file */
+    if ( local_proc_id == MASTER_NODE ) {
+      if( count_stars > 0 ){
+	nsclog = count_lines( filename_screst );
+	nsclog = nsclog - 1;// one line is a header
+	if( nsclog != count_stars ){
+	  cart_error( "restart_star_creation.log has a bad star count: (log:%d) != (dst: %d)",nsclog,count_stars);
+	}
+	cart_debug("total number of stars since last output=%d matches restart line count=%d",count_stars, nsclog);
+      }
+    }
+  }
+
+
+}
+
+void combine_star_creation_log(){
+  char filename_screst[256];
+  char filename_local[256];
+  int proc;
+  FILE *fp;
+
+  cart_debug("combine_star_creation_log");
+  sprintf(filename_screst,"%s/restart_star_creation.log",output_directory);
+  for ( proc = 0; proc < num_procs; proc++ ) {
+    sprintf(filename_local,"%s/star_temp.%03d.log",output_directory,proc);
+    fp = fopen(filename_local,"r");
+    if( fp != NULL ) {fclose(fp); 
+      append_file( filename_local, filename_screst);
+    }
+  }
+  wipe_temp();
+}
+
+void wipe_restart_star_creation( double last_ae ){
+  char filename_screst[256];
+  int proc;
+  FILE *fp;
+  sprintf(filename_screst,"%s/restart_star_creation.log",output_directory);
+  if((fp=fopen(filename_screst,"w")) == NULL) {cart_error("Cannot open file %s",filename_screst);}
+  fprintf(fp,"%f\n",last_ae);
+  fclose(fp);
+}
+
+void wipe_temp(){
+  char filename_local[256];
+  int proc;
+  FILE *fp;
+  for ( proc = 0; proc < num_procs; proc++ ) {
+    sprintf(filename_local,"%s/star_temp.%03d.log",output_directory,proc);
+    fp = fopen(filename_local,"w");
+    if( fp != NULL ) {fclose(fp);} 
+  }
+}
+
+void finalize_star_creation_log( char *filename_sclog ){
+  char filename_screst[256];
+  FILE *fp;
+
+  cart_debug("finalize_star_creation");
+  sprintf(filename_screst,"%s/restart_star_creation.log",output_directory);
+
+  fp = fopen(filename_screst,"r"); //make sure restart_sc exists
+  if( fp != NULL ) {
+    fclose(fp);
+    copy_file( filename_screst, filename_sclog);
+    wipe_restart_star_creation( auni[min_level] );
+  } 
+}
+
+
+int count_lines(char *filename){
+  int i=0;
+  char ch='\0';
+  FILE *fp;
+
+  fp=fopen(filename,"r");
+  if ( fp == NULL ) {cart_error("Cannot open count file: %s",filename);}
+  while(ch!=EOF) {
+    ch=fgetc(fp);
+    if(ch=='\n')  i++;
+  }
+  fclose(fp);
+  return i;
+}
+
+void append_file(char *file_path_from, char *file_path_to){
+  int max_line_len=1000; 
+  FILE *f_from;
+  FILE *f_to;
+  char buf[max_line_len+1];  
+
+  /* open the source and the target files. */
+  f_from = fopen(file_path_from, "r");
+  if ( f_from == NULL ) {cart_error("Cannot open source file: %s",file_path_from);}
+  f_to = fopen(file_path_to, "a");
+  if ( f_to == NULL ) {cart_error("Cannot open target file: %s",file_path_to);}
+
+  /* copy source file to target file, line by line. */
+  while (fgets(buf, max_line_len+1, f_from)) {
+    if (fputs(buf, f_to) == EOF) {  cart_error("Error writing to target file: %s",file_path_to);}
+  }
+  /* fgets failed _not_ due to encountering EOF */
+  if (!feof(f_from)) { cart_error("Error reading from source file: %s",file_path_from);}
+
+  /* close source and target file streams. */
+  if (fclose(f_from) == EOF) {cart_error("Error when closing source file: %s",file_path_from);}
+  if (fclose(f_to) == EOF) {cart_error("Error when closing target file: %s",file_path_to);}
+}
+
+void copy_file(char *file_path_from, char *file_path_to){
+  int max_line_len=1000; 
+  FILE *f_from;
+  FILE *f_to;
+  char buf[max_line_len+1];  
+
+  /* open the source and the target files. */
+  f_from = fopen(file_path_from, "r");
+  if (!f_from) {cart_error("Cannot open source file: %s",file_path_from);}
+  f_to = fopen(file_path_to, "w");
+  if (!f_to) {cart_error("Cannot open target file: %s",file_path_to);}
+
+  /* copy source file to target file, line by line. */
+  while (fgets(buf, max_line_len+1, f_from)) {
+    if (fputs(buf, f_to) == EOF) {  cart_error("Error writing to target file: %s",file_path_to);}
+  }
+  /* fgets failed _not_ due to encountering EOF */
+  if (!feof(f_from)) { cart_error("Error reading from source file: %s",file_path_from);}
+
+  /* close source and target file streams. */
+  if (fclose(f_from) == EOF) {cart_error("Error when closing source file: %s",file_path_from);}
+  if (fclose(f_to) == EOF) {cart_error("Error when closing target file: %s",file_path_to);}
+}
+
+
+#endif //LOG_STAR_CREATION
+#endif //STARFORM
 
 void init_logging( int restart ) {
 	int i;
@@ -52,7 +291,7 @@ void init_logging( int restart ) {
 		mode[0] = 'w';
 	}
 	mode[1] = '\0';
-	
+
 	if ( local_proc_id == MASTER_NODE ) {
 		/* open log files */
 		sprintf(filename,"%s/times.log", logfile_directory );
