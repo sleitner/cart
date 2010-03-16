@@ -123,14 +123,14 @@ void check_restart_star_creation(){
       }
     }
     /* check last_ae is inside relevant interval */
-    if( last_ae < outputs[iout] || last_ae > auni[min_level] ){
+    if( (last_ae < outputs[iout] || last_ae > auni[min_level]) && iout > 0 ){
       cart_error("bad last_ae: %f < %f || %f > %f",last_ae,outputs[iout],last_ae,auni[min_level]);
     }
     cart_debug("outputs check: iout=%d a=%f last_ae=%f outi=%f outi+1=%f",i, auni[min_level],last_ae,outputs[iout],outputs[iout+1]);
   }
   MPI_Bcast(&last_ae, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
-  if(last_ae != auni[min_level]){
+  if(last_ae != auni[min_level] && count_stars > 0){
     /*count stars since the last restart*/ 
     local_count_stars = 0; count_stars = 0;
     for ( i = 0; i < num_star_particles; i++ ) {
