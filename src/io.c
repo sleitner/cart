@@ -433,33 +433,6 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 
 #endif /* PARTICLES */
 
-	if ( local_proc_id == MASTER_NODE ) {
-		/* write out restart file */
-		sprintf( filename, "%s/restart.dat", output_directory );
-		restart = fopen( filename, "w" );
-		cart_assert(restart != NULL);
-
-		fprintf( restart, "%s\n", filename_gas );
-
-#ifdef HYDRO
-#ifdef HYDRO_TRACERS
-		fprintf( restart, "%s\n", filename_tracers );
-#endif /* HYDRO_TRACERS */
-#endif /* HYDRO */
-
-#ifdef PARTICLES
-		fprintf( restart, "%s\n", filename1 );
-		fprintf( restart, "%s\n", filename2 );
-		fprintf( restart, "%s\n", filename3 );
-#ifdef STARFORM
-		fprintf( restart, "%s\n", filename4 );
-#endif /* STARFORM */
-#endif /* PARTICLES */
-	
-		fclose(restart);
-	}
-
-	save_auxiliary();
 
 #ifdef STARFORM
 #ifdef LOG_STAR_CREATION
@@ -505,6 +478,35 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	log_star_creation(-1,-1.0,FILE_OPEN); //close temp_star files 
 #endif /*LOG_STAR_CREATION */
 #endif /*STARFORM */
+
+
+	if ( local_proc_id == MASTER_NODE ) {
+		/* write out restart file */
+		sprintf( filename, "%s/restart.dat", output_directory );
+		restart = fopen( filename, "w" );
+		cart_assert(restart != NULL);
+
+		fprintf( restart, "%s\n", filename_gas );
+
+#ifdef HYDRO
+#ifdef HYDRO_TRACERS
+		fprintf( restart, "%s\n", filename_tracers );
+#endif /* HYDRO_TRACERS */
+#endif /* HYDRO */
+
+#ifdef PARTICLES
+		fprintf( restart, "%s\n", filename1 );
+		fprintf( restart, "%s\n", filename2 );
+		fprintf( restart, "%s\n", filename3 );
+#ifdef STARFORM
+		fprintf( restart, "%s\n", filename4 );
+#endif /* STARFORM */
+#endif /* PARTICLES */
+	
+		fclose(restart);
+	}
+
+	save_auxiliary();
 
 	last_restart_step = step;
 	end_time ( IO_TIMER );
