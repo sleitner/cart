@@ -463,6 +463,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 
 #ifdef STARFORM
 #ifdef LOG_STAR_CREATION
+	log_star_creation(-1,-1.0,FILE_CLOSE); //close temp_star files 
 	if ( local_proc_id == MASTER_NODE ) { 
 	  switch(gas_filename_flag) //same switch as hydro which is required anyway for LOG_STAR_CREATION
 	    {
@@ -500,6 +501,8 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	      }
 	    }
 	}
+	MPI_Barrier( MPI_COMM_WORLD ) ; //prevents files from reopening before append occurs
+	log_star_creation(-1,-1.0,FILE_OPEN); //close temp_star files 
 #endif /*LOG_STAR_CREATION */
 #endif /*STARFORM */
 

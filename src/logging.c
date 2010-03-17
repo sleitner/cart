@@ -24,6 +24,9 @@
 #ifdef MPE_LOG
 #include <mpe.h>
 #endif
+#ifdef LOG_STAR_CREATION
+#include "starformation_recipes.h"
+#endif
 
 FILE *steptimes;
 FILE *timing;
@@ -33,9 +36,6 @@ FILE *dependency;
 
 #ifdef STARFORM
 FILE *star_log;
-#ifdef LOG_STAR_CREATION
-FILE *star_creation_log;
-#endif
 #endif /* STARFORM */
 
 
@@ -45,28 +45,70 @@ unsigned long dmuReportAllocatedMemory();
 
 #ifdef STARFORM
 #ifdef LOG_STAR_CREATION
-void log_star_creation( int icell, double mass ){
-  char filename[256];
-  FILE *f;
-  static int first_time = 1;
-  int level;
 
-  sprintf(filename,"%s/star_temp.%03u.log",output_directory,local_proc_id);
-  
-  if(first_time ){
-    first_time = 0;
-    f = fopen(filename,"w");
-  }else {f = fopen(filename,"a");}
-  if ( f == NULL ) {cart_error("Unable to open %s for writing!", filename );
-  } else {
-    level=cell_level(icell);
-    fprintf(f,"%f %d %e %e\n",
-	    auni_from_tcode(tl[level]),level,
-	    mass*units->mass/constants->Msun, 
-	    cell_gas_density(icell)*units->density*units->length/(constants->Msun/pow(constants->pc,2))  
-	    );
-    fclose(f);
+void output_star_creation( int icell, double mass, FILE *f ){
+  int level_KS, icell_KS;
+  double side_KS;
+  int level;
+  int id;
+  int i;
+
+  id = last_star_id + local_proc_id + 1;
+
+  level_KS = ( log( 1.0*auni[level]*(constants->kpc/units->length)/cell_size[min_level] ) / log(2.0) ); //want KS to be ~1pKpc
+  level = cell_level(icell);
+  icell_KS = icell;
+  if( level > level_KS ){
+    for( i = level; i < level_KS; i++ ){
+      icell_KS = cell_parent_cell(icell_KS);
+    }
   }
+  side_KS = cell_size[ cell_level(icell_KS) ]*(units->length/constants->kpc)*auni[level];
+  
+  //starid, auni,tcosmo, level, over_density,cell_gas density, consumption timescale, mass, icell_KS,KSlength(Kpc), KS gas density
+  fprintf(f,"%d %d  %f %e  %d %e %e  %e  %e  %d %f %e\n",
+	  local_proc_id, id, 
+	  auni_from_tcode(tl[level]) , tphys_from_tcode(tl[level]) ,
+	  level , cell_density(icell) , cell_gas_density(icell)*units->density/(constants->Msun/pow(constants->pc,3)) ,
+	  ( cell_gas_density(icell)*cell_volume[level]/sf_rate(icell) )*(units->time/constants->yr),
+	  mass*units->mass/constants->Msun , 
+	  icell_KS , side_KS , cell_gas_density(icell_KS)*units->density/(constants->Msun/pow(constants->pc,3)) 
+	  );
+}
+
+
+void log_star_creation( int icell, double mass, int fileop_temp ){
+  static char filename[256];
+  static FILE *temp_file;
+
+  switch(fileop_temp)
+    {
+    case FILE_OPEN:
+      {
+	sprintf(filename,"%s/star_temp.%03u.log",output_directory,local_proc_id);
+	temp_file = fopen(filename,"w");
+	cart_debug("opening %s",filename);
+	if ( temp_file == NULL ){cart_error("Unable to open %s!", filename );}
+	break;
+      }
+    case FILE_RECORD:
+      {
+	cart_assert( icell >= 0 && icell < num_cells );
+	cart_assert( mass > 0.0 );
+	if ( temp_file == NULL ) {cart_error("Unable to use %s for writing!", filename );}
+	output_star_creation( icell, mass, temp_file );
+	break;
+      }
+    case FILE_CLOSE:
+      {
+	cart_debug("closing %s",filename);
+	if ( temp_file == NULL ){cart_error("Unable to close %s!", filename );}
+	fclose(temp_file);
+	break;
+      }
+    default:
+      cart_error("bad option");
+    } 
 }
 
 void check_restart_star_creation(){
@@ -75,7 +117,7 @@ void check_restart_star_creation(){
    */
   double last_ae;
   float fdummy;
-  int local_count_stars,count_stars, nsclog, iout,i;
+  int local_count_stars,count_stars,count_recent_stars, nsclog, iout,i;
   int max_len=256;
   char str_buf[max_len+1];
   char filename_screst[256];
@@ -89,12 +131,11 @@ void check_restart_star_creation(){
       local_count_stars++ ;
     }
   }
-  MPI_Reduce( &local_count_stars, &count_stars, 1, MPI_INT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+  MPI_Allreduce( &local_count_stars, &count_stars, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
+  cart_debug("At check_restart_sc %d stars exist",count_stars); 
 
   /*read in the last labeled restart*/ 
   if ( local_proc_id == MASTER_NODE ) {
-    cart_debug("At check_restart_sc %d stars exist",count_stars);
-
     iout=1;while ( iout < num_outputs && auni[min_level] >= outputs[iout] ) {iout++;}
     iout--;
 
@@ -126,13 +167,14 @@ void check_restart_star_creation(){
     if( (last_ae < outputs[iout] || last_ae > auni[min_level]) && iout > 0 ){
       cart_error("bad last_ae: %f < %f || %f > %f",last_ae,outputs[iout],last_ae,auni[min_level]);
     }
-    cart_debug("outputs check: iout=%d a=%f last_ae=%f outi=%f outi+1=%f",i, auni[min_level],last_ae,outputs[iout],outputs[iout+1]);
+    cart_debug("star creation outputs check: iout=%d a=%f last_ae=%f outi=%f outi+1=%f",i, auni[min_level],last_ae,outputs[iout],outputs[iout+1]);
   }
   MPI_Bcast(&last_ae, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
   if(last_ae != auni[min_level] && count_stars > 0){
+    cart_debug("counting recent star creations after last_ae=%f",last_ae);
     /*count stars since the last restart*/ 
-    local_count_stars = 0; count_stars = 0;
+    local_count_stars = 0; count_recent_stars = 0;
     for ( i = 0; i < num_star_particles; i++ ) {
       if ( particle_level[i] != FREE_PARTICLE_LEVEL && particle_is_star(i) ) {
 	if ( auni_from_tcode(star_tbirth[i]) > last_ae ) {
@@ -140,20 +182,24 @@ void check_restart_star_creation(){
 	}
       }
     }
-    MPI_Reduce( &local_count_stars, &count_stars, 1, MPI_INT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+    MPI_Reduce( &local_count_stars, &count_recent_stars, 1, MPI_INT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
     
     /* make sure your restart_sc file matches the number of stars since the last backup to a labeled file */
     if ( local_proc_id == MASTER_NODE ) {
-      if( count_stars > 0 ){
+      if( count_recent_stars > 0 ){
 	nsclog = count_lines( filename_screst );
 	nsclog = nsclog - 1;// one line is a header
-	if( nsclog != count_stars ){
-	  cart_error( "restart_star_creation.log has a bad star count: (log:%d) != (dst: %d)",nsclog,count_stars);
+	if( nsclog != count_recent_stars ){
+	  cart_error( "restart_star_creation.log has a bad star count: (log:%d) != (dst:%d)",nsclog,count_recent_stars);
+	}else{
+	  cart_debug("total number of recent star creations since last output=%d matches restart line count=%d",count_recent_stars, nsclog);
 	}
-	cart_debug("total number of stars since last output=%d matches restart line count=%d",count_stars, nsclog);
+      }else{
+	cart_debug("no stars newer at a=%f than last_ae=%f",auni[min_level],last_ae);
       }
     }
   }
+  cart_debug("done checking restart_star_creation.log");
 
 
 }
@@ -164,16 +210,15 @@ void combine_star_creation_log(){
   int proc;
   FILE *fp;
 
-  cart_debug("combine_star_creation_log");
   sprintf(filename_screst,"%s/restart_star_creation.log",output_directory);
   for ( proc = 0; proc < num_procs; proc++ ) {
     sprintf(filename_local,"%s/star_temp.%03d.log",output_directory,proc);
     fp = fopen(filename_local,"r");
     if( fp != NULL ) {fclose(fp); 
+      cart_debug("combine_star_creation_log %s to %s",filename_local,filename_screst);
       append_file( filename_local, filename_screst);
     }
   }
-  wipe_temp();
 }
 
 void wipe_restart_star_creation( double last_ae ){
@@ -184,17 +229,6 @@ void wipe_restart_star_creation( double last_ae ){
   if((fp=fopen(filename_screst,"w")) == NULL) {cart_error("Cannot open file %s",filename_screst);}
   fprintf(fp,"%f\n",last_ae);
   fclose(fp);
-}
-
-void wipe_temp(){
-  char filename_local[256];
-  int proc;
-  FILE *fp;
-  for ( proc = 0; proc < num_procs; proc++ ) {
-    sprintf(filename_local,"%s/star_temp.%03d.log",output_directory,proc);
-    fp = fopen(filename_local,"w");
-    if( fp != NULL ) {fclose(fp);} 
-  }
 }
 
 void finalize_star_creation_log( char *filename_sclog ){
@@ -407,6 +441,10 @@ void finalize_logging() {
 	char filename[256];
 	sprintf( filename, "%s/mpe_log.dat", logfile_directory );
 	MPE_Finish_log(filename);
+#endif
+
+#ifdef LOG_STAR_CREATION
+	log_star_creation(-1,-1.0,FILE_CLOSE);
 #endif
 
 	if ( local_proc_id == MASTER_NODE ) {

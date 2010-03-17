@@ -19,6 +19,9 @@
 #include "tree.h"
 #include "units.h"
 
+#ifdef LOG_STAR_CREATION
+#include "logging.h"
+#endif
 
 int num_local_star_particles;
 int last_star_id;
@@ -206,7 +209,7 @@ void star_formation( int level, int time_multiplier )
 
 	  /* create the new star */
 #ifdef LOG_STAR_CREATION	  
-	  log_star_creation( icell, dm_star);
+	  log_star_creation( icell, dm_star, FILE_RECORD);
 #endif
 	  create_star_particle( icell, dm_star );
 	}

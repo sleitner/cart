@@ -270,10 +270,12 @@ int main ( int argc, char *argv[]) {
 			assign_density( level );
 		}
 #endif /* RADIATIVE_TRANSFER */
-#ifdef LOG_STAR_CREATION
-		check_restart_star_creation();
-#endif
 	} 
+
+#ifdef LOG_STAR_CREATION
+	check_restart_star_creation();
+	log_star_creation(-1,-1.0,FILE_OPEN);
+#endif
 
 #ifdef debug
 	check_map();
@@ -284,7 +286,7 @@ int main ( int argc, char *argv[]) {
 	current_steps = 0;
 	last_restart_step = 0;
 
-    start_time( OUTPUT_TIMER );
+	start_time( OUTPUT_TIMER );
 	run_output();
 	end_time( OUTPUT_TIMER );
 
@@ -350,9 +352,9 @@ int main ( int argc, char *argv[]) {
 #endif /* RADIATIVE_TRANSFER */
 
 #ifdef LOG_STAR_CREATION
-			if ( local_proc_id == MASTER_NODE ){
-			  wipe_temp();
-			}
+			cart_debug("wipe temp_star files in case of CFL restart");
+			log_star_creation(-1,-1.0,FILE_CLOSE); 
+			log_star_creation(-1,-1.0,FILE_OPEN); 
 #endif
 	
 		} else {
