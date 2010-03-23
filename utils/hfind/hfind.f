@@ -2005,7 +2005,9 @@ c.... read control information and check whether it has proper structure
        stop
       endif
 
-      if(zero1.eq.0.0 .and. zero2.eq.0.0 .and.DelDC.ne.0.0) then
+      if((( zero1 .eq. 0.0 ) .or. ( zero1 .eq. 0.1234 )) .and.
+     &     (( zero2 .eq. 0.0 ) .or. ( zero2 .eq. 0.1234 )) .and.
+     &     ( DelDC .ne. 0.0 )) then
          AEXPN = abox
       endif
 
