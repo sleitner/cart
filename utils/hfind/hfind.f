@@ -244,6 +244,9 @@ c
       dimension rr(1000) , vr(1000) , er(1000), dir(1000)
       real di(nil:nbmax), dd(nil:nbmax), ddi(nil:nbmax)
       real*8 hmassi 
+      real EPSILON
+
+      EPSILON = 1e-4
 
       toohot = 2.0  ! should really be in hfind.inp
 
@@ -710,8 +713,8 @@ c
                     imaxflag = 1
                   endif
                 else                  
-                  rcirc = min(2.16*rsh(ic1),rh(ic1)*rg2pkpc)
-                  rcircd = rcirc/rg2pkpc
+                  rcircd = min(2.16*rsh(ic1)/rg2pkpc,rh(ic1))
+                  rcirc = rcircd*rg2pkpc
                   ic3 = 0 
                   pdum = 0.0 
                   do while ( pdum .eq. 0.0 .and. ic3 .le. nbins ) 
@@ -772,7 +775,8 @@ c
             amh(ic1) = ph
           endif
 c
-          if ( nhp(ic1) .eq. 0 .or. nhp(ic1) .eq. nhpold ) goto 20
+          if ( (nhp(ic1) .eq. 0) .or. 
+     &         (abs((amh(ic1)/hmold - 1.0)) .le. EPSILON) ) goto 20
         enddo ! iter
 
  20     continue
@@ -900,7 +904,7 @@ c     ------------------------------------------------------------------
 c
       ih = 0 
       do ic1 = 1 , nhalo
-        if ( nhp(ic1) .gt. nmin ) then 
+        if ( amh(ic1) .gt. nmin*pw(1) ) then
         ih = ih + 1
         rkpc   = rh(ic1) * rg2kpc
         amassh = pmmsun * amh(ic1)
@@ -971,7 +975,7 @@ c
 
       nhd = 0 
       do ic1 = 1 , nhalo 
-        if ( nhp(ic1) .gt. nmin ) then 
+        if ( amh(ic1) .gt. nmin*pw(1) ) then
           nhd = nhd + 1
         endif
       enddo
@@ -987,7 +991,7 @@ c
 
       ih = 0 
       do ic1 = 1 , nhalo 
-        if ( nhp(ic1) .gt. nmin ) then 
+        if ( amh(ic1) .gt. nmin*pw(1) ) then
           rhalo  = rh(ic1)
           rhmaxd = rhmax(ic1)/rg2pkpc
           ih = ih + 1
