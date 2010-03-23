@@ -1,4 +1,5 @@
 datpath   ../DAT
+denpath   ../DAT
 respath   ../HC 
 boxh       : comoving box size in /h Mpc ............................        80.
 ibtype     : bin type (0 - log, 1 - even, 2 - user supplied) ........         2

@@ -22,8 +22,8 @@ c     ------------------------------------------------------------
       include 'hfind.h'
       character*40 FileName
       character*5 aname
-      character*256 fname1, fname2, fname3, datpath, respath
-      integer ldpath, lrpath
+      character*256 fname1, fname2, fname3, datpath, denpath, respath
+      integer ldpath, ldenpath, lrpath
       common / abin / alpha
       character*80 ctmp
       character*10 chaexp
@@ -50,6 +50,7 @@ c.... read control data
 c
       open ( 15 , file = 'hfind.inp', status = 'old' )
       read  ( unit = 15 , fmt = '(10x,    a256)')  datpath
+      read  ( unit = 15 , fmt = '(10x,    a256)')  denpath
       read  ( unit = 15 , fmt = '(10x,    a256)')  respath
       read  ( unit = 15 , fmt = '(70x,   e10.2)')  boxh
       read  ( unit = 15 , fmt = '(70x,     i10)')  ibtype
@@ -65,6 +66,7 @@ c
 c.... write it out for control
 c
       write  ( unit = * , fmt ='(/'' data path:'',/A)')  datpath
+      write  ( unit = * , fmt ='(/'' density path:'',/A)') denpath
       write  ( unit = * , fmt ='(/'' results path:'',/A)') respath
       write  ( unit = * , fmt = '( 1x,''Lbox:   '', 1pe10.2)') boxh
       write  ( unit = * , fmt = '( 1x,''ibtype:   '', i2,4x,
@@ -77,10 +79,11 @@ c
      &               ''nmin:  '', i4)') rvel, nmin
 
       ldpath = index( datpath , ' ' ) - 1 
+      ldenpath = index( denpath , ' ' ) - 1 
       ldaexp = index( chaexp, ' ' ) - 1
       fname1 = datpath(1:ldpath)//'/PMcrda'//chaexp(1:ldaexp)//'.DAT '
       fname2 = datpath(1:ldpath)//'/PMcrs0a'//chaexp(1:ldaexp)//'.DAT '
-      fname3 = datpath(1:ldpath)//'/rho_smooth_a'
+      fname3 = denpath(1:ldenpath)//'/rho_smooth_a'
      &                  //chaexp(1:ldaexp)//'.dat '
 
       call InitArrays    ()
