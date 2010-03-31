@@ -669,19 +669,19 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	double bin_total_xray_Tcont2[max_bins];
 
 	/* set up conversion constants */
-#ifdef HYDRO
 #ifdef LEGACY_UNITS
 	double r0 = legacy_units->r0;
 	double aM0 = legacy_units->M0;
+#ifdef HYDRO
 	Tfact = legacy_units->T0 * ( constants->gamma - 1.0 ) / ( abox[min_level]*abox[min_level] );
 	Pfact = legacy_units->P0/(abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]);
 	Sfact = legacy_units->S0;
 	szfact = 3.9207e-15 * ( constants->gamma - 1.0 ) * legacy_units->T0 * legacy_units->r0 * cosmology->OmegaM * cosmology->h / 
 			(abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]);
+#endif
 #else  /* LEGACY_UNITS */
 #error "This function uses legacy units that have not been converted yet. Define LEGACY_UNITS."
 #endif /* LEGACY_UNITS */
-#endif
 
 	rfact = 1.0e3 * units->length * constants->pc; /* proper kpc -> code units */
 	vfact = units->velocity;
@@ -2854,5 +2854,92 @@ int halo_level( const halo *h, MPI_Comm local_comm )
   MPI_Allreduce(&llev,&glev,1,MPI_INT,MPI_MAX,local_comm);
 
   return glev;
+}
+
+
+halo* find_halo_by_id(halo_list *halos, int id)
+{
+  int ih;
+
+  cart_assert(halos);
+  for(ih=0; ih<halos->num_halos; ih++)
+    {
+      if(halos->list[ih].id == id) return &halos->list[ih];
+    }
+  return NULL;
+}
+
+
+void dump_region_around_halo(const char *filename, const halo *h, float size)
+{
+  int i, j, n, nbuf;
+  int *ids;
+  FILE *f;
+
+  cart_assert(h != NULL);
+
+  for(n=j=0; j<num_particles; j++) if(particle_id[j]!=NULL_PARTICLE && particle_id[j]<particle_species_indices[1])
+    {
+      if(compute_distance_periodic(particle_x[j],(double *)h->pos) < h->rvir*size)
+        {
+          n++;
+        }
+    }
+
+  nbuf = n + 1;  /* in case n is zero */
+  ids = cart_alloc(int,nbuf);
+  
+  for(n=j=0; j<num_particles; j++) if(particle_id[j]!=NULL_PARTICLE && particle_id[j]<particle_species_indices[1])
+    {
+      /*
+      //  If particle is within the size*Rvir, save its id
+      */
+      if(compute_distance_periodic(particle_x[j],(double *)h->pos) < h->rvir*size)
+        {
+          ids[n++] = particle_id[j];
+        }
+    }
+
+  /*
+  //  Write from the master node
+  */
+  if(local_proc_id == MASTER_NODE)
+    {
+
+      cart_debug("Dumping region for halo %d",h->id);
+
+      f = fopen(filename,"w");
+      cart_assert(f != NULL);
+
+      for(j=0; j<n; j++)
+	{
+	  fprintf(f,"%d\n",ids[j]);
+	}
+
+      for(i=1; i<num_procs; i++)
+        {
+          MPI_Recv(&n,1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+          if(n > nbuf)
+            {
+              cart_free(ids);
+	      nbuf = n;
+              ids = cart_alloc(int,nbuf);
+            }
+          MPI_Recv(ids,n,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	  for(j=0; j<n; j++)
+	    {
+	      fprintf(f,"%d\n",ids[j]);
+	    }
+        }
+
+      fclose(f);
+    }
+  else
+    {
+      MPI_Send(&n,1,MPI_INT,MASTER_NODE,0,MPI_COMM_WORLD);
+      MPI_Send(ids,n,MPI_INT,MASTER_NODE,0,MPI_COMM_WORLD);
+   }
+
+  cart_free(ids);
 }
 

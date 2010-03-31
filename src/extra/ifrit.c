@@ -377,13 +377,14 @@ void ifritOutputHalo(const char *fileroot, int floor_level, float zoom, const ha
       cart_debug("Rebinning for IFrIT at (%lf,%lf,%lf) with size %lf",pos[0],pos[1],pos[2],dbb);
     }
 
-  strcpy(str,fileroot);
+  sprintf(str,"%s-halo%03d",fileroot,h->id);
+#ifdef PARTICLES
+  ifritOutputParticles(str,bb);
+#endif /* PARTICLES */
+
   strcat(str,"-mesh.bin");
   ifritOutputMesh(str,max_level,nbin,bb,nvars,varid);
 
-#ifdef PARTICLES
-  ifritOutputParticles(fileroot,bb);
-#endif /* PARTICLES */
 }
 
 

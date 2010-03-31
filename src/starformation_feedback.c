@@ -165,7 +165,7 @@ void config_init_star_formation_feedback()
   */
   control_parameter_add3(control_parameter_double,&snII.energy_per_explosion,"snII:energy-per-explosion","snII.energy_per_explosion","e_51","average energy per type II supernova explosion, in 1e51 ergs.");
 
-  control_parameter_add3(control_parameter_double,&snII.time_delay,"snII:time_delay","snII.time_delay","t_fb","time delay (in yrs) between the formation of the stellar particle and type II supernova explosions.");
+  control_parameter_add3(control_parameter_double,&snII.time_delay,"snII:time-delay","snII.time_delay","t_fb","time delay (in yrs) between the formation of the stellar particle and type II supernova explosions.");
 
 #ifdef FEEDBACK_SNIa
   /*

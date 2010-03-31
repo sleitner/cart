@@ -82,13 +82,25 @@ void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf)
   /*
   //  Find the mean field
   */
-  rtGetRadiationField(-1,nbins,lbins,mean_rf);
-
-  if(local_proc_id == MASTER_NODE)
+  if(mean_rf != NULL)
     {
-      for(i=0; i<nbins; i++)
+      rtGetRadiationField(-1,nbins,lbins,mean_rf);
+      if(local_proc_id == MASTER_NODE)
 	{
-	  cart_debug("Selecting bin %d for wavelength %f; BG = %e [cgs] = %e [CU]",lbins[i],wbins[i],uJnu*mean_rf[i],mean_rf[i]);
+	  for(i=0; i<nbins; i++)
+	    {
+	      cart_debug("Selecting bin %d for wavelength %f; BG = %e [cgs] = %e [CU]",lbins[i],wbins[i],uJnu*mean_rf[i],mean_rf[i]);
+	    }
+	}
+    }
+  else
+    {
+      if(local_proc_id == MASTER_NODE)
+	{
+	  for(i=0; i<nbins; i++)
+	    {
+	      cart_debug("Selecting bin %d for wavelength %f ",lbins[i],wbins[i]);
+	    }
 	}
     }
 
@@ -358,6 +370,7 @@ void extFindProximityZones(const char *fname, int floor_level, int nside, int ha
 #endif  /* RADIATIVE_TRANSFER */
 
 
+#ifdef HYDRO
 void extDumpGasFractions(const char *fname, const halo_list *halos)
 {
   const int nmass = 4;
@@ -406,8 +419,10 @@ void extDumpGasFractions(const char *fname, const halo_list *halos)
 	  ih--;
 	  massl[0][ih] += (cell_volume[level]+cell_density(cell));
 	  massl[1][ih] += cell_gas_density(cell)*cell_volume[level];
+#ifdef RADIATIVE_TRANSFER
 	  massl[2][ih] += cell_HI_density(cell)*cell_volume[level];
 	  massl[3][ih] += cell_H2_density(cell)*cell_volume[level];
+#endif /* RADIATIVE_TRANSFER */
 	}
     }
 
@@ -446,6 +461,7 @@ void extDumpGasFractions(const char *fname, const halo_list *halos)
       cart_free(massl[j]);
     }
 }
+#endif /* HYDRO */
 
 #endif /* COSMOLOGY */
 

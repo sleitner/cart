@@ -19,9 +19,9 @@ typedef void (*DumpWorker)(int level, int cell, int num, float *ptr);
 */
 void extMapHaloCells(int var, int floor_level, const struct HALO_LIST *halos, float size_factor);
 
-void extDumpLevels(const char *fname, DumpWorker worker, int level1, int level2, const struct HALO_LIST *halos);
+void extDumpLevels(const char *fname, int nout, DumpWorker worker, int level1, int level2, const struct HALO_LIST *halos);
 
-void extDumpProfiles(const char *fname, DumpWorker worker, int floor_level, float rmin, float rmax, int ndex, const struct HALO_LIST *halos);
+void extDumpProfiles(const char *fname, int nout, DumpWorker worker, int floor_level, float rmin, float rmax, int ndex, const struct HALO_LIST *halos);
 
 /*
 //  SF law from stellar particles
@@ -37,5 +37,10 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const struct H
 //  Compute column densities and compare them with the Sobolev-like approximations
 */
 void extCheckSobolevApproximations(const char *fname, int floor_level, int nside, double len);
+
+/*
+//  Output SFR, RF, and other quantieis on the hierarchy of scales, both average and variances.
+*/
+void extRFvsSFR(const char *froot, int top_level, const struct HALO_LIST *halos);
 
 #endif  /* __EXT_ISM_H__ */

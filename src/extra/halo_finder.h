@@ -53,6 +53,10 @@ void load_halo_particle_mapping( char *filename, halo_list *halos );
 void destroy_halo_list( halo_list *halos );
 void compute_halo_properties( char *analysis_directory, int halo_section, halo_list *halos );
 void crude_stellar_mass_fractions( halo_list *halos );
-int halo_level( const halo *h, MPI_Comm local_comm );
+
+int halo_level(const halo *h, MPI_Comm local_comm);
+halo* find_halo_by_id(halo_list *halos, int id);
+
+void dump_region_around_halo(const char *filename, const halo *h, float size);
 
 #endif
