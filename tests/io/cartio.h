@@ -12,12 +12,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
+#include "cartio_mpi.h"
+
 
 #define num_root_cells (1<<21)
 
+
 typedef struct cartio_file_struct
 {
-	MPI_File  fh;
+	MPI_FFile  ffh;
 	int num_variables;
 } cartio_file;
 

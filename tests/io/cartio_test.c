@@ -40,7 +40,6 @@ void inital_test_data()
 	int i;
 	int index;
 
-
 	for( i=0, index = 0; i<num_procs; i++, index +=num_root_cells/num_procs)
 	{
 		proc_sfc_index[i]=index;
@@ -57,6 +56,8 @@ void inital_test_data()
 
 int write_grid()
 {
+	int sfc;
+	MPI_Offset c;
 	log_debug("%d: Begin to write grid\n", my_rank);
 	cartio_open(FILE_NAME,MPI_MODE_CREATE|MPI_MODE_RDWR,1,&handle);
 	handle.num_variables=NUM_VAR;
@@ -71,11 +72,11 @@ int write_grid()
 	// Barrier. All the processes block here until the whole global sfc index table is recorded in the file.
 	MPI_Barrier(MPI_COMM_WORLD);
 
-	int sfc = proc_sfc_index[my_rank];
+	sfc = proc_sfc_index[my_rank];
 	log_debug("%d SFC index %d\n",my_rank,proc_sfc_index[my_rank]);
 	root_cell_location(&handle,sfc);
-	MPI_Offset c;
-	MPI_File_get_position(handle.fh, &c);
+
+	MPI_File_get_position(handle.ffh.fh, &c);
 	log_debug("%d: Position before write octs %lld\n",my_rank,c);
 
 	for(;sfc<proc_sfc_index[my_rank+1];sfc++)
@@ -104,36 +105,37 @@ int write_grid()
 
 int cartio_oct_read(cartio_file * handle,int sfc)
 {
-	root_cell_location(handle,sfc);
+
 	MPI_Status status;
 	MPI_Offset offset;
 	float var[2];
-
 	float variables_of_oct[16];
 	int level, oct_per_level[6], refiend[8];
 	MPI_Offset c;
-	MPI_File_get_position(handle->fh, &c);
+	root_cell_location(handle,sfc);
+	MPI_File_get_position(handle->ffh.fh, &c);
 	log_debug("position before read root cell %lld\n",c);
-	MPI_File_read(handle->fh, &var, handle->num_variables, MPI_FLOAT, &status);
-	MPI_File_get_position(handle->fh, &c);
+	MPI_File_read(handle->ffh.fh, &var, handle->num_variables, MPI_FLOAT, &status);
+	MPI_File_get_position(handle->ffh.fh, &c);
 
-	MPI_File_read(handle->fh, &level, 1, MPI_INT, &status);
+	MPI_File_read(handle->ffh.fh, &level, 1, MPI_INT, &status);
 	log_debug("%d: The depth of the Oct tree is %d\n",my_rank,level);
 
-	MPI_File_read(handle->fh, &oct_per_level, level, MPI_INT, &status);
+	MPI_File_read(handle->ffh.fh, &oct_per_level, level, MPI_INT, &status);
 	log_debug("%d: The octs number of level: 1 %d; 2 %d;  3 %d; 4 %d\n",my_rank,oct_per_level[0],oct_per_level[1],oct_per_level[2],oct_per_level[3]);
 
-	MPI_File_read(handle->fh, &variables_of_oct, 8*handle->num_variables, MPI_FLOAT, &status);
+	MPI_File_read(handle->ffh.fh, &variables_of_oct, 8*handle->num_variables, MPI_FLOAT, &status);
 	log_debug("%d: variable of the OCT: %f %f %f %f %f %f ...\n",my_rank,variables_of_oct[0],variables_of_oct[1],variables_of_oct[2],variables_of_oct[3],variables_of_oct[4],variables_of_oct[5]);
-	MPI_File_read(handle->fh, &refiend, 8, MPI_INT, &status);
+	MPI_File_read(handle->ffh.fh, &refiend, 8, MPI_INT, &status);
 	log_debug("%d: refinement: %d %d %d %d %d %d %d %d\n",my_rank,refiend[0],refiend[1],refiend[2],refiend[3],refiend[4],refiend[5],refiend[6],refiend[7]);
 	return 0;
 }
 
 int read_grid()
 {
-	log_debug("Begin to read file\n");
+
 	cartio_file hd_r;
+	log_debug("Begin to read file\n");
 	cartio_open(FILE_NAME,MPI_MODE_RDONLY,1,&hd_r);
 	hd_r.num_variables=NUM_VAR;
 	log_debug("%d SFC index %d\n",my_rank,proc_sfc_index[my_rank]);
