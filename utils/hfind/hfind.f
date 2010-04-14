@@ -247,6 +247,7 @@ c
       dimension rr(1000) , vr(1000) , er(1000), dir(1000)
       real di(nil:nbmax), dd(nil:nbmax), ddi(nil:nbmax)
       real*8 hmassi 
+      real hmold
       real EPSILON
 
       EPSILON = 1e-4
@@ -346,7 +347,7 @@ c
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP+PRIVATE(iter,nhpold,ic2,ic3,ddi,di,dd,ptot,ivir,xhalo,yhalo,zhalo)
 C$OMP+PRIVATE(vxhalo,vyhalo,vzhalo,vxhnew,vyhnew,vzhnew,vmassnew)
-C$OMP+PRIVATE(wdummy,ndummy,rhalo,rdvel,xd,yd,zd)
+C$OMP+PRIVATE(wdummy,ndummy,rhalo,rdvel,xd,yd,zd,hmold)
 C$OMP+PRIVATE(imin,jmin,kmin,imax,jmax,kmax)
 C$OMP+PRIVATE(i,ic,j,jc,k,kc,idm)
 C$OMP+PRIVATE(vxd,vyd,vzd,diff_x,diff_y,diff_z,corr_x,corr_y,corr_z)
@@ -364,6 +365,7 @@ c....   iterate to remove unbound particles
 c
         do iter = 0 , niter
           nhpold = nhp(ic1)
+          hmold = amh(ic1)
           do ic2 = nil , nbins
             na   (ic2,ic1) = nil 
             pn   (ic2,ic1) = zero
