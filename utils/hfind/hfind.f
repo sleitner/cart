@@ -278,6 +278,7 @@ c
         rmaxd = rpmax
         rmind = rpmin
         nbins = npbin
+        drd = 0.0
       else
         write(*,*) 'Compute_Halo_Properties: unknown bin type:',ibtype
         write(*,*) 'exiting...'
@@ -433,7 +434,7 @@ c....     sweep over neighbors checking periodic boundary conditions
                 if ( kc .gt. nll ) kc = kc - nll 
                 idm = iCL(ic,jc,kc)                 ! read LL head
                 do while ( idm .ne. nil )
-                  if ( iSp(idm) .eq. nil ) then 
+                  if ( iSp(idm) .eq. nil .or. iSp(idm) .eq. ic1 ) then 
                   xd = xp(idm)
                   yd = yp(idm)
                   zd = zp(idm)
@@ -514,15 +515,12 @@ c
      &                                   vyp(idm)**2 + 
      &                                   vzp(idm)**2)*pw(idm)
 
-                     if ( imark .eq. 1 ) then 
-                        if ( iter .eq. niter .and. 
+                     if ( imark .eq. 1 .and. 
      &                       rd .lt. rh(ic1) ) then 
-                           iSp(idm) = 1
+                           iSp(idm) = ic1
                         endif
                      endif
-
                     endif
-                  endif
                   endif
                   idm = iLL(idm) ! next particle from linked list
                 enddo  ! end do while 
