@@ -144,7 +144,7 @@ void setup_star_formation_recipes(int level)
       }
     case 1:
       {
-	sf_factor = sf_recipe1.efficiency*units->time*sqrt(32*constants->G*constants->XH*constants->mp/(2*M_PI));
+	sf_factor = sf_recipe1.efficiency*units->time*sqrt(32*constants->G*constants->XH*constants->mp/(3*M_PI));
 	sf_rate = sf_recipe1_rate;
 	break;
       }
