@@ -409,6 +409,7 @@ int timestep( int level, MPI_Comm local_comm )
 		for ( nlevel = level + 1; nlevel <= max_level; nlevel++ ) {
 			for ( step = 0; step < 1<<(nlevel - level); step++ ) {
 
+#ifdef HYDRO
 				if ( nlevel <= max_cfl_sync_level ) {
 					start_time( COMMUNICATION_TIMER );
 					MPI_Allreduce( &ret, &true_ret, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD );
@@ -422,6 +423,7 @@ int timestep( int level, MPI_Comm local_comm )
 						return true_ret;
 					}
 				}
+#endif /* HYDRO */
 
 				tl_old[nlevel] = tl[nlevel];
 				tl[nlevel] += dtl[nlevel];
