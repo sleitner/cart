@@ -63,8 +63,14 @@ void init_run() {
 	int num_level_cells;
 	int *level_cells;
 
+	if ( num_procs > 1 ) {
+		cart_error("Sod is designed to be run serially!");
+	}
+
+	/* set units to cgs */
 	units_set( 1.0, 1.0, 1.0 );
 
+	/* create cell buffer */
 	build_cell_buffer();
 	repair_neighbors();
 
