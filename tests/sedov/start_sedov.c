@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -9,6 +11,7 @@
 
 #include "defs.h"
 #include "tree.h"
+#include "cosmology.h"
 #include "particle.h"
 #include "sfc.h"
 #include "parallel.h"
@@ -33,15 +36,13 @@
 #endif
 
 #define refine_radius	(4.5)
-#define r0		(1.0/((float)num_grid))
+#define r0				(1.0/((float)num_grid))
 #define sedov_radius	(cell_size[max_level]/(float)num_grid)
-#define delta_r		(1.0)
-#define rho0		(1.0)
-#define p0		(1.0)
-#define E0		(1.0)
-#define v0		(1.0)
-#define t0		(r0/v0)
-#define E		(1e7)
+#define delta_r			(1.0)
+#define rho0			(1.0)
+#define p0				(1.0)
+#define E0				(1.0)
+#define E				(1e7)
 
 void refine_level( int cell, int level ) {
 	float pos[nDim];
@@ -73,7 +74,7 @@ void sedov_initial_conditions( int icell ) {
 	cell_momentum(icell,0) = 0.0;
 	cell_momentum(icell,1) = 0.0;
 	cell_momentum(icell,2) = 0.0;
-	cell_gas_gamma(icell) = gamma;
+	cell_gas_gamma(icell) = constants->gamma;
 
 	/* now add some energy  */
 	cell_position(icell, pos);
@@ -90,7 +91,7 @@ void sedov_initial_conditions( int icell ) {
 		cell_gas_pressure(icell) = 0.0;
 	}
 
-	cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (gamma-1.0);
+	cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (cell_gas_gamma(icell)-1.0);
 	cell_gas_energy(icell) = cell_gas_internal_energy(icell);
 }
 
@@ -485,18 +486,9 @@ void init_run() {
 	dtl[min_level] = 0.0;
 	choose_timestep( &dtl[min_level] );
 
-#ifdef COSMOLOGY
-	auni[min_level] = auni_from_tcode( tl[min_level] );
-#else
-	auni[min_level] = 1.0;
-#endif
-	abox[min_level] = auni[min_level];
-
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		dtl[level] = 0.5*dtl[level-1];
 		tl[level] = tl[min_level];
-		auni[level] = auni[min_level];		
-		abox[level] = abox[min_level];		
 	}
 
 	cart_debug("done with initialization");
