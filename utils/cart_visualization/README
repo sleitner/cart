@@ -1,0 +1,7 @@
+Steps to use:
+1) Modify analysis.c:load_halo_finder_catalog to select which halos you want to analyze (by mass, particle count, index, etc)
+2) Modify analysis.c:compute_halo_properties to set the maximum radius around each halo to select, and initialize any global variables/arrays you need
+3) Modify analysis.c:particle_callback and cell_callback to analyze the particle and cell variables
+
+Then run using (assuming hfind is in HC/, data in DAT/)
+./cart_analyze_generic 60.0 L60csf DAT/ HC/ 1.000
