@@ -1,13 +1,8 @@
-#!/sw/bin/python2.6
+#!/sw/bin/python2.6 -Wignore
 
 from scipy.io.numpyio import fread, fwrite
 from pylab import *
 import sys
-
-def safe_log10(a, minimum=0.0 ) :
-	return log10(a) if ( a ) else minimum
-
-vlog10 = vectorize(safe_log10)
 
 # load data
 for slice in ( sys.argv[1:] ) :
