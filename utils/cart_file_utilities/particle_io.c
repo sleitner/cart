@@ -4,14 +4,14 @@
 #include "particle_io.h"
 
 void reorder( char *buffer, int size ) {
-        int i;
-        char tmp;
-                                                                                
-        for ( i = 0; i < (size/2); i++ ) {
-                tmp = buffer[i];
-                buffer[i] = buffer[size - i - 1];
-                buffer[size - i - 1] = tmp;
-        }
+	int i;
+	char tmp;
+
+	for ( i = 0; i < (size/2); i++ ) {
+		tmp = buffer[i];
+		buffer[i] = buffer[size - i - 1];
+		buffer[size - i - 1] = tmp;
+	}
 }
 
 void read_particle_header( char *header_filename, particle_header *header, int *endian, int *nbody_flag ) {

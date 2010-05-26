@@ -32,7 +32,8 @@ int main ( int argc, char *argv[] ) {
 	float star_formation_volume_min[3], star_formation_volume_max[3];
 	int sfc_order;
 	int i, j;
-	int num_cells;
+	long long num_cells;
+	int page_count;
 	int counts[1024];
 
 	/* open file and read header */
@@ -227,19 +228,19 @@ int main ( int argc, char *argv[] ) {
 	if ( size == 6*sizeof(float) ) {
 		printf("reading star formation information...\n");
 
-		fread( star_formation_volume_min, sizeof(float), 3, input );
-		fread( star_formation_volume_max, sizeof(float), 3, input );
+		fread( &star_formation_volume_min[i], sizeof(float), 3, input );
+		fread( &star_formation_volume_max[i], sizeof(float), 3, input );
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
 			for ( i = 0; i < 3; i++ ) {
-				reorder( (char *)&star_formation_volume_min, sizeof(float) );
-				reorder( (char *)&star_formation_volume_max, sizeof(float) );
+				reorder( (char *)&star_formation_volume_min[i], sizeof(float) );
+				reorder( (char *)&star_formation_volume_max[i], sizeof(float) );
 			}
 		}
 
-                /* ncell0 */
-                fread( &size, sizeof(int), 1, input );
+		/* ncell0 */
+		fread( &size, sizeof(int), 1, input );
 	}
 
 	fread( &ncell0, sizeof(int), 1, input);
@@ -251,26 +252,36 @@ int main ( int argc, char *argv[] ) {
 
 	printf("num_root_cells = %d\n", ncell0 );
 
-	/* figure out how many total cells */
+	/* figure out how many total cells in this file */
 	fread( &size, sizeof(int), 1, input );
+	
+	if ( endian ) {
+		reorder( (char *)&size, sizeof(int) );
+	}
+	ncell0 = size / sizeof(int);
+
+	printf("num_root_cells in file = %d\n", ncell0 );
 
 	num_cells = 0;
-	for ( i = 0; i < ncell0; i += 1024 ) {
-		fread( counts, sizeof(int), 1024, input );
+	while ( ncell0 > 0 ) {
+		page_count = (ncell0 < 1024) ? ncell0 : 1024;
+		fread( counts, sizeof(int), page_count, input );
 
 		if ( endian ) {
-			for ( j = 0; j < 1024; j++ ) {
+			for ( j = 0; j < page_count; j++ ) {
 				reorder( (char *)&counts[j], sizeof(int) );
 			}
 		}
 
-		for ( j = 0; j < 1024; j++ ) {
+		for ( j = 0; j < page_count; j++ ) {
 			num_cells += counts[j];
 		}
+
+		ncell0 -= page_count;
 	}
 
-	printf("total cells = %d\n", num_cells );
-	printf("total octs = %d\n", (num_cells-ncell0)/8 );
+	printf("total cells = %ld\n", num_cells );
+	printf("total octs = %ld\n", (num_cells-ncell0)/8 );
 
 	return 0;
 }
