@@ -47,9 +47,10 @@ int main ( int argc, char *argv[]) {
 	int units_set;
 	int hid;
 	float hx, hy, hz;
+	int data_aexp_index;
 
-	if ( argc < 6 ) {
-		cart_error("Usage: ./analyze Lbox jobname output_directory halofinder_directory aexpn1 ... aexpnN");
+	if ( argc < 8 || argc > 9 ) {
+		cart_error("Usage: ./analyze Lbox jobname output_directory halofinder_directory output_directory halo_sample_file halo_aexpn [data_aexpn]");
 	}
 
 	cart_debug("my local pid = %u", getpid() );
@@ -65,11 +66,17 @@ int main ( int argc, char *argv[]) {
 	
 	init_auxiliary();
 
-	aexp = atof( argv[7] );
+	if ( argc == 9 ) {
+		data_aexp_index = 8;
+	} else {
+		data_aexp_index = 7;
+	}
+
+	aexp = atof( argv[data_aexp_index] );
 	cart_debug("analyzing a = %6.4f", aexp );
 
 #ifdef PARTICLES
-	sprintf( filename,  "%s/PMcrda%s.DAT", output_directory, argv[7] );
+	sprintf( filename,  "%s/PMcrda%s.DAT", output_directory, argv[data_aexp_index] );
 	read_particle_header( filename, &header, &endian, &nbody_flag );
 
 	Omega0 = header.Om0;
@@ -89,18 +96,6 @@ int main ( int argc, char *argv[]) {
 	halos = load_halo_sample_file(argv[6]);
 	sprintf( filename, "%s/hlist_%s.dat", halofinder_directory, argv[7] );
 	load_halo_finder_catalog(filename, halos);
-
-/*
-	halos = cart_alloc( sizeof(halo_list) );
-	halos->num_halos = 1;
-	halos->list = cart_alloc( halos->num_halos*sizeof(halo_struct) );
-
-	// CL10 0.5268 
-	halos->list[0].id = 2;
-	halos->list[0].pos[0] = 8.31349/r0;
-	halos->list[0].pos[1] = 27.42838/r0;
-	halos->list[0].pos[2] = 55.96809/r0;
-*/
 
 	for ( i = 0; i < halos->num_halos; i++ ) {
 		halos->list[i].analysis_radius = 2.0*NUM_PIXELS*PIXEL_SIZE*r0;
