@@ -54,7 +54,7 @@ void select_level( int level, int cell_types, int *num_cells_selected, int **sel
 				ioct = oct_next[ioct];
 			}
 		}
-        }
+	}
 
 	if ( cell_types == CELL_TYPE_BUFFER || cell_types == CELL_TYPE_ANY ) {
 		if ( level == min_level ) { 

@@ -307,3 +307,38 @@ void check_map() {
 	}
 #endif /* GRAVITY_CHECK */
 }
+
+void print_cell_values(int level) {
+	int i, j;
+	int num_level_cells;
+	int *level_cells;
+	int icell;
+	float max_var[num_vars];
+	float min_var[num_vars];
+
+    for ( i = 0; i < num_vars; i++ ) {
+        max_var[i] = -1e20;
+        min_var[i] = 1e20;
+    }
+
+	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+
+	for ( i = 0; i < num_level_cells; i++ ) {
+		icell = level_cells[i];
+
+		for ( j = 0; j < num_vars; j++ ) {
+			if ( isnan(cell_vars[icell][j]) ) {
+				cart_debug("NaN found in level %u, cell %u, var %u", level, icell, j );
+			}
+
+			max_var[j] = max( max_var[j], cell_vars[icell][j] );
+			min_var[j] = min( min_var[j], cell_vars[icell][j] );
+		}
+	}
+
+	cart_free( level_cells );
+
+    for ( i = 0; i < num_vars; i++ ) {
+        cart_debug("var %u: max = %e, min = %e", i, max_var[i], min_var[i] );
+    }
+}

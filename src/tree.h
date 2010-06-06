@@ -256,6 +256,7 @@ double cell_interpolate_function( int cell, int cell_number, double function(int
 
 void repair_neighbors();
 void check_map();
+void print_cell_values(int level);
 int cell_num_child_leaves( int c, int level );
 int cell_num_child_cells( int c, int level );
 
