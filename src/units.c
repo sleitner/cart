@@ -17,7 +17,7 @@
 */
 struct CGS cgs_CGS = { 1.0, 1.0, 1.0, 1.0 };
 struct CGS cgs_SI  = { 1.0e-2, 1.0e-3, 1.0, 1.0 };
-extern const struct CGS *cgs = &cgs_CGS;
+const struct CGS *cgs = &cgs_CGS;
 
 struct Constants constants_internal;
 const struct Constants *constants = &constants_internal;
