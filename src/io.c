@@ -4131,8 +4131,9 @@ void read_hydro_tracers( char *filename ) {
 
 		page_ids[local_proc_id] = cart_alloc(int, num_tracers_per_proc_page );
 		page[local_proc_id] = cart_alloc(double, nDim*num_tracers_per_proc_page );
-
 		count[local_proc_id] = num_tracers_per_proc_page;
+		current_page[local_proc_id] = 0;
+
 		while ( count[local_proc_id] == num_tracers_per_proc_page ) {
 			MPI_Recv( page_ids[local_proc_id], num_tracers_per_proc_page, MPI_INT,
 				MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
