@@ -1,5 +1,8 @@
 #!/usr/bin/python -Wignore
 
+import matplotlib
+matplotlib.use('Agg')
+
 from matplotlib import rc
 rc('font',**{'family':'sans-serif','sans-serif':['Helvetica']})
 rc('text', usetex=True)
@@ -87,7 +90,9 @@ for file in sys.argv[1:] :
 
 	a.set_autoscale_on(False)
 
-	figtext(0.05, 0.9, aexpn, color='w',size=24)
+	if dimension == "x" :
+		figtext(0.05, 0.9, aexpn, color='w',size=24)
+
 	savefig( file.replace("dat","png"),dpi=150 )
 	del data
 	clf()
