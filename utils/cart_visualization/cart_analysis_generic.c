@@ -50,7 +50,7 @@ int main ( int argc, char *argv[]) {
 	int data_aexp_index;
 
 	if ( argc < 8 || argc > 9 ) {
-		cart_error("Usage: ./analyze Lbox jobname output_directory halofinder_directory output_directory halo_sample_file halo_aexpn [data_aexpn]");
+		cart_error("Usage: ./analyze Lbox jobname output_directory halofinder_directory visualization_index halo_sample_file halo_aexpn [data_aexpn]");
 	}
 
 	cart_debug("my local pid = %u", getpid() );
