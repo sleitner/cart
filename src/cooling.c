@@ -122,7 +122,7 @@ void set_cooling_redshift( double auni ) {
 	end_time( WORK_TIMER );
 }
 
-double cooling_rate( double rhogl, double T_g, double Z_met ) {
+double cooling_rate( double nHlog, double T_g, double Zlog ) {
 	double Tlog;
 	int it1, it2;
 	int id1, id2;
@@ -141,7 +141,7 @@ double cooling_rate( double rhogl, double T_g, double Z_met ) {
 	it2 = min(it2,nlt-1);
 
 	/* compute density bin */
-	id1 = (int)((rhogl - dlmin)*dldi);
+	id1 = (int)((nHlog - dlmin)*dldi);
 	id2 = id1 + 1;
 
 	id1 = max(id1,0);
@@ -150,13 +150,8 @@ double cooling_rate( double rhogl, double T_g, double Z_met ) {
 	id2 = min(id2,nld-1);
 
 	/* compute metallicity bin */
-#ifndef NO_METALCOOLING
-	iz1 = (int)((Z_met - Zlmin)*dlZi);
+	iz1 = (int)((Zlog - Zlmin)*dlZi);
 	iz2 = iz1 + 1;
-#else
-	iz1 = 0;
-	iz2 = 0;
-#endif /* NO_METALCOOLING */
 
 	iz1 = max(iz1,0);
 	iz1 = min(iz1,nlz-1);
@@ -169,9 +164,9 @@ double cooling_rate( double rhogl, double T_g, double Z_met ) {
 	zd = Zlmin + dlZ * (double)(iz1+1);
 	t1 = (td - Tlog) * dlti;
 	d1 = 1.0 - t1;
-	t2 = (dd - rhogl) * dldi;
+	t2 = (dd - nHlog) * dldi;
 	d2 = 1.0 - t2;
-	t3 = (zd - Z_met) * dlZi;
+	t3 = (zd - Zlog) * dlZi;
 	d3 = 1.0 - t3;
 
 /* initial metallicity fails this interpolation

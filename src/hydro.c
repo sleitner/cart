@@ -420,7 +420,7 @@ void hydro_eos( int level ) {
 
 #if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
 
-void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, double Zdum, double rhogl, double rhog2, double Tfact_cell, double Emin_cell, double unit_cl) {
+void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, double Zlog, double nHlog, double rhog2, double Tfact_cell, double Emin_cell, double unit_cl) {
 	int continue_cooling;
 	double t_curr, f_curr;
 	double dE;
@@ -437,14 +437,14 @@ void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, d
 		T_gas = Tfact_cell * cell_gas_internal_energy(icell) / ( f_curr * f_curr );
 
 		/* compute new timestep */
-		dE = unit_cl*cooling_rate( rhogl, T_gas, Zdum );
+		dE = unit_cl*cooling_rate( nHlog, T_gas, Zlog );
 		dE *= -rhog2 * f_curr;
 		dt_e = min( dstep * fabs( cell_gas_internal_energy(icell) / dE ), t_end - t_curr );
 
 		ei1 = max( cell_gas_internal_energy(icell) + 0.5 * dE * dt_e, Emin_cell );
 		T_gas = Tfact_cell * ei1 / ( f_curr * f_curr );
 
-		dE = unit_cl*cooling_rate( rhogl, T_gas, Zdum );
+		dE = unit_cl*cooling_rate( nHlog, T_gas, Zlog );
 		dE *= -rhog2 * f_curr * dt_e;
 
 		/* adjust cell energies */
@@ -468,9 +468,9 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	int i;
 	int icell;
 	double t_begin, t_end;
-	double Zdum, Hdum;
+	double Zlog, Hdum;
 	double Tfac, Tfac_cell, Emin_cell;
-	double rhogi, rhog2, rhogl;
+	double rhog2, nHlog;
 	double unit_cl = units->time*pow(constants->XH*units->number_density,2.0)/units->energy_density;
 
 	t_begin	= tl[level];
@@ -482,9 +482,9 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	Hdum = 0.0;
 #endif
 
-	Tfac = units->temperature * ( constants->gamma - 1 ) / 1.0e4;
+	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/1.0e4;
 
-#pragma omp parallel for default(none), private(icell,i,rhog2,rhogl,Zdum,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
+#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		if ( cell_is_leaf(icell) ) {
@@ -492,18 +492,18 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 			cell_gas_gamma(icell) = constants->gamma;
 			rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 			/* take code density -> log10(n_H [cm^-3]) */
-			rhogl = log10(constants->XH*units->number_density*cell_gas_density(icell));
+			nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell));
 
 #ifdef ENRICH
-			Zdum = max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell)));
+			Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
 #else
-			Zdum = 0.0;
+			Zlog = -10.0;
 #endif /* ENRICH */
 
 			Tfac_cell = Tfac/cell_gas_density(icell);
 			Emin_cell = units->Emin*cell_gas_density(icell);
 
-			hydro_cool_one_cell(icell,t_begin,t_end,Hdum,Zdum,rhogl,rhog2,Tfac_cell,Emin_cell,unit_cl);
+			hydro_cool_one_cell(icell,t_begin,t_end,Hdum,Zlog,nHlog,rhog2,Tfac_cell,Emin_cell,unit_cl);
 		}
 	}
 }

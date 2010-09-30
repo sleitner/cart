@@ -364,8 +364,8 @@ void extDumpProfiles(const char *fname, int nout, DumpWorker worker, int floor_l
 	    {
 	      ptr = gbuffer + nout*i;
 
-	      fprintf(f,"%9.3e",ptr[0]);
-	      for(j=1; j<nout; j++) fprintf(f," %9.3e",ptr[j]);
+              fprintf(f,"%9.3e ",pow(10.0,lrmin+(i+0.5)/ndex));
+              for(j=0; j<nout; j++) fprintf(f," %9.3e",ptr[j]);
 	      fprintf(f,"\n");
 	    }
 	  fclose(f);

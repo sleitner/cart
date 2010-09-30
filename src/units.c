@@ -356,6 +356,9 @@ void units_update(int level)
 #ifdef COSMOLOGY
       check_legacy_unit("length_in_chimps",0.0,units->length_in_chimps,legacy_units_internal.r0);
 #endif /* COSMOLOGY */
+
+      cart_debug("Legacy units checked.");
+
     }
 #endif /* LEGACY_UNITS */
 }
