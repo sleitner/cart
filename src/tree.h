@@ -12,7 +12,7 @@
 #define		cell_center_offset	0.5
 
 #define		UNREFINED_CELL		-1
-#define		NULL_OCT		-1
+#define		NULL_OCT			-1
 #define		FREE_OCT_LEVEL		-1
 
 #define		CELL_TYPE_NONLOCAL	0

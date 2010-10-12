@@ -795,9 +795,9 @@ void smooth( int level ) {
 
 #pragma omp parallel for default(none), private(i,j,child), shared(num_local_blocks,oct_list,cell_vars,phi_red,phi_black)
 	for ( i = 0; i < num_local_blocks; i++ ) {
-                j = 4*i;
+		j = 4*i;
 		cart_assert( oct_list[i] >= 0 && oct_list[i] < num_octs );
-                child = oct_child(oct_list[i],0);
+		child = oct_child(oct_list[i],0);
 		cart_assert( child >= 0 && child < num_cells );
 	
 		/* child 0 (red) */

@@ -3081,7 +3081,7 @@ void read_particles( char *header_filename, char *data_filename,
 						reorder( (char *)&pdt[j], sizeof(float) );
 					}
 				}
-                        }
+			}
 
 #ifdef STARFORM
 			if ( stellar_filename != NULL ) {
@@ -3397,34 +3397,34 @@ void read_particles( char *header_filename, char *data_filename,
 		}
 	} else {
 #ifdef COSMOLOGY
-                MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
 		cosmology_copy(&temp_cosmo);
 #endif /* COSMOLOGY */
 
 		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 
-                MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-                MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 
 		current_page[local_proc_id] = 0;
 
 		page_ids[local_proc_id] = cart_alloc(int, num_parts_per_proc_page );
 		page[local_proc_id] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
-		
+
 		if ( timestep_filename != NULL ) {
-		        timestep_page[local_proc_id] = cart_alloc(float, num_parts_per_proc_page );
+			timestep_page[local_proc_id] = cart_alloc(float, num_parts_per_proc_page );
 		}
 
 #ifdef STARFORM
@@ -5000,7 +5000,7 @@ void read_grid_binary( char *filename ) {
 	MPI_Status status;
 
 #ifdef COSMOLOGY
-        struct CosmologyParameters temp_cosmo;
+	struct CosmologyParameters temp_cosmo;
 #endif /* COSMOLOGY */
 
 	int hydro_vars[num_hydro_vars+1];
@@ -5090,6 +5090,8 @@ void read_grid_binary( char *filename ) {
 
 	/* the header exists only in the first file */
 	if ( local_proc_id == MASTER_NODE ) {
+		cart_assert( local_proc_id == file_parent );
+
 		fread(&size, sizeof(int), 1, input );
 		endian = 0;
 		if ( size != 256 ) {
@@ -5154,20 +5156,20 @@ void read_grid_binary( char *filename ) {
 		//  include particles. And if it even does, then 
 		//  there is no sense whatsoever to set 
 		//  a non-trivial DC mode.
-		*/
+		 */
 		cosmology_set(DeltaDC,0.0);
 
 		temp_cosmo = *cosmology;
 
 #else
-                if(h100 > 0.0) /* legacy units */
-                  {
-                    units_set_art(OmM0,h100,box_size);
-                  }
-                else
-                  {
-                    units_set(OmM0,OmB0,OmL0);
-                  }
+		if(h100 > 0.0) /* legacy units */
+		{
+			units_set_art(OmM0,h100,box_size);
+		}
+		else
+		{
+			units_set(OmM0,OmB0,OmL0);
+		}
 #endif /* COSMOLOGY */
 
 		/* nextra (no evidence extras are used...) extra lextra */
@@ -5835,7 +5837,6 @@ void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input
 	int icell;
 	MPI_Request requests[2*MAX_PROCS];
 	MPI_Request send_requests[MAX_PROCS];
-
 
 	if(num_out_vars < 1) return;
 
