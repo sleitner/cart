@@ -210,6 +210,9 @@ int main ( int argc, char *argv[]) {
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 		for ( level = min_level; level <= max_level; level++ ) {
+			/* not strictly necessary since all levels are at the same time */
+			units_update(level);
+
 			cart_debug("assigning density on level %u", level );
 			assign_density( level );
 

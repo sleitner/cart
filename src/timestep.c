@@ -373,6 +373,10 @@ int timestep( int level, MPI_Comm local_comm )
 
 	end_time( COMMUNICATION_TIMER );
 
+	start_time( WORK_TIMER );
+	units_update(level);
+	end_time( WORK_TIMER );
+
 #ifdef HYDRO
 	hydro_copy_vars( level, COPY_ZERO_REF, COPY_SPLIT_NEIGHBORS );	
 #endif /* HYDRO */
@@ -547,6 +551,10 @@ int timestep( int level, MPI_Comm local_comm )
 	abox[level] = abox_from_tcode( tl[level] );
 	auni[level] = auni_from_tcode( tl[level] );
 #endif
+
+	start_time( WORK_TIMER );
+	units_update(level);
+	end_time( WORK_TIMER );
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 	assign_density( level );
