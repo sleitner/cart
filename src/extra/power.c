@@ -21,7 +21,7 @@
 
 #include "power.h"
 
-#define num_power_foldings	5
+#define num_power_foldings	4
 #define power_mesh_refinements	9		/* 512 mesh */
 #define power_mesh_size		(1<<power_mesh_refinements)
 #define num_power_mesh		(power_mesh_size*power_mesh_size*power_mesh_size)
@@ -115,6 +115,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 		if ( output == NULL ) {
 			cart_error("Unable to open %s for writing.", output );
 		}
+                fprintf( output, "aexp: %le Dplus[aexp]: %le  Dplus[1]: %le\n", auni[min_level], dplus_from_auni(auni[min_level]), dplus_from_auni(1.0) );
 	}
 
 	cart_debug("mass_factor = %e", mass_factor );
