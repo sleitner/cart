@@ -23,9 +23,7 @@ c     ----------------------------------------------------------------
       parameter ( nll    = 128       )           ! # of chain mesh cells in 1D
       parameter ( ncell  = ngrid**3  )           ! total # of grid cells
       parameter ( ncell0 = ngrid**3  )           ! # of 0-level cells in the original sim.
-      parameter ( h      = 0.002     )           ! resolution in grid units
       parameter ( nh     = 400000    )            ! max # of haloes
-      parameter ( nhlimit= 1000000   )           ! limit to the # of potential halos
       parameter ( floatsize = 8      )
       parameter ( nbyteword = 4      )  
       parameter ( rhoaver= 1.0       )           ! average density of particles

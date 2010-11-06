@@ -54,7 +54,6 @@ c
       read  ( unit = 15 , fmt = '(10x,    a256)')  respath
       read  ( unit = 15 , fmt = '(70x,   e10.2)')  boxh
       read  ( unit = 15 , fmt = '(70x,     i10)')  ibtype
-      read  ( unit = 15 , fmt = '(70x,     i10)')  imark
       read  ( unit = 15 , fmt = '(70x,   e10.2)')  rmin
       read  ( unit = 15 , fmt = '(70x,   e10.2)')  rmax
       read  ( unit = 15 , fmt = '(70x,     i10)')  nbins
@@ -70,8 +69,7 @@ c
       write  ( unit = * , fmt ='(/'' results path:'',/A)') respath
       write  ( unit = * , fmt = '( 1x,''Lbox:   '', 1pe10.2)') boxh
       write  ( unit = * , fmt = '( 1x,''ibtype:   '', i2,4x,
-     &               ''imark:   '', i2,4x, 
-     &               ''niter:  '', i2)')  ibtype, imark, niter
+     &               ''niter:  '', i2)')  ibtype, niter
       write  ( unit = * , fmt = '( 1x,''rmin:   '', 1pe10.2,4x,
      &               ''rmax:   '', 1pe10.2,4x, 
      &               ''nbins:  '', i4)')  rmin, rmax, nbins
@@ -96,9 +94,9 @@ c
       fname2 = respath(1:lrpath)//'/hpro_'//chaexp(1:ldaexp)//'.dat '
       fname3 = respath(1:lrpath)//'/hp_'//chaexp(1:ldaexp)//'.dat '
 
-      rhalo     = rfind *rkpc2g
-      rmin      = rmin * rkpc2g 
-      rmax      = rmax * rkpc2g 
+      rhalo     = rfind * rkpc2g
+      rmin      = rmin  * rkpc2g 
+      rmax      = rmax  * rkpc2g 
 
       if ( ibtype .eq. 2 ) then 
         nbins = int(2.*(rmax/rmin-1.0)**(2./3.)-1.0) 
@@ -118,19 +116,21 @@ c
       call SortParticles ()
       write(*,*) 'Done.'
       write(*,*) 'Finding Halos...'
+c     Warning: using a small value of rhalo or a large value of 
+c     nmin parameter of FindHaloes can create an unintended density 
+c     threshold for halo centers - DHR 11/6/2010
       call FindHaloes ( rhalo , nmin )
-      call RemoveSmall   ( nmin )
+c      call RemoveSmall   ( nmin )
       write(*,*) 'Done.'
 c      write(*,*) 'Iterating halos...'
 c      call IterateHaloCM ( rhalo , rminshift )      
 c      write(*,*) 'Done.'
-      write(*,*) 'Eating...'
-      call Cannibalism   ()
-      write(*,*) 'Done.'
+c      write(*,*) 'Eating...'
+c      call Cannibalism   ()
+c      write(*,*) 'Done.'
       write(*,*) 'Computing halo properties...'
       call Compute_Halo_Properties ( ibtype, rmin, rmax, rvel, 
-     &                               nbins,imark, niter )
-
+     &                               nbins, niter )
       call Remove_Velocity_Duplicates ()
       write(*,*) 'Done.'
       write(*,*) 'Writing halo catalogs...'
@@ -139,7 +139,7 @@ c      write(*,*) 'Done.'
      &                           rvel, rhalo )
       call Write_Halo_Particles ( fname3, 
      &                            ibtype, rmin, rmax, rvel, 
-     &                            nbins, imark, nmin )
+     &                            nbins, nmin )
       write(*,*) 'Done.'
 
       STOP
@@ -224,16 +224,11 @@ c
 
 c     ------------------------------------------------------------------
       subroutine Compute_Halo_Properties( ibtype, rpmin, rpmax, rvel, 
-     &                                    npbin,imark, niter )
+     &                                    npbin, niter )
 c     ------------------------------------------------------------------
 c
 c     ibtype = 0 - log10 bins, 1 - even bins
 c     rpmin,max - min/max. radius for profile construction in grid units
-c     imark = 1 - mark particles as they assigned to a halo, so that they
-c                 they are not included in subsequent halo profiles
-c                (this will prevent detection of most of the subhalos but
-c                 will greatly speed-up finding of isolated halos)
-c     imark = 0 - don't
 c     rvel = radius within which to measure mean halo velocity 
 c     niter = number of iterations for unbound particles 
 c
@@ -327,9 +322,9 @@ c
         stop
       endif
 
-      rhalo  = rmax
-      rhalo2 = rmax * rmax
-      rmax2 = rmax * rmax
+      rhalo   = rmax
+      rhalo2  = rmax * rmax
+      rmax2   = rmax * rmax
       dvirlog = log10(Deltavir)
 
       do ic1 = 1 , npmax 
@@ -357,7 +352,7 @@ C$OMP+PRIVATE(rnp,vmn,rd1,rd2,rm,volr,voli,rld1,rld2,dil1,dil2,rvir)
 C$OMP+PRIVATE(rhdum,ntot,ph,rvmax,vmax,imaxflag,irsflag,nrg,er,rr,dir)
 C$OMP+PRIVATE(vr,a,ae,b,be,csq,q,hmassi,rcirc,rcircd,pdum,ptotd)
 C$OMP+PRIVATE(ph1,ph2,irflag,pl1,pl2,ah,bh), schedule(dynamic,10)
-      do ic1 = 1 , min(nhalo,nhlimit)
+      do ic1 = 1 , nhalo
         if ( mod(ic1-1,100) .eq. 0 ) then 
           write(*,*) 'processing halo',ic1,'...',nhalo-ic1,' left'
         endif
@@ -434,7 +429,6 @@ c....     sweep over neighbors checking periodic boundary conditions
                 if ( kc .gt. nll ) kc = kc - nll 
                 idm = iCL(ic,jc,kc)                 ! read LL head
                 do while ( idm .ne. nil )
-                  if ( iSp(idm) .eq. nil .or. iSp(idm) .eq. ic1 ) then 
                   xd = xp(idm)
                   yd = yp(idm)
                   zd = zp(idm)
@@ -514,15 +508,9 @@ c
      &                                  (vxp(idm)**2 + 
      &                                   vyp(idm)**2 + 
      &                                   vzp(idm)**2)*pw(idm)
-
-                     if ( imark .eq. 1 .and. 
-     &                       rd .lt. rh(ic1) ) then 
-                           iSp(idm) = ic1
-                        endif
-                     endif
                     endif
                   endif
-                  idm = iLL(idm) ! next particle from linked list
+                 idm = iLL(idm) ! next particle from linked list
                 enddo  ! end do while 
               enddo  ! end k 
             enddo  ! end j 
@@ -786,8 +774,6 @@ c
 
       enddo ! end ic1
 
-      nhalo = min(nhalo,nhlimit)
-
       return
       end
 
@@ -922,11 +908,11 @@ c
         write(33,94)  ih,xmpc ,  ympc ,  zmpc ,
      &                vxkms   ,  vykms   , vzkms , 
      &                rvir, rkpc, amassh, nhp(ic1), 
-     &                vhmax(ic1), rhmax(ic1), rsh(ic1),hc(ic1)
+     &                vhmax(ic1), rhmax(ic1), rsh(ic1),hc(ic1)-1
         write(34,94)  ih,xmpc ,  ympc ,  zmpc ,
      &                vxkms   ,  vykms   , vzkms , 
      &                rvir, rkpc, amassh, nhp(ic1), 
-     &                vhmax(ic1), rhmax(ic1), rsh(ic1),hc(ic1)
+     &                vhmax(ic1), rhmax(ic1), rsh(ic1),hc(ic1)-1
         
         rd = zero
         do ic2 = 0 , nbins
@@ -956,16 +942,11 @@ c
 c     ------------------------------------------------------------------
       subroutine Write_Halo_Particles( fname, 
      &                                 ibtype, rpmin, rpmax, rvel, 
-     &                                 npbin,imark, nmin )
+     &                                 npbin, nmin )
 c     ------------------------------------------------------------------
 c
 c     ibtype = 0 - log10 bins, 1 - even bins
 c     rpmin,max - min/max. radius for profile construction in grid units
-c     imark = 1 - mark particles as they assigned to a halo, so that they
-c                 they are not included in subsequent halo profiles
-c                (this will prevent detection of most of the subhalos but
-c                 will greatly speed-up finding of isolated halos)
-c     imark = 0 - don't
 c     rvel = radius within which to measure mean halo velocity 
 c     niter = number of iterations for unbound particles 
 c
@@ -1276,6 +1257,7 @@ c     in the loop below
 c....   determine center of the next halo
         if ( iSp(ind(ic1)) .eq. nil .and. 
      &       dnb(ind(ic1)) .gt. Deltamin ) then 
+
           iCenter      = ind(ic1)     
           xhalo        = xp(iCenter)
           yhalo        = yp(iCenter)
@@ -1357,11 +1339,11 @@ c....     sweep over neighbors checking periodic boundary conditions
                     if ( rd .le. rhalo2 ) then
                       ndummy = ndummy + 1
                       wdummy     = wdummy + pw(idummy)
-                     xcm = xcm + xp(idummy)*pw(idummy)
-                     ycm = ycm + yp(idummy)*pw(idummy)
-                     zcm = zcm + zp(idummy)*pw(idummy)
-                     dmax = max(dmax,dnb(idummy))
-                      iSp(idummy) = 1                      
+                      xcm = xcm + xp(idummy)*pw(idummy)
+                      ycm = ycm + yp(idummy)*pw(idummy)
+                      zcm = zcm + zp(idummy)*pw(idummy)
+                      dmax = max(dmax,dnb(idummy))
+                      iSp(idummy) = iCenter                     
                     endif
                   endif
                   idummy = iLL(idummy)
@@ -1381,6 +1363,7 @@ c....     sweep over neighbors checking periodic boundary conditions
               write(*,*) '* while more halos are found. stopping...'
               stop
             endif
+
             hc(nhalo)  = iCenter
             xh(nhalo)  = xhalo
             yh(nhalo)  = yhalo
@@ -1388,6 +1371,35 @@ c....     sweep over neighbors checking periodic boundary conditions
             rh(nhalo)  = rhalo 
             nhp(nhalo) = int(wdummy/pw(1))
             amh(nhalo) = wdummy
+
+            xcm = xcm / wdummy
+            ycm = ycm / wdummy
+            zcm = zcm / wdummy
+          else 
+c           clear particles marked for this center since it lacked
+c           sufficient particles within rhalo
+            do i = imin , imax
+              ic = i 
+              if ( ic .lt. 1   ) ic = ic + nll
+              if ( ic .gt. nll ) ic = ic - nll
+              do j = jmin , jmax 
+                jc = j 
+                if ( jc .lt. 1   ) jc = jc + nll
+                if ( jc .gt. nll ) jc = jc - nll
+                do k = kmin , kmax               
+                  kc = k 
+                  if ( kc .lt. 1   ) kc = kc + nll
+                  if ( kc .gt. nll ) kc = kc - nll 
+                  idummy = iCL(ic,jc,kc)                 ! read LL head
+                  do while ( idummy .ne. nil )
+                    if ( iSp(idummy) .eq. iCenter ) then
+                      iSp(idummy) = nil
+                    endif
+                    idummy = iLL(idummy)
+                  enddo  ! end do while 
+                enddo  ! end k 
+              enddo  ! end j 
+            enddo  ! and i
           endif
         endif
       enddo
