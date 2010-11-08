@@ -126,7 +126,7 @@ void config_init_units()
   constants_internal.G = 6.67428e-8*cgs->cm*cgs->cm*cgs->cm/(cgs->g*cgs->s*cgs->s);
   constants_internal.c = 2.99792458e10*cgs->cm/cgs->s;
 
-  constants_internal.eV = 1.602176487e-12*cgs->g*cgs->cm*cgs->cm/(cgs->g*cgs->s);
+  constants_internal.eV = 1.602176487e-12*cgs->g*cgs->cm*cgs->cm/(cgs->s*cgs->s);
   constants_internal.amu = 1.660538782e-24*cgs->g;
   constants_internal.mH  = 1.007825*constants_internal.amu;
   constants_internal.mHe = 4.002602*constants_internal.amu;
