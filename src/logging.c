@@ -49,32 +49,89 @@ unsigned long dmuReportAllocatedMemory();
 void output_star_creation( int icell, double mass, FILE *f ){
   int level_UP, icell_UP;
   double side_UP;
+  double side;
   int level;
   int id;
   int i;
+  double zSol_cell,zSol_cell_UP;
+  int high_levels,children_at_level, k,ic,icell0,icid,icicell,ilev,cells_below_ilev, index_to_child;
+  int icipar;
+  double sfrbelow_UP;
+  double tem_max , rho_min ;
+  double sf_max_gas_temperature = 2.0e4;
+  tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature); //assumes the default value 
+  rho_min = 0.5/(constants->XH*units->number_density);
 
-  id = last_star_id + local_proc_id + 1;
+  //true, but useless id = last_star_id + local_proc_id + 1;
 
   level = cell_level(icell);
-  //  level_UP = ( log( 1.0*(constants->kpc/units->length)/cell_size[min_level] ) / log(2.0) ); //want UP to be ~1pKpc
-  level_UP = level-1;
+  level_UP = ( log( cell_size[min_level] / (1.0*constants->kpc/units->length) ) / log(2.0) ); //want UP to be ~1pKpc
+    //level_UP = level-1;
   if(level_UP<=min_level){level_UP=min_level;}
   icell_UP = icell;
   if( level > level_UP ){
-    for( i = level; i < level_UP; i++ ){
+    for( i = level; i > level_UP; i-- ){
       icell_UP = cell_parent_cell(icell_UP);
     }
+  } else {
+    level_UP = level;
   }
-  side_UP = cell_size[ cell_level(icell_UP) ]*(units->length/constants->kpc);
+  side    = cell_size[ level    ]*(units->length/constants->kpc);
+  side_UP = cell_size[ level_UP ]*(units->length/constants->kpc);
+ 
+
+
+  high_levels = max_level_now() - level_UP  ; 
+  children_at_level = pow( 2, 3*high_levels );
+  sfrbelow_UP = 0; 
+  ic = 0;
+  icell0 = icell_UP ;
+  while ( ic < children_at_level ){ //for each of the children that could potentially exist at max_level
+    icid = ic;
+    icicell = icell0;
+    ilev = 0; 
+    while ( ilev < high_levels  && icicell !=-1 ){ //find where the child lives in each higher level, and progress downward as long as refined
+      cells_below_ilev = pow(  2 , 3*( high_levels-(ilev+1) ) );  //below means ilev+1
+      index_to_child = (int)icid / cells_below_ilev ;
+      icid -= cells_below_ilev * index_to_child;
+      icipar=icicell;
+      icicell = cell_child ( icicell, index_to_child );
+      ilev++;
+    }
+    ilev--; // ilev should not have been incremented if you are not going to a child
+    if ( icicell != -1 ) {  //if you reach maxlevel add it
+      //cart_debug("snl %d %d %d ",ic,icicell, cell_level(icicell));
+      sfrbelow_UP += sf_rate(icicell)*cell_volume[cell_level(icicell)]; 
+      ic++;
+    }else { //if you dont reach maxlevel then the leaf is not at maxlevel, skip ic to the next cell at this level
+      //cart_debug("snl %d %d %d ",ic,icipar, cell_level(icipar) );
+      if( cell_gas_density(icipar)>rho_min && cell_gas_pressure(icipar)/cell_gas_density(icipar)<tem_max){
+	sfrbelow_UP += sf_rate(icipar)*cell_volume[cell_level(icipar)]; 
+      }//*pow( 2,3*(high_levels-ilev));
+      ic += pow( 2,3*(high_levels-ilev) ) ; 
+    }
+  }
+  sfrbelow_UP=sfrbelow_UP/cell_volume[level_UP];
+  zSol_cell_UP = cell_gas_metal_density(icell_UP)/(constants->Zsun*cell_gas_density(icell_UP));
+  zSol_cell_UP = max(1.0e-3,zSol_cell_UP);
+  zSol_cell = cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell));
+  zSol_cell = max(1.0e-3,zSol_cell);
   
-  //starid, auni,tcosmo, level, over_density,cell_gas density, consumption timescale, mass, icell_UP,UPlength(Kpc), UP gas density
-  fprintf(f,"%d %d  %.10lf %e  %d %e %e  %e  %e  %d %f %e\n",
-	  local_proc_id, id, 
-	  auni_from_tcode(tl[level]) , tphys_from_tcode(tl[level]) ,
-	  level , cell_density(icell) , cell_gas_density(icell)*units->density/(constants->Msun/pow(constants->pc,3)) ,
-	  ( cell_gas_density(icell)/sf_rate(icell) )*(units->time/constants->yr),
-	  mass*units->mass/constants->Msun , 
-	  icell_UP , side_UP ,cell_density(icell_UP), cell_gas_density(icell_UP)*units->density/(constants->Msun/pow(constants->pc,3)) 
+  //abox, auni, tcosmo, level, side(pkpc), over_density, rho_H[msun/pc3], Z, temp, SFRD Msun/pkpc^3, mass, icell_UP,levelUP, sideUP(pkpc)...temp
+  fprintf(f,"%.10lf %.6lf %e  %d %f  %e %e %e %e  %e | %e %d   %d %f  %e %e  %e %e %e  %e\n",
+	  abox[level] , auni[level], tphys_from_tcode(tl[level]),
+	  level, side,
+	  cell_density(icell), constants->XH*cell_gas_density(icell)*units->density/(constants->Msun/pow(constants->pc,3)) ,
+	  zSol_cell,
+	  cell_gas_pressure(icell)/cell_gas_density(icell)*(constants->wmu*units->temperature), //snl
+	  sf_rate(icell)/(units->time/constants->yr)* units->density/(constants->Msun/pow(constants->kpc,3)) ,
+
+	  mass*units->mass/constants->Msun , icell_UP, 
+	  level_UP, side_UP ,
+	  cell_density(icell_UP),  constants->XH*cell_gas_density(icell_UP)*units->density/(constants->Msun/pow(constants->pc,3)) , 
+	  sfrbelow_UP/(units->time/constants->yr)* units->density/(constants->Msun/pow(constants->kpc,3)), 
+	  zSol_cell_UP,
+	  sf_rate(icell_UP)/(units->time/constants->yr)* units->density/(constants->Msun/pow(constants->kpc,3))
 	  );
 }
 
@@ -114,7 +171,7 @@ void log_star_creation( int icell, double mass, int fileop_temp ){
 }
 
 void check_restart_star_creation(){
-  /* Don't want ot restart from jobname.d and have a corrupt/empty/inaccurate restart_sc file.
+  /* Don't want to restart from jobname.d and have a corrupt/empty/inaccurate restart_sc file.
    * Match the number of stars since the last output ae in the code to the number of stars listed in screst.
    */
   double last_ae;
@@ -169,7 +226,7 @@ void check_restart_star_creation(){
       }
     }
     /* check last_ae is inside relevant interval */
-    if( (last_ae < outputs[iout] || last_ae > auni[min_level]) && iout > 0 ){
+    if( (last_ae < outputs[iout] || last_ae > auni[min_level]+1e-6) && iout > 0 ){
       cart_error("bad last_ae: %f < %f || %f > %f",last_ae,outputs[iout],last_ae,auni[min_level]);
     }
     cart_debug("star creation outputs check: iout=%d a=%f last_ae=%f outi=%f outi+1=%f",i, auni[min_level],last_ae,outputs[iout],outputs[iout+1]);

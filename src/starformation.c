@@ -61,7 +61,7 @@ void config_init_star_formation()
   /*
   //  General parameters
   */
-  control_parameter_add2(control_parameter_int,&sf_recipe,"sf:recipe","sf_recipe","recipe for star formation. Available recipes: \n   0 (oldstyle HART recipe),\n   1 (Gnedin et al 2009 recipes).\nUse <sf:recipe=1:min-cloud-density> and <sf:recipe=1:max-cloud-density> to mimic Gnedin et al 2009 recipes 1 to 3.");
+  control_parameter_add2(control_parameter_int,&sf_recipe,"sf:recipe","sf_recipe","recipe for star formation. Available recipes: \n   0 (oldstyle HART recipe),\n   1 (Gnedin et al 2009 recipes),\n 2 (Gnedin & Kravtsov 2010 eq 6 recipe).\nUse <sf:recipe=1:min-cloud-density> and <sf:recipe=1:max-cloud-density> to mimic Gnedin et al 2009 recipes 1 to 3.");
 
   control_parameter_add2(control_parameter_int,&sf_min_level,"sf:min-level","sf_min_level","minimum level on which do star formation. Cells with level < <sf:min-level> form no stars no matter what.");
 
@@ -85,7 +85,7 @@ void config_verify_star_formation()
   /*
   //  General parameters
   */
-  cart_assert(sf_recipe>=0 && sf_recipe<=1);
+  cart_assert(sf_recipe>=0 && sf_recipe<=2);
 
   cart_assert(sf_min_level>=min_level && sf_min_level<=max_level);
 
