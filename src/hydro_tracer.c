@@ -38,22 +38,26 @@ int tracer_list_enabled = 0;
 
 #if defined(ENRICH) && defined(ENRICH_SNIa)
 int num_hydro_vars_traced = 4;
-int hydro_vars_traced[] = {		HVAR_GAS_DENSITY,
-					HVAR_INTERNAL_ENERGY,
-					HVAR_METAL_DENSITY_II,
-					HVAR_METAL_DENSITY_Ia };
-char *hydro_vars_traced_labels[] = { 	"density",
-					"internal energy",
-					"SNII metallicity",
-					"SNIa metallicity" };
+int hydro_vars_traced[] = {		
+	HVAR_GAS_DENSITY,
+	HVAR_INTERNAL_ENERGY,
+	HVAR_METAL_DENSITY_II,
+	HVAR_METAL_DENSITY_Ia };
+char *hydro_vars_traced_labels[] = { 	
+	"density",
+	"internal energy",
+	"SNII metallicity",
+	"SNIa metallicity" };
 #else  /* ENRICH && ENRICH_SNIa */
 int num_hydro_vars_traced = 3;
-int hydro_vars_traced[] = {      	HVAR_GAS_DENSITY,
-					HVAR_GAS_ENERGY,
-                                        HVAR_INTERNAL_ENERGY };
-char *hydro_vars_traced_labels[] = {	"density",
-					"total energy",
-					"internal energy" };
+int hydro_vars_traced[] = { 
+	HVAR_GAS_DENSITY,
+	HVAR_GAS_ENERGY,
+	HVAR_INTERNAL_ENERGY };
+char *hydro_vars_traced_labels[] = {	
+	"density",
+	"total energy",
+	"internal energy" };
 #endif /* ENRICH && ENRICH_SNIa */
 
 
@@ -397,11 +401,11 @@ void update_tracer_list( int level ) {
 
 	min_level_modified = max_level_modified = level;
 
-        /* now move tracers from one cell list to another */
-        for ( i = 0; i < num_procs; i++ ) {
+	/* now move tracers from one cell list to another */
+	for ( i = 0; i < num_procs; i++ ) {
 		num_tracers_to_send[i] = 0;
 		tracer_list_to_send[i] = NULL_TRACER;
-        }
+	}
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 	for ( k = 0; k < num_level_cells; k++ ) {
@@ -439,8 +443,8 @@ void update_tracer_list( int level ) {
 				}
 
 				tracer = tracer2;
-        	        }
-	        }
+			}
+		}
 	}
 
 	cart_free( level_cells );
@@ -466,11 +470,11 @@ void update_tracer_list( int level ) {
 					num_tracers_to_send[proc]++;
 				}
 
-		                tracer_list_next[last] = tracer_list_to_send[proc];
-		                tracer_list_to_send[proc] = cell_tracer_list[iter_cell];
-                                                                                                                                                            
-                		cell_tracer_list[iter_cell] = NULL_TRACER;
-		        }
+				tracer_list_next[last] = tracer_list_to_send[proc];
+				tracer_list_to_send[proc] = cell_tracer_list[iter_cell];
+
+				cell_tracer_list[iter_cell] = NULL_TRACER;
+			}
 		}
 		cart_free( level_cells );
 	}
@@ -547,7 +551,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 	
 	num_pages_sent = 0;
 	num_send_requests = 0;
-        for ( proc = 0; proc < num_procs; proc++ ) {
+	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( ( trade_level == -1 && proc != local_proc_id ) || 
 				( trade_level != -1 &&  
 				( num_remote_buffers[trade_level][proc] > 0 || 
@@ -636,13 +640,13 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 			}
 
 			/* if we received a full page, set up to receive a new one */
-                        if ( id_count == page_size ) {
-                                page_count[proc]++;
+			if ( id_count == page_size ) {
+				page_count[proc]++;
 				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, page_count[proc], 
-					MPI_COMM_WORLD, &recv_id_requests[proc] );
+						MPI_COMM_WORLD, &recv_id_requests[proc] );
 				MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, proc, 
-					page_count[proc], MPI_COMM_WORLD, &recv_tracer_requests[proc] );
-                        } else {
+						page_count[proc], MPI_COMM_WORLD, &recv_tracer_requests[proc] );
+			} else {
 				cart_free( recv_id[proc] );
 				cart_free( recv_tracers[proc] );
 			}

@@ -3546,9 +3546,9 @@ void write_hydro_tracers( char *filename ) {
 	double *page[MAX_PROCS];
 	int num_pages_sent;
 	int num_pages_received[MAX_PROCS];
-        int count[MAX_PROCS];
-        int pos[MAX_PROCS];
-        MPI_Status status;
+	int count[MAX_PROCS];
+	int pos[MAX_PROCS];
+	MPI_Status status;
 
 	cart_debug("writing hydro tracers");
 
@@ -3748,7 +3748,7 @@ void write_hydro_tracers( char *filename ) {
 				i, num_pages_received[i], MPI_COMM_WORLD, &status );
 			MPI_Get_count( &status, MPI_INT, &count[i] );
 			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
-			MPI_Recv( page[i], num_hydro_vars_traced*num_tracers_per_proc_page, 
+			MPI_Recv( vars_page[i], num_hydro_vars_traced*num_tracers_per_proc_page, 
 				MPI_FLOAT, i, num_pages_received[i], MPI_COMM_WORLD, &status );
 			pos[i] = 0;
 			num_pages_received[i]++;
@@ -3795,7 +3795,7 @@ void write_hydro_tracers( char *filename ) {
 
 						for ( k = 0; k < num_hydro_vars_traced; k++ ) {
 							output_vars_page[k*num_tracers_per_page + num_tracers_written ] =
-								page[j][num_hydro_vars_traced*pos[j]+k];
+								vars_page[j][num_hydro_vars_traced*pos[j]+k];
 						}
 					
 						num_tracers_written++;
@@ -3808,7 +3808,7 @@ void write_hydro_tracers( char *filename ) {
 								j, num_pages_received[j], MPI_COMM_WORLD, &status );
 							MPI_Get_count( &status, MPI_INT, &count[j] );
 							cart_assert( count[j] >= 0 && count[j] <= num_tracers_per_proc_page );
-							MPI_Recv( page[j], num_hydro_vars_traced*num_tracers_per_proc_page,
+							MPI_Recv( vars_page[j], num_hydro_vars_traced*num_tracers_per_proc_page,
 								MPI_FLOAT, j, num_pages_received[j], 
 								MPI_COMM_WORLD, &status );
 							pos[j] = 0;
@@ -4007,9 +4007,13 @@ void read_hydro_tracers( char *filename ) {
 		fread( &tmp_num_hydro_vars_traced, sizeof(int), 1, input );
 		fread( &size, sizeof(int), 1, input );
 
+		if ( endian ) {
+			reorder( (char *)&tmp_num_hydro_vars_traced, sizeof(int) );
+		}
+
 		fread( &size, sizeof(int), 1, input );
 
-		for ( i = 0; i < num_hydro_vars_traced; i++ ) {
+		for ( i = 0; i < tmp_num_hydro_vars_traced; i++ ) {
 			fread( label, sizeof(char), 32, input );
 		}
 
@@ -4062,6 +4066,10 @@ void read_hydro_tracers( char *filename ) {
 			}
 	
 			for ( j = 0; j < num_tracers_in_page; j++ ) {
+				x[j] -= 1.0;
+				y[j] -= 1.0;
+				z[j] -= 1.0;
+
 				/* enforce periodic boundary conditions */
 				if ( x[j] < 0.0 ) {
 					x[j] += (double)num_grid;
