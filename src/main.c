@@ -341,9 +341,10 @@ int main ( int argc, char *argv[]) {
 #ifdef PARTICLES
 			init_particles();
 #endif /* PARTICLES */
-#if defined(HYDRO) && defined(HYDRO_TRACERS)
+
+#ifdef HYDRO_TRACERS
 			init_hydro_tracers();
-#endif /* HYDRO & HYDRO_TRACERS */
+#endif /* HYDRO_TRACERS */
 
 			read_restart(0);
 			load_balance(); 
