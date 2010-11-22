@@ -184,7 +184,7 @@ int divide_list_recursive( float *global_work,
 		current_work = 0.0;
 
 		for ( k = i+1; k < j; k++ ) {
-			if ( current_work + current_work_left + global_work[k] > 
+			if ( current_work + current_work_left + 0.5*global_work[k] > 
 					work_frac_left*total_work ) {
 				break;
 			} else {
@@ -600,7 +600,7 @@ void load_balance_entire_volume( float *global_work,
 		fwrite( constrained_quantities, sizeof(int), (long)num_constraints*(long)num_root_cells, output );
 		fclose(output);
 
-		cart_error("Unable to find proper load balancing division");
+		cart_error("Unable to find proper load balancing division; try increasing num_octs.");
 
 #ifdef SAVE_LOAD_BALANCE_PARTITION
 	} else {

@@ -4,6 +4,9 @@
 //  ---------------------------------------------------------------------
 */
 
+#define RT_UV
+#define RT_DEBUG
+
 /*
 //  Produce diagnostic output 
 */

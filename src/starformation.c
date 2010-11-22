@@ -127,7 +127,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
 {
   int i, j;
   int cell;
-  float pos[nDim];
+  double pos[nDim];
   int do_star_formation;
   double tem_max, rho_min;
 
@@ -147,7 +147,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
       if(cell_is_leaf(cell))
 	{
 	  /* check position */
-	  cell_position(cell,pos);
+	  cell_center_position(cell,pos);
 
 	  do_star_formation = 1;
 	  for(j=0; j<nDim; j++)
@@ -229,7 +229,7 @@ void create_star_particle( int icell, float mass ) {
 	int ipart;
 	int id;
 	int level;
-	float pos[nDim];
+	double pos[nDim];
 	float new_density;
 	float density_fraction;
 
@@ -244,7 +244,7 @@ void create_star_particle( int icell, float mass ) {
 	cart_assert( ipart < num_star_particles );
 
 	/* place particle at center of cell with cell momentum */
-	cell_position(icell, pos );
+	cell_center_position(icell, pos );
 	level = cell_level(icell);
 
 	for ( i = 0; i < nDim; i++ ) {

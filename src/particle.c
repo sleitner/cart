@@ -29,8 +29,8 @@
 
 int num_row;
 
-float particle_t[num_particles];
-float particle_dt[num_particles];
+double particle_t[num_particles];
+double particle_dt[num_particles];
 double particle_x[num_particles][nDim];
 double particle_v[num_particles][nDim];
 
@@ -115,7 +115,7 @@ void move_particles( int level ) {
 	int icell, icell_orig;
 	int level1;
 	int child;
-	float pos[nDim];
+	double pos[nDim];
 	int found;
 	double t_next;
 	int c[num_children];
@@ -166,7 +166,7 @@ void move_particles( int level ) {
 					icell_orig = icell;
 					cart_assert( icell != NULL_OCT );
 
-					cell_position( icell, pos );
+					cell_center_position( icell, pos );
 
 					/* find lower leftmost cell */
 					child = 0;
@@ -221,7 +221,7 @@ void move_particles( int level ) {
 				}
 
 				cart_assert( c[0] != NULL_OCT );
-				cell_position( c[0], pos );
+				cell_center_position( c[0], pos );
 
 #ifdef GRAVITY
 				/* now we have the level on which this particle will move */
@@ -637,7 +637,7 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 
 			ipart = particle_list_to_send[proc];
 			cart_assert( ipart == NULL_PARTICLE || ( ipart >= 0 && ipart < num_particles ) );
-	
+
 			while ( ipart != NULL_PARTICLE ) {
 				send_id[page_size*num_pages_sent+id_count++] = particle_id[ipart];
 	
@@ -1084,7 +1084,7 @@ void split_particle_list( int cell ) {
 	int part;
 	int next;
 	int child;
-	float pos[nDim];
+	double pos[nDim];
 
 	cart_assert( cell >= 0 && cell < num_cells );
 	cart_assert( cell_is_refined(cell) );
@@ -1092,7 +1092,7 @@ void split_particle_list( int cell ) {
 	part = cell_particle_list[cell];
 	cell_particle_list[cell] = NULL_PARTICLE;
 
-	cell_position( cell, pos );
+	cell_center_position( cell, pos );
 
 	while ( part != NULL_PARTICLE ) {
 		next = particle_list_next[part];
@@ -1211,19 +1211,7 @@ void build_mesh() {
 
 	/* Doug (11/29/2009): necessary to properly set particle timestep 
 	 * (not certain abox and auni are required here) */
-#ifdef COSMOLOGY
-	abox[min_level] = abox_from_tcode(tl[min_level]);
-	auni[min_level] = auni_from_tcode(tl[min_level]);
-#endif
-
-	for ( i = min_level+1; i <= max_level; i++ ) {
-		tl[i] = tl[min_level];
-		dtl[i] = 0.5*dtl[i-1];
-#ifdef COSMOLOGY
-		abox[i] = abox[min_level];
-		auni[i] = auni[min_level];
-#endif
-	}
+	set_timestepping_scheme();
 
 #ifdef REFINEMENT
 	for ( i = 0; i < nDim; i++ ) {

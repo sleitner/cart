@@ -9,7 +9,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "defs.h"
 #include "tree.h"
 #include "cosmology.h"
 #include "particle.h"
@@ -35,14 +34,16 @@
 #include "extras/viewdump.h"
 #endif
 
+#include "extra/ifrit.h"
+
 #define refine_radius	(4.5)
-#define r0				(1.0/((float)num_grid))
-#define sedov_radius	(cell_size[max_level]/(float)num_grid)
-#define delta_r			(1.0)
-#define rho0			(1.0)
-#define p0				(1.0)
-#define E0				(1.0)
-#define E				(1e7)
+#define r0		(1.0/num_grid)
+#define sedov_radius	(cell_size[max_level]/num_grid)
+#define delta_r		(1.0)
+#define rho0		(1.0)
+#define p0		(1.0)
+#define E0		(1.0)
+#define E		(1e7)
 
 void refine_level( int cell, int level ) {
 	float pos[nDim];
@@ -53,9 +54,9 @@ void refine_level( int cell, int level ) {
 	
 	cell_position(cell, pos);
 
-	pos[0] -= ((float)num_grid/2.0);
-	pos[1] -= ((float)num_grid/2.0);
-	pos[2] -= ((float)num_grid/2.0);
+	pos[0] -= 0.5*num_grid;
+	pos[1] -= 0.5*num_grid;
+	pos[2] -= 0.5*num_grid;
 
 	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);
 
@@ -79,9 +80,9 @@ void sedov_initial_conditions( int icell ) {
 	/* now add some energy  */
 	cell_position(icell, pos);
 
-	pos[0] -= ((float)num_grid/2.0);
-	pos[1] -= ((float)num_grid/2.0);
-	pos[2] -= ((float)num_grid/2.0);
+	pos[0] -= 0.5*num_grid;
+	pos[1] -= 0.5*num_grid;
+	pos[2] -= 0.5*num_grid;
 
 	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2])*r0;
 
@@ -231,6 +232,19 @@ void run_output() {
 	float *slice;
 	FILE *output;
 	int coords[nDim];
+
+	const int nvars = 4;
+	const int nbin1 = 128;
+	int varid[] = { HVAR_PRESSURE, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC };
+	int nbin[] = { nbin1, nbin1, nbin1 };
+	double bb[6];
+
+
+	bb[0] = bb[2] = bb[4] = num_grid*(0.5-0.125);
+	bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.125);
+
+	sprintf(filename,"%s/out.%05d.bin",output_directory,step);
+	ifrit.OutputMesh(filename,max_level,nbin,bb,nvars,varid);
 
 	/* now dump the radial profiles */
 	for ( i = 0; i < num_bins; i++ ) {
@@ -441,6 +455,9 @@ void init_run() {
 
 	cart_debug("in init");
 
+ 	units_set(1.0,1.0,1.0);
+ 	units_reset();
+
 	/* build buffer */
 	build_cell_buffer();
 	cart_debug("built cell buffer");
@@ -483,13 +500,6 @@ void init_run() {
 
 	/* set time variables */
 	tl[min_level] = t_init;
-	dtl[min_level] = 0.0;
-	choose_timestep( &dtl[min_level] );
-
-	for ( level = min_level+1; level <= max_level; level++ ) {
-		dtl[level] = 0.5*dtl[level-1];
-		tl[level] = tl[min_level];
-	}
 
 	cart_debug("done with initialization");
 

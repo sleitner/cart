@@ -48,35 +48,5 @@
 #define frtRATE_Ci32            11
 #define frtRATE_CiLW            12
 #define IRATE_DIM		13
-C
-C
-C
-      subroutine frtInitRun
-C
-      real Yp, minTem, minD2g, molClump, molLen, fGal, fQSO
-      integer IPOP
-      common/frtSetRun/ Yp, minTem, minD2G, molClump, molLen, 
-     .     fGal, fQSO, IPOP
-      data Yp/0.24/, minTem/10.0/, minD2G/1.0e-3/
-      data molClump/30.0/, molLen/0.3/
-      data fGal /1.0/, fQSO/1.0/
-      data IPOP /2/
-C
-      call frtInitRun2(Yp,minTem,minD2G,molClump,molLen,fGal,fQSO,IPOP)
-
-      return
-      end
-C
-C
-C
-      subroutine frtStepBegin
-C
-      real uDen, uLen, uTime
-      real aExp, Hubble, dt
-      integer recMode
-      common/frtSetStep/ uDen, uLen, uTime, aExp, Hubble, dt,
-     .     recMode
-C
-
 
 #endif

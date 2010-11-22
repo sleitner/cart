@@ -36,17 +36,27 @@ int cdWorker(int id, int cell, double r1, double r2, losBuffer data)
 }
 
 
-void cdCollector(losBuffer *result, losSegment *next)
+void cdCollector(losBuffer *result, int num_segments, const losSegment *segments)
 {
-  int j;
-  cdData *dr = (cdData *)result->Data;
-  cdData *dn = (cdData *)next->Buffer.Data;
+  int i, j;
+  cdData *dn, *dr = (cdData *)result->Data;
 
   for(j=0; j<cdPars.nvars; j++)
     {
-      dr->val[j] += dn->val[j];
+      dr->val[j] = 0.0;
     }
-  dr->len += dn->len;
+  dr->len = 0.0;
+
+  for(i=0; i<num_segments; i++)
+    {
+      dn = (cdData *)segments[i].Buffer.Data;
+
+      for(j=0; j<cdPars.nvars; j++)
+	{
+	  dr->val[j] += dn->val[j];
+	}
+      dr->len += dn->len;
+    }
 }
 
 
@@ -61,7 +71,7 @@ void cdCollector(losBuffer *result, losSegment *next)
 void cdTraverseSky(int nvars, int vars[], int nside, double pos[3], double len, int floor_level, cdData output[])
 {
   int npix = 12*nside*nside;
-  int j, ipix;
+  int ipix;
   losBuffer *lines;
 
   cart_assert(0<nvars && nvars<=CD_MAX_NVARS);
@@ -77,16 +87,6 @@ void cdTraverseSky(int nvars, int vars[], int nside, double pos[3], double len, 
     {
       lines[ipix].Size = sizeof(cdData);
       lines[ipix].Data = output + ipix;
-    }
-
-  /*
-  //  Init LOS buffers
-  */
-#pragma omp parallel for default(none), private(ipix,j), shared(npix,output,nvars)
-  for(ipix=0; ipix<npix; ipix++)
-    {
-      for(j=0; j<nvars; j++) output[ipix].val[j] = 0.0;
-      output[ipix].len = 0.0;
     }
 
   losTraverseSky(nside,pos,len,floor_level,lines,cdWorker,cdCollector);

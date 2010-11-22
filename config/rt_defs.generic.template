@@ -5,41 +5,37 @@
 */
 
 /*
-//  Produce diagnostic output 
-*/
-#define RT_OUTPUT
-
-
-/*
-//  Use tables for computing photoionization rates. 
-*/
-#define RT_TABLES
-
-
-/*
 //  Allow for spatially inhomogeneous radiation field.
 */
-#define RT_TRANSFER
+?#define RT_TRANSFER
 
 
 /*
 //   Set the method for radiative transfer:
-//   1.  OTVET approximation
+//   1.  OTVET approximation (RT_METHOD_OTVET)
 */
-#define RT_TRANSFER_METHOD RT_METHOD_OTVET
+?#define RT_TRANSFER_METHOD 	<value>
 
 
 /*
 //  Allow for H2 checmistry & metal cooling. 
 */
-#define RT_CHEMISTRY 
+?#define RT_CHEMISTRY
 
 
 /*
-//  Assume that gas behaves as monoatomic (i.e c_v is always 3/2).
-//  This is valid if H2 fraction is always small (optimization switch).
+//  Also include transfer of UV (non-ionizing) radiation. That requires
+//  RT_CHEMISTRY and adds two extra variables for each cell.
 */
-#define RT_MONOATOMIC
+?#define RT_UV
+
+
+/*
+//  Assume that gas is not monoatomic and compute c_V, c_P_, gamma, etc
+//  exactly using quantum mechanical sums. This is expensive, and is
+//  not clear if ever applicable.
+*/
+?#define RT_EXACT_EOS
 
 
 /*
@@ -49,61 +45,101 @@
 //  although it depends somewhat on the metallicity and radiation field.
 //  This is rarely needed for galaxy formation simulations.
 */
-/* #define RT_HIGH_DENSITY */
+?#define RT_HIGH_DENSITY
 
 
 /*
 //  Allow for secondary electrons from X-rays. 
 */
-/* #define RT_XRAYS */
-
-
-/*
-//  Allow for absorption by dust (disables the use of tables for comuting
-//  photoionozation and photoheating rates, so the code would be VERY SLOW).
-*/
-/* #define RT_DUST */
+?#define RT_XRAYS
 
 
 /*
 //  Allow for line transfer in Lyman-Werner bands 
 */
-#define RT_LWBANDS
+?#define RT_LWBANDS
 
 
 /*
 //  Allow for heating by recoil in Lyman-alpha line using Tozzi et al formula.
 //  Jordi Miralda-Escude claims that the formula is incorrect.
 */
-/* #define RT_LYMAN_ALPHA_HEATING */
+?#define RT_LYMAN_ALPHA_HEATING
 
 
 /*
 //  Include PAH and cosmic ray ionizations and heating
 //  (normally, not important)
 */
-/* #define RT_PAH_CR */
+?#define RT_PAH_CR
 
 
 /*
-//  Keep the signal propagation speed equal c. 
+//  Enable the external cosmic background, the valid values are
+//  1. Self-consistent from the sources inside the box (RT_BACKGROUND_SELFCONSISTENT)
+//  2. Haardt-Madau 2001 (RT_BACKGROUND_HAARDT_MADAU)
 */
-/* #define RT_SIGNALSPEED_TO_C */
+?#define RT_EXTERNAL_BACKGROUND 	<value>
 
 
 /*
-//  Set the floor for the gast-to-dust ratio. May be needed to force the
-//  switch from primordial, metal-free star formation to normal star
-//  formation if the resolution is not high enough to resolve first stars
-//  properly.
+//  Model the fixed ISM. If this model is set, the dust-to-gas ratio is 
+//  assumed to be costant everywhere and is set by the config parameter 
+//  <rt_dust_to_gas_floor>, and the radiation field is constant everywhere
+//  and is set by the config parameter <rt_uv_emissivity_stars>.
 */
-#define RT_DUST_TO_GAS_FLOOR 0.001
+?#define RT_FIXED_ISM
 
 
 /*
-//  Enable computing the evolving cosmic background
+//  H2 cooling and formation/destruction rates
+//  0 = Glover & Abel
+//  1 = Shapiro & Kang / Lepp & Shull
+//  2 = Galli & Palla
+//  (if underfined, defaults to Glover & Abel)
 */
-/* #define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_SELFCONSISTENT */
+?#define RT_H2_RATE 			<value>
+
+
+/*
+//  Dust absorption cross-section
+//  0 = LMC-like dust
+//  1 = SMC-like dust
+//  (if underfined, defaults to LMC-like)
+*/
+?#define RT_DUST_CS 			<value>
+
+
+/*
+//  Allow for external absorption by dust (only matters if 
+//  RT_EXTERNAL_BACKGROUND = RT_BACKGROUND_SELFCONSISTENT)
+*/
+?#define RT_DUST_ABSORBS_BACKGROUND
+
+
+/*
+//  By default use the full chemical model -  it is the only one
+//  that works in all regimes. If this is unset, then the
+//  minimal chemistry model is used (see G&K 2010b)
+*/
+?#define RT_CHEMISTRY_MINIMAL_MODEL
+
+
+/*
+//  If the required photo rate is not found in the rate table, use direct
+//  integration to compute it (which would be VERY SLOW). If unset, assume
+//  that the table is wide enough (parameter acOmax from rt_tables.h is
+//  large enough) for the source spectrum and set the rate to zero.
+*/
+?#define RT_NARROWTABLE
+
+
+/*
+//  Apply flux-conserving correction a-la Abel to photoionization rates.
+//  May slow down the cooling computation. So far, I found no effect, so it
+//  is off by default
+*/
+?#define RT_TRANSFER_FLUX_CONSERVING
 
 
 /*
@@ -111,8 +147,10 @@
 //  0:  no clumping factors
 //  1:  use clumping factors in external RF only
 //  2:  use clumping factors in full RF 
+//  (if underfined, defaults to no clumping)
 */
-#define RT_CFI 0
+?#define RT_CFI 			<value>
+
 
 /*
 //  The number of OpenMP buffers to use for shared-memory-parallel 
@@ -120,10 +158,24 @@
 //  the number of OpenMP threads you are using, but not too large to
 //  avoid wasting storage (buffers are not that small).
 */
-#define RT_PARALLEL_NUM_OPENMP_BUFFERS 8
+?#define RT_PARALLEL_NUM_OPENMP_BUFFERS <value>
+
 
 /*
 //  Define this if the program uses MPI
 */
-#define RT_PARALLEL_USE_MPI
+?#define RT_PARALLEL_USE_MPI
+
+
+/*
+//  Produce diagnostic output 
+*/
+?#define RT_OUTPUT
+
+
+/*
+//  Use tables for computing photoionization rates. 
+*/
+?#define RT_TABLES
+
 

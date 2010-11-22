@@ -1,8 +1,7 @@
 #include "config.h"
 
 #include <math.h>
-#include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 
 #include "auxiliary.h"
 #include "healpix.h"
@@ -14,7 +13,7 @@
 /*
 //  Traverse a segment of a LOS located on a single processor.
 */
-void losTraverseSegment(int id, double pos0[3], double theta, double phi, double len, int floor_level, int (*worker)(int id, int cell, double r1, double r2, losBuffer data), losSegment *segment)
+void losTraverseSegment(int id, double pos0[3], double theta, double phi, double len, int floor_level, losWorkerCallback worker, losSegment *segment)
 {
   int j, cell, level, ret = 0;
   double e[3], posBox[nDim], posCell[nDim];
@@ -42,7 +41,7 @@ void losTraverseSegment(int id, double pos0[3], double theta, double phi, double
       cell = cell_find_position_above_level(floor_level,posBox);
       if(cell >= 0)
 	{
-	  cell_position_double(cell,posCell);
+	  cell_center_position(cell,posCell);
 	  level = cell_level(cell);
 	}
       else
@@ -89,27 +88,10 @@ void losTraverseSegment(int id, double pos0[3], double theta, double phi, double
 
 
 /*
-//  Helper for qsort
-*/
-int losCollectSegmentsHelper(const void *ptr1, const void *ptr2)
-{
-  const losSegment *s1 = (const losSegment*)ptr1;
-  const losSegment *s2 = (const losSegment*)ptr2;
-
-  if(s1->Range[0] < s2->Range[0])
-    return -1;
-  else if(s1->Range[0] > s2->Range[0])
-    return 1;
-  else
-    return 0;
-}
-
-
-/*
 //  Collect all LOS segments from different processors on the master node
 //  and broadcast them back.
 */
-void losCollectSegments(losBuffer *result, losSegment *segment, void (*collector)(losBuffer *result, losSegment *next))
+void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCallback collector)
 {
   int i;
   char *buf = NULL;
@@ -139,12 +121,7 @@ void losCollectSegments(losBuffer *result, losSegment *segment, void (*collector
 	    }
 	}
       
-      qsort(line,num_procs,sizeof(losSegment),losCollectSegmentsHelper);
-
-      for(i=0; i<num_procs; i++)
-	{
-	  collector(result,line+i);
-	}
+      collector(result,num_procs,line);
 
       if(segment->Buffer.Size > 0)
 	{
@@ -176,7 +153,7 @@ void losCollectSegments(losBuffer *result, losSegment *segment, void (*collector
 /*
 //  Traverse LOS over the whole sky, sampled by HealPIX
 */
-void losTraverseSky(int nside, double pos0[3], double len, int floor_level, losBuffer *lines, int (*worker)(int id, int cell, double r1, double r2, losBuffer data), void (*collector)(losBuffer *result, losSegment *next))
+void losTraverseSky(int nside, double pos0[3], double len, int floor_level, losBuffer *lines, losWorkerCallback worker, losCollectorCallback collector)
 {
   int npix = 12*nside*nside;
   int ipix;

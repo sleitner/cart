@@ -365,8 +365,8 @@ void assign_particle_density_smoothed( int level ) {
 	start_time( WORK_TIMER );
 
 	high_levels = level - max_dark_matter_level  ;
-	cart_assert ( high_levels > 0 );
-	children_at_level = pow( 2, 3*high_levels );
+	cart_assert ( high_levels > 0 && high_levels < 11 );
+	children_at_level = 1 << (3*high_levels);
 
 	/* smoothed interpolation is done on max_dark_matter_level so sizes reflect this*/
 	size2 = 0.5*cell_size[max_dark_matter_level];
@@ -436,7 +436,7 @@ void assign_particle_density_smoothed( int level ) {
 						icell0 = cell_list[num_children*j+k];
 						
 						if ( icell0 != -1 ) {
-							mass_assigned[num_children*j+k] /= pow( 2., 3*(high_levels));
+							mass_assigned[num_children*j+k] /= children_at_level;
 						  
 							/* now find all youngest relatives of these cells to level "level" and give the fraction of mass_assigned to
 							 * cell_density[icell] to cells that are refined at or below the particle level =level */
@@ -447,7 +447,7 @@ void assign_particle_density_smoothed( int level ) {
 								ilev = 0;
 
 								while ( ilev < high_levels && icell !=-1 ){
-									cells_below_ilev = pow(  2 , 3*( high_levels-(ilev+1) )  );
+									cells_below_ilev = 1 << (3*(high_levels-(ilev+1)));
 									index_to_child = (int)icid / cells_below_ilev ;
 									icid -= cells_below_ilev * index_to_child;
 									icell = cell_child ( icell, index_to_child );
@@ -464,7 +464,7 @@ void assign_particle_density_smoothed( int level ) {
 #endif
 									ic++; 
 								}else {
-									ic += pow( 2,3*(high_levels-ilev) ) ;
+									ic += 1 << (3*(high_levels-ilev)) ;
 								}
 
 							}

@@ -92,7 +92,7 @@ void set_hydro_tracers( int min_tracer_level ) {
 	int num_leafs;
 	int proc;
 	int proc_num_leafs[MAX_PROCS];
-	float pos[nDim];
+	double pos[nDim];
 
 	num_leafs = 0;
 	for ( level = min_tracer_level; level < max_level; level++ ) {
@@ -130,7 +130,7 @@ void set_hydro_tracers( int min_tracer_level ) {
 
 			if ( cell_is_leaf(icell) ) {
 				tracer = tracer_alloc( id );
-				cell_position( icell, pos );
+				cell_center_position( icell, pos );
 				for ( j = 0; j < nDim; j++ ) {
 					tracer_x[tracer][j] = pos[j];
 				}
@@ -183,7 +183,7 @@ void move_hydro_tracers( int level ) {
 	int icell, icell_orig;
 	int level1;
 	int child;
-	float pos[nDim];
+	double pos[nDim];
 	int found;
 	int c[num_children];
 	double diff1, diff2, diff3;
@@ -218,7 +218,7 @@ void move_hydro_tracers( int level ) {
 				icell_orig = icell;
 				cart_assert( icell != NULL_OCT );
 
-				cell_position( icell, pos );
+				cell_center_position( icell, pos );
 
 				/* find lower leftmost cell */
 				child = 0;
@@ -269,7 +269,7 @@ void move_hydro_tracers( int level ) {
 				}
 			} while ( !found );
 
-			cell_position( c[0], pos );
+			cell_center_position( c[0], pos );
 
 			/* now we have the level on which this particle will move */
 			diff1 = pos[0] - tracer_x[tracer][0];
@@ -665,7 +665,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 void build_tracer_list() {
 	int i;
 	int icell;
-	float pos[nDim];
+	double pos[nDim];
 
 	cart_debug("build_tracer_list()");
 
@@ -738,7 +738,7 @@ void split_tracer_list( int icell ) {
 	int tracer;
 	int next;
 	int child;
-	float pos[nDim];
+	double pos[nDim];
 
 	cart_assert( icell >= 0 && icell < num_cells );
 	cart_assert( cell_is_refined(icell) );
@@ -746,7 +746,7 @@ void split_tracer_list( int icell ) {
 	tracer = cell_tracer_list[icell];
 	cell_tracer_list[icell] = NULL_TRACER;
 
-	cell_position( icell, pos );
+	cell_center_position( icell, pos );
 
 	while ( tracer != NULL_TRACER ) {
 		next = tracer_list_next[tracer];

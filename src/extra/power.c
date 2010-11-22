@@ -26,6 +26,14 @@
 #define power_mesh_size		(1<<power_mesh_refinements)
 #define num_power_mesh		(power_mesh_size*power_mesh_size*power_mesh_size)
 
+
+int bin_from_d(float d) {
+	/* NG: old Doug's binning */
+	// return (int)(d-.5);
+	/* NG: logarithmically spaced binning */
+	return (int)(10*log10(d)+0.5);
+}
+
 int mesh_index( int ix, int iy, int iz ) {
 	cart_assert( ix >= 0 && ix < power_mesh_size );
 	cart_assert( iy >= 0 && iy < power_mesh_size );
@@ -41,7 +49,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	int num_level_cells;
 	int *level_cells;
 	float *local_mesh, *global_mesh;
-	float pos[nDim];
+	double pos[nDim];
 	int icell, level;
 	float mass;
 	double total;
@@ -98,7 +106,8 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	} else if ( power_type == POWER_TYPE_TOTAL ) {
 #ifndef HYDRO
 		/* account for not loading hydro data but fb != 0 */
-		mass_factor /= ( 1.0 - fb );
+	        /* NG: this is actually incorrect, removing it */
+		//mass_factor /= ( 1.0 - fb );
 #endif /* HYDRO */
 	}
 
@@ -115,7 +124,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 		if ( output == NULL ) {
 			cart_error("Unable to open %s for writing.", output );
 		}
-                fprintf( output, "aexp: %le Dplus[aexp]: %le  Dplus[1]: %le\n", auni[min_level], dplus_from_auni(auni[min_level]), dplus_from_auni(1.0) );
+		fprintf( output, "aexp: %le Dplus[aexp]: %le  Dplus[1]: %le\n", auni[min_level], dplus_from_auni(auni[min_level]), dplus_from_auni(1.0) );
 	}
 
 	cart_debug("mass_factor = %e", mass_factor );
@@ -153,16 +162,20 @@ void compute_power_spectrum( char *filename, int power_type ) {
 #else
 						( power_type == POWER_TYPE_DARK ) ) ) {
 #endif /* STARFORM */
-					ix = (int)(particle_x[ipart][0]/(double)mesh_cell_size) % power_mesh_size;
+					xs = particle_x[ipart][0]/mesh_cell_size - 0.5;
+					ys = particle_x[ipart][1]/mesh_cell_size - 0.5;
+					zs = particle_x[ipart][2]/mesh_cell_size - 0.5;
+
+					if(xs < 0) xs += power_mesh_size;
+					if(ys < 0) ys += power_mesh_size;
+					if(zs < 0) zs += power_mesh_size;
+
+					ix = (int)(xs) % power_mesh_size;
 					ix1 = (ix+1) % power_mesh_size;
-					iy = (int)(particle_x[ipart][1]/(double)mesh_cell_size) % power_mesh_size;
+					iy = (int)(ys) % power_mesh_size;
 					iy1 = (iy+1) % power_mesh_size;
-					iz = (int)(particle_x[ipart][2]/(double)mesh_cell_size) % power_mesh_size;
+					iz = (int)(zs) % power_mesh_size;
 					iz1 = (iz+1) % power_mesh_size;
-	
-					xs = particle_x[ipart][0]/mesh_cell_size + 0.5;
-					ys = particle_x[ipart][1]/mesh_cell_size + 0.5;
-					zs = particle_x[ipart][2]/mesh_cell_size + 0.5;
 
 					dx1 = xs - floor(xs);
 					dy1 = ys - floor(ys);
@@ -211,7 +224,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 						icell = level_cells[i];
 	
 						if ( cell_is_leaf(icell) ) {
-							cell_position(icell,pos);
+							cell_center_position(icell,pos);
 	
 							/* find lower left mesh position */
 							for ( j = 0; j < nDim; j++ ) {
@@ -242,7 +255,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 						icell = level_cells[i];
 	
 						/* assign cell gas mass to mesh cell */
-						cell_position(icell,pos);
+						cell_center_position(icell,pos);
 	
 						ix = (int)(pos[0]/mesh_cell_size) % power_mesh_size;
 						iy = (int)(pos[1]/mesh_cell_size) % power_mesh_size; 
@@ -297,7 +310,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 					/* skip 0,0,0 mode */
 					if ( i != 0 || j != 0 ) {
 						d = sqrt( di + dj );
-						bin = (int)(d-.5);
+						bin = bin_from_d(d);
 						index = (power_mesh_size/2+1) * ( j + power_mesh_size * i );
 
 						Pq = (density_fft[index].re*density_fft[index].re +
@@ -316,7 +329,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 					/* add power from critical mode */
 					d = sqrt( di + dj + (float)(power_mesh_size*power_mesh_size/4) );
-					bin = (int)(d-.5);
+					bin = bin_from_d(d);
 					index = power_mesh_size/2 + (power_mesh_size/2+1) * ( j + power_mesh_size * i );
 
 					Pq = (density_fft[index].re*density_fft[index].re +
@@ -329,7 +342,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 					for ( k = 1; k < power_mesh_size/2; k++ ) {
 						dk = k*k;
 						d = sqrt( di + dj + dk );
-						bin = (int)(d-.5);
+						bin = bin_from_d(d);
 
 						index = k + (power_mesh_size/2+1) * ( j + power_mesh_size * i );
 

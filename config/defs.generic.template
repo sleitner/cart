@@ -1,39 +1,50 @@
 
---#define HYDRO
---#define GRAVITY
---#define COOLING
---#define STARFORM
---#define COSMOLOGY
---#define PARTICLES
---#define REFINEMENT
---#define RADIATIVE_TRANSFER
+?#define HYDRO
+?#define GRAVITY
+?#define COOLING
+?#define STARFORM
+?#define COSMOLOGY
+?#define PARTICLES
+?#define REFINEMENT
+?#define ADVECT_SPECIES
+?#define RADIATIVE_TRANSFER
+?#define ELECTRON_ION_NONEQUILIBRIUM
 
---#define LAPIDUS
---#define DENSGRADSMOOTH
---#define PRESSURE_FLOOR
---#define ADVECT_SPECIES
---#define PRESSURELESS_FLUID
---#define ELECTRON_ION_NONEQUILIBRIUM
+?#define ENRICH
+?#define ENRICH_SNIa
+?#define LOG_STAR_CREATION
 
---#define NO_METALCOOLING
---#define ENRICH
---#define ENRICH_SNIa
---#define FEEDBACK
---#define FEEDBACK_SNIa
---#define STELLARMASSLOSS
---#define LOG_STAR_CREATION
+?#define UNIQUE_RAND
+?#define HYDRO_TRACERS 
+?#define HYDRO_TRACERS_NGP
+?#define CONSTANT_TIMESTEP
 
---#define DEBUG
---#define DEBUG_MEMORY_USE
+?#define GRAVITY_IN_RIEMANN
+?#define MOMENTUM_DIFFUSION
 
---#define OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION 
---#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
---#define PREFIX_JOBNAME_TO_OUTPUT_FILES
+?#define USER_PLUGIN
 
+?#define DEBUG
+?#define DEBUG_MEMORY_USE
+?#define DEBUG_MEMORY_USE_VERBOSE
+?#define NDEBUG
+?#define MPE_LOG
+?#define CHECK_LEGACY_UNITS
 
---#define num_root_grid_refinements	<set value here>
---#define num_refinement_levels		<set value here>
---#define num_octs			<set value here>
---#define num_particles		        <set value here>
---#define num_star_particles            <set value here>
+?#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
+?#define OLDSTYLE_COOLING_EXPLICIT_SOLVER
+?#define PREFIX_JOBNAME_TO_OUTPUT_FILES
+?#define OLDSTYLE_PARTICLE_HART_INIT_MODE  <value>
+
+?#define SAVE_LOAD_BALANCE_PARTITION
+?#define MPI_MAX_MESSAGE_SIZE		<value>
+?#define DENSITY_CHUNK_SIZE		<value>
+?#define HYDRO_CHUNK_SIZE		<value>
+?#define FFTW3
+
+?#define num_root_grid_refinements	<value>
+?#define num_refinement_levels		<value>
+?#define num_octs			<value>
+?#define num_particles		        <value>
+?#define num_star_particles             <value>
 

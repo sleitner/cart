@@ -25,6 +25,7 @@
 #include "logging.h"
 #include "parallel.h"
 #include "particle.h"
+#include "plugin.h"
 #include "rt_solver.h"
 #include "starformation.h"
 #include "timestep.h"
@@ -40,25 +41,24 @@
 void config_init();
 void config_read_file(const char *filename);
 void config_create_file(const char *filename);
-void config_print_to_file(const char *filename, int restart);
+void config_print_to_file(const char *filename, int append);
 
 
 void init_run();
 void run_output();
-
-int num_options = 0;
-char **options = NULL;
+void config_plugins();
 
 
 int main ( int argc, char *argv[]) {
-	int i;
 	int current_steps;
 	int restart;
-	int level;
-	double dt, restart_dt;
-	double restart_a;
+	int level, mode;
+	char c, *restart_label;
+	double aexp;
 	const char *tmp;
-	char c;
+#ifdef _OPENMP
+	int nomp;
+#endif
 
 	MPI_Init( &argc, &argv );
 	MPI_Comm_size( MPI_COMM_WORLD, &num_procs );
@@ -80,12 +80,14 @@ int main ( int argc, char *argv[]) {
 	if ( argc < 2 )
 	  {
 	    config_create_file("sample.cfg");
-	    cart_error("Usage: art <config_file> [ restart_flag [ options ] ]\n   A documented sample of <config_file> is created\n   in the current working directory as sample.cfg");
+	    cart_error("Usage: art <config_file> [-r/--restart[=<aexp>]] [ options ] ]\n   A documented sample of <config_file> is created\n   in the current working directory as sample.cfg");
 	  }
 	else
 	  {
 	    config_read_file( argv[1] );
 	  }
+
+	config_print_to_file("config.log",0);
 
 	if ( argc == 2 ) {
 		restart = 0;
@@ -95,70 +97,117 @@ int main ( int argc, char *argv[]) {
 	} else {
 		/*
 		//  Also support an option-style restart in the form
-		//    -restart[=<value>]
+		//    -r/--restart[=<value>]
 		//  where <value> is the value of the scale factor that
 		//  labels restart files.
 		*/
-		tmp = check_option1(argv[2],"restart","last");
-		if(tmp != NULL)
+		tmp = check_option1(argv[2],"-restart","last");
+		if(tmp == NULL) tmp = check_option1(argv[2],"r","last");
+		if(tmp == NULL)
 		  {
-		    restart = 2;
-		    if(strcmp(tmp,"last") == 0)
-		      {
-			restart_a = 0.0;
-		      }
-		    else
-		      {
-			/*
-			//  Read in restart value
-			*/
-			if(sscanf(tmp,"%lg",&restart_a) != 1)
-			  {
-			    cart_error("Invalid option value %s",argv[2]+9);
-			  }
-		      }
+		    restart = 0;
+		    /* skip config file name */
+		    num_options = argc - 2;
+		    options = argv + 2;
 		  }
 		else
 		  {
-		    if(sscanf(argv[2],"%d%c",&restart,&c) != 1)
+		    if(strcmp(tmp,"last") == 0)
 		      {
-			cart_error("Invalid restart flag %s\nValid values are either an integer number or an option '-restart[=<value>]'",argv[2]);
+			restart = 1;
+			restart_label = NULL;
 		      }
-		    restart_a = 0.0;
+		    else
+		      {
+			restart = 2;
+			restart_label = strstr(argv[2],tmp);
+#ifdef COSMOLOGY
+			if(sscanf(tmp,"%lg%c",&aexp,&c)==1 && aexp>0.0 && aexp<1.1)
+			  {
+			    /*
+			    //  This is a scale factor
+			    */
+			    restart_label = cart_alloc(char,strlen(tmp)+1);
+			    strcpy(restart_label+1,tmp);
+			    restart_label[0] = 'a';
+			  }
+#endif
+		      }
+		    /* skip config file name and restart flag */
+		    num_options = argc - 3;
+		    options = argv + 3;
 		  }
-		/* skip config file name and restart flag */
-		num_options = argc - 3;
-		options = argv + 3;
-	#ifdef _OPENMP
-		if ( argc > 3 )
+
+#ifdef _OPENMP
+		/*
+		//  Support -omp/--num-omp-threads=<num-threads> option
+		*/
+		if(num_options > 0)
 		  {
-			tmp = check_option1(argv[3],"omp",NULL);
+		    tmp = check_option1(options[0],"-num-omp-threads",NULL);
+		    if(tmp == NULL) tmp = check_option1(options[0],"omp",NULL);
 		    if(tmp != NULL)
 		      {
-			if(sscanf(tmp,"%d",&i)!=1 || i<1 || i>256)
+			if(sscanf(tmp,"%d",&nomp)!=1 || nomp<1 || nomp>256)
 			  {
-			    cart_error("Invalid option value %s",argv[3]+4);
+			    cart_error("-omp=<num> option requires a positive integer <num> as an argument");
 			  }
-			omp_set_num_threads(i);
+			omp_set_num_threads(nomp);
 			num_options--;
 			options++;
 		      }
 		  }
-	#endif
+#endif
+#ifdef PARTICLES
+		/*
+		//  Support -pfm/--particle-file-mode=<mode> option
+		*/
+		if(num_options > 0)
+		  {
+		    tmp = check_option1(options[0],"-particle-file-mode",NULL);
+		    if(tmp == NULL) tmp = check_option1(options[0],"pfm",NULL);
+		    if(tmp != NULL)
+		      {
+			if(sscanf(tmp,"%d",&mode)==0 || mode<0 || mode>2)
+			  {
+			    cart_error("-pfm=<mode> requires an integer <mode> between 0 and 2 as an argument.");
+			  }
+			set_read_particles_mode(mode);
+			options++;
+			num_options--;
+		      }
+		  }
+#endif /* PARTICLES */
+		/*
+		//  Support -gfm/--grid-file-mode=<mode> option
+		*/
+		if(num_options > 0)
+		  {
+		    tmp = check_option1(options[0],"-grid-file-mode",NULL);
+		    if(tmp == NULL) tmp = check_option1(options[0],"gfm",NULL);
+		    if(tmp != NULL)
+		      {
+			if(sscanf(tmp,"%d",&mode)==0 || mode<0 || mode>2)
+			  {
+			    cart_error("-gfm=<mode> requires an integer <mode> between 0 and 2 as an argument.");
+			  }
+			set_read_grid_mode(mode);
+			options++;
+			num_options--;
+		      }
+		  }
 	}
 
-	#ifdef _OPENMP
+#ifdef _OPENMP
 	cart_debug("num openmp threads = %u", omp_get_max_threads() );
-	#endif
-
-	config_print_to_file("config.log", restart);
+#endif
 
 	/* set up mpi datatypes, timers, units, etc */
 	init_logging( restart );
 	init_cell_buffer();
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
-    init_fft();
+	init_fft();
 #endif
 
 #ifdef PARTICLES
@@ -194,25 +243,21 @@ int main ( int argc, char *argv[]) {
 		abox[min_level] = abox_from_tcode(tl[min_level]);
 		auni[min_level] = auni_from_tcode(tl[min_level]);
 #endif /* COSMOLOGY */
-		dt = dtl[min_level];
-
-		for ( i = min_level+1; i <= max_level; i++ ) {
-			tl[i] = tl[min_level];
-			dtl[i] = 0.5*dtl[i-1];
+		for ( level = min_level+1; level <= max_level; level++ ) {
+			tl[level] = tl[min_level];
 #ifdef COSMOLOGY
-			abox[i] = abox[min_level];
-			auni[i] = auni[min_level];
+			abox[level] = abox[min_level];
+			auni[level] = auni[min_level];
 #endif /* COSMOLOGY */
 		}
+
+		units_update(min_level);
 
 		step = 0;
 		current_output = 0;
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 		for ( level = min_level; level <= max_level; level++ ) {
-			/* not strictly necessary since all levels are at the same time */
-			units_update(level);
-
 			cart_debug("assigning density on level %u", level );
 			assign_density( level );
 
@@ -244,27 +289,23 @@ int main ( int argc, char *argv[]) {
 #endif /* GRAVITY */
 
 	} else {
-		read_restart(restart_a);
+		read_restart(restart_label);
 		load_balance(); 
 
-		choose_timestep( &dtl[min_level] );
 #ifdef COSMOLOGY
 		abox[min_level] = abox_from_tcode(tl[min_level]);
 		auni[min_level] = auni_from_tcode(tl[min_level]);
 #endif /* COSMOLOGY */
-		dt = dtl[min_level];
-
-		for ( i = min_level+1; i <= max_level; i++ ) {
-			tl[i] = tl[min_level];
-			dtl[i] = 0.5*dtl[i-1];
+		for ( level = min_level+1; level <= max_level; level++ ) {
+			tl[level] = tl[min_level];
 #ifdef COSMOLOGY
-			abox[i] = abox[min_level];
-			auni[i] = auni[min_level];
+			abox[level] = abox[min_level];
+			auni[level] = auni[min_level];
 #endif /* COSMOLOGY */
 		}
 
-		for ( i = min_level; i <= max_level; i++ ) {
-			cart_debug("num_cells_per_level[%u] = %u", i, num_cells_per_level[i] );
+		for ( level = min_level; level <= max_level; level++ ) {
+			cart_debug("num_cells_per_level[%u] = %u", level, num_cells_per_level[level] );
 		}
 
 #ifdef RADIATIVE_TRANSFER
@@ -276,27 +317,34 @@ int main ( int argc, char *argv[]) {
 	} 
 
 #ifdef LOG_STAR_CREATION
-	check_restart_star_creation();
-	log_star_creation(-1,-1.0,FILE_OPEN);
+        check_restart_star_creation();
+        log_star_creation(-1,-1.0,FILE_OPEN);
 #endif
 
-#ifdef debug
+#ifdef DEBUG
 	check_map();
 #endif
+
+	config_print_to_file("history.log",1);
 
 	end_time( INIT_TIMER );
 
 	current_steps = 0;
 	last_restart_step = 0;
 
+#ifdef USER_PLUGIN
+	config_plugins();
+	PLUGIN_POINT(RunBegin)();
+#else
 	start_time( OUTPUT_TIMER );
 	run_output();
 	end_time( OUTPUT_TIMER );
+#endif
 
 	while ( 1 ) {
 
 #ifdef COSMOLOGY
-		cart_debug("a = %e, t = %e, dt = %e", auni[min_level], tl[min_level], dt  );
+		cart_debug("a = %e, t = %e", auni[min_level], tl[min_level] );
 
 		if ( auni[min_level] >= auni_end ) {
 			break;
@@ -318,7 +366,7 @@ int main ( int argc, char *argv[]) {
 			if ( last_restart_step != step ) {
 				start_time( RESTART_TIMER );
 				destroy_cell_buffer();
-				write_restart( WRITE_GENERIC, WRITE_GENERIC, WRITE_GENERIC );
+				write_restart( WRITE_GENERIC, WRITE_GENERIC, WRITE_GENERIC, NULL );
 				end_time( RESTART_TIMER );
 			}
 
@@ -330,11 +378,8 @@ int main ( int argc, char *argv[]) {
 			break;
 		}
 
-		if ( global_timestep( dt ) == -1 ) {
+		if ( global_timestep() == -1 ) {
 			cart_debug("Error: could not complete timestep, restarting from previous timestep" );
-
-			restart_dt = dtl[min_level];
-			choose_timestep( &restart_dt );
 
 			start_time( RESTART_TIMER );
 			destroy_cell_buffer();
@@ -350,33 +395,31 @@ int main ( int argc, char *argv[]) {
 			load_balance(); 
 			end_time( RESTART_TIMER );
 
-			dt = 0.5*min( dtl[min_level], restart_dt );
-		
 #ifdef RADIATIVE_TRANSFER
 			for ( level = min_level; level <= max_level; level++ ) {
 			  cart_debug("assigning density on level %u", level );
 			  assign_density( level );
 			}
 #endif /* RADIATIVE_TRANSFER */
-
-#ifdef LOG_STAR_CREATION
-			cart_debug("wipe temp_star files in case of CFL restart");
-			log_star_creation(-1,-1.0,FILE_CLOSE); 
-			log_star_creation(-1,-1.0,FILE_OPEN); 
-#endif
 	
+#ifdef LOG_STAR_CREATION
+                        cart_debug("wipe temp_star files in case of CFL restart");
+                        log_star_creation(-1,-1.0,FILE_CLOSE); 
+                        log_star_creation(-1,-1.0,FILE_OPEN); 
+#endif
+
 		} else {
 			step++;
 			current_steps++;
 
+#ifndef USER_PLUGIN
 			if ( output_frequency > 0 && step % output_frequency == 0 ) {
 				start_time( OUTPUT_TIMER );
 				run_output();
 				end_time( OUTPUT_TIMER );
 			}
-
+#endif
 			save_check();
-			choose_timestep( &dt );
 		
 			if ( load_balance_frequency > 0 && step % load_balance_frequency == 0 ) {
 				load_balance();
@@ -388,6 +431,10 @@ int main ( int argc, char *argv[]) {
 			end_time( IO_TIMER );
 		}
 	}
+
+#ifdef USER_PLUGIN
+	PLUGIN_POINT(RunEnd)();
+#endif
 
 	/* destroy buffer */
 	if ( buffer_enabled ) {

@@ -25,10 +25,10 @@ const struct Constants *constants = &constants_internal;
 struct Units units_internal;
 const struct Units *units = &units_internal;
 
-#ifdef LEGACY_UNITS
+#ifdef CHECK_LEGACY_UNITS
 struct LegacyUnits legacy_units_internal;
 const struct LegacyUnits *legacy_units = &legacy_units_internal;
-#endif /* LEGACY_UNITS */
+#endif /* CHECK_LEGACY_UNITS */
 
 struct PrimaryUnits unit_factors = { 0, 0.0, 0.0, 0.0 };
 const struct PrimaryUnits *primary_units = &unit_factors;
@@ -226,7 +226,7 @@ void units_reset()
 #endif /* COSMOLOGY */
 
 
-#ifdef LEGACY_UNITS
+#ifdef CHECK_LEGACY_UNITS
   /*
   //  Legacy units for backward compativility
   */
@@ -264,13 +264,13 @@ void units_reset()
 
   /* mass conversion */
   legacy_units_internal.M0 = legacy_units_internal.rho0 * pow(box_size/cosmology->h,3.0) / (double)num_root_cells;
-#endif /* LEGACY_UNITS */
+#endif /* CHECK_LEGACY_UNITS */
 
   config_append_units_to_file("config.log");
 }
 
 
-#ifdef LEGACY_UNITS
+#ifdef CHECK_LEGACY_UNITS
 void check_legacy_unit(const char *name, double tol, double vnew, double vold)
 {
   double d;
@@ -283,7 +283,7 @@ void check_legacy_unit(const char *name, double tol, double vnew, double vold)
       cart_error("Legacy units: large error in %s: old=%-lg,  new=%-lg, error=%-lg",name,vold,vnew,d);
     }
 }
-#endif /* LEGACY_UNITS */
+#endif /* CHECK_LEGACY_UNITS */
 
 
 void units_update(int level)
@@ -337,7 +337,7 @@ void units_update(int level)
   units_internal.Emin = 0.0;
 #endif /* HYDRO */
 
-#ifdef LEGACY_UNITS
+#ifdef CHECK_LEGACY_UNITS
   if(level == min_level)
     {
       check_legacy_unit("mass",0.0,units->mass,legacy_units_internal.M0*constants->Msun);
@@ -353,6 +353,11 @@ void units_update(int level)
       check_legacy_unit("energy_density",3.0e-4,units->energy_density,legacy_units_internal.P0/pow(abox[level],5.0)*cgs->g/cgs->cm/pow(cgs->s,2.0));
       check_legacy_unit("number_density",2.0e-3,units->number_density,legacy_units_internal.den0/pow(cgs->cm*abox[level],3.0));
       check_legacy_unit("pressure_floor_factor",0.0,constants->G*pow(units->density*units->length,2.0)/units->energy_density,abox[level]*1.5/M_PI);
+
+#if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
+      check_legacy_unit("cooling unit",1.0e-3,units->time*pow(units->number_density,2.0)/units->energy_density,1.6625e23*cosmology->h/sqrt(cosmology->OmegaM)/(legacy_units_internal.r0*legacy_units_internal.r0)*abox[level]);
+#endif /* COOLING && !RADIATIVE_TRANSFER */
+
 #ifdef COSMOLOGY
       check_legacy_unit("length_in_chimps",0.0,units->length_in_chimps,legacy_units_internal.r0);
 #endif /* COSMOLOGY */
@@ -360,5 +365,5 @@ void units_update(int level)
       cart_debug("Legacy units checked.");
 
     }
-#endif /* LEGACY_UNITS */
+#endif /* CHECK_LEGACY_UNITS */
 }

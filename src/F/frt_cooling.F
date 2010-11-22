@@ -1,13 +1,31 @@
 #include "../config.h"
 #ifdef RADIATIVE_TRANSFER
 C
+C  Return cooling & heating rates of one resolution element
+C
+      subroutine frtCoolingRate(par,rawRF0,rawRF1,y0,rateCool,rateHeat)
+      include 'frt_base.inc'
+      dimension par(*), rawRF0(*), rawRF1(*), y0(*)
+
+      call frtCoolOff(par,rawRF0,rawRF1,0.0,y0,info)
+
+      rateCool = 1.381e-16*par(iparCool)/uTime
+      rateHeat = 1.381e-16*par(iparHeat)/uTime
+
+      return
+      end
+C
 C  Follow cooling evolution of one resolution element
 C
       subroutine frtCoolOff(par,rawRF0,rawRF1,tFin,y0,info)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
-      include 'frt_transfer.inc'
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
 #endif
       dimension par(*), rawRF0(*), rawRF1(*), y0(*)
 C
@@ -74,7 +92,7 @@ C
       par(iparSDp1) = par(iparZsol)
       par(iparSDp2) = 2.7*exp(-(par(iparZsol)/0.316)**3)
       par(iparSDp3) = 0.04*par(iparZsol)**2
-      par(iparDGas) = frtDustToGas(par)
+      par(iparDGas) = max(D2Gmin,frtDustToGas(par(iparZsol)))
 
       par(iparRecB) = facRecB*par(iparRhoB)
 
@@ -120,6 +138,17 @@ C
 #ifndef RT_VARIABLE_PRATES
       call frtGetPhotoRates(par,rf,itab,y0,pRate)
 #endif
+C
+C  Cooling rate mode
+C
+      if(tFin .lt. 1.0e-30) then
+         call frtGetRates(par,rf,itab,y0,w0,a0,avg0,pRate)
+         par(iparCool) = a0(ieqEin)*y0(ieqEin)
+         par(iparHeat) = w0(ieqEin)
+         return
+      endif
+C
+C  Evolution mode
 C
       dt = tFin
       t = 0.0
@@ -238,7 +267,7 @@ C
 
       avg(iavgNorm) = tFin
 
-#if !defined(RT_MONOATOMIC) && defined(RT_HIGH_DENSITY)
+#if defined(RT_EXACT_EOS) && defined(RT_HIGH_DENSITY)
       avg(iavgTemp) = frtTem(y0(ieqEin),y0,0)
 #else
       avg(iavgTemp) = frtTem(y0(ieqEin),y0)
@@ -288,7 +317,7 @@ C
       y(ieqXG3) = fact*y(ieqXG3)
 
       if(Tmin.gt.0.0 .and. y(ieqEin).lt.10*Tmin) then
-#if !defined(RT_MONOATOMIC) && defined(RT_HIGH_DENSITY)
+#if defined(RT_EXACT_EOS) && defined(RT_HIGH_DENSITY)
          y(ieqEin) = max(y(ieqEin),frtEin(Tmin,y,0))
 #else
          y(ieqEin) = max(y(ieqEin),frtEin(Tmin,y))
@@ -336,7 +365,7 @@ C
       Xfell = XH2ll + XG2ll + 2*XG3ll  !! ignore contributions of H2+ and H-
 
       de = Xfell*den
-#if !defined(RT_MONOATOMIC) && defined(RT_HIGH_DENSITY)
+#if defined(RT_EXACT_EOS) && defined(RT_HIGH_DENSITY)
       iLTE = 0
       tem = max(1.0e-3,Tmin,frtTem(Einll,y,iLTE))
 #else
@@ -363,8 +392,14 @@ C
 C  H2 dust-shielding model
 C
       Xdust = par(iparDGas)*(XH1ll+2*XMHll)*ClumpH2
+*      Xdust = par(iparDGas)*(XH1ll+2*XMHll*ClumpH2)
       cdDUl = par(iparDGas)*(XH1ll+2*XMHll)*par(iparSobL)
       sFact1 = exp(-d_sDUST*cdDUl)
+#ifdef RT_UV
+      sFactI = exp(-d_sDUST*cdDUl)
+#else
+      sFactI = exp(-d_sDUST*cdDUl)
+#endif
 C
 C  H2 self-shielding model
 C
@@ -379,6 +414,7 @@ C
       sFact1 = 1.0
       sFact2 = 1.0
 #endif /* RT_CHEMISTRY */
+
 C
 #ifdef RT_XLF_BUG_FIX1
 C
@@ -453,13 +489,13 @@ C
 C
 C  H ionization rates
 C
-      BH1 = aRate(irateCIiH1)*de + sFact1*pRate(iptabPiH1)
+      BH1 = aRate(irateCIiH1)*de + sFactI*pRate(iptabPiH1)
       AH2 = RiH2l*de
 C
 C  He ionization rates
 C
-      BG1 = aRate(irateCIiG1)*de + sFact1*pRate(iptabPiG1)
-      BG2 = aRate(irateCIiG2)*de + sFact1*pRate(iptabPiG2)
+      BG1 = aRate(irateCIiG1)*de + sFactI*pRate(iptabPiG1)
+      BG2 = aRate(irateCIiG2)*de + sFactI*pRate(iptabPiG2)
       AG2 = (RiG2l+aRate(irateDRiG2))*de
       AG3 = RiG3l*de
 C
@@ -588,15 +624,15 @@ C
 C
 C  H2 ortho-to-para ratio
 C
-#ifdef RT_MONOATOMIC
-      rOP = 3.0
-#else
+#ifdef RT_EXACT_EOS
 #ifdef RT_HIGH_DENSITY
       rOP = frtH2_op(tem,iLTE)
 #else
       rOP = frtH2_op(tem)
-#endif
-#endif
+#endif /* RT_HIGH_DENSITY */
+#else
+      rOP = 3.0
+#endif /* RT_EXACT_EOS */
 C
 C  MH gas-phase reactions and correction for HI. Because the abundance
 C  of H2+ and H- are always small, we ignore them as depositories of 
@@ -629,8 +665,29 @@ C
 C
 C  Combining this all together
 C
-#ifdef RT_CHEMISTRY_FULL_MODEL
+#ifdef RT_CHEMISTRY_MINIMAL_MODEL
+C
+C  Minimal mode:
+C  production rate of HI = 2*destruction rate of H2;
+C  production rate of H2 = 0.5*destruction rate of HI;
+C
+      aXMHl = pRateH2
+      aXH1l = 2*cRate(irateMHiDU)*Xdust
 
+      wXH1l = 2*aXMHl*XMHll
+
+      wXMHl = 0.5*aXH1l*XH1ll
+
+      a(ieqXH1) = a(ieqXH1) + uTime*aXH1l
+      w(ieqXH1) = w(ieqXH1) + uTime*wXH1l
+
+      a(ieqXMH) = uTime*aXMHl
+      w(ieqXMH) = uTime*wXMHl
+
+#else
+C
+C  Full (6- or 8-) species model
+C
       aXH1l = cRate(irateMHi01)*Xfell + cRate(irateMHi02)*XHmll +
      .     cRate(irateMHi03)*XH2ll + cRate(irateMHi04)*XHpll +
      .     cRate(irateMHi26)*XG2ll + 2*cRate3B +
@@ -689,25 +746,7 @@ C
 
       a(ieqXMH) = uTime*aXMHl
       w(ieqXMH) = uTime*wXMHl
-#else
-C
-C  production rate of HI = 2*destruction rate of H2;
-C  production rate of H2 = 0.5*destruction rate of HI;
-C
-      aXMHl = pRateH2
-      aXH1l = 2*cRate(irateMHiDU)*Xdust
-
-      wXH1l = 2*aXMHl*XMHll
-
-      wXMHl = 0.5*aXH1l*XH1ll
-
-      a(ieqXH1) = a(ieqXH1) + uTime*aXH1l
-      w(ieqXH1) = w(ieqXH1) + uTime*wXH1l
-
-      a(ieqXMH) = uTime*aXMHl
-      w(ieqXMH) = uTime*wXMHl
-
-#endif /* RT_CHEMISTRY_FULL_MODEL */
+#endif /* RT_CHEMISTRY_MINIMAL_MODEL */
 #endif /* RT_TEST */
 C
 C  Heating due to gas reactions
@@ -835,14 +874,13 @@ C
 C
 C
 C
-      function frtDustToGas(par)
+      function frtDustToGas(Zsol)
       include 'frt_base.inc'
-      dimension par(*)
 
 #ifdef RT_FIXED_ISM
       frtDustToGas = D2Gmin
 #else
-      frtDustToGas = max(D2Gmin,par(iparZsol))
+      frtDustToGas = Zsol
 #endif /* RT_FIXED_ISM */
 
       return
@@ -893,7 +931,11 @@ C
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
-      include 'frt_transfer.inc'
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
 #endif
 #ifdef RT_FIXED_ISM
       include 'frt_spectrum.inc'
@@ -1001,64 +1043,9 @@ C  Thermodynamic functions
 C
 C  -------------------------
 C
-#ifdef RT_MONOATOMIC
-      function frtEin(tem,y)
-      include 'frt_base.inc'
-      dimension y(*)
-      
-#ifdef RT_CHEMISTRY
-      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#else
-      Xtot = y(ieqXH1) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#endif
-
-      frtEin = tem*1.5*Xtot
-
-      return
-      end
+#ifdef RT_EXACT_EOS
 C
-C
-C
-      function frtTem(Ein,y)
-      include 'frt_base.inc'
-      dimension y(*)
-
-#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
-
-      Xtot = XH
-
-#else
-
-#ifdef RT_CHEMISTRY
-      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#else
-      Xtot = y(ieqXH1) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#endif
-
-#endif
-
-      frtTem = Ein/(1.5*Xtot)
-
-      return
-      end
-C
-C
-C
-      function frtGamma(Ein,y)
-      include 'frt_base.inc'
-      dimension y(*)
-
-      frtGamma = 5.0/3.0
-
-      return
-      end
-#else
-C
-C
+C  Exacts (non-monoatomic) EOS
 C
 #ifdef RT_HIGH_DENSITY
       function frtEin(tem,y,iLTE)
@@ -1289,7 +1276,65 @@ C
 
       return
       end
-#endif /* RT_MONOATOMIC */
+#else  /* RT_EXACT_EOS */
+C
+C  EOS for monoatomic gas
+C
+      function frtEin(tem,y)
+      include 'frt_base.inc'
+      dimension y(*)
+      
+#ifdef RT_CHEMISTRY
+      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
+     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
+#else
+      Xtot = y(ieqXH1) + 2*y(ieqXH2) +
+     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
+#endif
+
+      frtEin = tem*1.5*Xtot
+
+      return
+      end
+C
+C
+C
+      function frtTem(Ein,y)
+      include 'frt_base.inc'
+      dimension y(*)
+
+#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
+
+      Xtot = XH
+
+#else
+
+#ifdef RT_CHEMISTRY
+      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
+     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
+#else
+      Xtot = y(ieqXH1) + 2*y(ieqXH2) +
+     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
+#endif
+
+#endif
+
+      frtTem = Ein/(1.5*Xtot)
+
+      return
+      end
+C
+C
+C
+      function frtGamma(Ein,y)
+      include 'frt_base.inc'
+      dimension y(*)
+
+      frtGamma = 5.0/3.0
+
+      return
+      end
+#endif /* RT_EXACT_EOS */
 #ifdef RT_DEBUG
 C
 C  Debug helpers

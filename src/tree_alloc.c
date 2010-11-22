@@ -256,7 +256,7 @@ int split_cell( int icell )
 	cell_all_neighbors( icell, oct_neighbors[oct_ptr] );
 
 	/* set up oct position */
-	cell_position( icell, oct_pos[oct_ptr] );
+	cell_center_position( icell, oct_pos[oct_ptr] );
 
 	/* set up new oct */
 	oct_parent_cell[oct_ptr] = icell;

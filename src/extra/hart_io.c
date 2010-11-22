@@ -1,43 +1,38 @@
 #include "config.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <string.h>
 
-#include <mpi.h>
-
-#include "defs.h"
-#include "tree.h"
-#include "io.h"
-#include "cosmology.h"
-#include "units.h"
-#include "timestep.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "sfc.h"
-#include "iterators.h"
 #include "auxiliary.h"
+#include "cell_buffer.h"
+#include "cosmology.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
-#include "starformation.h"
-#include "load_balance.h"
-#include "skiplist.h"
 #include "index_hash.h"
+#include "io.h"
+#include "iterators.h"
+#include "load_balance.h"
+#include "parallel.h"
+#include "sfc.h"
+#include "skiplist.h"
+#include "starformation.h"
+#include "timestep.h"
+#include "tree.h"
+#include "units.h"
+
 
 #ifdef HYDRO
 
 typedef struct {
-	int size_start;
 	int cell;
 	int refined;
-	float vars[num_hydro_vars+2];
-	int size_end;
+        float *vars;
 } cell_file_struct;
 
 void read_hart_grid_binary( char *filename ) {
-	int i, j, k, m;
+  int i, j, k, m, idx;
 	int size;
 	FILE *input;
 	char job[256];
@@ -185,7 +180,6 @@ void read_hart_grid_binary( char *filename ) {
 	fread( &size, sizeof(int), 1, input );
 	fread( dtl, sizeof(double), maxlevel-minlevel+1, input);
 	fread( &size, sizeof(int), 1, input );
-
 	if ( endian ) {
 		for ( i = minlevel; i <= maxlevel; i++ ) {
 			reorder( (char *)&dtl[i], sizeof(double) );
@@ -249,6 +243,7 @@ void read_hart_grid_binary( char *filename ) {
 	cellrefined_buffer = cart_alloc( int, num_grid*num_grid );
 
 	fread( &size, sizeof(int), 1, input );
+
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
 		fread( cellrefined_buffer, sizeof(int), num_grid*num_grid, input );
 
@@ -282,23 +277,37 @@ void read_hart_grid_binary( char *filename ) {
 	cart_free( cellrefined_buffer );
 
 #ifdef HYDRO
-	vars_buffer = cart_alloc( float, num_grid*num_grid*num_hydro_vars );
-
 	fread( &size, sizeof(int), 1, input );
+#ifdef DEBUG
+	if ( endian ) {
+	  reorder( (char *)&size, sizeof(int) );
+	}
+	cart_debug("Record size: %d",size);
+#endif
+
+	int num_hydro_vars_file = size/num_grid/num_grid/num_grid/sizeof(float);
+
+	cart_debug("num_chem_species_code: %d",num_chem_species);
+	cart_debug("num_hydro_vars_file: %d",num_hydro_vars_file);
+
+	vars_buffer = cart_alloc( float, num_grid*num_grid*num_hydro_vars_file );
+
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-		fread( vars_buffer, sizeof(float), num_hydro_vars*num_grid*num_grid, input );
+		fread( vars_buffer, sizeof(float), num_hydro_vars_file*num_grid*num_grid, input );
 
 		if ( endian ) {
-			for ( i = 0; i < num_hydro_vars*num_grid*num_grid; i++ ) {
+			for ( i = 0; i < num_hydro_vars_file*num_grid*num_grid; i++ ) {
 				reorder( (char *)&vars_buffer[i], sizeof(float) );
 			}
 		}
-		i = 0;
+		idx = 0;
 
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
 			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
 				index = sfc_index( coords );
 				icell = root_cell_location( index );
+				
+				i = idx*num_hydro_vars_file;
 
 				cell_gas_density(icell) = vars_buffer[i++];
 				cell_gas_energy(icell) = vars_buffer[i++];
@@ -314,38 +323,68 @@ void read_hart_grid_binary( char *filename ) {
 					cell_advected_variable(icell,m) = vars_buffer[i++];
 				}
 #endif /* ADVECT_SPECIES */
+				idx++;
+
 			}
 		}
 	}
 	fread( &size, sizeof(int), 1, input );
+#ifdef DEBUG
+	if ( endian ) {
+	  reorder( (char *)&size, sizeof(int) );
+	}
+	cart_debug("... matching size: %d",size);
+#endif
 
 	cart_free( vars_buffer );
 #endif /* HYDRO */
 
 #ifdef GRAVITY 
-	vars_buffer = cart_alloc( float, 2*num_grid*num_grid );
-
 	fread( &size, sizeof(int), 1, input );
+#ifdef DEBUG
+	if ( endian ) {
+	  reorder( (char *)&size, sizeof(int) );
+	}
+	cart_debug("Record size: %d",size);
+#endif
+	int num_grav_vars_file = size/num_grid/num_grid/num_grid/sizeof(float);
+
+	cart_debug("num_grav_vars_file: %d",num_grav_vars_file);
+
+	vars_buffer = cart_alloc( float, num_grav_vars_file*num_grid*num_grid );
+
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-		fread( vars_buffer, sizeof(float), 2*num_grid*num_grid, input );
+		fread( vars_buffer, sizeof(float), num_grav_vars_file*num_grid*num_grid, input );
 
 		if ( endian ) {
-			for ( i = 0; i < 2*num_grid*num_grid; i++ ) {
+			for ( i = 0; i < num_grav_vars_file*num_grid*num_grid; i++ ) {
 				reorder( (char *)&vars_buffer[i], sizeof(float) );
 			}
 		}
-		i = 0;
+		idx = 0;
 
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
 			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
 				index = sfc_index( coords );
 				icell = root_cell_location( index );
+
+				i = idx*num_grav_vars_file;
 				cell_potential(icell) = vars_buffer[i++];
 				cell_potential_hydro(icell) = vars_buffer[i++];
+#ifdef RADIATIVE_TRANSFER
+#error "This section of this code was not yet ported to the RT part."
+#endif
+				idx++;
                         }
                 }
         }
 	fread( &size, sizeof(int), 1, input );
+#ifdef DEBUG
+	if ( endian ) {
+	  reorder( (char *)&size, sizeof(int) );
+	}
+	cart_debug("... matching size: %d",size);
+#endif
 
 	cart_free( vars_buffer );
 #endif /* GRAVITY */
@@ -362,6 +401,7 @@ void read_hart_grid_binary( char *filename ) {
 	}
 
 	child_cells = cart_alloc( cell_file_struct, num_children );
+	for(i=0; i<num_children; i++) child_cells[i].vars = cart_alloc(float, num_hydro_vars_file+num_grav_vars_file);
 
 	for ( level = 1; level <= maxlevel; level++ ) {
 		fread( &size, sizeof(int), 1, input );
@@ -421,7 +461,13 @@ void read_hart_grid_binary( char *filename ) {
 		num_next_level_octs = 0;
 
 		for ( i = 0; i < iNOLL; i++ ) {
-			fread( child_cells, sizeof(cell_file_struct), num_children, input );
+		  for(j=0; j<num_children; j++) {
+			fread( &size, sizeof(int), 1, input );
+			fread( &child_cells[j].cell, sizeof(int), 1, input );
+			fread( &child_cells[j].refined, sizeof(int), 1, input );
+			fread( child_cells[j].vars, sizeof(float), num_hydro_vars_file+num_grav_vars_file, input );
+			fread( &size, sizeof(int), 1, input );
+		  }
 
 			for ( j = 0; j < num_children; j++ ) {
 				icell = oct_child( oct_list[i], j );
@@ -442,7 +488,7 @@ void read_hart_grid_binary( char *filename ) {
 				}
 
 				if ( endian ) {
-					for ( k = 0; k < num_hydro_vars+2; k++ ) {
+					for ( k = 0; k < num_hydro_vars_file+num_grav_vars_file; k++ ) {
 						reorder( (char *)&child_cells[j].vars[k], sizeof(float) );
 					}
 				}
@@ -462,7 +508,7 @@ void read_hart_grid_binary( char *filename ) {
                                         cell_advected_variable(icell,m) = child_cells[j].vars[k++];
                                 }
 #endif /* ADVECT_SPECIES */
-
+				k = num_hydro_vars_file;
 				cell_potential(icell) = child_cells[j].vars[k++];
 				cell_potential_hydro(icell) = child_cells[j].vars[k++];
 			}
@@ -479,6 +525,7 @@ void read_hart_grid_binary( char *filename ) {
 
 	fclose(input);
 
+	for(i=0; i<num_children; i++) cart_free(child_cells[i].vars);
 	cart_free( child_cells );
 	index_hash_free( hart_oct_hash );
 
@@ -596,7 +643,6 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite(&size, sizeof(int), 1, output );
 
 	size = (maxlevel-minlevel+1) * sizeof(double);
-
 	/* tl */
 	fwrite( &size, sizeof(int), 1, output );
 	fwrite( &tl, sizeof(double), maxlevel-minlevel+1, output);

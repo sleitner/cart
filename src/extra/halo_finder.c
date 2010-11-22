@@ -15,6 +15,7 @@
 #include "io.h"
 #include "parallel.h"
 #include "particle.h"
+#include "rt_utilities.h"
 #include "sfc.h"
 #include "starformation.h"
 #include "timestep.h"
@@ -285,6 +286,8 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
 
   cart_debug("Done loading halo list; read %d halos.",halos->num_halos);
 
+  halos->map = -1;
+
   return halos;
 }
 
@@ -535,6 +538,9 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	double rhogi, rhogl;
 	double Zdum, Zldum;
 	double tnewstar;
+#ifdef COOLING
+	cooling_t coolrate;
+#endif
 	int irvir, irflag;
 	double rvir, rdout, rvdout, rmass;
 	double dbi1, dbi2, dlbi1, dlbi2;
@@ -669,7 +675,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	double bin_total_xray_Tcont2[max_bins];
 
 	/* set up conversion constants */
-#ifdef LEGACY_UNITS
+#ifdef CHECK_LEGACY_UNITS
 	double r0 = legacy_units->r0;
 	double aM0 = legacy_units->M0;
 #ifdef HYDRO
@@ -679,9 +685,9 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	szfact = 3.9207e-15 * ( constants->gamma - 1.0 ) * legacy_units->T0 * legacy_units->r0 * cosmology->OmegaM * cosmology->h / 
 			(abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]);
 #endif
-#else  /* LEGACY_UNITS */
-#error "This function uses legacy units that have not been converted yet. Define LEGACY_UNITS."
-#endif /* LEGACY_UNITS */
+#else  /* CHECK_LEGACY_UNITS */
+#error "This function uses legacy units that have not been converted yet. Define CHECK_LEGACY_UNITS."
+#endif /* CHECK_LEGACY_UNITS */
 
 	rfact = 1.0e3 * units->length * constants->pc; /* proper kpc -> code units */
 	vfact = units->velocity;
@@ -891,6 +897,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 		fprintf( bszlist, "# id Mg Mdm Mtotal Ysz (for each overdensity)\n" );
 
 
+#ifdef ANALYZE_XRAY
 		fprintf( btxlist, "# Binning: %u bins, %f to %f\n", num_bins, rbinmin, rbinmax );
 		fprintf( btxlist, "# Monte carlo points per cell = %u\n", points_per_cell );
 		fprintf( btxlist, "# Overdensities: vir (%.3f)", virial_overdensity );
@@ -903,6 +910,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 		fprintf( btxlist, "# Columns:\n" );
 		fprintf( btxlist, "# id Mg Mdm Mtotal Tx (for each overdensity)\n" );
+#endif
 
 		/* density profiles */
 		fprintf( bmpro, "# Binning: %u bins, %f to %f\n", num_bins, rbinmin, rbinmax );
@@ -1299,10 +1307,16 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					Zdum = 0.0;
 					Zldum = 0.0;
 #endif /* ENRICH */
+#ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 					dEcell = cooling_rate( rhogl, Tcell*1e-4, Zldum ) * 
 						cell_gas_density(icell)*cell_gas_density(icell) *
 						abox[level];
-
+#else
+					coolrate = cooling_rate( rhogl, Tcell*1e-4, Zldum);
+					dEcell = (coolrate.Cooling-coolrate.Heating) * 
+						cell_gas_density(icell)*cell_gas_density(icell) *
+						abox[level];	
+#endif
 					tcool = cell_gas_internal_energy(icell) / dEcell / dtfact;
 					dEcell /= dEfact;
 #endif /* COOLING && !RADIATIVE_TRANSFER */
@@ -1349,7 +1363,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					cell_vz = cell_momentum(icell,2)*rhogi;
 
 					/* find which bin the center of this cell lies in */
-					cell_position_double( icell, cell_pos );
+					cell_center_position( icell, cell_pos );
 
 					r = compute_distance_periodic( halos->list[ihalo].pos, cell_pos );
 
@@ -2334,10 +2348,17 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					Zdum = 0.0;
 					Zldum = 0.0;
 #endif /* ENRICH */
-
+#ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 					dEcell = cooling_rate( rhogl, Tcell*1e-4, Zldum ) *
 						cell_gas_density(icell)*cell_gas_density(icell) *
 						abox[level];
+#else
+					coolrate = cooling_rate(rhogl, Tcell*1e-4, Zldum);
+					dEcell = (coolrate.Cooling-coolrate.Heating) *
+						cell_gas_density(icell)*cell_gas_density(icell) *
+						abox[level];
+					
+#endif
 
 					tcool = cell_gas_internal_energy(icell) / dEcell / dtfact;
 					dEcell /= dEfact;
@@ -2349,7 +2370,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					cell_vz = cell_momentum(icell,2)*rhogi;
 
 					/* find which bin the center of this cell lies in */
-					cell_position_double( icell, cell_pos );
+					cell_center_position( icell, cell_pos );
 
 					cart_assert( rvir > 0.0 );
 					r = compute_distance_periodic( halos->list[ihalo].pos, cell_pos ) / rvir;
@@ -2941,5 +2962,100 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
    }
 
   cart_free(ids);
+}
+
+
+/*
+//  Set cell_var(c,var) with the halo id for each halo, or 0 if belongs to 
+//  none; a cell belongs to a halo if it is inside its size_factor*Rtrunc, 
+//  and satellites are accounted for properly.
+*/
+void map_halos(int var, int resolution_level, halo_list *halos, float size_factor)
+{
+  int j, ih, iold, *halo_levels;
+  MESH_RUN_DECLARE(level,cell);
+  double pos[3], dx, r2, r2old, r2Cut;
+
+  cart_assert(halos != NULL);
+  cart_assert(var>=0 && var<num_vars);
+
+  if(halos->map == var) return; /* Already mapped */
+
+  halos->map = var;
+
+  halo_levels = cart_alloc(int,halos->num_halos);
+  for(ih=0; ih<halos->num_halos; ih++) halo_levels[ih] = halo_level(&halos->list[ih],MPI_COMM_WORLD);
+
+  /*
+  //  Loop over levels first to avoid selecting cells multiple times
+  */
+  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
+  cart_debug("Mapping level %d...",level);
+
+  /*
+  //  Zero map array
+  */
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,var)
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  if(cell_is_leaf(cell)) cell_var(cell,var) = 0.0;
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+
+  for(ih=0; ih<halos->num_halos; ih++) if(halo_levels[ih] >= resolution_level)
+    {
+      r2Cut = pow(size_factor*halos->list[ih].rhalo,2.0);
+
+      /*
+      //  Map halo indices(+1), not ids, first (to simplify inter-comparison)
+      */
+#pragma omp parallel for default(none), private(_Index,cell,j,dx,r2,iold,r2old,pos), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,var,r2Cut,halos,ih)
+      MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  
+      if(cell_is_leaf(cell))
+	{
+	  cell_center_position(cell,pos);
+	  for(j=0, r2=0.0; j<nDim; j++)
+	    {
+	      dx = pos[j] - halos->list[ih].pos[j];
+	      if(dx < -0.5*num_grid) dx += num_grid;
+	      if(dx >  0.5*num_grid) dx -= num_grid;
+	      r2 += dx*dx;
+	    }
+	  
+	  if(r2 < r2Cut)
+	    {
+	      iold = (int)(0.5+cell_var(cell,var));
+	      if(iold == 0)
+		{
+		  cell_var(cell,var) = ih + 1;
+		}
+	      else
+		{
+		  cart_assert(iold>=1 && iold<=halos->num_halos);
+		  iold--;
+		  for(j=0, r2old=0.0; j<nDim; j++)
+		    {
+		      dx = pos[j] - halos->list[iold].pos[j];
+		      if(dx < -0.5*num_grid) dx += num_grid;
+		      if(dx >  0.5*num_grid) dx -= num_grid;
+		      r2old += dx*dx;
+		    }
+		  if(r2old > r2)
+		    {
+		      /*
+		      //  This cells belongs to a satellite
+		      */
+		      cell_var(cell,var) = ih + 1;
+		    }
+		}
+	    }
+	}
+
+      MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+
+    }
+
+  MESH_RUN_OVER_LEVELS_END;
+
+  cart_free(halo_levels);
 }
 

@@ -8,8 +8,6 @@
 
 #ifdef HYDRO
 
-#include <mpi.h>
-
 #define COPY		0
 #define RESTORE		1
 #define COPY_ZERO_REF	2
@@ -18,10 +16,7 @@
 #define	COPY_SPLIT_NEIGHBORS	1
 #define COPY_NO_SPLIT_NEIGHBORS	2
 
-#ifdef PRESSURE_FLOOR
 extern int pressure_floor_min_level;
-extern float pressure_floor_factor;
-#endif
 
 extern float ref[num_cells];
 DECLARE_LEVEL_ARRAY(int,level_sweep_dir);
@@ -32,7 +27,7 @@ extern float gas_temperature_floor;
 void config_init_hydro();
 void config_verify_hydro();
 
-void hydro_step( int level, MPI_Comm local_comm );
+void hydro_step( int level );
 void hydro_copy_vars( int level, int direction, int cell_type );
 void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[ /* num_hydro_vars-1 */ ] );
 void hydro_sweep_1d( int level );

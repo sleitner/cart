@@ -36,6 +36,10 @@ void hart_init() {
 	sprintf( filename, "%s/PMcrd.DAT", output_directory );
 	sprintf( filename2, "%s/PMcrs0.DAT", output_directory );
 
+#ifdef OLDSTYLE_PARTICLE_HART_INIT_MODE
+	cart_debug("Setting particle file mode to %d",OLDSTYLE_PARTICLE_HART_INIT_MODE);
+	set_read_particles_mode(OLDSTYLE_PARTICLE_HART_INIT_MODE);
+#endif
 	restart_load_balance( NULL, filename, filename2 );
 
 	read_particles( filename, filename2, NULL, NULL, 0, NULL );
@@ -57,9 +61,6 @@ void hart_init() {
 
 	cart_debug("tl[min_level] = %f", tl[min_level] );
 	cart_debug(" a[min_level] = %f", auni[min_level] );
-
-	dtl[min_level] = 0.0;
-	choose_timestep( &dtl[min_level] );
 
 #ifdef PARTICLES
 	build_mesh();

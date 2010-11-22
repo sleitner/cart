@@ -29,6 +29,9 @@ typedef struct
 }
 losSegment;
 
+typedef int (*losWorkerCallback)(int id, int cell, double r1, double r2, losBuffer data);
+typedef void (*losCollectorCallback)(losBuffer *result, int num_segments, const losSegment *segments);
+
 
 /*
 //  Traverse a segment of a LOS located on a single processor,
@@ -47,16 +50,18 @@ losSegment;
 //  The output is the filled *segment argument.
 //  This function is thread-safe, can be called from an OpenMP-parallel loop
 */
-void losTraverseSegment(int id, double pos0[3], double theta, double phi, double len, int floor_level, int (*worker)(int id, int cell, double r1, double r2, losBuffer data), losSegment *segment);
+void losTraverseSegment(int id, double pos0[3], double theta, double phi, double len, int floor_level, losWorkerCallback worker, losSegment *segment);
 
 
 /*
 //  Collect all LOS segments from different processors on the master node
 //  and broadcast their buffer data into back into result. A user-supplied 
 //  function collector is used to assemble separate segments into a single LOS.
+//  Keep in mind that separate segments are not necessarily continues, as a
+//  single line-of-sight can cross a given domain more than once.
 //  This function calls MPI inside and is manifestly thread-unsafe.
 */
-void losCollectSegments(losBuffer *result, losSegment *segment, void (*collector)(losBuffer *result, losSegment *next));
+void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCallback collector);
 
 
 /*
@@ -66,6 +71,6 @@ void losCollectSegments(losBuffer *result, losSegment *segment, void (*collector
 //  than floor_level. The user-supplied functions worker and collector are
 //  described above. The final result is returned in lines[].
 */
-void losTraverseSky(int nside, double pos0[3], double len, int floor_level, losBuffer *lines, int (*worker)(int id, int cell, double r1, double r2, losBuffer data), void (*collector)(losBuffer *result, losSegment *next));
+void losTraverseSky(int nside, double pos0[3], double len, int floor_level, losBuffer *lines, losWorkerCallback worker, losCollectorCallback collector);
 
 #endif  /* __EXT_LOS_H__ */

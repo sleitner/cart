@@ -6,14 +6,14 @@ OBJS =	hfind.o
 
 LIBS =	
 
-#FC = pgf77
-#FFLAGS = -fast -mp -mcmodel=medium
-#LDFLAGS = -fast -mp -mcmodel=medium
+FC = pgf77
+FFLAGS = -fast -mp -mcmodel=medium
+LDFLAGS = -fast -mp -mcmodel=medium
 
 # BulldogM
-FC = ifort
-FFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise
-LDFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise
+#FC = ifort
+#FFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise
+3LDFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise
 
 # gerneic ifort
 #FC = ifort

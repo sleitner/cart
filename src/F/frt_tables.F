@@ -1,4 +1,4 @@
-#include "../config.h"      
+#include "../config.h"
 #ifdef RADIATIVE_TRANSFER
 C
 C
@@ -52,7 +52,7 @@ C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,fnu,x,cs0,fn0,y0,y1,yw,ya,p,y,w)
 C$OMP+SHARED(Txi,xig,angUni,angLoc,angAvg,tauLoc,csH1,csG1,csG2,csDust,
-C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW)
+C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW,csUV)
       do lr = 1,NRAD
 
          xig(lr) = XISTEP*(real(lr)-0.5) + log(TXI0/TH1)
@@ -112,6 +112,8 @@ C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW)
          endif
 
          w = 1.24/fnu
+
+#if (RT_DUST_CS == 1)
 C
 C  SMC dust - from Weingartner & Draine 2001, ApJ 548, 296
 C  Using fitting functions from Pei 1992, ApJ 395, 130
@@ -126,26 +128,32 @@ C
      .        dustfit(w,18.0  ,   0.012, -1.80, 2.0, 2.0) +
      .        dustfit(w,25.0  ,   0.030,  0.0 , 2.0, 2.0) )
          if(w .gt. 1.0e-3) then
-            csDust(lr) = 5.6e-22/CSSTAR*(
+            csDust(lr) = csDust(lr) + 5.6e-22/CSSTAR*(
      .           dustfit(w, 0.067 ,  10.0 ,  1.90, 4.0, 15.0) )
          endif
+#else
 C
 C  LMC dust
 C  My fudging: 175->90 in term #1, 5.5->21 in term #2, plus my term #7
 C  The same term #7 for both SMC and LMC
 C  Assuming ZLMC=-0.5dex from Welty et al 1999, ApJ, 512, 636 
 C
-*         csDust(lr) = 1.1e-21/CSSTAR*(
-*     .        dustfit(w, 0.046, 90.0  , 90.0 , 2.0, 2.0) +
-*     .        dustfit(w, 0.08 ,  19.0  , 21.0, 4.5, 4.5) +  !! 21, not 5.5
-*     .        dustfit(w, 0.22 ,   0.023, -1.95, 2.0, 2.0) +
-*     .        dustfit(w, 9.7  ,   0.005, -1.95, 2.0, 2.0) +
-*     .        dustfit(w,18.0  ,   0.006, -1.80, 2.0, 2.0) +
-*     .        dustfit(w,25.0  ,   0.020,  0.0 , 2.0, 2.0) )
-*         if(w .gt. 1.0e-3) then
-*            csDust(lr) = 1.1e-21/CSSTAR*(
-*     .           dustfit(w, 0.067 ,  10.0 ,  1.90, 4.0, 15.0) )
-*         endif
+         csDust(lr) = 1.1e-21/CSSTAR*(
+     .        dustfit(w, 0.046, 90.0  , 90.0 , 2.0, 2.0) +
+     .        dustfit(w, 0.08 ,  19.0  , 21.0, 4.5, 4.5) +  !! 21, not 5.5
+     .        dustfit(w, 0.22 ,   0.023, -1.95, 2.0, 2.0) +
+     .        dustfit(w, 9.7  ,   0.005, -1.95, 2.0, 2.0) +
+     .        dustfit(w,18.0  ,   0.006, -1.80, 2.0, 2.0) +
+     .        dustfit(w,25.0  ,   0.020,  0.0 , 2.0, 2.0) )
+         if(w .gt. 1.0e-3) then
+            csDust(lr) = csDust(lr) + 1.1e-21/CSSTAR*(
+     .           dustfit(w, 0.067 ,  10.0 ,  1.90, 4.0, 15.0) )
+         endif
+#endif
+
+#ifdef RT_UV
+         csUV(lr) = csDust(lr)
+#endif
 
 #ifdef RT_CHEMISTRY
 
@@ -301,15 +309,11 @@ C
       if(lrG1rB .eq. 0) lrG1rB = 1
       if(lrG2rB .eq. 0) lrG2rB = 1
 C
-#ifdef RT_DUST
       lrDUtr = 0
       do lr=1,NRAD
          if(lrDUtr.eq.0 .and. csDust(lr).gt.1.0e-35) lrDUtr = lr
       enddo
       if(lrDUtr .eq. 0) lrDUtr = NRAD
-#else
-      lrDUtr = NRAD
-#endif
 C
 #ifdef RT_XRAYS
       lrSEtr = 0
@@ -343,15 +347,35 @@ C
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(csH1,csG1,csG2,csH1n,csG1n,csG2n,csH1tr,csG1tr,csG2tr,
-C$OMP+ csDust,csDustn)
+C$OMP+SHARED(csH1,csG1,csG2,csH1n,csG1n,csG2n,csH1tr,csG1tr,csG2tr)
       do lr=1,NRAD
          csH1n(lr) = csH1(lr)/csH1tr
          csG1n(lr) = csG1(lr)/csG1tr
          csG2n(lr) = csG2(lr)/csG2tr
-         csDustn(lr) = csDust(lr)/csH1tr
       enddo
+C
+#ifdef RT_UV
+      lrUVtr = 0
+      do lr=1,NRAD
+         if(lrUVtr.eq.0 .and. Txi(lr).gt.12.0/13.6*TH1) lrUVtr = lr
+      enddo
+      if(lrUVtr .eq. 0) lrUVtr = NRAD
+      csUVtr = csUV(lrUVtr)
 
+C$OMP PARALLEL DO DEFAULT(NONE), 
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(csUV,csUVn,csUVtr)
+      do lr=1,NRAD
+         if(csUVtr .gt. 1.0e-30) then
+            csUVn(lr) = csUV(lr)/csUVtr
+         else
+            csUVn(lr) = 0.0
+         endif
+      enddo
+#else
+      lrUVtr = NRAD
+#endif
+C
 #ifdef RT_CHEMISTRY
 
       lr27tr = 0
@@ -1282,7 +1306,25 @@ C
          wpTab(iptabCiLW,lr) = csMHLW(lr)
 #endif /* RT_CHEMISTRY */
       enddo
- 
+
+#ifdef RT_UV
+      uvFac(iptabPiH1) = csUVn(lrH1tr)
+      uvFac(iptabPhH1) = csUVn(lrH1tr)
+      uvFac(iptabPiG1) = csUVn(lrG1tr)
+      uvFac(iptabPhG1) = csUVn(lrG1tr)
+      uvFac(iptabPiG2) = csUVn(lrG2tr)
+      uvFac(iptabPhG2) = csUVn(lrG2tr)
+#ifdef RT_CHEMISTRY
+      uvFac(iptabCi27) = 1.0
+      uvFac(iptabCi28) = 1.0
+      uvFac(iptabCi29) = csUVn(lrH1tr)
+      uvFac(iptabCi30) = csUVn(lrG1tr)
+      uvFac(iptabCi31) = csUVn(lrH1tr)
+      uvFac(iptabCi32) = csUVn(lrH1tr)
+      uvFac(iptabCiLW) = 1.0
+#endif /* RT_CHEMISTRY */
+#endif /* RT_UV */
+
 #ifdef RT_XRAYS
       call frtInitTablesSE
 #endif
@@ -1299,10 +1341,10 @@ C
       include 'frt_tablesLW.inc'
 #endif
 C
-      dimension pOT(iptabDim), sgpOT(iptabDim)
-      dimension pH1(iptabDim), sgpH1(iptabDim)
-      dimension pG1(iptabDim), sgpG1(iptabDim)
-      dimension pG2(iptabDim), sgpG2(iptabDim)
+      dimension pUV(iptabDim), qUV(iptabDim)
+      dimension pH1(iptabDim), qH1(iptabDim)
+      dimension pG1(iptabDim), qG1(iptabDim)
+      dimension pG2(iptabDim), qG2(iptabDim)
 C
       include 'frt_inline.inc'
 C
@@ -1393,12 +1435,12 @@ C
          sumi3 = sumi3 + guvEff(lr)*csG2(lr)
       enddo
 
-      sgpRate0(iptabPhH1) = max(0.0,facPhot*sumc1*facLX)
-      sgpRate0(iptabPhG1) = max(0.0,facPhot*sumc2*facLX)
-      sgpRate0(iptabPhG2) = max(0.0,facPhot*sumc3*facLX)
-      sgpRate0(iptabPiH1) = max(0.0,facPhot*sumi1*facLX)
-      sgpRate0(iptabPiG1) = max(0.0,facPhot*sumi2*facLX)
-      sgpRate0(iptabPiG2) = max(0.0,facPhot*sumi3*facLX)
+      qRate0(iptabPhH1) = max(0.0,facPhot*sumc1*facLX)
+      qRate0(iptabPhG1) = max(0.0,facPhot*sumc2*facLX)
+      qRate0(iptabPhG2) = max(0.0,facPhot*sumc3*facLX)
+      qRate0(iptabPiH1) = max(0.0,facPhot*sumi1*facLX)
+      qRate0(iptabPiG1) = max(0.0,facPhot*sumi2*facLX)
+      qRate0(iptabPiG2) = max(0.0,facPhot*sumi3*facLX)
 
 #ifdef RT_CHEMISTRY
 
@@ -1418,12 +1460,12 @@ C
          sumi32 = sumi32 + guvEff(lr)*csMH32(lr)
       enddo
 
-      sgpRate0(iptabCi27) = max(0.0,facPhot*sumi27*facLX)
-      sgpRate0(iptabCi28) = max(0.0,facPhot*sumi28*facLX)
-      sgpRate0(iptabCi29) = max(0.0,facPhot*sumi29*facLX)
-      sgpRate0(iptabCi30) = max(0.0,facPhot*sumi30*facLX)
-      sgpRate0(iptabCi31) = max(0.0,facPhot*sumi31*facLX)
-      sgpRate0(iptabCi32) = max(0.0,facPhot*sumi32*facLX)
+      qRate0(iptabCi27) = max(0.0,facPhot*sumi27*facLX)
+      qRate0(iptabCi28) = max(0.0,facPhot*sumi28*facLX)
+      qRate0(iptabCi29) = max(0.0,facPhot*sumi29*facLX)
+      qRate0(iptabCi30) = max(0.0,facPhot*sumi30*facLX)
+      qRate0(iptabCi31) = max(0.0,facPhot*sumi31*facLX)
+      qRate0(iptabCi32) = max(0.0,facPhot*sumi32*facLX)
 C
 C  Do Lyman-Werner bands separately
 C
@@ -1438,57 +1480,17 @@ C
          sumiLW = sumiLW + guvEff(lr)*csMHLW(lr)
       enddo
 #endif /* RT_LWBANDS */
-      sgpRate0(iptabCiLW) = max(0.0,facPhot*sumiLW*facLX)
+      qRate0(iptabCiLW) = max(0.0,facPhot*sumiLW*facLX)
 
 #endif /* RT_CHEMISTRY */
 
 #endif /* RT_TRANSFER */
-C
-C  Lyman-series absorption, averaged over a fraction of unit redshift
-C  (currently the XISTEP: over one bin)
-C
-      do lr=1,NRAD
-         csLyS(lr) = 0.0
-      enddo
-C
-C  Switch it off. Not clear if it works at all. 
-C  Not a continuous medium limit.
-C
-*      do l=2,NLYSS
-*
-*         fnuL = fnuH1*(1.0-1.0/real(l+1)**2)
-*         cs2 = 1.098e-16*oscstr(l)/CSSTAR
-*
-*         do lr=2,lrH1tr-1
-*            fnu1 = 0.5*(Txi(lr)+Txi(lr-1))/T1eV
-*            fnu2 = 0.5*(Txi(lr)+Txi(lr+1))/T1eV
-*            if(fnuL.gt.fnu1 .and. fnuL.le.fnu2) then
-*               csLyS(lr) = csLyS(lr) + cs2/(fnu2-fnu1)
-*            endif
-*         enddo
-*
-*      enddo
-*
-*      fnu1 = 0.5*(Txi(lrH1tr-1)+Txi(lrH1tr-2))/T1eV
-*      fnu2 = 0.5*(Txi(lrH1tr-1)+Txi(lrH1tr+0))/T1eV
-*      cs2 = 1.098e-16*oscstr_other/CSSTAR
-*      csLyS(lrH1tr-1) = csLyS(lrH1tr-1) + cs2/(fnu2-fnu1)
-C
-      do lr=1,lrH1tr
-         csLySn(lr) = csLyS(lr)/csH1tr
-      enddo
 
-      lrLStr = 0
-      do lr=1,NRAD
-         if(lrLStr.eq.0 .and. csLyS(lr).gt.1.0e-35) lrLStr = lr
-      enddo
-      if(lrLStr .eq. 0) lrLStr = NRAD
-
-      lrmin = min(lrH1tr,lrDUtr,lrLStr)
 C
-C  Main tables
+C  Main tables: we work in the approximation that the UV absorption
+C  can be added posteriori to a 3D table.
 C
-#if defined(RT_TABLES) && !defined(RT_DUST)
+#ifdef RT_TABLES
 
       tauH1m = 1.0
       tauG1m = 1.0
@@ -1507,40 +1509,45 @@ C
       tG2max = tauG2m*acOmax
 C
 C  OT part
+C  ***********************************************
 C
       do j=1,iptabMax
 #ifdef RT_EXTERNAL_BACKGROUND
-         pOT(j) = 0.0
+         pUV(j) = 0.0
 #endif
 #ifdef RT_TRANSFER
-         sgpOT(j) = 0.0
+         qUV(j) = 0.0
 #endif
       enddo
 
 #ifdef RT_CHEMISTRY
 #ifdef RT_EXTERNAL_BACKGROUND
-      call frtIntegrateRates_OT(iptabDim,wpTab,
-     .     iptabOT,iptabMax,pOT)
+      call frtIntegrateRates_UV(0,iptabDim,wpTab,
+     .     iptabOT,iptabMax,pUV,0.0)
 #endif
 #ifdef RT_TRANSFER
-      call frtLocalIntegrateRates_OT(iptabDim,wpTab,
-     .     iptabOT,iptabMax,sgpOT)
+      call frtIntegrateRates_UV(1,iptabDim,wpTab,
+     .     iptabOT,iptabMax,qUV,0.0)
 #endif
 #endif /* RT_CHEMISTRY */
 
+C
+C  3D table for Ionizing radiation
+C  ***********************************************
+C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lo1,lo2,lo3,tauH1l,tauG1l,tauG2l,itind,itind2,j,
-C$OMP+ pH1,pG1,pG2,sgpH1,sgpG1,sgpG2)
+C$OMP+ pH1,pG1,pG2,qH1,qG1,qG2)
 C$OMP+SHARED(tauH1m,acTAU,csH1tr,csG1tr,csG2tr,tauG1m,tauG2m,
-C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
+C$OMP+ itloc2,pTab3,qTab3,pUV,qUV,wpTab,facPhot,facLX,iptabMax)
       do lo1=1,NOPT1
 
          do j=1,iptabMax
 #ifdef RT_EXTERNAL_BACKGROUND
-            pH1(j) = pOT(j)
+            pH1(j) = pUV(j)
 #endif
 #ifdef RT_TRANSFER
-            sgpH1(j) = sgpOT(j)
+            qH1(j) = qUV(j)
 #endif
          enddo
 
@@ -1548,14 +1555,12 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
 
             tauH1l = tauH1m*acTAU(lo1)
 #ifdef RT_EXTERNAL_BACKGROUND
-            call frtIntegrateRates_H1(iptabDim,wpTab,
-     .           iptabH1,iptabMax,pH1,
-     .           0.0,tauH1l)
+            call frtIntegrateRates_H1(0,iptabDim,wpTab,
+     .           iptabH1,iptabMax,pH1,0.0,tauH1l)
 #endif
 #ifdef RT_TRANSFER
-            call frtLocalIntegrateRates_H1(iptabDim,wpTab,
-     .           iptabH1,iptabMax,sgpH1,
-     .           0.0,tauH1l)
+            call frtIntegrateRates_H1(1,iptabDim,wpTab,
+     .           iptabH1,iptabMax,qH1,0.0,tauH1l)
 #endif
 
          else
@@ -1571,7 +1576,7 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
                pG1(j) = pH1(j)
 #endif
 #ifdef RT_TRANSFER
-               sgpG1(j) = sgpH1(j)
+               qG1(j) = qH1(j)
 #endif
             enddo
 
@@ -1579,14 +1584,12 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
 
                tauG1l = tauG1m*acTAU(lo2)
 #ifdef RT_EXTERNAL_BACKGROUND
-               call frtIntegrateRates_G1(iptabDim,wpTab,
-     .              iptabG1,iptabMax,pG1,
-     .              0.0,tauH1l,tauG1l)
+               call frtIntegrateRates_G1(0,iptabDim,wpTab,
+     .              iptabG1,iptabMax,pG1,0.0,tauH1l,tauG1l)
 #endif
 #ifdef RT_TRANSFER
-               call frtLocalIntegrateRates_G1(iptabDim,wpTab,
-     .              iptabG1,iptabMax,sgpG1,
-     .              0.0,tauH1l,tauG1l)
+               call frtIntegrateRates_G1(1,iptabDim,wpTab,
+     .              iptabG1,iptabMax,qG1,0.0,tauH1l,tauG1l)
 #endif
 
             else
@@ -1604,7 +1607,7 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
                   pG2(j) = pG1(j)
 #endif
 #ifdef RT_TRANSFER
-                  sgpG2(j) = sgpG1(j)
+                  qG2(j) = qG1(j)
 #endif
                enddo
 
@@ -1612,14 +1615,12 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
 
                   tauG2l = tauG2m*acTAU(lo3)
 #ifdef RT_EXTERNAL_BACKGROUND
-                  call frtIntegrateRates_G2(iptabDim,wpTab,
-     .                 iptabG2,iptabMax,pG2,
-     .                 0.0,tauH1l,tauG1l,tauG2l)
+                  call frtIntegrateRates_G2(0,iptabDim,wpTab,
+     .                 iptabG2,iptabMax,pG2,0.0,tauH1l,tauG1l,tauG2l)
 #endif
 #ifdef RT_TRANSFER
-                  call frtLocalIntegrateRates_G2(iptabDim,wpTab,
-     .                 iptabG2,iptabMax,sgpG2,
-     .                 0.0,tauH1l,tauG1l,tauG2l)
+                  call frtIntegrateRates_G2(1,iptabDim,wpTab,
+     .                 iptabG2,iptabMax,qG2,0.0,tauH1l,tauG1l,tauG2l)
 #endif
 
                endif
@@ -1629,25 +1630,24 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
 #ifdef RT_INTERPOLLOG
 #ifdef RT_EXTERNAL_BACKGROUND
                   if(pG2(j) .gt. 0.0) then
-                     pTab(j,itind) = log(1.0e-35+facPhot*pG2(j))
+                     pTab3(j,itind) = log(1.0e-35+facPhot*pG2(j))
                   else
-                     pTab(j,itind) = -1000.0
+                     pTab3(j,itind) = -1000.0
                   endif
 #endif
 #ifdef RT_TRANSFER
-                  if(sgpG2(j) .gt. 0.0) then
-                     sgpTab(j,itind) = log(1.0e-35+
-     .                    facLX*facPhot*sgpG2(j))
+                  if(qG2(j) .gt. 0.0) then
+                     qTab3(j,itind) = log(1.0e-35+facLX*facPhot*qG2(j))
                   else
-                     sgpTab(j,itind) = -1000.0
+                     qTab3(j,itind) = -1000.0
                   endif
 #endif
 #else  /* RT_INTERPOLLOG */
 #ifdef RT_EXTERNAL_BACKGROUND
-                  pTab(j,itind) = max(0.0,facPhot*pG2(j))
+                  pTab3(j,itind) = max(0.0,facPhot*pG2(j))
 #endif
 #ifdef RT_TRANSFER
-                  sgpTab(j,itind) = max(0.0,facLX*facPhot*sgpG2(j))
+                  qTab3(j,itind) = max(0.0,facLX*facPhot*sgpG2(j))
 #endif
 #endif /* RT_INTERPOLLOG */
                enddo
@@ -1656,7 +1656,7 @@ C$OMP+ itloc2,pTab,sgpTab,pOT,sgpOT,wpTab,facPhot,facLX,iptabMax)
          enddo
       enddo
 
-#endif /* RT_TABLES && !RT_DUST */
+#endif /* RT_TABLES */
 
 #ifdef RT_XRAYS
       call frtFillRadiationTablesSE
@@ -1671,16 +1671,20 @@ C
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
-      include 'frt_transfer.inc'
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
 #endif
       dimension par(*), rf(*)
       dimension itab(*)
       dimension y(*), pRate(*)
 C
-      dimension sgpRate(iptabDim)
+      dimension qRate(iptabDim)
 #ifdef RT_XRAYS
       include 'frt_xrays.inc'
-      dimension pRateSE(istabDim), sgpRateSE(istabDim)
+      dimension pRateSE(istabDim), qRateSE(istabDim)
 #endif
 C
 C  This is just to placate ftnchek
@@ -1695,60 +1699,73 @@ C
       tauH1l = rf(irfH1gf)
       tauG1l = rf(irfG1gf)
       tauG2l = rf(irfG2gf)
+#ifdef RT_UV
+      tauUVl = rf(irfUVgf)
+#else
+      tauUVl = 0.0
+#endif
 #else
       tauH1l = 0.0
       tauG1l = 0.0
       tauG2l = 0.0
+      tauUVl = 0.0
 #endif
 
-#if defined(RT_TABLES) && !defined(RT_DUST)
+#ifdef RT_TABLES
 
-      call frtSampleTable(tauH1l,tauG1l,tauG2l,
-     .     iptabDim,pTab,jmax,pRate,iOk)
+      call frtSampleTable3(tauH1l,tauG1l,tauG2l,
+     .     iptabDim,pTab3,jmax,pRate,iOk)
 
       if(iOk .eq. 1) then
          itab(1) = itab(1) + 1
+
+#ifdef RT_UV
+         do j=1,jmax
+            pRate(j) = pRate(j)*exp(-tauUVl*uvFac(j))
+         enddo
+#endif
       else
 
-#endif /* RT_TABLES && !RT_DUST */
+#endif /* RT_TABLES */
 
          do j=1,jmax
             pRate(j) = 0.0
          enddo
 
-#if defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
+#if defined(RT_NARROWTABLE) || !defined(RT_TABLES)
 
          itab(2) = itab(2) + 1
 
 #ifdef RT_CHEMISTRY
-         call frtIntegrateRates_OT(iptabDim,wpTab,
-     .        iptabOT,jmax,pRate)
+         call frtIntegrateRates_UV(0,iptabDim,wpTab,
+     .        iptabOT,jmax,pRate,tauUVl)
 #endif /* RT_CHEMISTRY */
 
-         call frtIntegrateRates_H1(iptabDim,wpTab,
-     .        iptabH1,jmax,pRate,
-     .        par(iparDGas),tauH1l)
+         call frtIntegrateRates_H1(0,iptabDim,wpTab,
+     .        iptabH1,jmax,pRate,tauUVl,tauH1l)
 
-         call frtIntegrateRates_G1(iptabDim,wpTab,
-     .        iptabG1,jmax,pRate,
-     .        par(iparDGas),tauH1l,tauG1l)
+         call frtIntegrateRates_G1(0,iptabDim,wpTab,
+     .        iptabG1,jmax,pRate,tauUVl,tauH1l,tauG1l)
 
-         call frtIntegrateRates_G2(iptabDim,wpTab,
-     .        iptabG2,jmax,pRate,
-     .        par(iparDGas),tauH1l,tauG1l,tauG2l)
+         call frtIntegrateRates_G2(0,iptabDim,wpTab,
+     .        iptabG2,jmax,pRate,tauUVl,tauH1l,tauG1l,tauG2l)
 
          do j=1,jmax
             pRate(j) = facPhot*max(0.0,pRate(j))
          enddo
 
-#endif /* RT_NARROWTABLE || !RT_TABLES || RT_DUST */
+#endif /* RT_NARROWTABLE || !RT_TABLES */
 
-#if defined(RT_TABLES) && !defined(RT_DUST)
+#ifdef RT_TABLES
       endif
-#endif /* RT_TABLES && !RT_DUST */
+#endif /* RT_TABLES */
 
 #ifdef RT_CHEMISTRY
+#ifdef RT_UV
+      pRate(iptabCiLW) = pRate0(iptabCiLW)*exp(-tauUVl)
+#else
       pRate(iptabCiLW) = pRate0(iptabCiLW)
+#endif
 #endif /* RT_CHEMISTRY */
 
 #else  /* RT_EXTERNAL_BACKGROUND */
@@ -1765,55 +1782,67 @@ C
       tauH1l = rf(irfH1lf)
       tauG1l = rf(irfG1lf)
       tauG2l = rf(irfG2lf)
+#ifdef RT_UV
+      tauUVl = rf(irfUVlf)
+#else
+      tauUVl = 0.0
+#endif
 
-#if defined(RT_TABLES) && !defined(RT_DUST)
+#ifdef RT_TABLES
 
-      call frtSampleTable(tauH1l,tauG1l,tauG2l,
-     .     iptabDim,sgpTab,jmax,sgpRate,iOk)
+      call frtSampleTable3(tauH1l,tauG1l,tauG2l,
+     .     iptabDim,qTab3,jmax,qRate,iOk)
 
       if(iOk .eq. 1) then
          itab(1) = itab(1) + 1
+
+#ifdef RT_UV
+         do j=1,jmax
+            qRate(j) = qRate(j)*exp(-tauUVl*uvFac(j))
+         enddo
+#endif
       else
 
-#endif /* RT_TABLES && !RT_DUST */
+#endif /* RT_TABLES */
 
          do j=1,jmax
-            sgpRate(j) = 0.0
+            qRate(j) = 0.0
          enddo
 
-#if defined(RT_NARROWTABLE) || !defined(RT_TABLES) || defined(RT_DUST)
+#if defined(RT_NARROWTABLE) || !defined(RT_TABLES)
 
          itab(2) = itab(2) + 1
 
 #ifdef RT_CHEMISTRY
-         call frtLocalIntegrateRates_OT(iptabDim,wpTab,
-     .        iptabOT,jmax,sgpRate)
+         call frtIntegrateRates_UV(1,iptabDim,wpTab,
+     .        iptabOT,jmax,qRate,tauUVl)
 #endif /* RT_CHEMISTRY */
 
-         call frtLocalIntegrateRates_H1(iptabDim,wpTab,
-     .        iptabH1,jmax,sgpRate,
-     .        par(iparDGas),tauH1l)
+         call frtIntegrateRates_H1(1,iptabDim,wpTab,
+     .        iptabH1,jmax,qRate,tauUVl,tauH1l)
 
-         call frtLocalIntegrateRates_G1(iptabDim,wpTab,
-     .        iptabG1,jmax,sgpRate,
-     .        par(iparDGas),tauH1l,tauG1l)
+         call frtIntegrateRates_G1(1,iptabDim,wpTab,
+     .        iptabG1,jmax,qRate,tauUVl,tauH1l,tauG1l)
 
-         call frtLocalIntegrateRates_G2(iptabDim,wpTab,
-     .        iptabG2,jmax,sgpRate,
-     .        par(iparDGas),tauH1l,tauG1l,tauG2l)
+         call frtIntegrateRates_G2(1,iptabDim,wpTab,
+     .        iptabG2,jmax,qRate,tauUVl,tauH1l,tauG1l,tauG2l)
 
          do j=1,jmax
-            sgpRate(j) = facLX*facPhot*max(0.0,sgpRate(j))
+            qRate(j) = facLX*facPhot*max(0.0,qRate(j))
          enddo
 
-#endif /* RT_NARROWTABLE || !RT_TABLES || RT_DUST */
+#endif /* RT_NARROWTABLE || !RT_TABLES */
 
-#if defined(RT_TABLES) && !defined(RT_DUST)
+#ifdef RT_TABLES
       endif
-#endif /* RT_TABLES && !RT_DUST */
+#endif /* RT_TABLES */
 
 #ifdef RT_CHEMISTRY
-      sgpRate(iptabCiLW) = sgpRate0(iptabCiLW)
+#ifdef RT_UV
+      qRate(iptabCiLW) = qRate0(iptabCiLW)*exp(-tauUVl)
+#else
+      qRate(iptabCiLW) = qRate0(iptabCiLW)
+#endif
 #endif /* RT_CHEMISTRY */
 
 #endif /* RT_TRANSFER */
@@ -1821,7 +1850,7 @@ C
 
 #ifdef RT_XRAYS
 
-      call frtGetPhotoRatesSE(par,rf,itab,y,pRateSE,sgpRateSE)
+      call frtGetPhotoRatesSE(par,rf,itab,y,pRateSE,qRateSE)
 
 #ifdef RT_EXTERNAL_BACKGROUND
       pRate(iptabPiH1) = pRate(iptabPiH1) + 
@@ -1839,18 +1868,18 @@ C
 #endif
 
 #ifdef RT_TRANSFER
-      sgpRate(iptabPiH1) = sgpRate(iptabPiH1) + 
-     .     y(ieqXH1)*sgpRateSE(istabPiH1H1w1) +
-     .     y(ieqXG1)*sgpRateSE(istabPiH1G1w1) +
-     .     y(ieqXG2)*sgpRateSE(istabPiH1G2w1)
-      sgpRate(iptabPiG1) = pRate(iptabPiG1) +
-     .     y(ieqXH1)*sgpRateSE(istabPiG1H1w1) +
-     .     y(ieqXG2)*sgpRateSE(istabPiG1G1w1) +
-     .     y(ieqXG2)*sgpRateSE(istabPiG1G2w1)
-      sgpRate(iptabPhH1) = max(0.0,sgpRate(iptabPhH1) -
-     .     sgpRateSE(istabPhH1w1))
-      sgpRate(iptabPhG1) = max(0.0,sgpRate(iptabPhG1) -
-     .     sgpRateSE(istabPhG1w1))
+      qRate(iptabPiH1) = qRate(iptabPiH1) + 
+     .     y(ieqXH1)*qRateSE(istabPiH1H1w1) +
+     .     y(ieqXG1)*qRateSE(istabPiH1G1w1) +
+     .     y(ieqXG2)*qRateSE(istabPiH1G2w1)
+      qRate(iptabPiG1) = pRate(iptabPiG1) +
+     .     y(ieqXH1)*qRateSE(istabPiG1H1w1) +
+     .     y(ieqXG2)*qRateSE(istabPiG1G1w1) +
+     .     y(ieqXG2)*qRateSE(istabPiG1G2w1)
+      qRate(iptabPhH1) = max(0.0,qRate(iptabPhH1) -
+     .     qRateSE(istabPhH1w1))
+      qRate(iptabPhG1) = max(0.0,qRate(iptabPhG1) -
+     .     qRateSE(istabPhG1w1))
 #endif /* RT_TRANSFER */
 
 #endif /* RT_XRAYS */
@@ -1876,11 +1905,11 @@ C
 
 #ifdef RT_TRANSFER
       do j=1,jmax
-         pRate(j) = pRate(j) + rf(irfNorm)*sgpRate(j)
+         pRate(j) = pRate(j) + rf(irfNorm)*qRate(j)
       enddo
 #ifdef RT_CHEMISTRY
       pRate(iptabCiLW) = pRate(iptabCiLW) + rf(irfNorm)*
-     .     sgpRate(iptabCiLW)
+     .     qRate(iptabCiLW)
 #endif
 #endif /* RT_TRANSFER */
 
@@ -1906,20 +1935,41 @@ C  Tools for manipulating tables
 C
 C  ***************************************
 C
-      subroutine frtIntegrateRates_OT(nmax,wi,j1,jn,s)
+      subroutine frtIntegrateRates_UV(id,nmax,wi,j1,jn,s,tauUVl)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension s(*), wi(nmax,*)
+      include 'frt_inline.inc'
 
-      do lr=1,lrmin-1
-         fac = angEff(lr)
+      do lr=lrmax+1,NRAD
+         if(id .eq. 0) then
+            fac = angEff(lr)
+         else
+            fac = guvEff(lr)
+         endif
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
       enddo
 
-      do lr=lrmax+1,NRAD
-         fac = angEff(lr)
+      if(tauUVl .lt. 0.0) return
+
+      do lr=1,lrH1tr-1
+         if(id .eq. 0) then
+#ifdef RT_UV
+            taul = csUVn(lr)*tauUVl
+            fac = angEff(lr)*QFuni(taul)
+#else
+            fac = angEff(lr)
+#endif
+         else
+#ifdef RT_UV
+            taul = csUVn(lr)*tauUVl
+            fac = guvEff(lr)*QFloc(taul)
+#else
+            fac = guvEff(lr)
+#endif
+         endif
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1930,8 +1980,8 @@ C
 C
 C
 C
-      subroutine frtIntegrateRates_H1(nmax,wi,j1,jn,s,
-     .     zdust,tauH1l)
+      subroutine frtIntegrateRates_H1(id,nmax,wi,j1,jn,s,tauUVl,
+     .     tauH1l)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension s(*), wi(nmax,*)
@@ -1939,15 +1989,18 @@ C
 
       if(tauH1l .lt. 0.0) return
 
-      do lr=lrmin,lrG1tr-1
-#ifdef RT_DUST
-         csH1l = zdust*csDustn(lr) + csLySn(lr) + csH1n(lr)
-#else
-         csH1l = csLySn(lr) + csH1n(lr)
+      do lr=lrH1tr,lrG1tr-1
+         taul = csH1n(lr)*tauH1l
+#ifdef RT_UV
+         if(tauUVl .gt. 0.0) then
+            taul = taul + csUVn(lr)*tauUVl
+         endif
 #endif
-         taul = csH1l*tauH1l
-
-         fac = angEff(lr)*QFuni(taul)
+         if(id .eq. 0) then
+            fac = angEff(lr)*QFuni(taul)
+         else
+            fac = guvEff(lr)*QFloc(taul)
+         endif
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1958,8 +2011,8 @@ C
 C
 C
 C
-      subroutine frtIntegrateRates_G1(nmax,wi,j1,jn,s,
-     .     zdust,tauH1l,tauG1l)
+      subroutine frtIntegrateRates_G1(id,nmax,wi,j1,jn,s,tauUVl,
+     .     tauH1l,tauG1l)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension s(*), wi(nmax,*)
@@ -1968,19 +2021,20 @@ C
       if(tauG1l .lt. 0.0) return
 
       do lr=lrG1tr,lrG2tr-1
+         taul = csG1n(lr)*tauG1l
          if(tauH1l .gt. 0.0) then
-#ifdef RT_DUST
-            csH1l = zdust*csDustn(lr) +  csH1n(lr)
-#else
-            csH1l = csH1n(lr)
-#endif
-            taul = csH1l*tauH1l
-         else
-            taul = 0.0
+            taul = taul + csH1n(lr)*tauH1l
          endif
-         taul = taul + csG1n(lr)*tauG1l
-
-         fac = angEff(lr)*QFuni(taul)
+#ifdef RT_UV
+         if(tauUVl .gt. 0.0) then
+            taul = taul + csUVn(lr)*tauUVl
+         endif
+#endif
+         if(id .eq. 0) then
+            fac = angEff(lr)*QFuni(taul)
+         else
+            fac = guvEff(lr)*QFloc(taul)
+         endif
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -1991,8 +2045,8 @@ C
 C
 C
 C
-      subroutine frtIntegrateRates_G2(nmax,wi,j1,jn,s,
-     .     zdust,tauH1l,tauG1l,tauG2l)
+      subroutine frtIntegrateRates_G2(id,nmax,wi,j1,jn,s,tauUVl,
+     .     tauH1l,tauG1l,tauG2l)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension s(*), wi(nmax,*)
@@ -2001,143 +2055,23 @@ C
       if(tauG2l .lt. 0.0) return
 
       do lr=lrG2tr,lrmax
+         taul = csG2n(lr)*tauG2l
          if(tauH1l .gt. 0.0) then
-#ifdef RT_DUST
-            csH1l = zdust*csDustn(lr) +  csH1n(lr)
-#else
-            csH1l = csH1n(lr)
-#endif
-            taul = csH1l*tauH1l
-         else
-            taul = 0.0
+            taul = taul + csH1n(lr)*tauH1l
          endif
          if(tauG1l .gt. 0.0) then
             taul = taul + csG1n(lr)*tauG1l
          endif
-         taul = taul + csG2n(lr)*tauG2l
-
-         fac = angEff(lr)*QFuni(taul)
-         do j=j1,jn
-            s(j) = s(j) + fac*wi(j,lr)
-         enddo
-      enddo
-
-      return
-      end
-C
-C
-C
-      subroutine frtLocalIntegrateRates_OT(nmax,wi,j1,jn,s)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      dimension s(*), wi(nmax,*)
-
-      do lr=1,lrmin-1
-         fac = guvEff(lr)
-         do j=j1,jn
-            s(j) = s(j) + fac*wi(j,lr)
-         enddo
-      enddo
-
-      do lr=lrmax+1,NRAD
-         fac = guvEff(lr)
-         do j=j1,jn
-            s(j) = s(j) + fac*wi(j,lr)
-         enddo
-      enddo
-
-      return 
-      end
-C
-C
-C
-      subroutine frtLocalIntegrateRates_H1(nmax,wi,j1,jn,s,
-     .     zdust,tauH1l)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      dimension s(*), wi(nmax,*)
-      include 'frt_inline.inc'
-
-      if(tauH1l .lt. 0.0) return
-
-      do lr=lrmin,lrG1tr-1
-#ifdef RT_DUST
-         csH1l = zdust*csDustn(lr) + csLySn(lr) + csH1n(lr)
-#else
-         csH1l = csLySn(lr) + csH1n(lr)
+#ifdef RT_UV
+         if(tauUVl .gt. 0.0) then
+            taul = taul + csUVn(lr)*tauUVl
+         endif
 #endif
-         taul = csH1l*tauH1l
-
-         fac = guvEff(lr)*QFloc(taul)
-         do j=j1,jn
-            s(j) = s(j) + fac*wi(j,lr)
-         enddo
-      enddo
-
-      return
-      end
-C
-C
-C
-      subroutine frtLocalIntegrateRates_G1(nmax,wi,j1,jn,s,
-     .     zdust,tauH1l,tauG1l)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      dimension s(*), wi(nmax,*)
-      include 'frt_inline.inc'
-
-      if(tauG1l .lt. 0.0) return
-
-      do lr=lrG1tr,lrG2tr-1
-         if(tauH1l .gt. 0.0) then
-#ifdef RT_DUST
-            csH1l = zdust*csDustn(lr) +  csH1n(lr)
-#else
-            csH1l = csH1n(lr)
-#endif
-            taul = csH1l*tauH1l
+         if(id .eq. 0) then
+            fac = angEff(lr)*QFuni(taul)
          else
-            taul = 0.0
+            fac = guvEff(lr)*QFloc(taul)
          endif
-         taul = taul + csG1n(lr)*tauG1l
-
-         fac = guvEff(lr)*QFloc(taul)
-         do j=j1,jn
-            s(j) = s(j) + fac*wi(j,lr)
-         enddo
-      enddo
-
-      return
-      end
-C
-C
-C
-      subroutine frtLocalIntegrateRates_G2(nmax,wi,j1,jn,s,
-     .     zdust,tauH1l,tauG1l,tauG2l)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      dimension s(*), wi(nmax,*)
-      include 'frt_inline.inc'
-
-      if(tauG2l .lt. 0.0) return
-
-      do lr=lrG2tr,lrmax
-         if(tauH1l .gt. 0.0) then
-#ifdef RT_DUST
-            csH1l = zdust*csDustn(lr) +  csH1n(lr)
-#else
-            csH1l = csH1n(lr)
-#endif
-            taul = csH1l*tauH1l
-         else
-            taul = 0.0
-         endif
-         if(tauG1l .gt. 0.0) then
-            taul = taul + csG1n(lr)*tauG1l
-         endif
-         taul = taul + csG2n(lr)*tauG2l
-
-         fac = guvEff(lr)*QFloc(taul)
          do j=j1,jn
             s(j) = s(j) + fac*wi(j,lr)
          enddo
@@ -2148,7 +2082,8 @@ C
 C
 C
 C     
-      subroutine frtSampleTable(tauH1l,tauG1l,tauG2l,
+#ifdef RT_TABLES
+      subroutine frtSampleTable3(tauH1l,tauG1l,tauG2l,
      .     nmax,table,nout,out,iOk)
       include 'frt_base.inc'
       include 'frt_tables.inc'
@@ -2291,6 +2226,7 @@ C
 
       return
       end
+#endif /* RT_TABLES */
 C
 C
 C

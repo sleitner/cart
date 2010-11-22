@@ -24,6 +24,10 @@ gsl_rng *cart_random_generator;
 extern int current_step_level;
 
 
+int num_options = 0;
+char **options = NULL;
+
+
 void init_auxiliary() {
 	FILE *state;
 	char filename[256];
@@ -393,10 +397,9 @@ void qss_solve( qss_system *sys, double t_begin, double t_end, double y[], const
 				break;
 			}
 		}
-
 		/* adjust variables for max/min */
 		sys->adjust( t, y, params );
-	} while ( t < t_end ); 
+	} while ( t < t_end && nstep < 100000 ); 
 }
 
 
@@ -430,7 +433,14 @@ const char* check_option1(const char* option, const char* name, const char *defa
 
   if(option[len+1]!='=' || strlen(option)<len+3)
     {
-      cart_error("Valid format for option %s is: -%s[=<value>]",name,name);
+      if(default_value == NULL)
+	{
+	  cart_error("Valid format for option %s is: -%s=<value>",name,name);
+	}
+      else
+	{
+	  cart_error("Valid format for option %s is: -%s[=<value>]",name,name);
+	}
       return NULL;
     }
   else

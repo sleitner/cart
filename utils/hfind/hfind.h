@@ -15,7 +15,7 @@ c     ----------------------------------------------------------------
       parameter ( nil    = 0         )           ! integer zero 
       parameter ( zero   = 0.0       )           ! real zero
       parameter ( nrow   = 512       )            ! # of particles  in 1D
-      parameter ( npmax  = 5000000  )            !
+      parameter ( npmax  = 3000000  )            !
       parameter ( ncold  = nrow**3   )           !
       parameter ( npage  = nrow**2   )           !
       parameter ( nrecl  = npage * 6 )           !
@@ -25,7 +25,7 @@ c     ----------------------------------------------------------------
       parameter ( ncell0 = ngrid**3  )           ! # of 0-level cells in the original sim.
       parameter ( nh     = 400000    )            ! max # of haloes
       parameter ( floatsize = 8      )
-      parameter ( nbyteword = 4      )  
+      parameter ( nbyteword = 1      )  
       parameter ( rhoaver= 1.0       )           ! average density of particles
       parameter ( rinit  = 100.0     )           ! initial halo radius in kpc
 

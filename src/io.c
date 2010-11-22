@@ -48,19 +48,18 @@ int grid_output_frequency = 0;
 int num_output_files = 1;
 
 int num_outputs = 0;
-float outputs[MAX_OUTPUTS];
+int outputs_size = 0;
+float *outputs = NULL;
 
-#ifdef OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION
-typedef float particle_float;
-#define MPI_PARTICLE_FLOAT	MPI_FLOAT
-#else
-typedef double particle_float;
-#define MPI_PARTICLE_FLOAT	MPI_DOUBLE
-#endif
 
 #ifndef PARTICLE_HEADER_MAGIC
 #define PARTICLE_HEADER_MAGIC           (0.1234f)
 #endif
+
+
+int read_grid_mode = 0;
+int read_particles_mode = 0;
+
 
 /*
 //  For backward compatibility
@@ -72,25 +71,41 @@ void control_parameter_set_outputs(const char *value, void *ptr, int ind)
 {
   int i, j;
   char *str, *tok;
-  float a1, a2, da;
+  float a1, a2, da, *tmp;
 
   str = cart_alloc(char,strlen(value)+1);
   strcpy(str,value); /* strtok destroys the input string */
 
   tok = strtok(str," ");
-  while(tok!=NULL && num_outputs<MAX_OUTPUTS)
+  while(tok != NULL)
     {
       if(sscanf(tok,"(%g,%g,%g)",&a1,&a2,&da) == 3)
 	{
 	  cart_assert(da > 0.0);
-	  while(a1<a2 && num_outputs<MAX_OUTPUTS)
+	  while(a1 < a2)
 	    {
+	      if(num_outputs == outputs_size)
+		{
+		  outputs_size += 100;
+		  tmp = cart_alloc(float,outputs_size);
+		  memcpy(tmp,outputs,num_outputs*sizeof(float));
+		  cart_free(outputs);
+		  outputs = tmp;
+		}
 	      outputs[num_outputs++] = a1;
 	      a1 += da;
 	    }
 	}
       else if(sscanf(tok,"%g",&a1) == 1)
 	{
+	  if(num_outputs == outputs_size)
+	    {
+	      outputs_size += 100;
+	      tmp = cart_alloc(float,outputs_size);
+	      memcpy(tmp,outputs,num_outputs*sizeof(float));
+	      cart_free(outputs);
+	      outputs = tmp;
+	    }
 	  outputs[num_outputs++] = a1;
 	}
       else
@@ -155,6 +170,9 @@ void control_parameter_list_outputs(FILE *stream, const void *ptr)
 void config_init_io()
 {
   ControlParameterOps control_parameter_outputs = { control_parameter_set_outputs, control_parameter_list_outputs };
+
+  outputs_size = 100;
+  outputs = cart_alloc(float,outputs_size);
 
   strcpy(jobname,"ART");
   strcpy(output_directory,".");
@@ -236,7 +254,7 @@ void reorder( char *buffer, int size ) {
         }
 }
 
-void write_restart( int gas_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
+void write_restart( int gas_filename_flag, int particle_filename_flag, int tracer_filename_flag, char *label ) {
 	FILE *restart;
 	char filename[256];
 	char filename1[256];
@@ -252,19 +270,26 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	char filename_tracers[256];
 #endif /* HYDRO_TRACERS */
 #endif /* HYDRO */
+	char label_buffer[256];
 
 	start_time( IO_TIMER );
+
+	if(label == NULL)
+	  {
+	    label = label_buffer;
+#ifdef COSMOLOGY
+	    sprintf(label,"a%06.4f",auni[min_level]);
+#else
+	    sprintf(label,"%06d",step);
+#endif /* COSMOLOGY */
+	  }
 
 	cart_debug("Writing grid restart...");
 	switch(gas_filename_flag)
 	  {
 	  case WRITE_SAVE:
 	    {
-#ifdef COSMOLOGY
-	      sprintf( filename_gas, "%s/%s_a%06.4f.d", output_directory, jobname, auni[min_level] );
-#else
-	      sprintf( filename_gas, "%s/%s_a%06d.d", output_directory, jobname, step );
-#endif /* COSMOLOGY */
+	      sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -282,16 +307,6 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	write_grid_binary( filename_gas );
 	end_time( GAS_WRITE_IO_TIMER );
 
-
-	if(mpi_custom_flags & MPI_CUSTOM_SYNC)
-	  {
-	    /*
-	    //  Finish writing one file before getting to another
-	    */
-	    MPI_Barrier(MPI_COMM_WORLD);
-	  }
-
-
 #ifdef HYDRO
 #ifdef HYDRO_TRACERS
 	cart_debug("Writing hydro tracer restart...");
@@ -300,11 +315,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 	  case WRITE_SAVE:
 	    {
-#ifdef COSMOLOGY
-	      sprintf( filename_tracers, "%s/%s_a%06.4f.dtr", output_directory, jobname, auni[min_level] );
-#else
-	      sprintf( filename_tracers, "%s/%s_a%06d.dtr", output_directory, jobname, step );
-#endif /* COSMOLOGY */
+	      sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -319,11 +330,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 	  case WRITE_SAVE:
 	    {
-#ifdef COSMOLOGY
-	      sprintf( filename_tracers, "%s/tracers_a%06.4f.dat", output_directory, auni[min_level] );
-#else
-	      sprintf( filename_tracers, "%s/tracers_a%06d.dat", output_directory, step );
-#endif /* COSMOLOGY */
+	      sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -351,17 +358,10 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 	  case WRITE_SAVE:
 	    {
-#ifdef COSMOLOGY
-	      sprintf( filename1, "%s/%s_a%06.4f.dph", output_directory, jobname, auni[min_level] );
-	      sprintf( filename2, "%s/%s_a%06.4f.dxv", output_directory, jobname, auni[min_level] );
-	      sprintf( filename3, "%s/%s_a%06.4f.dpt", output_directory, jobname, auni[min_level] );
-	      sprintf( filename4, "%s/%s_a%06.4f.dst", output_directory, jobname, auni[min_level] );
-#else
-	      sprintf( filename1, "%s/%s_a%06d.dph", output_directory, jobname, step );
-	      sprintf( filename2, "%s/%s_a%06d.dxv", output_directory, jobname, step );
-	      sprintf( filename3, "%s/%s_a%06d.dpt", output_directory, jobname, step );
-	      sprintf( filename4, "%s/%s_a%06d.dst", output_directory, jobname, step );
-#endif /* COSMOLOGY */
+	      sprintf( filename1, "%s/%s_%s.dph", output_directory, jobname, label );
+	      sprintf( filename2, "%s/%s_%s.dxv", output_directory, jobname, label );
+	      sprintf( filename3, "%s/%s_%s.dpt", output_directory, jobname, label );
+	      sprintf( filename4, "%s/%s_%s.dst", output_directory, jobname, label );
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -382,17 +382,10 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 #else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 	  case WRITE_SAVE:
 	    {
-#ifdef COSMOLOGY
-	      sprintf( filename1,"%s/PMcrda%06.4f.DAT", output_directory, auni[min_level] );
-	      sprintf( filename2, "%s/PMcrs0a%06.4f.DAT", output_directory, auni[min_level] );
-	      sprintf( filename3, "%s/pta%06.4f.dat", output_directory, auni[min_level] );
-	      sprintf( filename4, "%s/stars_a%06.4f.dat", output_directory, auni[min_level] );
-#else
-	      sprintf( filename1,"%s/PMcrda%06d.DAT", output_directory, step );
-	      sprintf( filename2, "%s/PMcrs0a%06d.DAT", output_directory, step );
-	      sprintf( filename3, "%s/pta%06d.dat", output_directory, step );
-	      sprintf( filename4, "%s/stars_a%06d.dat", output_directory, step );
-#endif /* COSMOLOGY */
+	      sprintf( filename1, "%s/PMcrd%s.DAT", output_directory, label );
+	      sprintf( filename2, "%s/PMcrs0%s.DAT", output_directory, label );
+	      sprintf( filename3, "%s/pt%s.dat", output_directory, label );
+	      sprintf( filename4, "%s/stars_%s.dat", output_directory, label );
 	      break;
 	    }
 	  case WRITE_BACKUP:
@@ -420,16 +413,6 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	write_particles( filename1, filename2, filename3, NULL );
 #endif /* STARFORM */
 	end_time( PARTICLE_WRITE_IO_TIMER );
-
-
-	if(mpi_custom_flags & MPI_CUSTOM_SYNC)
-	  {
-	    /*
-	    //  Finish writing one file before getting to another
-	    */
-	    MPI_Barrier(MPI_COMM_WORLD);
-	  }
-
 
 #endif /* PARTICLES */
 
@@ -509,10 +492,11 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	save_auxiliary();
 
 	last_restart_step = step;
+
 	end_time ( IO_TIMER );
 }
 
-void read_restart( double aload ) {
+void read_restart( const char *label ) {
 	FILE *restart;
 	char filename[256];
 	char filename_gas[256];
@@ -533,7 +517,7 @@ void read_restart( double aload ) {
 		destroy_cell_buffer();
 	}
 
-	if ( aload < 1.0e-30 ) {
+	if ( label == NULL ) {
 		/* read filenames from restart file */
 		sprintf( filename, "%s/restart.dat", output_directory );
 		restart = fopen( filename, "r" );
@@ -574,19 +558,19 @@ void read_restart( double aload ) {
 		}
 	} else {
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
-		sprintf( filename_gas, "%s/%s_a%06.4f.d", output_directory, jobname, aload );
-		sprintf( filename1,  "%s/%s_a%06.4f.dph", output_directory, jobname, aload );
-		sprintf( filename2, "%s/%s_a%06.4f.dxv", output_directory, jobname, aload );
-		sprintf( filename3, "%s/%s_a%06.4f.dpt", output_directory, jobname, aload );
-		sprintf( filename4, "%s/%s_a%06.4f.dst", output_directory, jobname, aload );
-		sprintf( filename_tracers, "%s/%s_a%06.4f.dtr", output_directory, jobname, aload );
+		sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
+		sprintf( filename1,  "%s/%s_%s.dph", output_directory, jobname, label );
+		sprintf( filename2, "%s/%s_%s.dxv", output_directory, jobname, label );
+		sprintf( filename3, "%s/%s_%s.dpt", output_directory, jobname, label );
+		sprintf( filename4, "%s/%s_%s.dst", output_directory, jobname, label );
+		sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
 #else
-		sprintf( filename_gas, "%s/%s_a%06.4f.d", output_directory, jobname, aload );
-		sprintf( filename1,  "%s/PMcrda%06.4f.DAT", output_directory, aload );
-		sprintf( filename2, "%s/PMcrs0a%06.4f.DAT", output_directory, aload );
-		sprintf( filename3, "%s/pta%06.4f.dat", output_directory, aload );
-		sprintf( filename4, "%s/stars_a%06.4f.dat", output_directory, aload );
-		sprintf( filename_tracers, "%s/tracers_a%06.4f.dat", output_directory, aload );
+		sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
+		sprintf( filename1,  "%s/PMcrd%s.DAT", output_directory, label );
+		sprintf( filename2, "%s/PMcrs0%s.DAT", output_directory, label );
+		sprintf( filename3, "%s/pt%s.dat", output_directory, label );
+		sprintf( filename4, "%s/stars_%s.dat", output_directory, label );
+		sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
 #endif
 	}
 
@@ -694,10 +678,10 @@ void save_check() {
 #endif /* COSMOLOGY */
 	     ) {
 		/* we're saving information for permenant saving */
-		write_restart( WRITE_SAVE, WRITE_SAVE, WRITE_SAVE );
+		write_restart( WRITE_SAVE, WRITE_SAVE, WRITE_SAVE, NULL );
 		current_output++;
 	} else if ( restart_frequency != 0 && step % restart_frequency == 0 ) {
-		write_restart( grid_save_flag, particle_save_flag, tracer_save_flag );
+		write_restart( grid_save_flag, particle_save_flag, tracer_save_flag, NULL );
 	} else {
 
 #ifdef PARTICLES
@@ -780,257 +764,51 @@ void save_check() {
 }
 
 
+void set_read_grid_mode(int mode)
+{
+  if(mode>=-2 && mode<=2) read_grid_mode = mode;
+}
+
+
+void set_read_particles_mode(int mode)
+{
+  if(mode>=-2 && mode<=2) read_particles_mode = mode;
+}
+
+
+/*
+//  Create multiple versions of restart_load_balance using
+//  C-style templates
+*/
+#define FUNCTION                      restart_load_balanceP1
+#define PARTICLE_FLOAT                float
+#include "io1.def"
+
+#define FUNCTION                      restart_load_balanceP2
+#define PARTICLE_FLOAT                double
+#include "io1.def"
+
 void restart_load_balance( char *grid_filename, char *particle_header_filename, char *particle_data ) {
-	int i, j;
-	int index;
-	int coords[nDim];
-	int page;
-	int num_read;
-	float *cell_work;	
-	int *constrained_quantities;
-
-#ifdef PARTICLES
-	int num_parts_per_page;
-	int num_parts_in_page;
-	int num_pages;
-	particle_float *x, *y, *z;
-	particle_float *input_page;
-	particle_header header;
-#endif /* PARTICLES */
-
-	FILE *input;
-	int endian, nbody_flag;
-	int grid_change_flag;
-	int size, value;
-	int *cellrefined;
-	double rfact;
-	double grid_shift;
-	char filename[256];
-	
-	if ( num_procs == 1 ) {
-		proc_sfc_index[0] = 0;
-		proc_sfc_index[1] = num_root_cells;
-		init_tree();
-		return;
-	}
-
-	if ( local_proc_id == MASTER_NODE ) {
-		/* do load balancing */
-		constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
-		cell_work = cart_alloc(float, num_root_cells );
-
-		for ( i = 0; i < num_root_cells; i++ ) {
-			cell_work[i] = 0.0;
-		}
-
-		for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
-			constrained_quantities[i] = 0;
-		}
-
-		/* load particle work information */
-#ifdef PARTICLES
-		if ( particle_header_filename != NULL ) {
-			read_particle_header( particle_header_filename, &header, &endian, &nbody_flag );
-
-			num_particles_total = header.num[ header.Nspecies - 1 ];
-			num_parts_per_page = header.Nrow*header.Nrow;
-			num_pages = (num_particles_total-1) / num_parts_per_page + 1;
-
-			cart_debug("num_parts_per_page = %d", num_parts_per_page );
-			cart_debug("num_particles_total = %d", num_particles_total );
-			cart_debug("num_pages = %d", num_pages );
-	
-			if ( nbody_flag ) {
-				grid_shift = 1.5;
-			} else {
-				grid_shift = 1.0;
-			}
-
-			if ( header.Ngrid != num_grid ) {
-				rfact = (float)num_grid / (float)header.Ngrid;
-				grid_change_flag = 1;
-			} else {
-				grid_change_flag = 0;
-			}
-
-			input_page = cart_alloc(particle_float, nDim*num_parts_per_page );
-
-			x = input_page;
-			y = &input_page[num_parts_per_page];
-			z = &input_page[2*num_parts_per_page];
-
-			input = fopen( particle_data, "r" );
-			if ( input == NULL ) {
-				cart_error( "Unable to load particle data file!\n");
-			}
-
-			for ( page = 0; page < num_pages; page++ ) {
-				if ( page == num_pages - 1 ) {
-					num_parts_in_page = num_particles_total - 
-							num_parts_per_page*(num_pages-1);
-				} else {
-					num_parts_in_page = num_parts_per_page;
-				}
-
-				num_read = fread( input_page, sizeof(particle_float), 
-							nDim*num_parts_per_page, input );
-
-				if ( num_read != nDim*num_parts_per_page ) {
-					cart_error("Error reading from particle file %s: insufficient data", particle_data );
-				}
-
-				if ( endian ) {
-					for ( j = 0; j < num_parts_in_page; j++ ) {
-						reorder( (char *)&x[j], sizeof(particle_float) );
-						reorder( (char *)&y[j], sizeof(particle_float) );
-						reorder( (char *)&z[j], sizeof(particle_float) );
-					}
-				}
-
-				for ( j = 0; j < num_parts_in_page; j++ ) {
-					x[j] -= grid_shift;
-					y[j] -= grid_shift;
-					z[j] -= grid_shift;
-
-					if ( grid_change_flag ) {
-						x[j] *= rfact;
-						y[j] *= rfact;
-						z[j] *= rfact;
-					}
-
-					/* enforce periodic boundary conditions */
-					if ( x[j] < 0.0 ) {
-						x[j] += (double)num_grid;
-					} else if ( x[j] >= (double)num_grid ) {
-						x[j] -= (double)num_grid;
-					}
-
-					if ( y[j] < 0.0 ) {
-						y[j] += (double)num_grid;
-					} else if ( y[j] >= (double)num_grid ) {
-						y[j] -= (double)num_grid;
-					}
-
-					if ( z[j] < 0.0 ) {
-						z[j] += (double)num_grid;
-					} else if ( z[j] >= (double)num_grid ) {
-						z[j] -= (double)num_grid;
-					}
-
-					coords[0] = (int)(x[j]);
-					coords[1] = (int)(y[j]);
-					coords[2] = (int)(z[j]);
-
-					index = sfc_index( coords );
-					cart_assert( index >= 0 && index < num_root_cells );
-
-					constrained_quantities[num_constraints*index+1]++;
-					cell_work[index] += cost_per_particle;
-				}
-
-				fseek( input, nDim*num_parts_per_page*sizeof(particle_float), SEEK_CUR );
-			}
-
-			cart_free( input_page );
-			fclose(input);
-		}
-#endif /* PARTICLES */
-
-		if ( grid_filename != NULL ) {
-			index = 0;
-			for ( i = 0; i < num_output_files; i++ ) {
-				if ( num_output_files == 1 ) {
-					sprintf( filename, "%s", grid_filename );
-				} else {
-					sprintf( filename, "%s.%03u", grid_filename, i );
-				}
-
-				input = fopen( filename, "r" );
-				if ( input == NULL ) {
-					cart_error( "Unable to open file %s for reading!", filename );
-				}
-
-				if ( i == 0 ) {
-					/* skip over header information */
-					fread( &size, sizeof(int), 1, input );
-					endian = 0;
-					if ( size != 256 ) {
-						reorder( (char *)&size, sizeof(int) );
-						if ( size != 256 ) {
-							cart_error("Error: file %s is corrupted", filename );
-						} else {
-							endian = 1;
-						}
-					}
-
-					fseek( input, 256*sizeof(char)+sizeof(int), SEEK_CUR );
-
-					value = 0;
-					while ( value != num_root_cells ) {
-						fread( &size, sizeof(int), 1, input );
-
-						if ( endian ) {
-							reorder( (char *)&size, sizeof(int) );
-						}
-
-						if ( size == sizeof(int) ) {
-							fread( &value, sizeof(int), 1, input );
-
-							if ( endian ) {
-								reorder( (char *)&value, sizeof(int) );
-							}
-						} else {
-							fseek( input, size, SEEK_CUR );
-						}
-
-						fread( &size, sizeof(int), 1, input );
-					}
-				}
-
-				/* read cellrefined */
-				fread( &size, sizeof(int), 1, input );
-			
-				if ( endian ) {
-					reorder( (char *)&size, sizeof(int) );
-				}
-
-				size /= sizeof(int);
-				cellrefined = cart_alloc(int, size );
-				fread( cellrefined, sizeof(int), size, input );
-
-				fclose(input);
-
-				if ( endian ) {
-					for ( j = 0; j < size; j++ ) {
-						reorder( (char *)&cellrefined[j], sizeof(int) );
-					}
-				}
-
-				for ( j = 0; j < size; j++ ) {
-					constrained_quantities[num_constraints*index] += cellrefined[j];
-					cell_work[index] += cost_per_cell*cellrefined[j];
-					index++;
-				}
-
-				cart_free( cellrefined );
-			}
-		} else {
-			for ( index = 0; index < num_root_cells; index++ ) {
-				constrained_quantities[num_constraints*index] = 1;
-				cell_work[index] += cost_per_cell;
-			}
-		}	
-
-		cart_debug("load balancing before i/o");
-		load_balance_entire_volume( cell_work, constrained_quantities, proc_sfc_index );
-
-		cart_free( cell_work );
-		cart_free( constrained_quantities );
-	}
-
-	/* let all other processors know what their new workload is */
-	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	init_tree();
+  switch(read_particles_mode)
+    {
+    case 0:
+    case 1:
+    case -1:
+      {
+	restart_load_balanceP2(grid_filename,particle_header_filename,particle_data);
+	break;
+      }
+    case 2:
+    case -2:
+      {
+	restart_load_balanceP1(grid_filename,particle_header_filename,particle_data);
+	break;
+      }
+    default:
+      {
+	cart_error("Invalid read_particles_mode=%d",read_particles_mode);
+      }
+    }
 }
 
 #ifdef PARTICLES
@@ -1046,9 +824,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 	int processor_heap[MAX_PROCS];
 	int *particle_order;
 	int *page_ids[MAX_PROCS];
-	particle_float *page[MAX_PROCS];
-	particle_float *output_page;
-	float *timestep_page[MAX_PROCS];
+	double *page[MAX_PROCS];
+	double *output_page;
+	double *times_page[MAX_PROCS];
+	double *output_times;
 	int count[MAX_PROCS];
 	int pos[MAX_PROCS];
 	int pages[MAX_PROCS];
@@ -1060,7 +839,6 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 	int size;
 	FILE *output;
 	FILE *timestep_output;
-	float *output_times;
 	particle_header header;
 	MPI_Status status;
 	int left, right, root, smallest;
@@ -1174,24 +952,24 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				cart_error("Unable to open %s for writing.", timestep_filename );
 			}
 
-			size = num_particles_total * sizeof(float);
+			size = num_particles_total * sizeof(double);
 			fwrite( &size, sizeof(int), 1, timestep_output );
 
-			output_times = cart_alloc(float, num_parts_per_page );
+			output_times = cart_alloc(double, num_parts_per_page );
 
 			for ( i = 1; i < num_procs; i++ ) {
-			        timestep_page[i] = cart_alloc(float, num_parts_per_proc_page );
+			        times_page[i] = cart_alloc(double, num_parts_per_proc_page );
 			}
 		}
 
 		/* allocate space to receive pages of particles from other procs */
 		for ( i = 1; i < num_procs; i++ ) {
-			page[i] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
+			page[i] = cart_alloc(double, 2*nDim*num_parts_per_proc_page );
 			page_ids[i] = cart_alloc(int, num_parts_per_proc_page );
 		}
 
 		/* allocate actual page which will be written */
-		output_page = cart_alloc(particle_float, 2*nDim*num_parts_per_page );
+		output_page = cart_alloc(double, 2*nDim*num_parts_per_page );
 
 		processor_heap[0] = MASTER_NODE;
 		page_ids[0] = cart_alloc(int, 1 );
@@ -1206,10 +984,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		for ( i = 1; i < num_procs; i++ ) {
 			MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, i, 0, MPI_COMM_WORLD, &status );
 			MPI_Get_count( &status, MPI_INT, &count[i] );
-			MPI_Recv( page[i], 2*nDim*num_parts_per_proc_page, MPI_PARTICLE_FLOAT, i, 0, MPI_COMM_WORLD, &status );
+			MPI_Recv( page[i], 2*nDim*num_parts_per_proc_page, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &status );
 			
 			if ( timestep_filename != NULL ) {
-				MPI_Recv( timestep_page[i], num_parts_per_proc_page, MPI_FLOAT, i, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( times_page[i], num_parts_per_proc_page, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &status );
 			}
 
 			pos[i] = 0;
@@ -1317,7 +1095,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 						output_page[5*num_parts_per_page+num_parts] = 	page[proc][2*nDim*pos[proc]+5];
 
 						if ( timestep_filename != NULL ) {
-							output_times[num_parts] = timestep_page[proc][pos[proc]];
+							output_times[num_parts] = times_page[proc][pos[proc]];
 						}
 
 						num_parts++;
@@ -1331,11 +1109,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 									proc, pages[proc], MPI_COMM_WORLD, &status );
 								MPI_Get_count( &status, MPI_INT, &count[proc] );
 								MPI_Recv( page[proc], 2*nDim*num_parts_per_proc_page, 
-									MPI_PARTICLE_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+									MPI_DOUBLE, proc, pages[proc], MPI_COMM_WORLD, &status );
 
 								if ( timestep_filename != NULL ) {
-									MPI_Recv( timestep_page[proc], num_parts_per_proc_page,
-											MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+									MPI_Recv( times_page[proc], num_parts_per_proc_page,
+											MPI_DOUBLE, proc, pages[proc], MPI_COMM_WORLD, &status );
 								}
 
 								pos[proc] = 0;
@@ -1397,11 +1175,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			cart_assert( num_parts == num_parts_in_page );
 
 			/* write page */
-			fwrite( output_page, sizeof(particle_float), 2*nDim*num_parts_per_page, output );
+			fwrite( output_page, sizeof(double), 2*nDim*num_parts_per_page, output );
 
 			/* write particle timesteps */
 			if ( timestep_filename != NULL ) {
-				fwrite( output_times, sizeof(float), num_parts_per_page, timestep_output );
+				fwrite( output_times, sizeof(double), num_parts_per_page, timestep_output );
 			}
 		}
 
@@ -1409,14 +1187,14 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		cart_free( output_page );
 
 		if ( timestep_filename != NULL ) {
-			size = num_particles_total * sizeof(float);
+			size = num_particles_total * sizeof(double);
                         fwrite( &size, sizeof(int), 1, timestep_output );
 
 			fclose( timestep_output );
 			cart_free( output_times );
 
 			for ( i = 1; i < num_procs; i++ ) {
-				cart_free( timestep_page[i] );
+				cart_free( times_page[i] );
 			}
 		}
 
@@ -2381,12 +2159,12 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			cart_free( page_ids[i] );
 		}
 	} else {
-		page[local_proc_id] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
+		page[local_proc_id] = cart_alloc(double, 2*nDim*num_parts_per_proc_page );
 		page_ids[local_proc_id] = cart_alloc(int, num_parts_per_proc_page );
 		pages[local_proc_id] = 0;
 
 		if ( timestep_filename != NULL ) {
-		        timestep_page[local_proc_id] = cart_alloc(float, num_parts_per_proc_page );
+		        times_page[local_proc_id] = cart_alloc(double, num_parts_per_proc_page );
 		}	
 
 		num_parts = 0;
@@ -2403,7 +2181,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				page[local_proc_id][local_count++] = particle_v[particle_order[num_parts]][2];
 
 				if ( timestep_filename != NULL ) {
-					timestep_page[local_proc_id][i] = particle_dt[particle_order[num_parts]];
+					times_page[local_proc_id][i] = particle_dt[particle_order[num_parts]];
 				}
 
 				num_parts++;
@@ -2411,10 +2189,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 
 			/* send the page */
 			MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
-			MPI_Send( page[local_proc_id], local_count, MPI_PARTICLE_FLOAT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+			MPI_Send( page[local_proc_id], local_count, MPI_DOUBLE, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
 
 			if ( timestep_filename != NULL ) {
-				MPI_Send( timestep_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( times_page[local_proc_id], i, MPI_DOUBLE, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
 			}
 
 			pages[local_proc_id]++;
@@ -2423,7 +2201,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		cart_free( page[local_proc_id] );
 
 		if ( timestep_filename != NULL ) {
-			cart_free( timestep_page[local_proc_id] );
+			cart_free( times_page[local_proc_id] );
 		}
 
 #ifdef STARFORM
@@ -2681,844 +2459,63 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 	  }
 }
 
+
+/*
+//  Create multiple versions of read_particles using
+//  C-style templates
+*/
+#define FUNCTION                      read_particlesP1T1
+#define PARTICLE_FLOAT                float
+#define MPI_PARTICLE_FLOAT            MPI_FLOAT
+#define PARTICLE_TIMES_FLOAT          float
+#define MPI_PARTICLE_TIMES_FLOAT      MPI_FLOAT
+#include "io2.def"
+
+#define FUNCTION                      read_particlesP2T1
+#define PARTICLE_FLOAT                double
+#define MPI_PARTICLE_FLOAT            MPI_DOUBLE
+#define PARTICLE_TIMES_FLOAT          float
+#define MPI_PARTICLE_TIMES_FLOAT      MPI_FLOAT
+#include "io2.def"
+
+#define FUNCTION                      read_particlesP2T2
+#define PARTICLE_FLOAT                double
+#define MPI_PARTICLE_FLOAT            MPI_DOUBLE
+#define PARTICLE_TIMES_FLOAT          double
+#define MPI_PARTICLE_TIMES_FLOAT      MPI_DOUBLE
+#include "io2.def"
+
 void read_particles( char *header_filename, char *data_filename, 
 			char *timestep_filename, char *stellar_filename,
 			int num_sfcs, int *sfc_list ) {
-	int i, j;
-	int proc;
-	int *page_ids[MAX_PROCS];
-	particle_float *page[MAX_PROCS];
-	particle_float *input_page, *x, *y, *z, *vx, *vy, *vz;
-	float *timestep_page[MAX_PROCS];
-	float *pdt;
-	double dt;
-	int ipart;
-	int sfc;
-	int num_read;
-	int count[MAX_PROCS];
-	int coords[nDim];
-	int num_parts_in_page, num_parts_per_page;
-	int num_parts_per_proc_page;
-	int num_pages, index;
-	int current_page[MAX_PROCS];
-	int current_id, current_type;
-	int size, endian, dt_endian, stellar_endian;
-	int *sfc_map;
-	FILE *input;
-	FILE *timestep_input;
-	particle_header header;
-	int nbody_flag;
-	int grid_change_flag;
-	float rfact, vfact;
-	float grid_shift;
-	MPI_Status status;
-
-#ifdef COSMOLOGY
-	struct CosmologyParameters temp_cosmo;
-#endif /* COSMOLOGY */
-
-#ifdef STARFORM
-	FILE *stellar_input;
-	int num_stars;
-	double st, sa;
-	int first_star, first_star_index, num_stars_to_read;
-	long seek_amount, var_first;
-	float *pw, *pw0, *tbirth, *zstII, *zstIa;
-	float *star_page[MAX_PROCS];
-	int num_star_vars[MAX_PROCS];
-#ifdef ENRICH
-#ifdef ENRICH_SNIa
-	#define num_star_variables	5
-#else
-	#define num_star_variables	4
-#endif /* ENRICH_SNIa */
-#else
-	#define num_star_variables	3
-#endif /* ENRICH */
-#endif /* STARFORM */
-
-	if ( local_proc_id == MASTER_NODE ) {
-		read_particle_header( header_filename, &header, &endian, &nbody_flag );
-
-		cart_debug("auni  = %e", header.aunin );
-		cart_debug("auni0 = %e", header.auni0 );
-		cart_debug("amplt = %e", header.amplt );
-		cart_debug("astep = %e", header.astep );
-		cart_debug("istep = %u", header.istep );
-		cart_debug("Ngrid = %u", header.Ngrid );
-		cart_debug("Nrow = %u", header.Nrow );
-		cart_debug("Nspecies = %u", header.Nspecies );
-		cart_debug("OmegaM = %e", header.OmM0 );
-		cart_debug("OmegaL = %e", header.OmL0 );
-		cart_debug("hubble = %e", header.h100 );
-		cart_debug("OmegaB = %e", header.OmB0 );
-
-		cart_debug("DelDC = %e", header.DelDC );
-
-#ifdef COSMOLOGY
-		cart_debug("abox  = %e", header.abox );
-
-		/* set cosmology & units */
-		cosmology_set(OmegaM,header.OmM0);
-		cosmology_set(OmegaL,header.OmL0);
-		cosmology_set(OmegaB,header.OmB0);
-		cosmology_set(h,header.h100);
-		cosmology_set(DeltaDC,header.DelDC);
-
-		/* NG: trust only the global scale factor */
-		auni[min_level]	= header.aunin;
-		auni_init	= header.auni0;
-
-		tl[min_level]  = tcode_from_auni(auni[min_level]);
-		abox[min_level] = abox_from_auni(auni[min_level]);
-		abox_old[min_level] = abox[min_level] - header.astep;
-
-		if ( header.astep > 0.0 ) {
-			dt = tl[min_level] - tcode_from_abox(abox[min_level]-header.astep);
-		} else {
-			dt = 0.0;
-		}
-
-#else
-
-		cart_debug("tl    = %e", header.abox );
-
-		tl[min_level]  = header.abox;
-		dt = 0.0;
-
-		if(header.h100 > 0.0) /* legacy units */
-		  {
-		    units_set_art(header.OmM0,header.h100,box_size);
-		  }
-		else
-		  {
-		    units_set(header.OmM0,header.OmB0,header.OmL0);
-		  }
-
-#endif /* COSMOLOGY */
-
-		step		= header.istep;
-		num_row		= header.Nrow;
-	
-		if ( nbody_flag ) {
-			vfact = 2.0/sqrt(header.OmM0);
-			grid_shift = 1.5;
-		} else {
-			vfact = 1.0;
-			grid_shift = 1.0;
-		}
-	
-		/* only root node needs to keep energy conservation variables */
-		tintg		= header.tintg;
-		ekin		= header.ekin;
-		ekin1		= header.ekin1;
-		ekin2		= header.ekin2;
-		au0			= header.au0;
-		aeu0		= header.aeu0;
-
-#ifdef COSMOLOGY
-		ap0         = abox_from_tcode( tl[min_level] - 0.5*dt );
-#else
-		ap0         = 1.0;
-#endif
-
-#ifndef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
-		if ( header.Ngrid != num_grid ) {
-			cart_debug( "Mismatch between particle file num_grid and compiled value!" );
-
-			rfact = (float)num_grid / (float)header.Ngrid;
-			vfact *= rfact;
-			grid_change_flag = 1;
-
-			for ( i = 0; i < header.Nspecies; i++ ) {
-				header.mass[i] *= rfact*rfact*rfact;
-			}
-		} else
-#endif
-		{
-			grid_change_flag = 0;
-		}
-
-		if ( header.Nspecies > MAX_PARTICLE_SPECIES ) {
-			cart_error( "header.Nspecies > MAX_PARTICLE_SPECIES.  Increase and rerun.");
-		}
-
-		cart_debug("Particle unit conversions:");
-		cart_debug("grid_shift = %f", grid_shift );
-
-		if ( grid_change_flag ) {
-			cart_debug("grid_change_flag = %f", grid_change_flag );
-		}
-
-		if ( nbody_flag || grid_change_flag ) {
-			cart_debug("vfact = %e", vfact );
-		}
-				
-		num_particle_species = header.Nspecies;
-	
-		particle_species_indices[0] = 0;
-		for ( i = 0; i < num_particle_species; i++ ) {
-			particle_species_mass[i] = header.mass[i];
-			particle_species_indices[i+1] = header.num[i];
-			particle_species_num[i] = particle_species_indices[i+1] - particle_species_indices[i];
-
-			cart_debug("particle_species_mass[%u] = %e", i, particle_species_mass[i] );
-			cart_debug("particle_species_num[%u] = %u", i, particle_species_num[i] );
-		}
-
-		for ( i = 0; i <= num_particle_species; i++ ) {
-			cart_debug("particle_species_indices[%u] = %d", i, particle_species_indices[i] );
-		}
-
-		num_particles_total = particle_species_indices[num_particle_species];
-		cart_debug("num_particles_total = %u", num_particles_total );
-
-		num_parts_per_page = header.Nrow*header.Nrow;
-		num_parts_per_proc_page = num_parts_per_page/num_procs;
-		num_pages = (num_particles_total-1) / num_parts_per_page + 1;
-
-		cart_assert( num_pages > 0 && num_parts_per_page*num_pages >= num_particles_total );
-
-#ifdef STARFORM
-		if ( stellar_filename == NULL ) {
-			/* ICs don't include stars, initialize species to 0 */
-			if ( num_particle_species+1 > MAX_PARTICLE_SPECIES ) {
-				cart_error("header.Nspecies > MAX_PARTICLE_SPECIES.  Increase and rerun.");
-			}
-			particle_species_indices[num_particle_species+1] = particle_species_indices[num_particle_species];
-			particle_species_num[num_particle_species] = 0;
-			particle_species_mass[num_particle_species] = 0.0;
-			num_particle_species++;
-
-			total_stellar_mass = 0.0;
-			total_stellar_initial_mass = 0.0;
-		} else {
-			stellar_input = fopen( stellar_filename, "r" );
-			if ( stellar_input == NULL ) {
-				cart_error("Unable to open file %s for reading.", stellar_filename );
-			}
-
-			/* read in header */
-			fread( &size, sizeof(int), 1, stellar_input );
-			if ( size != 2*sizeof(double) ) {
-				reorder( (char *)&size, sizeof(int) );
-
-				if ( size != 2*sizeof(double) ) {
-					cart_error("Error reading from %s.", stellar_filename );
-				}
-
-				stellar_endian = 1;
-			} else {
-				stellar_endian = 0;
-			}
-
-			fread( &st, sizeof(double), 1, stellar_input );
-			fread( &sa, sizeof(double), 1, stellar_input );
-			fread( &size, sizeof(int), 1, stellar_input );
-
-			fread( &size, sizeof(int), 1, stellar_input );
-			fread( &num_stars, sizeof(int), 1, stellar_input );
-			fread( &size, sizeof(int), 1, stellar_input );
-
-			if ( stellar_endian ) {
-				reorder( (char *)&num_stars, sizeof(int) );
-			}
-
-			if ( num_stars != particle_species_num[num_particle_species-1] ) {
-				cart_error("num_stars in %s doesn't match last particle specie.", stellar_filename );
-			}
-
-			fread( &size, sizeof(int), 1, stellar_input );
-			fread( &total_stellar_mass, sizeof(double), 1, stellar_input );
-			fread( &total_stellar_initial_mass, sizeof(double), 1, stellar_input );
-			fread( &size, sizeof(int), 1, stellar_input );
-
-			if ( stellar_endian ) {
-				reorder( (char *)&total_stellar_mass, sizeof(double) );
-				reorder( (char *)&total_stellar_initial_mass, sizeof(double) );
-			}
-
-			pw = cart_alloc(float, num_parts_per_page );
-			pw0 = cart_alloc(float, num_parts_per_page );
-			tbirth = cart_alloc(float, num_parts_per_page );
-
-#ifdef ENRICH
-			zstII = cart_alloc(float, num_parts_per_page );
-#ifdef ENRICH_SNIa
-			zstIa = cart_alloc(float, num_parts_per_page );
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
-
-			/* allocate buffer space for particles on other processors */
-			for ( i = 1; i < num_procs; i++ ) {
-				star_page[i] = cart_alloc(float, num_star_variables*num_parts_per_proc_page );
-				num_star_vars[i] = 0;
-			}
-		}
-#endif /* STARFORM */
-
-#ifdef COSMOLOGY
-		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
-#endif /* COSMOLOGY */
-
-		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-
-		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-
-		if ( num_sfcs > 0 ) {
-			/* create hash for quick checking if we should read in particles */
-			sfc_map = cart_alloc(int, num_root_cells );
-
-			for ( i = 0; i < num_root_cells; i++ ) {
-				sfc_map[i] = 0;
-			}
-
-			for ( sfc = 0; sfc < num_sfcs; sfc++ ) {
-				sfc_map[ sfc_list[sfc] ] = 1;
-			}
-		}
-
-		input_page = cart_alloc(particle_float, 2*nDim*num_parts_per_page );
-
-		x = input_page;
-		y = &input_page[num_parts_per_page];
-		z = &input_page[2*num_parts_per_page];
-		vx = &input_page[3*num_parts_per_page];
-		vy = &input_page[4*num_parts_per_page];
-		vz = &input_page[5*num_parts_per_page];
-
-		/* allocate buffer space for particles on other processors */
-		for ( i = 1; i < num_procs; i++ ) {
-			page[i] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
-			page_ids[i] = cart_alloc(int, num_parts_per_proc_page );
-			count[i] = 0;
-			current_page[i] = 0;
-		}
-
-		/* start loading actual particle data */
-		input = fopen( data_filename, "r" );
-		if ( input == NULL ) {
-			cart_error( "Unable to open particle file %s for reading!", data_filename );
-		}
-
-		if ( timestep_filename != NULL ) {
-			for ( i = 1; i < num_procs; i++ ) {
-				timestep_page[i] = cart_alloc(float, num_parts_per_proc_page );
-			}
-		
-			timestep_input = fopen( timestep_filename, "r");
-			if ( timestep_input == NULL ) {
-				cart_error("Unable to open particle dt file %s for reading.", timestep_filename );
-			}
-
-			pdt = cart_alloc(float, num_parts_per_page );
-
-			fread( &size, sizeof(int), 1, timestep_input );
-
-			if ( num_particles_total > (1<<29) ) {
-				dt_endian = endian;
-			} else 	if ( size != num_particles_total * sizeof(int) ) {
-				reorder( (char *)&size, sizeof(int) );
-
-				if ( size != num_particles_total * sizeof(int) ) {
-					cart_error("Error: particle dt file %s is corrupt.", timestep_filename );
-				} else {
-					dt_endian = 1;
-				}
-			} else {
-				dt_endian = 0;
-			}
-		}
-
-		current_id = 0;
-		current_type = 0;
-
-		for ( i = 0; i < num_pages; i++ ) {
-			if ( i == num_pages - 1 ) {
-				num_parts_in_page = num_particles_total - num_parts_per_page*(num_pages-1);
-			} else {
-				num_parts_in_page = num_parts_per_page;
-			}
-
-			num_read = fread( input_page, sizeof(particle_float), 2*nDim*num_parts_per_page, input );
-			if ( num_read != 2*nDim*num_parts_per_page ) {
-				cart_error("Error reading from particle file %s: insufficient data", data_filename );
-			}
-
-			if ( endian ) {
-				for ( j = 0; j < num_parts_in_page; j++ ) {
-					reorder( (char *)&x[j], sizeof(particle_float) );
-					reorder( (char *)&y[j], sizeof(particle_float) );
-					reorder( (char *)&z[j], sizeof(particle_float) );
-					reorder( (char *)&vx[j], sizeof(particle_float) );
-					reorder( (char *)&vy[j], sizeof(particle_float) );
-					reorder( (char *)&vz[j], sizeof(particle_float) );
-				}
-			}
-
-			if ( timestep_filename != NULL ) {
-				num_read = fread( pdt, sizeof(float), num_parts_in_page, timestep_input );
-
-				if ( num_read != num_parts_in_page ) {
-					cart_error("Error: ran out of particle dt's in %s.", timestep_filename );
-				}
-
-				if ( dt_endian ) {
-					for ( j = 0; j < num_parts_in_page; j++ ) {
-						reorder( (char *)&pdt[j], sizeof(float) );
-					}
-				}
-			}
-
-#ifdef STARFORM
-			if ( stellar_filename != NULL ) {
-				/* have we reached star particles yet? */
-				if ( particle_id_is_star(current_id+num_parts_in_page-1) ) {
-					/* load page values for stars */
-					first_star = max( current_id - particle_species_indices[num_particle_species-1], 0 );
-					cart_assert( first_star >= 0 && first_star < num_stars );
-
-					first_star_index = first_star + particle_species_indices[num_particle_species-1] - current_id;
-					cart_assert( first_star_index >= 0 && first_star_index < num_parts_per_page );
-
-					num_stars_to_read = min( num_parts_in_page - first_star_index, 
-						particle_species_indices[num_particle_species] - first_star );
-
-					cart_assert( num_stars_to_read >= 0 && num_stars_to_read <= num_parts_in_page );
-
-					var_first = 2*sizeof(int) + 2*sizeof(double) +		/* t, a */
-						+ 2*sizeof(int) + sizeof(int) +			/* num_stars */
-						+ 2*sizeof(int) + 2*sizeof(double) +		/* ws_old, ws_oldi */
-						+ sizeof(int) + first_star*sizeof(float);	/* skip over first pw */
-
-					seek_amount = (num_stars - num_stars_to_read)*sizeof(float) + 2*sizeof(int);
-
-					/* weights */
-					if ( fseek( stellar_input, var_first, SEEK_SET ) ) {
-						cart_error("Error seeking to %u in file %s",
-							num_stars*sizeof(float) + sizeof(int), stellar_filename );
-					}
-
-					num_read = fread( &pw[first_star_index], sizeof(float), num_stars_to_read, stellar_input );
-					if ( num_read != num_stars_to_read ) {
-						cart_error("Error reading from stellar file %s", stellar_filename );
-					}
-
-					if ( stellar_endian ) {
-						for ( j = 0; j < num_stars_to_read; j++ ) {
-							reorder( (char *)&pw[first_star_index+j], sizeof(float) );
-						}
-					}
-					
-					/* original weights */
-					if ( fseek( stellar_input, seek_amount, SEEK_CUR ) ) {
-						cart_error("Error seeking %u bytes in file %s", seek_amount, stellar_filename );
-					}
-
-					num_read = fread( &pw0[first_star_index], sizeof(float), num_stars_to_read, stellar_input );
-					if ( num_read != num_stars_to_read ) {
-						cart_error("Error reading from stellar file %s", stellar_filename );
-					}
-
-					if ( stellar_endian ) {
-						for ( j = 0; j < num_stars_to_read; j++ ) {
-							reorder( (char *)&pw0[first_star_index+j], sizeof(float) );
-						}
-					}
-
-					/* birth times */
-					if ( fseek( stellar_input, seek_amount, SEEK_CUR ) ) {
-						cart_error("Error seeking %u bytes in file %s", seek_amount, stellar_filename );
-					}
-
-					num_read = fread( &tbirth[first_star_index], sizeof(float), num_stars_to_read, stellar_input );
-					if ( num_read != num_stars_to_read ) {
-						cart_error("Error reading from stellar file %s", stellar_filename );
-					}
-
-					if ( stellar_endian ) {
-						for ( j = 0; j < num_stars_to_read; j++ ) {
-							reorder( (char *)&tbirth[first_star_index+j], sizeof(float) );
-						}
-					}
-
-#ifdef ENRICH
-					/* metallicity */
-					if ( fseek( stellar_input, seek_amount, SEEK_CUR ) ) {
-						cart_error("Error seeking %u bytes in file %s", seek_amount, stellar_filename );
-					}
-
-					num_read = fread( &zstII[first_star_index], sizeof(float), num_stars_to_read, stellar_input );
-					if ( num_read != num_stars_to_read ) {
-						cart_error("Error reading from stellar file %s", stellar_filename );
-					}
-                                                                                                                                                            
-					if ( stellar_endian ) {
-						for ( j = 0; j < num_stars_to_read; j++ ) {
-							reorder( (char *)&zstII[first_star_index+j], sizeof(float) );
-						}
-					}
-
-#endif /* ENRICH */
-#ifdef ENRICH_SNIa
-					if ( fseek( stellar_input, seek_amount, SEEK_CUR ) ) {
-						cart_error("Error seeking %u bytes in file %s", seek_amount, stellar_filename );
-					}
-
-					num_read = fread( &zstIa[first_star_index], sizeof(float), num_stars_to_read, stellar_input );
-					if ( num_read != num_stars_to_read ) {
-						cart_error("Error reading from stellar file %s", stellar_filename );
-					}
-
-					if ( stellar_endian ) {
-						for ( j = 0; j < num_stars_to_read; j++ ) {
-							reorder( (char *)&zstIa[first_star_index+j], sizeof(float) );
-						}
-					}
-#endif /* ENRICH_SNIa */
-				}
-			}
-#endif /* STARFORM */
-
-			for ( j = 0; j < num_parts_in_page; j++ ) {
-				/* convert to our coordinates 0->num_grid */
-				x[j] -= grid_shift;
-				y[j] -= grid_shift;
-				z[j] -= grid_shift;
-
-				if ( grid_change_flag ) {
-					x[j] *= rfact;
-					y[j] *= rfact;
-					z[j] *= rfact;
-				}
-
-				if ( nbody_flag || grid_change_flag ) {
-					vx[j] *= vfact;
-					vy[j] *= vfact;
-					vz[j] *= vfact;
-				}
-				
-				/* enforce periodic boundary conditions */
-				if ( x[j] < 0.0 ) {
-					x[j] += (double)num_grid;
-				} else if ( x[j] >= (double)num_grid ) {
-					x[j] -= (double)num_grid;
-				}
-
-				if ( y[j] < 0.0 ) {
-					y[j] += (double)num_grid;
-				} else if ( y[j] >= (double)num_grid ) {
-					y[j] -= (double)num_grid;
-				}
-
-				if ( z[j] < 0.0 ) {
-					z[j] += (double)num_grid;
-				} else if ( z[j] >= (double)num_grid ) {
-					z[j] -= (double)num_grid;
-				}
-
-				coords[0] = (int)(x[j]);
-				coords[1] = (int)(y[j]);
-				coords[2] = (int)(z[j]);
-
-				index = sfc_index( coords );
-				cart_assert( index >= 0 && index < max_sfc_index );
-
-				/* check if we're supposed to read in this particle */
-				if ( num_sfcs > 0 && sfc_map[index] == 0 ) {
-					proc = -1;
-				} else if ( num_procs == 1 ) {
-					proc = MASTER_NODE;
-				} else {
-					proc = processor_owner( index );
-				}
-
-				if ( current_id >= particle_species_indices[current_type+1] ) {
-					current_type++;
-				}
-
-				if ( proc == MASTER_NODE ) {
-					ipart = particle_alloc( current_id );
-					cart_assert( ipart >= 0 && ipart < num_particles );
-
-					particle_x[ipart][0] = x[j];
-					particle_x[ipart][1] = y[j];
-					particle_x[ipart][2] = z[j];
-					particle_v[ipart][0] = vx[j];
-					particle_v[ipart][1] = vy[j];
-					particle_v[ipart][2] = vz[j];
-
-					cart_assert( particle_specie( current_id ) == current_type );
-
-					particle_t[ipart] = tl[min_level];
-					if ( timestep_filename == NULL ) {
-						particle_dt[ipart] = dt;
-					} else {
-						particle_dt[ipart] = pdt[j];
-					}
-
-#ifdef STARFORM
-					if ( stellar_filename != NULL && particle_id_is_star( current_id ) ) {
-						cart_assert( ipart >= 0 && ipart < num_star_particles );
-						cart_assert( particle_is_star(ipart) );
-
-						star_tbirth[ipart] = tbirth[j];
-						star_initial_mass[ipart] = pw0[j];
-						particle_mass[ipart] = pw[j];
-
-						cart_assert( star_initial_mass[ipart] > 0.0 );
-
-#ifdef ENRICH
-						star_metallicity_II[ipart] = zstII[j];
-#ifdef ENRICH_SNIa
-						star_metallicity_Ia[ipart] = zstIa[j];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
-					} else {
-						particle_mass[ipart] = particle_species_mass[particle_specie(current_id)];
-					}
-#else
-					particle_mass[ipart] = particle_species_mass[particle_specie(current_id)];
-#endif /* STARFORM */
-
-				} else if ( proc >= 0 && proc < num_procs ) {
-					/* add the particle to a processor page */
-					page_ids[proc][count[proc]] = current_id;
-					page[proc][2*nDim*count[proc]] = x[j];
-					page[proc][2*nDim*count[proc]+1] = y[j];
-					page[proc][2*nDim*count[proc]+2] = z[j];
-					page[proc][2*nDim*count[proc]+3] = vx[j];
-					page[proc][2*nDim*count[proc]+4] = vy[j];
-					page[proc][2*nDim*count[proc]+5] = vz[j];
-
-					if ( timestep_filename != NULL ) {
-						timestep_page[proc][count[proc]] = pdt[j];
-					}
-
-#ifdef STARFORM
-					if ( stellar_filename != NULL && particle_id_is_star( current_id ) ) {
-						star_page[proc][num_star_vars[proc]++] = pw[j];
-						star_page[proc][num_star_vars[proc]++] = pw0[j];
-						star_page[proc][num_star_vars[proc]++] = tbirth[j];
-					
-#ifdef ENRICH
-						star_page[proc][num_star_vars[proc]++] = zstII[j];
-#endif /* ENRICH */
-#ifdef ENRICH_SNIa
-						star_page[proc][num_star_vars[proc]++] = zstIa[j];
-#endif /* ENRICH_SNIa */
-					}
-#endif /* STARFORM */
-
-					count[proc]++;
-
-					if ( count[proc] == num_parts_per_proc_page ) {
-						MPI_Send( page_ids[proc], num_parts_per_proc_page, MPI_INT, proc, 
-							current_page[proc], MPI_COMM_WORLD );
-						MPI_Send( page[proc], 2*nDim*num_parts_per_proc_page, 
-							MPI_PARTICLE_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
-
-						if ( timestep_filename != NULL ) {
-							MPI_Send( timestep_page[proc], num_parts_per_proc_page,
-								MPI_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
-						}
-
-#ifdef STARFORM
-						if ( stellar_filename != NULL ) {
-							MPI_Send( star_page[proc], num_star_vars[proc],
-								MPI_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
-							num_star_vars[proc] = 0;
-						}
-#endif /* STARFORM */
-						count[proc] = 0;
-						current_page[proc]++;
-					}
-				}
-
-				current_id++;
-			}
-		}
-	
-		/* send final pages */
-		for ( proc = 1; proc < num_procs; proc++ ) {
-			MPI_Send( page_ids[proc], count[proc], MPI_INT, proc, current_page[proc], MPI_COMM_WORLD );
-			MPI_Send( page[proc], 2*nDim*count[proc], MPI_PARTICLE_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
-
-			if ( timestep_filename != NULL ) {
-				MPI_Send( timestep_page[proc], count[proc], MPI_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
-				cart_free( timestep_page[proc] );
-			}
-
-#ifdef STARFORM
-			if ( stellar_filename != NULL ) {
-				MPI_Send( star_page[proc], num_star_vars[proc], MPI_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
-				cart_free( star_page[proc] );
-			}
-#endif /* STARFORM */
-
-			cart_free( page_ids[proc] );
-			cart_free( page[proc] );
-		}
-
-#ifdef STARFORM
-		if ( stellar_filename != NULL ) {
-#ifdef ENRICH_SNIa
-			cart_free( zstIa );
-#endif /* ENRICH_SNIa */
-#ifdef ENRICH
-			cart_free( zstII );
-#endif /* ENRICH */
-
-			cart_free( tbirth );
-			cart_free( pw0 );
-			cart_free( pw );
-		}
-#endif /* STARFORM */
-
-		cart_free( input_page );
-
-		fclose(input);
-
-		if ( num_sfcs > 0 ) {
-			cart_free( sfc_map );
-		}
-	} else {
-#ifdef COSMOLOGY
-		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
-		cosmology_copy(&temp_cosmo);
-#endif /* COSMOLOGY */
-
-		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-
-		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-
-		current_page[local_proc_id] = 0;
-
-		page_ids[local_proc_id] = cart_alloc(int, num_parts_per_proc_page );
-		page[local_proc_id] = cart_alloc(particle_float, 2*nDim*num_parts_per_proc_page );
-
-		if ( timestep_filename != NULL ) {
-			timestep_page[local_proc_id] = cart_alloc(float, num_parts_per_proc_page );
-		}
-
-#ifdef STARFORM
-		if ( stellar_filename != NULL ) {
-			star_page[local_proc_id] = cart_alloc(float, num_star_variables*num_parts_per_proc_page );
-		}
-#endif /* STARFORM */
-
-		count[local_proc_id] = num_parts_per_proc_page;
-		while ( count[local_proc_id] == num_parts_per_proc_page ) {
-			MPI_Recv( page_ids[local_proc_id], num_parts_per_proc_page, MPI_INT, 
-				MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
-			MPI_Get_count( &status, MPI_INT, &count[local_proc_id] );
-
-			MPI_Recv( page[local_proc_id], 2*nDim*num_parts_per_proc_page, 
-				MPI_PARTICLE_FLOAT, MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
-
-			if ( timestep_filename != NULL ) {
-				MPI_Recv( timestep_page[local_proc_id], num_parts_per_proc_page,
-					MPI_FLOAT, MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
-			}
-
-#ifdef STARFORM
-			if ( stellar_filename != NULL ) {
-				MPI_Recv( star_page[local_proc_id], num_star_variables*num_parts_per_proc_page,
-					MPI_FLOAT, MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
-				num_star_vars[local_proc_id] = 0;
-			}
-#endif /* STARFORM */
-			current_page[local_proc_id]++;
-
-			for ( i = 0; i < count[local_proc_id]; i++ ) {
-				ipart = particle_alloc( page_ids[local_proc_id][i] );
-				cart_assert( ipart >= 0 && ipart < num_particles );
-
-				particle_x[ipart][0] = page[local_proc_id][2*nDim*i];
-				particle_x[ipart][1] = page[local_proc_id][2*nDim*i+1];
-				particle_x[ipart][2] = page[local_proc_id][2*nDim*i+2];
-				particle_v[ipart][0] = page[local_proc_id][2*nDim*i+3];
-				particle_v[ipart][1] = page[local_proc_id][2*nDim*i+4];
-				particle_v[ipart][2] = page[local_proc_id][2*nDim*i+5];
-
-				particle_t[ipart] = tl[min_level];
-
-				if ( timestep_filename == NULL ) {
-					particle_dt[ipart] = dt;
-				} else {
-					particle_dt[ipart] = timestep_page[local_proc_id][i];
-				}
-
-#ifdef STARFORM
-				if ( particle_id_is_star( particle_id[ipart] ) ) {
-					cart_assert( ipart >= 0 && ipart < num_star_particles );
-					cart_assert( particle_is_star(ipart) );
-
-					particle_mass[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
-					star_initial_mass[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
-					star_tbirth[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
-
-#ifdef ENRICH
-					star_metallicity_II[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
-#endif /* ENRICH */
-#ifdef ENRICH_SNIa
-					star_metallicity_Ia[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
-#endif /* ENRICH_SNIa */
-				} else {
-					particle_mass[ipart] = particle_species_mass[particle_specie(particle_id[ipart])];
-				}
-#else
-				particle_mass[ipart] = particle_species_mass[particle_specie(particle_id[ipart])];
-#endif /* STARFORM */
-			}
-		}
-
-#ifdef STARFORM
-		if ( stellar_filename != NULL ) {
-			cart_free( star_page[local_proc_id] );
-		}
-#endif /* STARFORM */
-
-		if ( timestep_filename != NULL ) {
-			cart_free( timestep_page[local_proc_id] );
-		}
-
-		cart_free( page[local_proc_id] );
-		cart_free( page_ids[local_proc_id] );
-	}
-
-	cart_debug("num_local_particles = %u", num_local_particles );
-	cart_assert(num_local_particles >= 0 );
-	build_particle_list();
+  switch(read_particles_mode)
+    {
+    case 0:
+      {
+	read_particlesP2T2(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	break;
+      }
+    case 1:
+    case -1:
+      {
+	read_particlesP2T1(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	break;
+      }
+    case 2:
+    case -2:
+      {
+	read_particlesP1T1(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	break;
+      }
+    default:
+      {
+	cart_error("Invalid read_particles_mode=%d",read_particles_mode);
+      }
+    }
+  if(read_particles_mode > 0) read_particles_mode = 0; /* Auto-reset */
 }
-
 #endif /* PARTICLES */
+
 
 #ifdef HYDRO
 
@@ -4955,8 +3952,8 @@ void write_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *ou
 
 
 /* two helpers */
-void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, long *proc_cell_index, int *file_sfc_index);
-void read_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level);
+void read_grid_binary_top_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, long *proc_cell_index, int *file_sfc_index);
+void read_grid_binary_lower_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level);
 
 
 void read_grid_binary( char *filename ) {
@@ -5014,6 +4011,7 @@ void read_grid_binary( char *filename ) {
 	int hydro_vars[num_hydro_vars+1];
 	int num_other_vars = 0;
 	int *other_vars = 0;
+	int num_in_hydro_vars, num_in_other_vars;
 #ifdef RADIATIVE_TRANSFER
 	int rt_var_offset = 0;
 #endif
@@ -5064,6 +4062,35 @@ void read_grid_binary( char *filename ) {
 	for(j=0; j<rt_num_disk_vars; j++) other_vars[rt_var_offset+j] = rt_disk_offset + j; 
 #endif
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
+
+	switch(read_grid_mode)
+	  {
+	  case  0:
+	    {
+	      num_in_hydro_vars = num_hydro_vars;
+	      num_in_other_vars = num_other_vars;
+	      break;
+	    }
+	  case  1:
+	  case -1:
+	    {
+	      num_in_hydro_vars = num_hydro_vars + 6;
+	      num_in_other_vars = num_other_vars + 6;
+	      break;
+	    }
+	  case  2:
+	  case -2:
+	    {
+	      num_in_hydro_vars = num_hydro_vars + 6;
+	      num_in_other_vars = num_other_vars + 8;
+	      break;
+	    }
+	  default:
+	    {
+	      cart_error("Invalid read_grid_mode=%d in a call to  read_grid_binary",read_grid_mode);
+	    }
+	  }
+	if(read_grid_mode > 0) read_grid_mode = 0; /* Auto-reset */
 
 	cart_assert( num_output_files >= 1 && num_output_files <= num_procs );
 
@@ -5287,7 +4314,7 @@ void read_grid_binary( char *filename ) {
 		}
 
 		if ( sfc_order != SFC ) {
-			cart_error("File has different sfc indexing than program");
+			cart_error("File has different sfc indexing (%d) than program (%d)",sfc_order,SFC);
 		}
 
 		/* refinement volume */
@@ -5517,10 +4544,10 @@ void read_grid_binary( char *filename ) {
 
 	cart_free( cellrefined[local_proc_id] );
 
-	read_grid_binary_top_level_vars(num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
+	read_grid_binary_top_level_vars(num_in_hydro_vars,num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-	read_grid_binary_top_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,
+	read_grid_binary_top_level_vars(num_in_other_vars,num_other_vars,other_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
@@ -5799,12 +4826,12 @@ void read_grid_binary( char *filename ) {
 
 		cart_assert( count == next_level_count );
 
-		read_grid_binary_lower_level_vars(num_hydro_vars,hydro_vars,input,endian,file_parent,
+		read_grid_binary_lower_level_vars(num_in_hydro_vars,num_hydro_vars,hydro_vars,input,endian,file_parent,
 					file_index,total_cells,page_size,proc_num_cells,level,first_page_count,
 					proc_first_index,proc_cell_index,current_level);
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-		read_grid_binary_lower_level_vars(num_other_vars,other_vars,input,endian,file_parent,file_index,
+		read_grid_binary_lower_level_vars(num_in_other_vars,num_other_vars,other_vars,input,endian,file_parent,file_index,
 					total_cells,page_size,proc_num_cells,level,first_page_count,proc_first_index,
 					proc_cell_index,current_level);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
@@ -5827,12 +4854,12 @@ void read_grid_binary( char *filename ) {
 }
 
 
-void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input, int endian, 
+void read_grid_binary_top_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, 
 		int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, 
 		long *proc_cell_index, int *file_sfc_index) {
-	int i, m;
+	int i, j, m;
 	int size;
-	float *cellvars[MAX_PROCS], *cellvars_buffer;
+	float *cellvars[MAX_PROCS], *cellvars_buffer, *cellvars_read_buffer;
 	int num_requests, num_send_requests;
 	int proc;
 	int proc_cur_cells[MAX_PROCS];
@@ -5847,10 +4874,12 @@ void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input
 	MPI_Request send_requests[MAX_PROCS];
 
 	if(num_out_vars < 1) return;
+	cart_assert(num_in_vars >= num_out_vars);
 
 	if ( local_proc_id == file_parent ) {
 		fread( &size, sizeof(int), 1, input );
 		cellvars_buffer = cart_alloc(float, num_out_vars*min( local_file_root_cells, page_size ) );
+		cellvars_read_buffer = cart_alloc(float, num_in_vars*min( local_file_root_cells, page_size ) );
 	}
 
 	num_requests = 0;
@@ -5884,12 +4913,20 @@ void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input
 		if ( local_proc_id == file_parent && current_read_count < local_file_root_cells && ready_to_read ) {
 			/* read in a page */
 			page_count = min( page_size, local_file_root_cells - current_read_count );
-			num_read = fread( cellvars_buffer, sizeof(float), num_out_vars*page_count, input );
+			num_read = fread( cellvars_read_buffer, sizeof(float), num_in_vars*page_count, input );
 
-			if ( num_read != num_out_vars*page_count ) {
-				cart_error("I/O Error in read_grid_binary: num_read = %u, num_out_vars*page_count = %u", 
-						num_read, num_out_vars*page_count );
+			if ( num_read != num_in_vars*page_count ) {
+				cart_error("I/O Error in read_grid_binary: num_read = %u, num_in_vars*page_count = %u", 
+						num_read, num_in_vars*page_count );
 			}
+
+			for(i=0; i<page_count; i++)
+			  {
+			    for(j=0; j<num_out_vars; j++)
+			      {
+				cellvars_buffer[num_out_vars*i+j] = cellvars_read_buffer[num_in_vars*i+j];
+			      }
+			  }
 
 			if ( endian ) {
 				for ( i = 0; i < num_out_vars*page_count; i++ ) {
@@ -6004,17 +5041,18 @@ void read_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *input
 			MPI_Waitall( num_send_requests, send_requests, MPI_STATUSES_IGNORE );
 		}
 
+		cart_free( cellvars_read_buffer );
 		cart_free( cellvars_buffer );
 		fread( &size, sizeof(int), 1, input );
 	}
 }
 
 
-void read_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level)
+void read_grid_binary_lower_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level)
 {
   int i, j, m;
   int size;
-  float *cellvars[MAX_PROCS], *cellvars_buffer;
+  float *cellvars[MAX_PROCS], *cellvars_buffer, *cellvars_read_buffer;
   int num_requests, num_send_requests;
   int proc;
   int proc_cur_cells[MAX_PROCS];
@@ -6030,12 +5068,13 @@ void read_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *inp
 
 
   if(num_out_vars < 1) return;
-
+  cart_assert(num_in_vars >= num_out_vars);
 
   if ( local_proc_id == file_parent )
     {
       fread( &size, sizeof(int), 1, input );
       cellvars_buffer = cart_alloc(float, num_out_vars*min( total_cells[level], page_size ) );
+      cellvars_read_buffer = cart_alloc(float, num_in_vars*min( total_cells[level], page_size ) );
     }
 	
   num_requests = 0;
@@ -6072,13 +5111,21 @@ void read_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *inp
 	{
 	  /* read in a page */
 	  page_count = min( page_size, total_cells[level] - current_read_count );
-	  num_read = fread( cellvars_buffer, sizeof(float), num_out_vars*page_count, input );
+	  num_read = fread( cellvars_read_buffer, sizeof(float), num_in_vars*page_count, input );
 	
-	  if ( num_read != num_out_vars*page_count )
+	  if ( num_read != num_in_vars*page_count )
 	    {
 	      cart_error("I/O Error in read_grid_binary: num_read = %u, num_out_vars*page_count = %u", num_read, num_out_vars*page_count );
 	    }
 	
+	  for(i=0; i<page_count; i++)
+	    {
+	      for(j=0; j<num_out_vars; j++)
+		{
+		  cellvars_buffer[num_out_vars*i+j] = cellvars_read_buffer[num_in_vars*i+j];
+		}
+	    }
+
 	  if ( endian )
 	    {
 	      for ( i = 0; i < num_out_vars*page_count; i++ )

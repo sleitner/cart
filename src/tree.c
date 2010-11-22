@@ -25,7 +25,7 @@ int oct_neighbors[num_octs][num_neighbors];
 int oct_parent_root_sfc[num_octs];
 int oct_next[num_octs];
 int oct_prev[num_octs];
-float oct_pos[num_octs][nDim];
+double oct_pos[num_octs][nDim];
 
 int all_vars[num_vars];
 #ifdef HYDRO
@@ -37,10 +37,10 @@ DEFINE_LEVEL_ARRAY(int,num_cells_per_level);
 DEFINE_LEVEL_ARRAY(int,local_oct_list);
 
 /* tables of stats for each level */
-DEFINE_LEVEL_ARRAY(float,cell_size);
-DEFINE_LEVEL_ARRAY(float,cell_size_inverse);
-DEFINE_LEVEL_ARRAY(float,cell_volume);
-DEFINE_LEVEL_ARRAY(float,cell_volume_inverse);
+DEFINE_LEVEL_ARRAY(double,cell_size);
+DEFINE_LEVEL_ARRAY(double,cell_size_inverse);
+DEFINE_LEVEL_ARRAY(double,cell_volume);
+DEFINE_LEVEL_ARRAY(double,cell_volume_inverse);
 
 /*******************************************************
  * init_tree
@@ -63,10 +63,10 @@ void init_tree()
 #endif /* HYDRO */
 
 	for ( i = min_level; i <= max_level; i++ ) {
-		cell_size_inverse[i-min_level] = (float)(1<<i);
-		cell_size[i-min_level] = 1.0 / cell_size_inverse[i-min_level];
-		cell_volume_inverse[i-min_level] = pow(2.,3*i);
-		cell_volume[i-min_level] = 1.0 / cell_volume_inverse[i-min_level];
+		cell_size_inverse[i] = (1<<i);
+		cell_size[i] = 1.0 / cell_size_inverse[i];
+		cell_volume_inverse[i] = pow(2.,3.0*i);
+		cell_volume[i] = 1.0 / cell_volume_inverse[i];
 
 		num_cells_per_level[i] = 0;
 		local_oct_list[i] = NULL_OCT;
@@ -95,14 +95,14 @@ void init_tree()
 	free_oct_list = NULL_OCT;
 }
 
-int max_level_now_global(MPI_Comm local_comm) {
+int max_level_now_global(MPI_Comm level_com) {
 	int level, max;
 
 	level = max_level_local();
 
 	start_time( COMMUNICATION_TIMER );
 	start_time( MAX_LEVEL_TIMER );
-	MPI_Allreduce( &level, &max, 1, MPI_INT, MPI_MAX, local_comm );
+	MPI_Allreduce( &level, &max, 1, MPI_INT, MPI_MAX, level_com );
 	end_time( MAX_LEVEL_TIMER );
 	end_time( COMMUNICATION_TIMER );
 
@@ -335,43 +335,9 @@ int cell_level( int c )
 }
 
 /*******************************************************
- * cell_position
+ * cell_center_position
  *******************************************************/
-void cell_position( int c, float position[nDim] ) {
-/* equivalent to iPs in fortran version 
- *
- * purpose: finds coordinates of center of cell c
- */
-	int i;
-	int coords[nDim];
-	int level, child;
-	int parent;
-
-	cart_assert ( c >= 0 && c < num_cells );
-
-	if ( cell_is_root_cell(c) ) {
-		/* convert sfc index of cell to 3-d coordinates */
-		sfc_coords( cell_parent_root_sfc(c), coords);
-
-		/* center of cell is actually cell_center_offset from
-		 * its index (otherwise 0,0,0 cell straddles into negative
-		 * coordinates) */
-		for ( i = 0; i < nDim; i++ ) {
-			position[i] = (float)coords[i] + cell_center_offset;
-		}
-	} else {
-		parent = cell_parent_oct(c);
-		level = oct_level[parent];
-		child = cell_child_number(c); 
-
-		/* use delta to compute offset from parent's center */
-		for ( i = 0; i < nDim; i++ ) {
-			position[i] = oct_pos[parent][i] + cell_size[level] * cell_delta[child][i];
-		}
-	}
-}
-
-void cell_position_double( int c, double position[nDim] ) {
+void cell_center_position( int c, double position[nDim] ) {
 /* equivalent to iPs2 in fortran version 
  *
  * purpose: finds coordinates of center of cell c
@@ -391,7 +357,7 @@ void cell_position_double( int c, double position[nDim] ) {
 		 * its index (otherwise 0,0,0 cell straddles into negative
 		 * coordinates) */
 		for ( i = 0; i < nDim; i++ ) {
-			position[i] = (double)coords[i] + cell_center_offset;
+			position[i] = (double)coords[i] + 0.5;
 		}
 	} else {
 		parent = cell_parent_oct(c);
@@ -400,7 +366,7 @@ void cell_position_double( int c, double position[nDim] ) {
 
 		/* use delta to compute offset from parent's center */
 		for ( i = 0; i < nDim; i++ ) {
-			position[i] = (double)oct_pos[parent][i] + (double)cell_size[level] * (double)cell_delta[child][i];
+			position[i] = oct_pos[parent][i] + cell_size[level] * cell_delta[child][i];
 		}
 	}
 }
@@ -411,7 +377,7 @@ int cell_find_position( double position[nDim] ) {
 	int root_index;
 	int c;
 	int child;
-	float pos[nDim];
+	double pos[nDim];
 
 	for ( i = 0; i < nDim; i++ ) {
 		coords[i] = (int)(position[i]);
@@ -425,7 +391,7 @@ int cell_find_position( double position[nDim] ) {
 	c = root_cell_location(root_index);
 	if ( c != NULL_OCT ) {	
 		while ( cell_is_refined(c) ) {
-			cell_position(c, pos);
+			cell_center_position(c, pos);
 
 			/* determine which child cell contains the point */
 			child = 0;
@@ -449,7 +415,7 @@ int cell_find_position_level( int level, double position[nDim] ) {
 	int root_index;
 	int c;
 	int child;
-	float pos[nDim];
+	double pos[nDim];
 
 	for ( i = 0; i < nDim; i++ ) {
 		coords[i] = (int)(position[i]);
@@ -464,7 +430,7 @@ int cell_find_position_level( int level, double position[nDim] ) {
 	curlevel = min_level;
 	if ( c != NULL_OCT ) {
 		while ( curlevel != level && cell_is_refined(c) ) {
-			cell_position(c, pos);
+			cell_center_position(c, pos);
 
 			/* determine which child cell contains the point */
 			child = 0;
@@ -493,7 +459,7 @@ int cell_find_position_above_level( int level, double position[nDim] ) {
 	int root_index;
 	int c;
 	int child;
-	float pos[nDim];
+	double pos[nDim];
 
 	for ( i = 0; i < nDim; i++ ) {
 		coords[i] = (int)(position[i]);
@@ -509,7 +475,7 @@ int cell_find_position_above_level( int level, double position[nDim] ) {
 
 	if ( c != NULL_OCT ) {
 		while ( curlevel != level && cell_is_refined(c) ) {
-			cell_position(c, pos);
+			cell_center_position(c, pos);
 
 			/* determine which child cell contains the point */
 			child = 0;
@@ -529,11 +495,11 @@ int cell_find_position_above_level( int level, double position[nDim] ) {
 
 int cell_contains_position( int cell, double position[nDim] ) {
 	int i;
-	float pos[nDim];
-	float size;
+	double pos[nDim];
+	double size;
 
-	size = 0.5*cell_size[cell_level(cell)]+1e-6;
-	cell_position( cell, pos );
+	size = 0.5*cell_size[cell_level(cell)] + 1e-14;
+	cell_center_position( cell, pos );
 
 	for ( i = 0; i < nDim; i++ ) {
 		if ( position[i] > pos[i] + size || position[i] < pos[i] - size ) {
@@ -559,22 +525,6 @@ double compute_distance_periodic( double pos1[nDim], double pos2[nDim] ) {
 	}
 
 	return sqrt(r);
-}
-
-float compute_distance_periodic_float( float pos1[nDim], float pos2[nDim] ) {
-	int d;
-	float dx, r = 0.0;
-
-	for ( d = 0; d < nDim; d++ ) {
-		dx = fabsf( pos1[d] - pos2[d] );
-
-		if ( dx > (float)(num_grid/2) ) {
-			dx -= num_grid;
-		}
-		r += dx*dx;
-	}
-
-	return sqrtf(r);
 }
 
 
@@ -773,7 +723,7 @@ float cell_gas_kinetic_energy(int cell)
 
   if(cell_gas_density(cell) > 0.0)
     {
-      for(j=0; j<nDim; j++) ke += cell_momentum(cell,j)*cell_momentum(cell,j);
+      for(j=0; j<nDim; j++) ke += (double)cell_momentum(cell,j)*(double)cell_momentum(cell,j);
       return (float)(0.5*ke/cell_gas_density(cell));
     }
   else return 0.0;

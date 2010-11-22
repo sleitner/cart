@@ -1,8 +1,8 @@
 #
 # Makefile for smooth.
 #
-CC = icc
-CFLAGS	= -O2 -mcmodel=medium
+CC = pgcc
+CFLAGS	= -O0 -mcmodel=medium
 LIBS	= -lm
 
 default:	smooth

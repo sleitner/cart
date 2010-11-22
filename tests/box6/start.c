@@ -99,9 +99,6 @@ void init_run()
   cart_debug(" a[min_level] = %f", auni[min_level] );
 #endif
 
-  dtl[min_level] = 0.0;
-  choose_timestep( &dtl[min_level] );
-
 #ifdef PARTICLES
   build_mesh();
 #endif /* PARTICLES */

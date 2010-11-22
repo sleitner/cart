@@ -89,3 +89,36 @@ int processor_owner( int sfc )
 
 	return a;
 }
+
+
+void print_comm_contents(MPI_Comm comm, const char *name)
+{
+  MPI_Group world, local;
+  int i, n, *ranks_local, *ranks_world;
+
+  MPI_Comm_rank(comm,&n);
+
+  if(n == 0)
+    {
+      MPI_Comm_group(MPI_COMM_WORLD,&world);
+      MPI_Comm_group(comm,&local);
+
+      MPI_Comm_size(comm,&n);
+
+      ranks_local = cart_alloc(int,n);
+      ranks_world = cart_alloc(int,n);
+  
+      for(i=0; i<n; i++) ranks_local[i] = i;
+
+      MPI_Group_translate_ranks(local,n,ranks_local,world,ranks_world);
+
+      cart_debug("Communicator %s (%p), size = %d:",name,comm,n);
+      for(i=0; i<n; i++) cart_debug("id = %d -> world id = %d",i,ranks_world[i]);
+
+      cart_free(ranks_local);
+      cart_free(ranks_world);
+
+      MPI_Group_free(&local);
+      MPI_Group_free(&world);
+    }
+}

@@ -23,31 +23,20 @@ C
       parameter(G_pBbrk = -4.0)
       parameter(G_pXray = 2.0e1)
 C
-      dimension guv_G_esc(NRAD), guv_Q_esc(NRAD)
-C
 #ifndef RT_TEST
-C
-C  Set switches - must be specified somewhere else???
+#if defined(RT_UV) && !defined(RT_FIXED_ISM)
 C  
-C  The default value: 5.0e-6 is obtained as follows:
-C    Draine field (1.0e6 phot/cm^2/s/ster/eV) at 12.0 eV is
-C      n_\xi (=\nu n_\nu) = 0.005/cm^3.
-C    In the code, for LW band (in the main rad. grid),
-C      n_\xi = epsUV*SFR3/r1^2/E30*1.0e3 /cm^3,
-C    where
-C      SFR3 = SFR/(3 Msun/yr)
-C      r1   = <r>/(1 kpc) (averaged as 1/<r>^2 = \int dV 1/r^2)
-C      E30  = <E_\nu>/(30 eV)
-C    Assuming SFR3 = r1 = E30 = 1, we get epsUV = 5.0e-6
+C  The default value: 1.4e-4 is from Ricotti et al 2002ApJ...575...33R
+C
+      EPSG_UV = fGal*1.4e-4
+      EPSQ_UV = fQSO*1.4e-4
+#else
+C  
+C  This is for backward compatibility
 C
       EPSG_UV = fGal*5.0e-6
       EPSQ_UV = fQSO*5.0e-6
-C
-C  Spectral shape parameters
-C
-      FESCSET = 1.0
-      XG1HESC = 0.1
-      XG2HESC = 0.01
+#endif
 C
 C  Start initialization
 C
@@ -133,96 +122,38 @@ C$OMP+SHARED(guv_G,guv_Q,fac_G,fac_Q)
          guv_Q(lr) = fac_Q*guv_Q(lr)
          guv_G(lr) = fac_G*guv_G(lr)
       enddo
-C
-C  **MASSI**
-C  f_esc and epsilon_uv
-C
-      IF(FESCSET.gt.-1.0 .and. FESCSET.lt.1.0) then
-
-         if(abs(FESCSET) .lt. 1.0e-5) then
-            write(0,*) 'RT_Spectrum: fatal error, FESCSET = ', FESCSET,
-     .           '; such a small an escape fraction makes no sense.'
-            call frtAbort
-         endif
-
-         iter = 0
-
-         sum_Q = 0.0
-         sum_G = 0.0
-COMPILER_DIRECTIVE_SERIAL_LOOP
-         do lr = lrH1tr,lrmax
-            sum_Q = sum_Q + guv_Q(lr)
-            sum_G = sum_G + guv_G(lr)
-         enddo
-         sum0_Q = sum_Q*XISTEP
-         sum0_G = sum_G*XISTEP
-
-         xg0 = XG1HESC
-         xg1 = XG2HESC
-         fesc = abs(FESCSET)
-
-         aN_a = 0.0
-         aN_b = 1.0e5/csH1tr
-         
- 7777    iter = iter + 1
-
-         aN_c = 0.5*(aN_a+aN_b)
-C$OMP PARALLEL DO DEFAULT(NONE), 
-C$OMP+PRIVATE(lr,tau),
-C$OMP+SHARED(aN_c,csH1,xg0,csG1,xg1,csG2,guv_Q_esc,guv_G_esc,
-C$OMP+ guv_G,guv_Q,lrH1tr,lrmax)
-         do lr = lrH1tr,lrmax
-            tau = aN_c*(csH1(lr)+xg0*csG1(lr)+xg1*csG2(lr))
-            guv_Q_esc(lr) = guv_Q(lr)*exp(-tau)  
-            guv_G_esc(lr) = guv_G(lr)*exp(-tau)  
-         enddo
-
-         sum_Q = 0.0
-         sum_G = 0.0
-         do lr = lrH1tr,lrmax
-            sum_Q = sum_Q + guv_Q_esc(lr)
-            sum_G = sum_G + guv_G_esc(lr)
-         enddo
-         sum_Q = sum_Q*XISTEP
-         sum_G = sum_G*XISTEP
-
-         fesc_Q = sum_Q/sum0_Q
-         fesc_G = sum_G/sum0_G
-
-         fe_c = fesc_G*1.0 + fesc_Q*0.0  
-
-         if(fesc .le. fe_c) aN_a = aN_c
-         if(fesc .ge. fe_c) aN_b = aN_c
-
-         if(abs(fe_c/fesc-1.0) .gt. 1.0e-3) then
-
-            if(iter .gt. 99) then
-               write(0,*) 'RT_Spectrum: fatal error, FESC does not ',
-     .              'converge ', fesc, iter
-               call frtAbort
-            endif
-            goto 7777
-
-         else
-
-C$OMP PARALLEL DO DEFAULT(NONE), 
-C$OMP+PRIVATE(lr),
-C$OMP+SHARED(guv_Q_esc,guv_G_esc,
-C$OMP+ guv_G,guv_Q,lrH1tr)
-            do lr = lrH1tr,NRAD
-               guv_Q(lr) = guv_Q_esc(lr)
-               guv_G(lr) = guv_G_esc(lr)
-            enddo
-
-         endif
-
-      ENDIF
 
 #else
 
       call frtTestInitSourceSpectrum
 
 #endif /* RT_TEST */
+
+#ifdef RT_OUTPUT
+C
+C  Compute the average photon energies for diagnostics
+C
+      sum0_Q = 0.0
+      sum0_G = 0.0
+      sum1_Q = 0.0
+      sum1_G = 0.0
+      do lr = lrH1tr,lrmax
+         fnu = Txi(lr)/T1eV
+         sum0_Q = sum0_Q + guv_Q(lr)
+         sum0_G = sum0_G + guv_G(lr)
+         sum1_Q = sum1_Q + guv_Q(lr)*fnu
+         sum1_G = sum1_G + guv_G(lr)*fnu
+      enddo
+      EAvg_Q = sum1_Q/(1.0e-35+sum0_Q)
+      EAvg_G = sum1_G/(1.0e-35+sum0_G)
+
+      if(ioNode) then
+         open(unit=81, file='rt-run.log', access='append')
+         write(81,*) 'RT_Spectrum: <E>_G = ', EAvg_G
+         write(81,*) 'RT_Spectrum: <E>_Q = ', EAvg_Q
+         close(81)
+      endif
+#endif /* RT_OUTPUT */
 
       return
       end

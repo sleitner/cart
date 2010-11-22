@@ -57,6 +57,9 @@ void qs1_step( qss_system *sys, double t, double dt, double yf[], void *params )
 void qsn_step( qss_system *sys, double t, double dt, double yf[], void *params );
 void qss_solve( qss_system *sys, double t_begin, double delta_t, double y[], const double err[], void *params );
 
+extern int num_options;
+extern char **options;
+
 const char* check_option0(const char* option, const char* name);
 const char* check_option1(const char* option, const char* name, const char *default_value);
 

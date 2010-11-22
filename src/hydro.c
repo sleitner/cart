@@ -26,11 +26,13 @@
 #define HYDRO_CHUNK_SIZE        65536
 #endif /* HYDRO_CHUNK_SIZE */
 
-#ifdef PRESSURE_FLOOR
 int pressure_floor_min_level = max_level; /* NG: that used to be MinL_Jeans define */
 float pressure_floor_factor = 10.0;
-#endif
 float pressure_floor;
+
+int pressureless_fluid_eos = 0;           /* NG: that used to be PRESSURELESS_FLUID define */
+int apply_lapidus_viscosity = 1;          /* NG: that used to be LAPIDUS define */
+int smooth_density_gradients = 1;         /* NG: that used to be DENSGRADSMOOTH define */
 
 float gas_density_floor = 1e-6;
 float gas_temperature_floor = 3.0;        /* NG: that used to be T_min define */
@@ -44,9 +46,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double g[2],
 void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2], double f[num_hydro_vars-1] );
 #endif
 
-#ifdef LAPIDUS
 void lapidus( double dtx2, int L1, int R1, int sweep_direction, int mj3, int mj4, int mj5, double v[num_hydro_vars-1][4], double f[num_hydro_vars-1] );
-#endif
 
 DEFINE_LEVEL_ARRAY(int,level_sweep_dir);
 const int sweep_dir[2][nDim] = { { 1, 3, 5 }, { 5, 3, 1 } };
@@ -72,11 +72,15 @@ void config_init_hydro()
 
   control_parameter_add2(control_parameter_float,&gas_density_floor,"gas-density-floor","gas_density_floor","the minimum densitye for the gas (in code units).");
 
-#ifdef PRESSURE_FLOOR
-  control_parameter_add3(control_parameter_int,&pressure_floor_min_level,"pressure-floor-min-level","pressure_floor_min_level","MinL_Jeans","the level to apply the pressure floor. Three different modes for the pressure floor are supported: if <pressure-floor-min-level> is positive, it is used as a fixed level on which apply to the pressure floor; if it is 0, the pressure floor is applied on the  max_level_now_global(...); if the value of this parameter is negative, the pressure floor is applied on the min(-<pressure_floor_min_level>, max_level_now_global(...)).");
+  control_parameter_add2(control_parameter_int,&pressureless_fluid_eos,"pressureless-fluid-eos","pressureless_fluid_eos","use a pressureless fluid equation of state.");
+
+  control_parameter_add2(control_parameter_int,&apply_lapidus_viscosity,"apply-lapidus-viscosity","apply_lapidus_viscosity","apply Lapidus viscosity in the hydro flux calculations (boolean value).");
+
+  control_parameter_add2(control_parameter_int,&smooth_density_gradients,"smooth-density-gradients","smooth_density_gradients","smooth overly steep density gradients in the hydro flux calculations (boolean value).");
+
+  control_parameter_add3(control_parameter_int,&pressure_floor_min_level,"pressure-floor-min-level","pressure_floor_min_level","MinL_Jeans","the level to apply the pressure floor. If this value is set to -1, the pressure floor correction is disabled.");
 
   control_parameter_add(control_parameter_float,&pressure_floor_factor,"@pressure-floor-factor","the factor to scale the pressure floor with. The default, thoroughly tested value is 10. If you change it, make sure you know what you are doing.");
-#endif /* PRESSURE_FLOOR */
 }
 
 
@@ -86,35 +90,27 @@ void config_verify_hydro()
 
   cart_assert(gas_density_floor > 0.0);
 
-#ifdef PRESSURE_FLOOR
-  cart_assert(pressure_floor_min_level>=-max_level && pressure_floor_min_level<=max_level);
+  cart_assert(pressureless_fluid_eos==0 || pressureless_fluid_eos==1);
+
+  cart_assert(apply_lapidus_viscosity==0 || apply_lapidus_viscosity==1);
+
+  cart_assert(smooth_density_gradients==0 || smooth_density_gradients==1);
+
+  cart_assert(pressure_floor_min_level>=-1 && pressure_floor_min_level<=max_level);
 
   cart_assert(pressure_floor_factor > 0.0);
-#endif /* PRESSURE_FLOOR */
 }
 
 
-void hydro_step( int level, MPI_Comm local_comm ) {
+void hydro_step( int level ) {
 	int dir;
 
-#ifdef PRESSURE_FLOOR
-	/*
-	//  Pressure floor modes:
-	//  1. fixed level (if positive)
-	//  2. global max_level_now if 0
-	//  3. global min(-pressure_floor_min_level,max_level_now) if negative
-	*/
-	if ( ( pressure_floor_min_level > 0 && level >= pressure_floor_min_level ) || 
-	     ( pressure_floor_min_level == 0 && level >= max_level_now_global(local_comm) ) ||
-	     ( pressure_floor_min_level < 0 && level >= min(-pressure_floor_min_level,max_level_now_global(local_comm)) ) ) {
+	if ( pressure_floor_min_level >= 0 && level >= pressure_floor_min_level ) {
 		/* artificial pressure floor */
 		pressure_floor = pressure_floor_factor * constants->G*pow(units->density*units->length,2.0)/units->energy_density * cell_size[level] * cell_size[level];
 	} else {
 		pressure_floor = 0.0;
 	}
-#else
-	pressure_floor = 0.0;
-#endif
 
 	dtx = dtl[level] * cell_size_inverse[level];
 	dxi = cell_size_inverse[level];
@@ -340,9 +336,6 @@ void hydro_magic( int level ) {
 					}
 				}	
 
-#if defined(DEBUG) && (DEBUG-0 > 9)
-				cart_error("aborting...");
-#endif
 				failed = 1;
 
 				cell_gas_density(icell) = max( average_density/(float)num_neighbors, 
@@ -389,26 +382,29 @@ void hydro_eos( int level ) {
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants)
+#pragma omp parallel for default(none), private(i,icell,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants,pressureless_fluid_eos)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
 		if ( cell_is_leaf( icell) ) {
 			kinetic_energy = cell_gas_kinetic_energy(icell);
 
-#ifdef PRESSURELESS_FLUID
-			cell_gas_pressure(icell) = 1e-20;
-			cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (constants->gamma-1.0);
-			cell_gas_energy(icell) = cell_gas_internal_energy(icell) + kinetic_energy;
-#else
-			cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), 0.0 );
-			cell_gas_energy(icell) = max( kinetic_energy, cell_gas_energy(icell) );
-			cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
+			if(pressureless_fluid_eos)
+			  {
+			    cell_gas_pressure(icell) = 1e-20;
+			    cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (constants->gamma-1.0);
+			    cell_gas_energy(icell) = cell_gas_internal_energy(icell) + kinetic_energy;
+			  }
+			else
+			  {
+			    cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), 0.0 );
+			    cell_gas_energy(icell) = max( kinetic_energy, cell_gas_energy(icell) );
+			    cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-			cell_electron_internal_energy(icell) = min( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );
+			    cell_electron_internal_energy(icell) = min( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-#endif
+			  }
 		}
 	}
 
@@ -419,6 +415,103 @@ void hydro_eos( int level ) {
 
 
 #if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
+
+#ifndef OLDSTYLE_COOLING_EXPLICIT_SOLVER
+void qss_getcooling ( double t, double *y, void *params, double *w, double *a) {
+	double nHlog = ((double *)params)[0];
+	double Tfac_cell = ((double *)params)[1];
+	double Zlog = ((double *)params)[2];
+	double rhog2 = ((double *)params)[3];
+	double unit_cl = ((double *)params)[6];
+	double t0 = ((double *)params)[7];
+	double Hdum = ((double *)params)[8];
+	double f_curr = 1 + Hdum*(t-t0);
+	double etmp = rhog2*f_curr*unit_cl;
+
+	cooling_t coolrate = cooling_rate(nHlog,y[0]*Tfac_cell/(f_curr*f_curr),Zlog);
+	
+	a[0] = etmp*coolrate.Cooling/ y[0];
+	w[0] = etmp*coolrate.Heating;
+}
+
+void adjust_internalenergy( double t, double *y, void *params ) {
+  /* RL: put temperature/internal energy floor in here??? */
+	double Emin_cell = ((double *)params)[5];
+
+	if (y[0] < Emin_cell) y[0] = Emin_cell;
+
+}
+
+void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
+	int i;
+	int icell;
+	double t_begin, t_end;
+	double Zlog, Hdum;
+	double Tfac, Tfac_cell, Emin_cell;
+	double rhog2, nHlog;
+	double e_curr;
+	double unit_cl = units->time*pow(constants->XH*units->number_density,2.0)/units->energy_density;
+	double err[1] = { 1e-2 };
+	double params[9];
+	qss_system *sys;
+
+	t_begin	= tl[level];
+	t_end = tl[level] + dtl[level];
+
+#ifdef COSMOLOGY
+	Hdum = (abox_from_tcode(t_end)/abox[level] - 1) / dtl[level];
+#else
+	Hdum = 0.0;
+#endif
+
+	Tfac = units->temperature*constants->wmu*( constants->gamma-1 )/1.0e4;
+
+#pragma omp parallel default(none), shared(num_level_cells,level_cells,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys)
+	{
+	  sys = qss_alloc( 1, &qss_getcooling, &adjust_internalenergy );
+
+#pragma omp for
+	  for ( i = 0; i < num_level_cells; i++ ) {
+		  icell = level_cells[i];
+		  if ( cell_is_leaf(icell) ) {
+		    
+		    cell_gas_gamma(icell) = constants->gamma;
+		    rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
+		    /* take code density -> log10(n_H [cm^-3]) */
+		    nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell));
+#ifdef ENRICH
+		    Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
+#else
+		    Zlog = -10.0;
+#endif /* ENRICH */
+			  
+		    Tfac_cell = Tfac/cell_gas_density(icell);
+		    Emin_cell = units->Emin*cell_gas_density(icell);
+		    
+		    e_curr = cell_gas_internal_energy(icell);
+
+		    params[0] = nHlog; //
+		    params[1] = Tfac_cell; // to get the cooling rate...
+		    params[2] = Zlog; //
+		    params[3] = rhog2;
+		    params[4] = e_curr;
+		    params[5] = Emin_cell;
+		    params[6] = unit_cl;
+		    params[7] = t_begin;
+		    params[8] = Hdum;
+	
+		    qss_solve( sys, t_begin, t_end, &e_curr, err, &params );
+
+		    cell_gas_internal_energy(icell) = max(Emin_cell,e_curr);
+		    cell_gas_energy(icell) = cell_gas_kinetic_energy(icell) + cell_gas_internal_energy(icell);
+		  }
+		}
+
+		qss_free(sys);
+	} /* END omp parallel block */
+}
+
+#else /* OLDSTYLE_COOLING_EXPLICIT_SOLVER */
 
 void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, double Zlog, double nHlog, double rhog2, double Tfact_cell, double Emin_cell, double unit_cl) {
 	int continue_cooling;
@@ -507,6 +600,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 		}
 	}
 }
+#endif /* OLDSTYLE_COOLING_EXPLICIT_SOLVER */
 
 #endif /* COOLING && !RADIATIVE_TRANSFER */
 
@@ -841,10 +935,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	fluxh( dtx, dtx2, v, c, f );
 #endif
 
-#ifdef LAPIDUS
-	lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
-#endif
-
+	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
 	
 void hydro_copy_vars( int level, int direction, int copy_cells ) {

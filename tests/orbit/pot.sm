@@ -1,0 +1,32 @@
+erase
+lweight 2
+
+
+location 4500 32000 4000 32000
+
+
+limits -1 1 -10.2 10.03
+ticksize -1 0 0 0
+expand 1.5
+box
+expand 2.0
+xlabel R (AU)
+ylabel ln(P/P_{EX})
+
+
+macro plot 2 {
+	da $1
+	read { l 1 r 2 p 3 p0 4 }
+
+	set lr = lg(r)		if ( r < 8 )
+	set lq = ln(abs(p/p0))	if ( r < 8 )
+
+	ptype 4 3
+	ctype $2
+	points lr lq
+	ctype 0
+}
+
+
+plot pot.res 3
+

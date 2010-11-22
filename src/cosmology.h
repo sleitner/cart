@@ -91,7 +91,6 @@ double tCode(double a);
 double tPhys(double a);
 double dPlus(double a);
 double qPlus(double a); /* Q+ = a^2 dD+/(H0 dt) */
-double cosmology_mu(double a); /*H(a)*a^2*/
 
 /*
 //  Inverse conversions (converting other variables to the global 

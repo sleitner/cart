@@ -9,10 +9,8 @@
 #include <mpi.h>
 
 
-#define		cell_center_offset	0.5
-
 #define		UNREFINED_CELL		-1
-#define		NULL_OCT			-1
+#define		NULL_OCT		-1
 #define		FREE_OCT_LEVEL		-1
 
 #define		CELL_TYPE_NONLOCAL	0
@@ -230,7 +228,7 @@ extern int oct_neighbors[num_octs][num_neighbors];
 extern int oct_parent_root_sfc[num_octs];
 extern int oct_next[num_octs];
 extern int oct_prev[num_octs];
-extern float oct_pos[num_octs][nDim];
+extern double oct_pos[num_octs][nDim];
 
 extern int next_free_oct;
 extern int free_oct_list;
@@ -238,13 +236,13 @@ extern int free_oct_list;
 DECLARE_LEVEL_ARRAY(int,num_cells_per_level);
 DECLARE_LEVEL_ARRAY(int,local_oct_list);
 
-DECLARE_LEVEL_ARRAY(float,cell_size);
-DECLARE_LEVEL_ARRAY(float,cell_size_inverse);
-DECLARE_LEVEL_ARRAY(float,cell_volume);
-DECLARE_LEVEL_ARRAY(float,cell_volume_inverse);
+DECLARE_LEVEL_ARRAY(double,cell_size);
+DECLARE_LEVEL_ARRAY(double,cell_size_inverse);
+DECLARE_LEVEL_ARRAY(double,cell_volume);
+DECLARE_LEVEL_ARRAY(double,cell_volume_inverse);
 
 void init_tree();
-int max_level_now_global(MPI_Comm local_comm);
+int max_level_now_global(MPI_Comm level_com);
 int max_level_now();
 int max_level_local();
 int max_level_buffer();
@@ -274,14 +272,12 @@ int oct_parent_root_cell( int oct );
 int root_cell_sfc_index( int icell );
 int cell_parent_root_sfc( int c);
 int cell_level( int c );
-void cell_position( int c, float position[nDim] );
-void cell_position_double( int c, double position[nDim] );
+void cell_center_position( int c, double position[nDim] );
 int cell_find_position( double position[nDim] );
 int cell_find_position_level( int level, double position[nDim] );
 int cell_find_position_above_level( int level, double position[nDim] );
 int cell_contains_position( int cell, double position[nDim] );
 double compute_distance_periodic( double pos1[nDim], double pos2[nDim] );
-float compute_distance_periodic_float( float pos1[nDim], float pos2[nDim] );
 int cell_child( int c, int j );
 void oct_all_children( int oct, int child_octs[num_children] );
 void cell_all_children( int c, int child_octs[num_children] );
@@ -317,7 +313,7 @@ extern const int pyramid_vertices[num_children][nDim];
 extern const int local[num_children][num_neighbors];
 extern const int in_local_oct[num_children][num_neighbors];
 extern const int ishift[num_neighbors][nDim];
-extern const float cell_delta[num_children][nDim];
+extern const double cell_delta[num_children][nDim];
 extern const int reverse_direction[num_neighbors];
 extern const int neighbor_moves[num_children][nDim];
 

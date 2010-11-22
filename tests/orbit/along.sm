@@ -1,0 +1,43 @@
+erase
+lweight 2
+
+
+location 5500 32000 4000 32000
+
+
+limits 0 5 -0.05 0.05
+notation -1 2 -2 2
+ticksize 0 0 0 0
+expand 1.5
+box
+expand 2.0
+xlabel r (AU)
+ylabel {\g D}(r{\g F})/(r{\g F})
+
+
+macro plot 14 {
+	da $1
+	
+	read { t 1 x 2 y 3 z 4 vx 5 vy 6 vz 7 p 8 }
+	set r = sqrt(1.0e-4+x**2+y**2+z**2)
+
+	set p1 = p[dimen(p)-1]
+	set p0 = p concat p1
+	set ii = 1, dimen(p0)
+	set p = p0 if ( ii > 1 )
+
+	set q = p*r #/(1-(r/23))**1
+	set d = q/q[0] - 1
+
+	set idx = (t < 2.9e9)
+	set rr = r if (idx)
+	set dd = d if (idx)
+
+	ctype $2
+	connect rr dd
+	ctype 0
+}
+
+
+input wtp.inc
+

@@ -7,8 +7,6 @@
 #endif
 
 
-#include <mpi.h>
-
 /*
 //  Useful macros
 */
@@ -18,7 +16,7 @@ int _Num_level_cells, *_Level_cells = 0
 
 
 #define MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2) \
-for(level=level1; level<=level2; level++) \
+for(level=level1; (level1>level2)?level>=level2:level<=level2; (level1>level2)?level--:level++) \
 { \
   select_level(level,CELL_TYPE_LOCAL,&_Num_level_cells,&_Level_cells)
 
@@ -55,10 +53,5 @@ void rtuGetLinearArrayMaxMin(int n, float *arr, float *max, float *min);
 
 void rtuCopyArraysInt(int *dest, int *src, int size);
 void rtuCopyArraysFloat(float *dest, float *src, int size);
-
-#ifdef DEBUG
-void rtuCheckGlobalValue(int val, char *name, MPI_Comm local_comm);
-#endif
-
 
 #endif /* __RT_UTILITIES_H__ */

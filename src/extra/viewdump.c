@@ -27,10 +27,10 @@ const int other_directions[nDim][nDim-1] = {
 };
 
 int is_intersected( int cell ) {
-	float position[nDim];
+	double position[nDim];
 
 	if ( cell_is_leaf(cell) || cell_level(cell) == lev ) {
-		cell_position( cell, position );
+		cell_center_position( cell, position );
 
 		return ( fabs( position[dimension] - plane ) <= (cell_size[cell_level(cell)] / 2.0) ); 
 	} else {
@@ -39,12 +39,12 @@ int is_intersected( int cell ) {
 }
 
 void print_cell_corners( int cell, int level ) {
-	float position[nDim];
+	double position[nDim];
 	float x,y;
 	float cellsize;
 
 	if ( is_intersected(cell) ) {
-		cell_position(cell, position );
+		cell_center_position(cell, position );
 		cellsize = cell_size[level] / 2.0;
 
 		x = position[ other_directions[dimension][0] ];
@@ -58,15 +58,15 @@ void print_cell_corners( int cell, int level ) {
 }
 
 void print_cell_location_vars( int cell, int level ) {
-	        float position[nDim];
+	        double position[nDim];
 
         if ( is_intersected(cell) ) {
-                cell_position( cell, position);
+                cell_center_position( cell, position);
 
 #ifdef HYDRO
 		fprintf(output, "%u %u %u %u 1 %u %u %u %u %e %e %e\n", corner_count, corner_count+1,
                         corner_count+2, corner_count+3, level, local_proc_id, cell_is_local(cell),
-			processor_owner(cell_parent_root_sfc(cell)), position[0], position[1], position[2] );
+			processor_owner(cell_parent_root_sfc(cell)));
 #endif
 
 		corner_count += 4;
@@ -75,10 +75,10 @@ void print_cell_location_vars( int cell, int level ) {
 }
 
 void print_cell_hvars( int cell, int level ) {
-	float position[nDim];
+	double position[nDim];
 
 	if ( is_intersected(cell) ) {
-		cell_position( cell, position);
+		cell_center_position( cell, position);
 
 #ifdef HYDRO
 		fprintf(output, "%u %u %u %u 1 %u %u %d %d %d %e %e %e %e %e %e %e %e %e %e\n", corner_count, corner_count+1,
@@ -96,10 +96,10 @@ void print_cell_hvars( int cell, int level ) {
 }
 
 void print_cell_grav_vars( int cell, int level ) {
-	float position[nDim];
+	double position[nDim];
 	
 	if ( is_intersected(cell) ) {
-		cell_position( cell, position );
+		cell_center_position( cell, position );
 
 #ifdef GRAVITY
 		fprintf( output, "%u %u %u %u 1 %u %u %u %e %e %e %e %e %e %e %e\n", corner_count, corner_count+1,
@@ -115,6 +115,8 @@ void print_cell_grav_vars( int cell, int level ) {
 
 void print_cell_refinement_vars( int cell, int level ) {
 	int i;
+	int neighbors[num_neighbors];
+	float drho[nDim];
 
 	if ( is_intersected(cell) ) {
 		cell_all_neighbors( cell, neighbors );

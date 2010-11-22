@@ -1,14 +1,13 @@
 #include "config.h"
+#include "parallel.h"
 
-#include <mpi.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "auxiliary.h"
-#include "parallel.h"
-#include "timing.h"
 #include "rt_solver.h"
 #include "rt_utilities.h"
+#include "timing.h"
 #include "tree.h"
 
 #ifdef _OPENMP
@@ -140,7 +139,7 @@ void rtuGetStencil(int level, int cell, int nb[])
   double p0[nDim], p[nDim];
   int k;
  
-  cell_position_double(cell,p0);
+  cell_center_position(cell,p0);
 
   for(j=0; j<rtuStencilSize-num_neighbors; j++)
     {
@@ -249,22 +248,4 @@ void rtuCopyArraysFloat(float *dest, float *src, int size)
 	}
     }
 }
-
-
-#ifdef DEBUG
-void rtuCheckGlobalValue(int val, char *name, MPI_Comm local_comm)
-{
-  int gMin, gMax;
-
-  start_time( COMMUNICATION_TIMER );
-  MPI_Allreduce(&val,&gMin,1,MPI_INT,MPI_MIN,local_comm);
-  MPI_Allreduce(&val,&gMax,1,MPI_INT,MPI_MAX,local_comm);
-  end_time( COMMUNICATION_TIMER );
-
-  if(val!=gMin || val!=gMax)
-    {
-      cart_error("Incorrect global value %s: %d (min: %d, max:%d)",name,val,gMin,gMax);
-    }
-}
-#endif
 

@@ -1,0 +1,24 @@
+erase
+lweight 2
+ltype 0
+ctype 0
+
+
+set wh = { 0.80 0.75 0.70 0.65 0.60 0.55 0.50 }
+set wv = { 0.00 0.40 0.60 0.75 0.90 1.00 1.10 }
+
+
+limits 0 1.5 0 1.5
+box
+xlabel wh
+ylabel wv
+
+ptype 4 3
+points wh wv
+
+
+macro w 2 {
+	set y = $2*(0.8-wh)**$1
+	connect wh y
+}
+

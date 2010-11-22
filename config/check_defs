@@ -1,0 +1,150 @@
+#!/bin/csh -f
+#
+
+set option_list = 0
+set option_extra = 0
+set option_header = 0
+if ( $#argv > 0 ) then
+
+    foreach arg ( $argv )
+
+	set known_option = 0
+
+	if ( "$arg" == "-h" || "$arg" == "--help" || "$arg" == "-help"  ) then
+	    echo "Usage: check_defs [options]"
+	    echo "Valid options:"
+	    echo "-h|--help  Display this help."
+	    echo "-l|--list  List all defines, not just those missing in template files."
+	    echo "-e|--extra Also check files in src/extra."
+	    echo "-c         Reserved for using during ART compilation stage."
+	    exit
+	endif
+
+	if ( "$arg" == "-l" || "$arg" == "--list" ) then
+	    set option_list = 1
+	    set known_option = 1
+	endif
+
+	if ( "$arg" == "-e" || "$arg" == "--extra" ) then
+	    set option_extra = 1
+	    set known_option = 1
+	endif
+
+	if ( "$arg" == "-c" ) then
+	    set option_header = 1
+	    set known_option = 1
+	endif
+
+	if ( "$known_option" == "0" ) then
+	    echo "Unknown option: " $arg
+	    exit
+	endif
+
+    end
+
+endif 
+
+
+
+#
+#  Names to ignore
+#
+set n2i = '_OPENMP|__STDC__|max|min|nDim|num_octs|num_particles|num_refinement_levels|num_root_grid_refinements|num_star_particles|SFC|SLAB_DIM|rt_num_vars|rt_num_frequencies|CONFIGURED' 
+
+if ( $option_extra == 1 ) then
+    set files = `ls -1 ../src/*.h ../src/*.c ../src/*.def ../cosmology/*/*.c ../src/F/*.F ../src/extra/*.h ../src/extra/*.c | egrep -v 'config.h|cosmology.c'`
+else
+    set files = `ls -1 ../src/*.h ../src/*.c ../src/*.def ../cosmology/*/*.c ../src/F/*.F | egrep -v 'config.h|cosmology.c'`
+endif
+
+
+#
+#  Get all variables used in #if clauses
+#
+set list = `fgrep -h '#if' $files | fgrep -v '_H__' | egrep -v $n2i | sed -e 's|/\*[^#]*\*/||' | sed -e 's|^[[:blank:]]*#if[n]*def[[:blank:]]\+\([[:alnum:]_]\+\)[[:blank:]]*$|\1|g' -e 's|#if||' -e 's|defined||g' -e 's|\b[[:digit:]]*\b||g' -e 's|\([[:alnum:]_]\+\)|\1\n|g' | sed -e 's|[^[:alnum:]_]\+||g' -e 's|^$|###|' | fgrep -v '###' | sort | uniq`
+
+
+#
+#  Compile-time operation
+#
+if ( "$option_header" == "1" ) then
+
+cat > "list_defines.h" << EOF
+#define PRINT(name) \
+if(d_flag[id##name]) { fprintf(f,"   %s\n",#name); d_flag[id##name] = 0; }
+EOF
+
+@ id = 0
+set print_all = ""
+
+foreach name ( $list )
+
+    cat >> "list_defines.h" << EOF
+#define id$name  $id
+#ifdef $name
+d_flag[id$name] = 1;
+#else
+d_flag[id$name] = 0;
+#endif
+EOF
+
+    @ id = $id + 1
+    set print_all = ( $print_all "PRINT($name)" )
+end
+
+echo "#define PRINT_ALL \" >> "list_defines.h"
+foreach line ( $print_all )
+    echo $line "\" >> "list_defines.h" 
+end
+echo ";" >> "list_defines.h"
+
+exit
+
+endif
+
+
+#
+#  Just list and exit
+#
+if ( "$option_list" == "1" ) then
+    foreach name ( $list )
+	echo $name
+    end
+    exit
+endif
+
+
+set tmpfile = /tmp/art_check_defs.tmp
+if ( -e $tmpfile ) rm -f $tmpfile
+
+#
+#  Direct search
+#
+foreach name ( $list )
+	set found = `fgrep $name defs.generic.template rt_defs.generic.template internal_names.txt | wc -l`
+	if ( "$found" == "0" ) then
+		echo Missing name: $name
+	endif
+	echo $name >> $tmpfile
+end
+
+
+#
+#  Reverse search
+#  Get all variables used in template files
+#
+set files = "defs.generic.template rt_defs.generic.template"
+set list = `fgrep -h '?#define' $files | egrep -v $n2i | sed -e 's|^[[:blank:]]*?#define[[:blank:]]\+\([[:alnum:]_]\+\)[[:blank:]]*[^#]*$|\1|' | sort | uniq`
+
+foreach name ( $list )
+	set found = `fgrep $name $tmpfile | wc -l`
+	if ( "$found" == "0" ) then
+		echo Extra name in templates: $name
+	endif
+end
+
+
+
+
+
+

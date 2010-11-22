@@ -18,6 +18,19 @@
 #define PRESSURE_GRADIENT_INDICATOR     5
 #define ENTROPY_GRADIENT_INDICATOR      6
 
+
+typedef struct REFINEMENT_INDICATOR_TYPE
+{
+  int *use;
+  int use_buffer[max_level-min_level+1];
+  float weight;
+  float *threshold;
+  float threshold_buffer[max_level-min_level+1];
+}
+refinement_t;
+extern refinement_t refinement_indicator[num_refinement_indicators];
+
+
 void config_init_refinement_indicators();
 void config_verify_refinement_indicators();
 
@@ -25,11 +38,11 @@ void mark_refinement_indicators( int cell, int level );
 
 float dark_mass_indicator( int cell, int level );
 float gas_mass_indicator( int cell, int level );
-float shock_indicator( int cell, int level );
-float contact_discontinuity_indicator( int cell, int level );
-float density_gradient_indicator( int cell, int level );
-float pressure_gradient_indicator( int cell, int level );
-float entropy_gradient_indicator( int cell, int level );
+float shock_indicator( int cell, int level, int neighbors[] );
+float contact_discontinuity_indicator( int cell, int level, int neighbors[], float drho[] );
+float density_gradient_indicator( int cell, int level, int neighbors[], float drho[] );
+float pressure_gradient_indicator( int cell, int level, int neighbors[] );
+float entropy_gradient_indicator( int cell, int level, int neighbors[] );
 
 #endif /* REFINEMENT */
 

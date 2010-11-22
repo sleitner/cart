@@ -75,18 +75,25 @@ typedef struct TIMER {
 #define	    MAX_LEVEL_TIMER                         54
 #define	    COMMUNICATION_TIMER                     55
 #define	    LOWER_LEVEL_TIMER                       56
+
+#ifdef USER_PLUGIN
+#define	    PLUGIN_TIMER                            57
+#define	    WORK_TIMER                              58
+#else
 #define	    WORK_TIMER                              57
+#endif
 
 #ifdef RADIATIVE_TRANSFER
 
 #define	    RT_TABLES_TIMER                         (WORK_TIMER+1)
 #define	    RT_COOLING_TIMER                        (WORK_TIMER+2)
 #define	    RT_LEVEL_UPDATE_TIMER                   (WORK_TIMER+3)
-#define	    RT_AFTER_DENSITY_TIMER                  (WORK_TIMER+4)
-#define	    RT_TREE_EMULATOR_UPDATE_TIMER           (WORK_TIMER+5)
-#define	    RT_SINGLE_SOURCE_UPDATE_TIMER           (WORK_TIMER+6)
-#define	    RT_SOLVE_EQUATION_UPDATE_TIMER          (WORK_TIMER+7)
-#define	    LEVEL_TIMER                             (WORK_TIMER+8)
+#define	    RT_GLOBAL_UPDATE_TIMER                  (WORK_TIMER+4)
+#define	    RT_AFTER_DENSITY_TIMER                  (WORK_TIMER+5)
+#define	    RT_TREE_EMULATOR_UPDATE_TIMER           (WORK_TIMER+6)
+#define	    RT_SINGLE_SOURCE_UPDATE_TIMER           (WORK_TIMER+7)
+#define	    RT_SOLVE_EQUATION_UPDATE_TIMER          (WORK_TIMER+8)
+#define	    LEVEL_TIMER                             (WORK_TIMER+9)
 
 #else
 

@@ -129,7 +129,7 @@ void config_read_file(const char *filename) {
 }
 
 
-void config_print_to_file(const char *filename, int restart)
+void config_print_to_file(const char *filename, int append)
 {
   const char *title_sep = "******************************************\n";
   FILE *f;
@@ -137,8 +137,8 @@ void config_print_to_file(const char *filename, int restart)
   char hostname[256];
   char task_hostnames[MAX_PROCS][256]; 
   int local_pid, pid[MAX_PROCS];
-  int proc;
-  int n;
+  int proc, n;
+  int d_flag[999];
 
   system_get_host_name( hostname, 256 );
   local_pid = system_get_pid(); 
@@ -156,15 +156,39 @@ void config_print_to_file(const char *filename, int restart)
     {
       sprintf(pathname,"%s/%s",logfile_directory,filename);
 
-      if ( restart ) {
-	      f = fopen(pathname,"a");
-      } else {
-          f = fopen(pathname,"w");
-      }
+      f = fopen(pathname,append?"a":"w");
       if(f == NULL)
 	{
-	  cart_error("Unable to open %s for writing!",pathname);
+	  cart_error("Unable to open %s for writing",pathname);
 	}
+    }
+
+  if(append)
+    {
+      fprintf(f,"### NEW RUN\n");
+      fprintf(f,title_sep);
+      fprintf(f,"Number of MPI tasks: %d\n", num_procs );
+
+#ifdef _OPENMP
+#pragma omp parallel shared(n)
+      n = omp_get_num_threads();
+#else
+      n = 1;
+#endif
+      fprintf(f,"Number of OpenMP threads (per-MPI task): %d\n",n);
+
+      for ( proc = 0; proc < num_procs; proc++ ) {
+	fprintf(f,"mpi task %3u hostname %s:%d\n", proc, task_hostnames[proc], pid[proc] );
+      }
+
+      fprintf(f,"UTC time/date: %s",system_get_time_stamp(1));
+      fprintf(f,"Local time/date: %s",system_get_time_stamp(0));
+
+      fprintf(f,"Step: %d, time: %lg",step,tl[min_level]);
+#ifdef COSMOLOGY
+      fprintf(f,", auni: %lg, abox: %lg",auni[min_level],abox[min_level]);
+#endif
+      fprintf(f,"\n");
     }
 
   fprintf(f,"SVN Branch: %s\n", SVNBRANCH );
@@ -175,168 +199,44 @@ void config_print_to_file(const char *filename, int restart)
   fprintf(f,"   GLOBAL SETTINGS\n");
   fprintf(f,title_sep);
 
+#include "list_defines.h"
+
   fprintf(f,"Primary settings:\n");
-#ifdef HYDRO
-  fprintf(f,"   HYDRO\n");
-#endif
-#ifdef GRAVITY 
-  fprintf(f,"   GRAVITY\n");
-#endif
-#ifdef COOLING 
-  fprintf(f,"   COOLING\n");
-#endif
-#ifdef STARFORM 
-  fprintf(f,"   STARFORM\n");
-#endif
-#ifdef COSMOLOGY 
-  fprintf(f,"   COSMOLOGY\n");
-#endif
-#ifdef PARTICLES 
-  fprintf(f,"   PARTICLES\n");
-#endif
-#ifdef REFINEMENT 
-  fprintf(f,"   REFINEMENT\n");
-#endif
-#ifdef RADIATIVE_TRANSFER 
-  fprintf(f,"   RADIATIVE_TRANSFER\n");
-#else
-#ifdef NO_METALCOOLING 
-  fprintf(f,"   NO_METALCOOLING\n");
-#endif
-#endif
+  PRINT(HYDRO);
+  PRINT(GRAVITY); 
+  PRINT(COOLING);
+  PRINT(STARFORM);
+  PRINT(COSMOLOGY);
+  PRINT(PARTICLES);
+  PRINT(REFINEMENT);
+  PRINT(ADVECT_SPECIES);
+  PRINT(RADIATIVE_TRANSFER);
+  PRINT(ELECTRON_ION_NONEQUILIBRIUM);
 
 #ifdef STARFORM
   fprintf(f,"Star formation settings:\n");
-#ifdef ENRICH 
-  fprintf(f,"   ENRICH\n");
-#endif
-#ifdef ENRICH_SNIa
-  fprintf(f,"   ENRICH_SNIa\n");
-#endif
-#ifdef FEEDBACK 
-  fprintf(f,"   FEEDBACK\n");
-#endif
-#ifdef FEEDBACK_SNIa
-  fprintf(f,"   FEEDBACK_SNIa\n");
-#endif
-#ifdef STELLARMASSLOSS 
-  fprintf(f,"   STELLARMASSLOSS\n");
-#endif
+  PRINT(ENRICH);
+  PRINT(ENRICH_SNIa);
 #endif /* STARFORM */
 
 #ifdef RADIATIVE_TRANSFER 
   fprintf(f,"Radiative transfer settings:\n");
-#ifdef RT_TABLES 
-  fprintf(f,"   RT_TABLES\n");
-#endif
-#ifdef RT_TRANSFER 
-  fprintf(f,"   RT_TRANSFER\n"); 
-#endif
-#ifdef RT_TRANSFER_METHOD 
-  fprintf(f,"   RT_TRANSFER_METHOD=%-d\n",RT_TRANSFER_METHOD);
-#endif
-#ifdef RT_CHEMISTRY 
-  fprintf(f,"   RT_CHEMISTRY\n"); 
-#endif 
-#ifdef RT_MONOATOMIC 
-  fprintf(f,"   RT_MONOATOMIC\n"); 
-#endif
-#ifdef RT_HIGH_DENSITY 
-  fprintf(f,"   RT_HIGH_DENSITY\n"); 
-#endif
-#ifdef RT_XRAYS 
-  fprintf(f,"   RT_XRAYS\n"); 
-#endif
-#ifdef RT_DUST 
-  fprintf(f,"   RT_DUST\n"); 
-#endif
-#ifdef RT_LWBANDS 
-  fprintf(f,"   RT_LWBANDS\n"); 
-#endif
-#ifdef RT_LYMAN_ALPHA_HEATING 
-  fprintf(f,"   RT_LYMAN_ALPHA_HEATING\n"); 
-#endif
-#ifdef RT_PAH_CR 
-  fprintf(f,"   RT_PAH_CR\n"); 
-#endif
-#ifdef RT_SIGNALSPEED_TO_C 
-  fprintf(f,"   RT_SIGNALSPEED_TO_C\n"); 
-#endif
-#ifdef RT_EXTERNAL_BACKGROUND 
-  fprintf(f,"   RT_EXTERNAL_BACKGROUND=%-d\n",RT_EXTERNAL_BACKGROUND);
-#endif
-#ifdef RT_CFI 
-  fprintf(f,"   RT_CFI=%-d\n",RT_CFI);
-#endif
-#ifdef RT_DEBUG 
-  fprintf(f,"   RT_DEBUG\n"); 
-#endif
-#ifdef RT_OUTPUT 
-  fprintf(f,"   RT_OUTPUT\n"); 
-#endif
-#ifdef RT_PARALLEL_NUM_OPENMP_BUFFERS 
-  fprintf(f,"   RT_PARALLEL_NUM_OPENMP_BUFFERS=%-d\n",RT_PARALLEL_NUM_OPENMP_BUFFERS);
-#endif
-#ifdef RT_PARALLEL_USE_MPI 
-  fprintf(f,"   RT_PARALLEL_USE_MPI\n"); 
-#endif
-#ifdef RT_INTERPOLLOG 
-  fprintf(f,"   RT_INTERPOLLOG\n"); 
-#endif
-#ifdef RT_NARROWTABLE 
-  fprintf(f,"   RT_NARROWTABLE\n"); 
-#endif
-#ifdef RT_8SPECIES 
-  fprintf(f,"   RT_8SPECIES \n");
-#endif
-#ifdef RT_TRANSFER_FLUX_CONSERVING 
-  fprintf(f,"   RT_TRANSFER_FLUX_CONSERVING\n"); 
-#endif
-#ifdef RT_H2_RATE
-  fprintf(f,"   RT_H2_RATE=%-d\n",RT_H2_RATE);
-#endif
-#ifdef RT_H2_COOL
-  fprintf(f,"   RT_H2_COOL=%-d\n",RT_H2_COOL);
-#endif
-#ifdef RT_VARIABLE_PRATES 
-  fprintf(f,"   RT_VARIABLE_PRATES\n"); 
-#endif
-#ifdef RT_VARIABLE_RFIELD 
-  fprintf(f,"   RT_VARIABLE_RFIELD\n");
-#endif
+  PRINT(RT_TABLES);
+  PRINT(RT_TRANSFER);
+  PRINT(RT_TRANSFER_METHOD);
+  PRINT(RT_UV);
+  PRINT(RT_CHEMISTRY);
+  PRINT(RT_EXACT_EOS);
+  PRINT(RT_HIGH_DENSITY);
+  PRINT(RT_XRAYS);
+  PRINT(RT_LWBANDS);
+  PRINT(RT_LYMAN_ALPHA_HEATING);
+  PRINT(RT_PAH_CR);
+  PRINT(RT_EXTERNAL_BACKGROUND);
 #endif /* RADIATIVE_TRANSFER */
 
-  fprintf(f,"Secondary settings:\n");
-#ifdef LAPIDUS 
-  fprintf(f,"   LAPIDUS\n");
-#endif
-#ifdef DENSGRADSMOOTH 
-  fprintf(f,"   DENSGRADSMOOTH\n");
-#endif
-#ifdef PRESSURE_FLOOR 
-  fprintf(f,"   PRESSURE_FLOOR\n");
-#endif
-#ifdef ADVECT_SPECIES
-  fprintf(f,"   ADVECT_SPECIES\n");
-#endif
-#ifdef PRESSURELESS_FLUID
-  fprintf(f,"   PRESSURELESS_FLUID\n");
-#endif
-#ifdef ELECTRON_ION_NONEQUILIBRIUM
-  fprintf(f,"   ELECTRON_ION_NONEQUILIBRIUM\n");
-#endif
-#ifdef DEBUG 
-  fprintf(f,"   DEBUG\n");
-#endif
-#ifdef DEBUG_MEMORY_USE
-  fprintf(f,"   DEBUG_MEMORY_USE\n");
-#endif
-#ifdef OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION 
-  fprintf(f,"   OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION\n"); 
-#endif
-#ifdef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
-  fprintf(f,"   OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID\n");
-#endif
+  fprintf(f,"Other settings:\n");
+  PRINT_ALL;
 
   fprintf(f,"\n");
   fprintf(f,"   MESH PARAMETERS\n");
@@ -370,28 +270,6 @@ void config_print_to_file(const char *filename, int restart)
   fprintf(f,"!!!\n");
 
   control_parameter_print_hidden(f,0);
-
-  fprintf(f,"\n");
-  fprintf(f,"   SYSTEM SETTINGS\n");
-  fprintf(f,title_sep);
-
-  fprintf(f,"\n");
-  fprintf(f,"Number of MPI tasks: %d\n", num_procs );
-
-#ifdef _OPENMP
-#pragma omp parallel shared(n)
-  n = omp_get_num_threads();
-#else
-  n = 1;
-#endif
-  fprintf(f,"Number of OpenMP threads (per-MPI task): %d\n",n);
-
-  for ( proc = 0; proc < num_procs; proc++ ) {
-     fprintf(f,"mpi task %3u hostname %s:%d\n", proc, task_hostnames[proc], pid[proc] );
-  }
-
-  fprintf(f,"UTC time/date: %s",system_get_time_stamp(1));
-  fprintf(f,"Local time/date: %s",system_get_time_stamp(0));
 
   if(filename != NULL)
     {
@@ -448,7 +326,7 @@ void config_append_units_to_file(const char *filename)
   fprintf(f,"   Time:      %lg s\n",primary_units->time/cgs->s);
   fprintf(f,"   Length:    %lg cm\n",primary_units->length/cgs->cm);
 
-#ifdef LEGACY_UNITS
+#ifdef CHECK_LEGACY_UNITS
   fprintf(f,"\n");
   fprintf(f,"Legacy units:\n");
   fprintf(f,"   H0 = %le\n",legacy_units->H0);
@@ -461,7 +339,7 @@ void config_append_units_to_file(const char *filename)
   fprintf(f,"   T0 = %le\n",legacy_units->T0);
   fprintf(f,"   E0 = %le\n",legacy_units->E0);
   fprintf(f,"   M0 = %le\n",legacy_units->M0);
-#endif /* LEGACY_UNITS */
+#endif /* CHECK_LEGACY_UNITS */
 
   if(filename != NULL)
     {

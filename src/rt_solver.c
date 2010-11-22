@@ -1,4 +1,5 @@
 #include "config.h"
+#include "parallel.h"
 
 #include <math.h>
 
@@ -83,8 +84,8 @@ void rtGetSobolevFactors(int cell, int level, float *len, float *vel)
 
 
 #ifdef RT_TRANSFER
-void rtGetAverageRadiationField(frt_real *rfAvg);
-void rtGetAverageAbsorption(frt_real *abcAvg);
+void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com);
+extern struct rtGlobalValue rtAvgOTField;
 #endif
 
 
@@ -125,6 +126,11 @@ float rt_clumping_factor = 30.0;
 */
 float rt_coherence_length = 0.3;
 
+/*
+//  Switch to limit the signal propagation speed to c
+*/
+int rt_limit_signal_speed_to_c = 1;
+
 
 void rtPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_real *rRadField0, frt_real **pRadField1);
 void rtUnPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_real *rRadField1);
@@ -136,7 +142,11 @@ float rt_src_rate;
 void rtInitSource(int level)
 {
   /* Time the source is on (20 Myr) */
+#ifdef RT_OLDSTYLE_SOURCE_FUNCTION
   const float ShiningTime = 2.0e7;
+#else
+  const float ShiningTime = 3.0e6;
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
 
   rt_src_rate = units->time/(ShiningTime*constants->yr);
 }
@@ -145,7 +155,13 @@ void rtInitSource(int level)
 float rtSource(int ipart)
 {
   int istar;
-  float tPrev;
+#if defined(PARTICLES) && defined(STARFORM)
+#ifdef RT_OLDSTYLE_SOURCE_FUNCTION
+  float x1;
+#else
+  float x1, x2;
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
+#endif /* PARTICLES && STARFORM */
 
 #if defined(PARTICLES) && defined(STARFORM)
   if(!particle_is_star(ipart)) return 0.0;
@@ -175,13 +191,26 @@ float rtSource(int ipart)
   //
   // ******************************************************************
   */
-  tPrev = (float)(particle_t[istar]-star_tbirth[istar]-particle_dt[ipart]);
-  if(tPrev < 0.0) tPrev = 0.0;
+  x1 = rt_src_rate*(particle_t[istar]-star_tbirth[istar]-particle_dt[ipart]);
+  if(x1 < 0.0) x1 = 0.0;
 
-  if(rt_src_rate*tPrev < 100)
+#ifdef RT_OLDSTYLE_SOURCE_FUNCTION
+  if(x1 < 100)
     {
-      return exp(-rt_src_rate*tPrev)*(1.0-exp(-rt_src_rate*particle_dt[ipart]))/particle_dt[ipart];
+      return exp(-x1)*(1.0-exp(-rt_src_rate*particle_dt[ipart]))/particle_dt[ipart];
     }
+#else
+  if(x1 < 1.0e3)
+    {
+      /*
+      //  This is a rough fit to Starburst99 evolving spectra
+      */
+      x2 = x1 + rt_src_rate*particle_dt[ipart];
+      x1 *= (0.8+x1*x1);
+      x2 *= (0.8+x2*x2);
+      return (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
+    }
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
   else
     {
       return 0.0;
@@ -194,17 +223,19 @@ float rtSource(int ipart)
 
 void rtConfigInit()
 {
-  control_parameter_add2(control_parameter_float,&rt_dust_to_gas_floor,"rt:dust-to-gas-floor","rt_dust_to_gas_floor","the minimum value for the gas-to-dust ratio, in solar (i.e. MW) units");
+  control_parameter_add2(control_parameter_float,&rt_dust_to_gas_floor,"rt:dust-to-gas-floor","rt_dust_to_gas_floor","the minimum value for the gas-to-dust ratio, in solar (i.e. MW) units.");
 
-  control_parameter_add2(control_parameter_float,&rt_uv_emissivity_stars,"rt:uv-emissivity-stars","rt_uv_emissivity_stars","the efficiency for the stellar UV component, relative to the default value (Draine field)");
+  control_parameter_add2(control_parameter_float,&rt_uv_emissivity_stars,"rt:uv-emissivity-stars","rt_uv_emissivity_stars","the efficiency for the stellar UV component, relative to the default value (Draine field).");
 
-  control_parameter_add2(control_parameter_float,&rt_uv_emissivity_quasars,"rt:uv-emissivity-quasars","rt_uv_emissivity_quasars","the efficiency for the quasar-like UV component, relative to the default value (Draine field)");
+  control_parameter_add2(control_parameter_float,&rt_uv_emissivity_quasars,"rt:uv-emissivity-quasars","rt_uv_emissivity_quasars","the efficiency for the quasar-like UV component, relative to the default value (Draine field).");
 
   control_parameter_add2(control_parameter_int,&rt_stellar_pop,"rt:stellar-pop","rt_stellar_pop","the dominant stellar populatio (2 or 3). This value is used to set the spectral shape for the stellar component.");
 
-  control_parameter_add(control_parameter_float,&rt_clumping_factor,"@rt:clumping-factor","the clumping factor of the neutral gas");
+  control_parameter_add2(control_parameter_int,&rt_limit_signal_speed_to_c,"rt:limit-signal-speed-to-c","rt_limit_signal_speed_to_c","if set, limits the signal propagation speed to the spped of light.");
 
-  control_parameter_add(control_parameter_float,&rt_coherence_length,"@rt:coherence-length","the coherence length of molecular gas (in parsecs)");
+  control_parameter_add(control_parameter_float,&rt_clumping_factor,"@rt:clumping-factor","the clumping factor of the neutral gas.");
+
+  control_parameter_add(control_parameter_float,&rt_coherence_length,"@rt:coherence-length","the coherence length of molecular gas (in parsecs).");
 }
 
 
@@ -217,6 +248,8 @@ void rtConfigVerify()
   cart_assert(!(rt_uv_emissivity_quasars < 0.0));
 
   cart_assert(rt_stellar_pop==2 || rt_stellar_pop==3);
+
+  cart_assert(rt_limit_signal_speed_to_c==0 || rt_limit_signal_speed_to_c==1);
 
   cart_assert(!(rt_clumping_factor < 1.0));
 
@@ -349,11 +382,15 @@ void rtInitRun()
 
 
 /* This function can be called more than once per top level step */ 
-void rtUpdateTables()
+void rtUpdateTables(int top_level, MPI_Comm level_com)
 {
 #ifdef RT_TRANSFER
+  int i;
   frt_real rfAvg[rt_num_frequencies];
-  rtGetAverageRadiationField(rfAvg);
+
+  rtGlobalUpdateTransfer(top_level,level_com);
+
+  for(i=0; i<rt_num_frequencies; i++) rfAvg[i] = rtAvgRF[i].Value;
 #else
   frt_real *rfAvg = NULL;
 #endif
@@ -384,22 +421,17 @@ void rtStepBegin()
   frt_real Hubble = 0.0;
 #endif
 
-#ifdef RT_TRANSFER
-  frt_real rfAvg[rt_num_frequencies];
-  rtGetAverageRadiationField(rfAvg);
-#else
-  frt_real *rfAvg = NULL;
-#endif
-
   start_time(WORK_TIMER);
 
-  frtCall(stepbegin)(&uDen,&uLen,&uTime,&dtStep,&aExp,&Hubble,rfAvg);
+  frtCall(stepbegin)(&uDen,&uLen,&uTime,&dtStep,&aExp,&Hubble);
 
   end_time(WORK_TIMER);
 
 #ifdef RT_TRANSFER
   rtStepBeginTransfer();
 #endif
+
+  rtUpdateTables(min_level,MPI_COMM_WORLD);
 
 #ifdef RT_DEBUG
   switch(rt_debug.Mode)
@@ -435,31 +467,32 @@ void rtStepBegin()
 
 void rtStepEnd()
 {
-#ifdef RT_DEBUG
   int i;
-#endif
   frt_real vol = num_root_cells;
   frt_real parAvg[3];
-  double lBuffer[4], gBuffer[4];
+  struct rtGlobalValue tmp[4];
 
   MESH_RUN_DECLARE(level,cell);
   double sumSrc, sumRho, sumRhoHI, sumRhoH2;
 
+  /*
+  //  End step in the reverse order of its beginning
+  */
 #ifdef RT_TRANSFER
-  frt_real abcAvg[rt_num_frequencies];
-  rtGetAverageAbsorption(abcAvg);
-#else
-  frt_real *abcAvg = NULL;
-#endif
+  rtStepEndTransfer();
+#endif /* RT_TRANSFER */
 
   start_time(WORK_TIMER);
+
+  for(i=0; i<4; i++) rtGlobalValueInit(&tmp[i],0.0);
+
+  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
 
   /*
   //    Averages over mesh variables and their derivatives
   */
   sumSrc = sumRho = sumRhoHI = sumRhoH2 = 0.0;
 
-  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
 #pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_vars,cell_volume,cell_child_oct), reduction(+:sumSrc,sumRho,sumRhoHI,sumRhoH2)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   if(cell_is_leaf(cell))
@@ -474,36 +507,31 @@ void rtStepEnd()
 #endif
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
-  MESH_RUN_OVER_LEVELS_END;
 
-  lBuffer[0] = sumSrc;
-  lBuffer[1] = sumRho;
-  lBuffer[2] = sumRhoHI;
-  lBuffer[3] = sumRhoH2;
+  rtGlobalValueChange(&tmp[0],level,sumSrc);
+  rtGlobalValueChange(&tmp[1],level,sumRho);
+  rtGlobalValueChange(&tmp[2],level,sumRhoHI);
+  rtGlobalValueChange(&tmp[3],level,sumRhoH2);
+
+  MESH_RUN_OVER_LEVELS_END;
 
   end_time(WORK_TIMER);
 
-  start_time( COMMUNICATION_TIMER );
-  MPI_Allreduce(lBuffer,gBuffer,4,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  end_time( COMMUNICATION_TIMER );
+  for(i=0; i<4; i++) rtGlobalValueUpdate(&tmp[i],min_level,max_level,MPI_SUM,MPI_COMM_WORLD);
 
   start_time(WORK_TIMER);
 
-  parAvg[0] = gBuffer[0]/num_root_cells;
+  parAvg[0] = tmp[0].Value;
 #ifdef RT_CHEMISTRY
-  parAvg[1] = gBuffer[2]/gBuffer[1];
-  parAvg[2] = gBuffer[3]/gBuffer[1];
+  parAvg[1] = tmp[2].Value/tmp[1].Value;
+  parAvg[2] = tmp[3].Value/tmp[1].Value;
 #else
   parAvg[1] = parAvg[2] = 0.0;
 #endif
 
-  frtCall(stepend)(&vol,parAvg,abcAvg);
+  frtCall(stepend)(&vol,parAvg);
 
   end_time(WORK_TIMER);
-
-#ifdef RT_TRANSFER
-  rtStepEndTransfer();
-#endif /* RT_TRANSFER */
 
 #ifdef RT_DEBUG
   switch(rt_debug.Mode)
@@ -521,9 +549,7 @@ void rtStepEnd()
     }
   if(rt_debug.Mode>0 && rt_debug.Stop)
     {
-      cart_debug("Aborting on request...");
-      MPI_Abort(MPI_COMM_WORLD,0);
-      exit(0);
+      cart_error("Aborting on request...");
     }
 #endif
 }
@@ -565,15 +591,27 @@ void rtAfterAssignDensity2(int level, int num_level_cells, int *level_cells)
 }
 
 
-void rtLevelUpdate(int level, MPI_Comm local_comm)
+void rtLevelUpdate(int level)
 {
   start_time(RT_LEVEL_UPDATE_TIMER);
 
 #ifdef RT_TRANSFER
-  rtLevelUpdateTransfer(level,local_comm);
+  rtLevelUpdateTransfer(level);
 #endif
 
   end_time(RT_LEVEL_UPDATE_TIMER);
+}
+
+
+void rtGlobalUpdate(int top_level, MPI_Comm level_com)
+{
+  start_time(RT_GLOBAL_UPDATE_TIMER);
+
+#ifdef RT_TRANSFER
+  rtGlobalUpdateTransfer(top_level,level_com);
+#endif
+
+  end_time(RT_GLOBAL_UPDATE_TIMER);
 }
 
 
@@ -641,7 +679,7 @@ void rtPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_r
     }
 #ifdef RT_VAR_OT_FIELD  
   rRadField0[0] = cell_var(cell,RT_VAR_OT_FIELD);
-  rRadField0[1] = rtGlobals[RT_OT_FIELD_AVG].Value;
+  rRadField0[1] = rtAvgOTField.Value;
 #else
   rRadField0[0] = rRadField0[1] = 0.0;
 #endif
@@ -697,13 +735,13 @@ void rtUnPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt
   cell_HeIII_density(cell) = rVar[frtVAR_XHeIII]*rPar[frtPAR_RHO];
   cell_H2_density(cell) = rVar[frtVAR_XH2]*rPar[frtPAR_RHO];
 
-#ifndef RT_MONOATOMIC
+#ifdef RT_EXACT_EOS
 #ifdef RT_HIGH_DENSITY
   cell_gas_gamma(cell) = frtCall(gamma)(Ein,rVar,rPar+1);
 #else
   cell_gas_gamma(cell) = frtCall(gamma)(Ein,rVar);
-#endif
-#endif
+#endif /* RT_HIGH_DENSITY */
+#endif /* RT_EXACT_EOS */
 }
 
 
@@ -753,42 +791,23 @@ float rtTem(int cell)
 
 float rtDustToGas(int cell)
 {
-  int i;
-  /* 
-  //  Specify types for the Fortran interface
-  */
-  frt_real rPar[frtPAR_DIM];
+  frt_real Zsol;
+  float ret;
 
-  /*
-  //  Default values of all parameters is 0
-  */
-  for(i=0; i<frtPAR_DIM; i++) rPar[i] = 0.0;
-
-  /*
-  //  Set parameters:
-  //
-  //    Density in code units
-  */
-  rPar[frtPAR_RHO] = cell_gas_density(cell);
-  /*
-  //    Cell volume in code units
-  */
-#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
-  rPar[frtPAR_VOL] = cell_volume[cell_level(cell)];
-#endif
   /*
   //    Metallicity in units of solar
   */
 #ifdef ENRICH
-  rPar[frtPAR_ZSOL] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
+  Zsol = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
-  rPar[frtPAR_ZSOL] = 0.0;
+  Zsol = 0.0;
 #endif
 
   /*
   //  Call Fortran worker
   */
-  return frtCall(dusttogas)(rPar);
+  ret = frtCall(dusttogas)(&Zsol);
+  return max(rt_dust_to_gas_floor,ret);
 }
 
 
@@ -804,6 +823,57 @@ void rtPrintValue(const char *name, float val, int pDen, int pLen, int pTime)
   cart_debug("Checking: lg(%s) = %g",name,val);
 }
 #endif
+
+
+void rtGetCoolingRate(int cell, float *cooling_rate, float *heating_rate)
+{
+  int level;
+  float soblen, sobvel;
+
+  /* 
+  //  Specify types for the Fortran interface
+  */
+  frt_real rVar[frtVAR_DIM], rPar[frtPAR_DIM];
+#ifdef RT_TRANSFER
+  frt_real rBuffer[rt_num_frequencies];
+  frt_real rRadField0[2];
+#else
+  frt_real *rBuffer = 0, *rRadField0 = 0;
+#endif
+  frt_real *rRadField1 = rBuffer;
+  frt_real rCool, rHeat;
+
+  level = cell_level(cell);
+  rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
+
+  /*
+  //    Cell size for flux-conserving correction
+  */
+#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+  rPar[frtPAR_CELL] = cell_size[level];
+#endif /* RT_TRANSFER && RT_TRANSFER_FLUX_CONSERVING */
+
+  /*
+  //    Sobolev length 
+  */
+#ifdef RT_CHEMISTRY
+  rtGetSobolevFactors(cell,level,&soblen,&sobvel);
+  rPar[frtPAR_SOBL] = soblen;
+  rPar[frtPAR_NUMF] = sobvel*dtl[level]/cell_size[level];
+#endif
+
+#ifdef RT_FIXED_ISM
+  rPar[frtPAR_ZSOL] = rt_dust_to_gas_floor;
+#endif
+
+  /*
+  //  Call the Fortran worker 
+  */
+  frtCall(coolingrate)(rPar,rRadField0,rRadField1,rVar,&rCool,&rHeat);
+
+  *cooling_rate = rCool;
+  *heating_rate = rHeat;
+}
 
 
 void rtGetPhotoRates(int cell, float rate[])

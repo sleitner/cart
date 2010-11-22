@@ -3,11 +3,17 @@
 
 #include <math.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "auxiliary.h"
 #include "iterators.h"
 #include "logging.h"
+#include "parallel.h"
 #include "particle.h"
 #include "rt_global.h"
+#include "rt_transfer.h"
 #include "rt_utilities.h"
 #include "starformation.h"
 #include "timestep.h"
@@ -18,13 +24,23 @@
 #include "F/frt_c.h"
 
 
+#ifdef RT_VAR_SOURCE
+struct rtGlobalValue rtAvgSource;
+#endif
+
+#ifdef RT_VAR_OT_FIELD
+struct rtGlobalValue rtAvgOTField;
+#endif
+
+struct rtGlobalValue rtAvgRF[rt_num_frequencies];
+
+
 void rtTransferSplitUpdate(int level);
-void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalAverageData *out); 
-void rtGetAverageRadiationField(frt_real *rfAvg);
-void rtGetAverageAbsorption(frt_real *abcAvg);
+void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalValue *avg, int level_begin, int level_end, MPI_Comm com); 
+void rtSetGlobalAbsorption(struct rtGlobalValue *abcAvg, struct rtGlobalValue *abcMax);
 
 #ifndef RT_VAR_SOURCE
-void rtTransferUpdateUniformSource(rtGlobalAverageData *avg);
+void rtTransferUpdateUniformSource(struct rtGlobalValue *avg, MPI_Comm com);
 #endif
 
 
@@ -43,34 +59,15 @@ void rtTransferAssignSingleSourceDensity(int level);
 #endif
 
 
-int rtIsThereWork(MPI_Comm local_comm)
+int rtIsThereWork()
 {
-  int num_local, num_global;
-
 #ifdef RT_TEST
   return 1;
 #endif
 
 #if defined(PARTICLES) && defined(STARFORM)
 
-  if(num_particle_species > 1)
-    {
-      num_local = num_local_star_particles;
-    }
-  else
-    {
-      /*
-      //  This assumes that if we have just one particle species and
-      //  RADIATIVE_TRANSFER is on, then this species is sources
-      */
-      num_local = particle_species_num[0];
-    }
-
-  start_time( COMMUNICATION_TIMER );
-  MPI_Allreduce(&num_local,&num_global,1,MPI_INT,MPI_MAX,local_comm);
-  end_time( COMMUNICATION_TIMER );
-
-  return (num_global > 0);
+  return 1;
 
 #else
 
@@ -93,8 +90,6 @@ void rtInitRunTransfer()
 
   end_time(WORK_TIMER);
 
-  rtGlobalAverageInit(rtNumGlobals,rtGlobals);
-
 #ifdef RT_SINGLE_SOURCE
   rtSingleSourceVal = 0.0;
   for(i=0; i<nDim; i++) rtSingleSourcePos[i] = 0.5*num_grid;
@@ -110,43 +105,69 @@ void rtInitRunTransfer()
 
 void rtStepBeginTransfer()
 {
-#ifdef RT_TRANSFER
-  frt_real abcAvg[rt_num_frequencies];
-  rtGetAverageAbsorption(abcAvg);
-#else
-  frt_real *abcAvg = NULL;
-#endif
+  int i;
+  struct rtGlobalValue abcAvg[rt_num_frequencies], abcMax[rt_num_frequencies];
+  frt_real frtAbcAvg[rt_num_frequencies];
+
+  rtSetGlobalAbsorption(abcAvg,abcMax);
 
   start_time(WORK_TIMER);
 
-  frtCall(stepbegintransfer)(abcAvg);
+  for(i=0; i<rt_num_frequencies; i++) frtAbcAvg[i] = abcAvg[i].Value;
+  frtCall(stepbegintransfer)(frtAbcAvg);
 
   end_time(WORK_TIMER);
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
-  rtStepBeginTransferOtvet();
+  rtStepBeginTransferOtvet(abcMax);
 
 #endif
 
-  rtTransferUpdateFields(rtNumGlobals,RT_VAR_SOURCE,rtGlobals);
+  /*
+  //  Set all global values
+  */
+#ifdef RT_VAR_SOURCE
+  rtGlobalValueInit(&rtAvgSource,0.0);
+#endif
+
+#ifdef RT_VAR_OT_FIELD
+  rtGlobalValueInit(&rtAvgOTField,0.0);
+#endif
+
+  for(i=0; i<rt_num_frequencies; i++) rtGlobalValueInit(&rtAvgRF[i],0.0);
+
+  /*
+  //  No need to do that here, it is done in the first Superclass::UpdateTables() call
+  */
+  //  rtGlobalUpdateTransfer(min_level,MPI_COMM_WORLD);
 }
 
 
 void rtStepEndTransfer()
 {
+  int i;
+  struct rtGlobalValue abcAvg[rt_num_frequencies], abcMax[rt_num_frequencies];
+  frt_real frtAbcAvg[rt_num_frequencies];
+
+  rtSetGlobalAbsorption(abcAvg,abcMax);
+
+  start_time(WORK_TIMER);
+
+  for(i=0; i<rt_num_frequencies; i++) frtAbcAvg[i] = abcAvg[i].Value;
+  frtCall(stependtransfer)(frtAbcAvg);
+
+  end_time(WORK_TIMER);
 }
 
 
-void rtLevelUpdateTransfer(int level, MPI_Comm local_comm)
+void rtLevelUpdateTransfer(int level)
 {
-  if(!rtIsThereWork(local_comm)) return;
-
-  rtGlobalAverageUpdate(level,rtNumGlobals,rtGlobals,local_comm);
+  if(!rtIsThereWork()) return;
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
-  rtLevelUpdateTransferOtvet(level,local_comm);
+  rtLevelUpdateTransferOtvet(level);
 
 #endif
 
@@ -154,12 +175,102 @@ void rtLevelUpdateTransfer(int level, MPI_Comm local_comm)
 }
 
 
-void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells)
+void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 {
-  int i;
-  double sum;
+  int iomp, j;
+  MESH_RUN_DECLARE(level,cell);
+#ifdef _OPENMP
+  int nomp = omp_get_num_threads();
+#else
+  int nomp = 1;
+#endif
+  double sum[nomp][rt_num_frequencies+2];
+
+  start_time(WORK_TIMER);
+
+  /*
+  //  Compute per-level averages
+  */
+  MESH_RUN_OVER_LEVELS_BEGIN(level,top_level,max_level);
+
+  /*
+  //  Because the reduction variable cannot be an array in C, doing
+  //  reduction manually. Cannot re-arrange the loops because of the
+  //  cache access pattern.
+  */
+  for(iomp=0; iomp<nomp; iomp++)
+    {
+      for(j=0; j<rt_num_frequencies+2; j++) sum[iomp][j] = 0.0;
+    }
+
+#pragma omp parallel for default(none), private(_Index,cell,iomp,j), shared(_Num_level_cells,_Level_cells,level,cell_vars,cell_child_oct,sum)
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  if(cell_is_leaf(cell))
+    {
+#ifdef _OPENMP
+      iomp = omp_get_thread_num();
+#else
+      iomp = 0;
+#endif
+
+      for(j=0; j<rt_num_frequencies; j++)
+	{
+	  sum[iomp][j] += cell_var(cell,rt_freq_offset+j);
+	}
 
 #ifdef RT_VAR_SOURCE
+      sum[iomp][rt_num_frequencies+0] += cell_var(cell,RT_VAR_SOURCE);
+#endif /* RT_VAR_SOURCE */
+
+#ifdef RT_VAR_OT_FIELD
+      sum[iomp][rt_num_frequencies+1] += cell_var(cell,RT_VAR_OT_FIELD);
+#endif /* RT_VAR_OT_FIELD */
+    }
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+
+#ifdef _OPENMP
+  for(iomp=1; iomp<nomp; iomp++)
+    {
+      for(j=0; j<rt_num_frequencies+2; j++) sum[0][j] += sum[iomp][j];
+    }
+#endif
+
+  for(j=0; j<rt_num_frequencies; j++)
+    {
+      rtGlobalValueChange(&rtAvgRF[j],level,sum[0][j]);
+    }
+
+#ifdef RT_VAR_SOURCE
+  rtGlobalValueChange(&rtAvgSource,level,sum[0][rt_num_frequencies+0]);
+#endif /* RT_VAR_SOURCE */
+
+#ifdef RT_VAR_OT_FIELD
+  rtGlobalValueChange(&rtAvgSource,level,sum[0][rt_num_frequencies+1]);
+#endif /* RT_VAR_OT_FIELD */
+  
+  MESH_RUN_OVER_LEVELS_END;
+
+  end_time(WORK_TIMER);
+
+  for(j=0; j<rt_num_frequencies; j++)
+    {
+      rtGlobalValueUpdate(&rtAvgRF[j],top_level,max_level,MPI_SUM,level_com);
+    }
+
+#ifdef RT_VAR_SOURCE
+  rtGlobalValueUpdate(&rtAvgSource,top_level,max_level,MPI_SUM,level_com);
+#endif /* RT_VAR_SOURCE */
+
+#ifdef RT_VAR_OT_FIELD
+  rtGlobalValueUpdate(&rtAvgSource,top_level,max_level,MPI_SUM,level_com);
+#endif /* RT_VAR_OT_FIELD */
+}
+
+
+void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells)
+{
+#ifdef RT_VAR_SOURCE
+  int i;
 
 #ifdef PARTICLES
 
@@ -196,28 +307,6 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
   /* Need only local cells */
   rtAfterAssignDensityTransferOtvet(level,num_cells_per_level[level],level_cells);
 #endif
-
-  start_time( WORK_TIMER );
-
-  sum = 0.0;
-#pragma omp parallel for default(none), private(i), shared(level,num_cells_per_level,level_cells,cell_vars,cell_child_oct), reduction(+:sum)
-  for(i=0; i<num_cells_per_level[level]; i++) if(cell_is_leaf(level_cells[i]))
-    {
-      sum += cell_rt_source(level_cells[i]);
-    }
-  rtGlobals[RT_SOURCE_AVG].LocalLevelSum[level-min_level] = sum;
-
-#ifdef RT_VAR_OT_FIELD
-  sum = 0.0;
-#pragma omp parallel for default(none), private(i), shared(level,num_cells_per_level,level_cells,cell_vars,cell_child_oct), reduction(+:sum)
-  for(i=0; i<num_cells_per_level[level]; i++) if(cell_is_leaf(level_cells[i]))
-    {
-      sum += cell_var(level_cells[i],RT_VAR_OT_FIELD);
-    }
-  rtGlobals[RT_OT_FIELD_AVG].LocalLevelSum[level-min_level] = sum;
-#endif /* RT_VAR_OT_FIELD */
-
-  end_time( WORK_TIMER );
 
 #endif /* RT_VAR_SOURCE */
 }
@@ -267,65 +356,31 @@ void rtTransferSplitUpdate(int level)
 }
 
 
-void rtTransferUpdateFields(int nvar, int var0, struct rtGlobalAverageData *out)
-{
-  int i;
-  double buffer[rt_num_vars];
-  MESH_RUN_DECLARE(level,cell);
-
-  start_time(WORK_TIMER);
-
-  /*
-  //  Compute per-level averages
-  */
-  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
-
-  for(i=0; i<nvar; i++) buffer[i] = 0.0;
-
-  /*#pragma omp parallel for default(none), private(_Index,cell,i), shared(_Num_level_cells,_Level_cells,level,nvar,var0,cell_vars), reduction(+:buffer) */
-  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
-  if(cell_is_leaf(cell))
-    {
-      for(i=0; i<nvar; i++) buffer[i] += cell_var(cell,var0+i);
-    }
-  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
-
-  for(i=0; i<nvar; i++) out[i].LocalLevelSum[level-min_level] = buffer[i];
-  
-  MESH_RUN_OVER_LEVELS_END;
-
-  end_time(WORK_TIMER);
-
-  for(level=min_level; level<=max_level; level++)
-    {
-      rtGlobalAverageUpdate(level,nvar,out,MPI_COMM_WORLD);
-    }
-}
-
-
 /*
 //  Computes the absorption coefficient at a single frequency bin 
 //  ifreq on all cells from a supplied array and sends the result 
 //  into abc[0] and (optionally) abc[1].
 */
-void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
+void rtComputeAbsLevel(int level, int ncells, int *cells, int ifreq, float **abc)
 {
   int i, cell;
-  float Zsol;
-  frt_real buffer[5];
+  frt_real Zsol, dx;
+  frt_real buffer[5], out[2];
 
   /* turn ifreq into a fortran index */
   ifreq++;
 
-#pragma omp parallel for default(none), private(cell,i,Zsol,buffer), shared(ncells,cells,ifreq,abc,cell_vars)
+  dx = cell_size[level];
+
+#pragma omp parallel for default(none), private(cell,i,Zsol,buffer,out), shared(ncells,cells,ifreq,abc,cell_vars,constants,dx)
   for(i=0; i<ncells; i++)
     {
       cell = cells[i];
-#if defined(RT_DUST) && defined(ENRICH)
+#if defined(RT_UV) && defined(ENRICH)
       Zsol = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
       Zsol = 0.0;
-#endif /* RT_DUST && ENRICH */
+#endif /* RT_UV && ENRICH */
 
       if(sizeof(frt_real) != sizeof(float))  /* Optimization */
 	{
@@ -335,17 +390,20 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 	  buffer[3] = cell_HeII_density(cell);
 	  buffer[4] = cell_H2_density(cell);
 #if (RT_CFI == 1)
-	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,abc[0]+i,abc[1]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,&dx,out+0,out+1);
+	  abc[0][i] = out[0];
+	  abc[1][i] = out[1];
 #else
-	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,abc[0]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,&dx,out+0);
+	  abc[0][i] = out[0];
 #endif
 	}
       else
 	{
 #if (RT_CFI == 1)
-	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),abc[0]+i,abc[1]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),&dx,abc[0]+i,abc[1]+i);
 #else
-	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),abc[0]+i);
+	  frtCall(transfercomputecellabs)(&ifreq,&Zsol,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),&dx,abc[0]+i);
 #endif
 	}
 
@@ -366,45 +424,34 @@ void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc)
 }
 
 
-void rtGetAverageRadiationField(frt_real *rfAvg)
+void rtSetGlobalAbsorption(struct rtGlobalValue *abcAvg, struct rtGlobalValue *abcMax)
 {
-  int i;
-  struct rtGlobalAverageData tmp[rt_num_frequencies];
-  
-  rtGlobalAverageInit(rt_num_frequencies,tmp);
-
-  /*
-  //  Compute global properties for all frequencies 
-  */
-  rtTransferUpdateFields(rt_num_frequencies,rt_freq_offset,tmp); 
-
-  start_time(WORK_TIMER);
-
-  for(i=0; i<rt_num_frequencies; i++)
-    {
-      rfAvg[i] = tmp[i].Value;
-    }
-
-  end_time(WORK_TIMER);
-}
-
-
-void rtGetAverageAbsorption(frt_real *abcAvg)
-{
-  int i, j, ifield, n = rt_num_frequencies/2;
-  double lBuffer[3*n], gBuffer[3*n];
+  const int n = rt_num_frequencies/2;
+  int i, ifield;
+  struct rtGlobalValue tmp[2*n];
+  double s, s0, s1;
+  float amin, amax;
   MESH_RUN_DECLARE(level,cell);
   float *abc[2], *abc1, w;
+#ifdef RT_DEBUG
+  int j;
+#endif
 
   start_time(WORK_TIMER);
 
-  for(i=0; i<3*n; i++) lBuffer[i] = 0.0;
+  for(i=0; i<n; i++)
+    {
+      rtGlobalValueInit(&tmp[2*i+0],0.0);
+      rtGlobalValueInit(&tmp[2*i+1],0.0);
+      rtGlobalValueInit(&abcAvg[i],0.0);
+      rtGlobalValueInit(&abcMax[i],0.0);
+    }
   
   MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
 
-  abc[0] = cart_alloc(float, _Num_level_cells );
+  abc[0] = cart_alloc(float,_Num_level_cells);
 #if (RT_CFI == 1)
-  abc[1] = cart_alloc(float, _Num_level_cells );
+  abc[1] = cart_alloc(float,_Num_level_cells);
 #else
   abc[1] = 0;
 #endif
@@ -416,21 +463,27 @@ void rtGetAverageAbsorption(frt_real *abcAvg)
       */
       ifield = rt_freq_offset + rt_num_frequencies/2 + i;
 
-      rtComputeAbsLevel(_Num_level_cells,_Level_cells,i,abc);
+      rtComputeAbsLevel(level,_Num_level_cells,_Level_cells,i,abc);
 #if (RT_CFI == 1)
       abc1 = abc[1];
 #else
       abc1 = abc[0];
 #endif
 
-  /*#pragma omp parallel for default(none), private(_Index,cell,i,w), shared(_Num_level_cells,_Level_cells,level,n,cell_vars), reduction(+:sum) */
+      rtuGetLinearArrayMaxMin(_Num_level_cells,abc1,&amax,&amin);
+      rtGlobalValueChange(&abcMax[i],level,amax);
+
+      s = s0 = s1 = 0.0;
+
+#pragma omp parallel for default(none), private(_Index,cell,i,w), shared(_Num_level_cells,_Level_cells,level,n,cell_vars,cell_child_oct,ifield,abc1), reduction(+:s,s0,s1)
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
       if(cell_is_leaf(cell))
 	{
 	  w = cell_var(cell,ifield);
-	  lBuffer[3*i+0] += abc1[_Index]*cell_volume[level];
-	  lBuffer[3*i+1] += w*cell_volume[level];
-	  lBuffer[3*i+2] += w*abc1[_Index]*cell_volume[level];
+	  s0 += w*cell_volume[level];
+	  s1 += w*abc1[_Index]*cell_volume[level];
+	  s += abc1[_Index]*cell_volume[level];
+
 #ifdef RT_DEBUG
 	  if(w<0.0 || isnan(w)) 
 	    {
@@ -444,6 +497,11 @@ void rtGetAverageAbsorption(frt_real *abcAvg)
 #endif
 	}
       MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+
+      rtGlobalValueChange(&tmp[2*i+0],level,s0);
+      rtGlobalValueChange(&tmp[2*i+1],level,s1);
+      rtGlobalValueChange(&abcAvg[i],level,s);
+
     }
 
   cart_free(abc[0]);
@@ -455,21 +513,21 @@ void rtGetAverageAbsorption(frt_real *abcAvg)
 
   end_time(WORK_TIMER);
 
-  start_time( COMMUNICATION_TIMER );
-  MPI_Allreduce(lBuffer,gBuffer,3*n,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-  end_time( COMMUNICATION_TIMER );
+  rtGlobalValueUpdate(&tmp[2*i+0],min_level,max_level,MPI_SUM,MPI_COMM_WORLD);
+  rtGlobalValueUpdate(&tmp[2*i+1],min_level,max_level,MPI_SUM,MPI_COMM_WORLD);
+  rtGlobalValueUpdate(&abcAvg[i],min_level,max_level,MPI_SUM,MPI_COMM_WORLD);
+  rtGlobalValueUpdate(&abcMax[i],min_level,max_level,MPI_MAX,MPI_COMM_WORLD);
 
   start_time(WORK_TIMER);
 
+  /*
+  //  Weighted average
+  */
   for(i=0; i<n; i++)
     {
-      if(gBuffer[3*i+1] > 1.0e-35)
+      if(tmp[2*i+0].Value > 1.0e-35)
 	{
-	  abcAvg[i] = gBuffer[3*i+2]/gBuffer[3*i+1];
-	}
-      else
-	{
-	  abcAvg[i] = gBuffer[3*i+0]/num_root_cells;
+	  abcAvg[i].Value = tmp[2*i+1].Value/tmp[2*i+0].Value;
 	}
     }
 

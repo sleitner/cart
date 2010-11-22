@@ -52,13 +52,13 @@ int main ( int argc, char *argv[]) {
 
 	read_grid_binary( argv[1] );	
     units_reset();
-    units_update(min_level);
 #ifdef COSMOLOGY
 	abox[min_level] = abox_from_tcode(tl[min_level]);
 	auni[min_level] = auni_from_tcode(tl[min_level]);
 #else
 	abox[min_level] = auni[min_level];
 #endif
+    units_update(min_level);
 
 	cart_debug("tl = %e", tl[min_level] );
 	cart_debug("abox = %e", abox[min_level] );

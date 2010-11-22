@@ -76,7 +76,7 @@ struct Units
 extern const struct Units *units;
 
 
-#ifdef LEGACY_UNITS
+#ifdef CHECK_LEGACY_UNITS
 struct LegacyUnits {
   double H0;
   double r0;
@@ -92,7 +92,7 @@ struct LegacyUnits {
   double AL_SD;
 };
 extern const struct LegacyUnits *legacy_units;
-#endif /* LEGACY_UNITS */
+#endif /* CHECK_LEGACY_UNITS */
 
 
 extern double box_size;

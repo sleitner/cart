@@ -9,20 +9,6 @@
 #include <mpi.h>
 
 
-//#define rbinmax         (5e3/hubble)
-//#define rbinmin         (10.0/hubble)
-//#define max_bins        100
-
-//#define rbinvirmin      0.05
-//#define rbinvirmax      4.0
-//#define num_vir_bins    50
-//#define virial_radius_index     2       /* r500, 0 = rvir */
-
-//#define points_per_cell 1
-
-//#define Tcold           (1e5)
-//#define new_star_age    (0.1)
-
 #define min_halo_particles      (1e3)
 #define min_xray_removal_mass   (1e12)
 #define xray_removal_radius     (1.0)
@@ -45,6 +31,7 @@ typedef struct HALO {
 typedef struct HALO_LIST {
 	int num_halos;
 	halo *list;
+	int map;  
 } halo_list;
 
 void load_halo_finder_epochs( char *filename, int *num_epochs, float **epoch );
@@ -58,5 +45,12 @@ int halo_level(const halo *h, MPI_Comm local_comm);
 halo* find_halo_by_id(halo_list *halos, int id);
 
 void dump_region_around_halo(const char *filename, const halo *h, float size);
+
+/*
+//  Set cell_var(c,var) with the halo id for each halo, or 0 if belongs to 
+//  none; a cell belongs to a halo if it is inside its size_factor*Rtrunc, 
+//  and satellites are accounted for properly.
+*/
+void map_halos(int var, int resolution_level, halo_list *halos, float size_factor);
 
 #endif

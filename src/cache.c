@@ -283,7 +283,7 @@ void cache_reorder_tree() {
 			oct_level[ioct] = level;
 			
 			/* this requires levels fixed from min->max */
-			cell_position( parent, oct_pos[ioct] );
+			cell_center_position( parent, oct_pos[ioct] );
 
 			for ( i = 0; i < num_neighbors; i++ ) {
 				oct_neighbors[ioct][i] = NULL_OCT;
@@ -470,31 +470,35 @@ void cache_reorder_particles() {
 #endif /* STARFORM */
 
 	/* now put particles into proper order */
+	backup_doubles = cart_alloc(double, num_particles );
+
+	for ( ipart = 0; ipart < num_particles; ipart++ ) {
+		if ( old_particle_index[ipart] != -1 ) {
+			backup_doubles[ipart] = particle_t[ old_particle_index[ipart] ];
+		} else {
+			backup_doubles[ipart] = 0.0;
+		}
+	}
+
+	for ( ipart = 0; ipart < num_particles; ipart++ ) {
+		particle_t[ipart] = backup_doubles[ipart];
+	}
+
+	for ( ipart = 0; ipart < num_particles; ipart++ ) {
+		if ( old_particle_index[ipart] != -1 ) {
+			backup_doubles[ipart] = particle_dt[ old_particle_index[ipart] ];
+		} else {
+			backup_doubles[ipart] = 0.0;
+		}
+	}
+
+	for ( ipart = 0; ipart < num_particles; ipart++ ) {
+		particle_dt[ipart] = backup_doubles[ipart];
+	}
+
+	cart_free( backup_doubles );
+
 	backup_floats = cart_alloc(float, num_particles );
-
-	for ( ipart = 0; ipart < num_particles; ipart++ ) {
-		if ( old_particle_index[ipart] != -1 ) {
-			backup_floats[ipart] = particle_t[ old_particle_index[ipart] ];
-		} else {
-			backup_floats[ipart] = 0.0;
-		}
-	}
-
-	for ( ipart = 0; ipart < num_particles; ipart++ ) {
-		particle_t[ipart] = backup_floats[ipart];
-	}
-
-	for ( ipart = 0; ipart < num_particles; ipart++ ) {
-		if ( old_particle_index[ipart] != -1 ) {
-			backup_floats[ipart] = particle_dt[ old_particle_index[ipart] ];
-		} else {
-			backup_floats[ipart] = 0.0;
-		}
-	}
-
-	for ( ipart = 0; ipart < num_particles; ipart++ ) {
-		particle_dt[ipart] = backup_floats[ipart];
-	}
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {

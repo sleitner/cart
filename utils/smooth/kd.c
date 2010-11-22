@@ -624,6 +624,8 @@ void kdBuildTree(KD kd)
 				bnd.fMax[j] = kd->p[i].r[j];
 			}
 		}
+
+	for (j=0;j<3;++j) fprintf(stdout,"min, max = %f %f.\n", bnd.fMin[j],bnd.fMax[j]);
 	/*
 	 ** Set up ROOT node
 	 */

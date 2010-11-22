@@ -2021,6 +2021,7 @@ c.... read control information and check whether it has proper structure
      &     (( zero2 .eq. 0.0 ) .or. ( zero2 .eq. 0.1234 )) .and.
      &     ( DelDC .ne. 0.0 )) then
          AEXPN = abox
+         write(6,*) 'Detected DC mode, setting AEXPN to: ', abox
       endif
 
       write (*,100) HEADER,

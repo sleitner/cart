@@ -6,24 +6,10 @@
 #define COSMOLOGY
 #define PARTICLES
 #define REFINEMENT
-
-#define LAPIDUS
-#define DENSGRADSMOOTH
-#define PRESSURE_FLOOR
 #define ADVECT_SPECIES
 
 #define ENRICH
 #define ENRICH_SNIa
-#define FEEDBACK
-#define FEEDBACK_SNIa
-#define STELLARMASSLOSS
-
-
-#define DEBUG_MEMORY_USE
-
-#define OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION 
-#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
-
 
 #define num_root_grid_refinements	<set value here>
 #define num_refinement_levels		<set value here>

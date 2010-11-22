@@ -1,0 +1,11 @@
+#PBS -S /bin/csh
+#PBS -l nodes=6:ppn=8,walltime=20:00:00,vmem=14gb
+#PBS -q mpi2
+#PBS -j oe
+#PBS -N orbit
+
+
+cd $HOME/ART/sub-stepping/tests/orbit
+
+./art orbit.cfg
+

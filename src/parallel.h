@@ -20,9 +20,10 @@ void config_verify_parallel();
 void init_parallel_grid();
 int processor_owner( int sfc );
 
-#define MPI_CUSTOM_NONE      0x0U
-#define MPI_CUSTOM_SYNC      0x1U
+#define MPI_CUSTOM_NONE                0x0U
 
 extern unsigned int mpi_custom_flags;
+
+void print_comm_contents(MPI_Comm com, const char *name);
 
 #endif

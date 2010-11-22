@@ -1,0 +1,35 @@
+erase
+lweight 2
+
+
+location 4500 32000 4000 32000
+
+
+limits 0 1 -6 0
+notation -1 2 -1 1
+ticksize 0 0 -1 0
+expand 1.5
+box
+expand 2.0
+xlabel t (yr)
+ylabel {\g D}P
+
+
+macro plot 14 {
+	da $1
+	read { t 1 p 2 }
+
+	set lp = lg(1.0e-30+abs(p))
+
+	ctype $2
+	connect t lp
+	ctype 0
+}
+
+
+
+plot potev.res 			0
+
+
+
+

@@ -16,7 +16,7 @@
 
 void check_map() {
 	int i, j, k;
-	float pos[nDim];
+	double pos[nDim];
 	int neighbors[num_neighbors];
 	int total_root_cells;
 	int total_particles;
@@ -31,6 +31,16 @@ void check_map() {
 	float min_var[num_vars];
 	int specie_count[100];
 	int specie_count_total[100];
+#ifdef GRAVITY
+	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
+        const int color[num_children] = {
+                #if nDim == 3
+                        0, 1, 1, 0, 1, 0, 0, 1
+                #else
+                        #error "Unknown nDim in color (smooth)"
+                #endif
+        };
+#endif
 
 	/* test root cells */
 	cart_assert( num_cells_per_level[min_level] == proc_sfc_index[local_proc_id+1] - proc_sfc_index[local_proc_id] );
@@ -79,7 +89,7 @@ void check_map() {
 			cart_assert( !cell_is_local(icell) || ( sfc >= proc_sfc_index[local_proc_id] && sfc < proc_sfc_index[local_proc_id+1] ) );
 
 			cell_all_neighbors( icell, neighbors );
-			cell_position( icell, pos );
+			cell_center_position( icell, pos );
 
 			for ( i = 0; i < num_neighbors; i++ ) {
 				if ( neighbors[i] == NULL_OCT && cell_is_local(icell) ) {
@@ -103,10 +113,10 @@ void check_map() {
 						cart_debug("neighbor[%u] = %d, %u, %u", i, neighbors[i], cell_level(neighbors[i]), 
 							cell_is_local(neighbors[i]) );
 
-						cell_position(icell,pos);
-						cart_debug("cell position = %e %e %e", pos[0], pos[1], pos[2] );
-						cell_position(neighbors[i],pos);
-						cart_debug("neighbors position = %e %e %e", pos[0], pos[1], pos[2] );
+						cell_center_position(icell,pos);
+						cart_debug("cell position = %le %le %le", pos[0], pos[1], pos[2] );
+						cell_center_position(neighbors[i],pos);
+						cart_debug("neighbors position = %le %le %le", pos[0], pos[1], pos[2] );
 
 						cart_debug("parent oct = %u", cell_parent_oct(icell) );
 						cart_debug("oct neighbor = %u", oct_neighbors[cell_parent_oct(icell)][i] );
@@ -133,7 +143,7 @@ void check_map() {
 				}
 
 				for ( i = 0; i < nDim; i++ ) {
-					cart_assert( fabs(pos[i]-oct_pos[ioct][i])/fabs(pos[i]) < 1e-6 );
+					cart_assert( fabs(pos[i]-oct_pos[ioct][i])/fabs(pos[i]) < 1e-12 );
 				}
 			}
 		}
@@ -247,7 +257,7 @@ void check_map() {
 #endif /* STARFORM */
 #endif /* PARTICLES */
 
-#ifdef GRAVITY_CHECK
+#ifdef GRAVITY
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
 		for ( k = 0; k < num_level_cells; k++ ) {
@@ -280,7 +290,7 @@ void check_map() {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
-			cell_position(icell, pos);
+			cell_center_position(icell, pos);
 
 			for ( j = 0; j < nDim; j++ ) {
 				cell_accel(icell,j) = pos[j];
@@ -296,7 +306,7 @@ void check_map() {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
-			cell_position( icell, pos );
+			cell_center_position( icell, pos );
 
 			for ( j = 0; j < nDim; j++ ) {
 				cart_assert( fabs( cell_accel(icell,j) - pos[j] ) < 0.5*cell_size[level] );
@@ -305,7 +315,7 @@ void check_map() {
 
 		cart_free( level_cells );
 	}
-#endif /* GRAVITY_CHECK */
+#endif /* GRAVITY */
 }
 
 void print_cell_values(int level) {

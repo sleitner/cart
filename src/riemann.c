@@ -18,6 +18,9 @@
 #define small_R     1.0e-20
 
 
+extern int smooth_density_gradients;
+
+
 void riemann( double stl[5], double str[5], double sta[4] ) {
 	double p_l, p_r, p0, bgam_l, rgam_l, gam_l, xl2, xl3;
 	double al, bl, cl, q_l, bgam_r, rgam_r, gam_r;
@@ -380,11 +383,6 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, 
 
 	gvisc = 2.0 * ( v[2][1] - v[2][2] );
 
-#ifdef DENSGRADSMOOTH
-	xx = drhomax * max( v[0][1], v[0][2] ) / ( min( v[0][1], v[0][2] ) );
-	dvisc = max( 0.0, dviscmax * ( xx - 1.0 ) / ( xx + 1.0 ) );
-#endif /* DENSGRADSMOOTH */
-
 	/* Compute neighbors */
 	cell_all_neighbors( L1, neighborsL1 );
 	cell_all_neighbors( R1, neighborsR1 );
@@ -411,9 +409,12 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, 
 		
 	diff = diffk * max( 0.0, gvisc );
 
-#ifdef DENSGRADSMOOTH
-	diff = max( diff, dvisc );
-#endif /* DENSGRADSMOOTH */
+	if(smooth_density_gradients)
+	  {
+	    xx = drhomax * max( v[0][1], v[0][2] ) / ( min( v[0][1], v[0][2] ) );
+	    dvisc = max( 0.0, dviscmax * ( xx - 1.0 ) / ( xx + 1.0 ) );
+	    diff = max( diff, dvisc );
+	  }
 
 	f[0] += diff * ( cell_gas_density(L1) - cell_gas_density(R1) );
 	f[1] += diff * ( cell_momentum(L1,j3) - cell_momentum(R1,j3) );

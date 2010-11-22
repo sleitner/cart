@@ -15,10 +15,12 @@
 
 #if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
+struct rtGlobalValue;
+
 void rtInitRunTransferOtvet();
-void rtStepBeginTransferOtvet();
+void rtStepBeginTransferOtvet(struct rtGlobalValue *abcMax);
 void rtAfterAssignDensityTransferOtvet(int level, int num_level_cells, int *level_cells);
-void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm);
+void rtLevelUpdateTransferOtvet(int level);
 
 #endif /* defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */
 #endif /* RADIATIVE_TRANSFER */

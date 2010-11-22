@@ -4,9 +4,11 @@
 /*
 //  Only ported to Unix at present
 */
-#include <time.h>
+#include <errno.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -37,5 +39,36 @@ char* system_get_time_stamp(int utc)
   else
     {
       if(utc) return asctime(gmtime(&tv.tv_sec)); else return asctime(localtime(&tv.tv_sec));
+    }
+}
+
+int system_mkdir(const char *name)
+{
+  switch(mkdir(name,S_IRWXU | S_IRGRP | S_IXGRP))
+    {
+    case 0:
+      {
+	return 0;
+      }
+    default:
+      {
+	return (errno == EEXIST) ? 0 : errno;
+      }
+    }
+}
+
+
+int system_chdir(const char *name)
+{
+  switch(chdir(name))
+    {
+    case 0:
+      {
+	return 0;
+      }
+    default:
+      {
+	return errno;
+      }
     }
 }

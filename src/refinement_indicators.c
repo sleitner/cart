@@ -8,23 +8,17 @@
 
 #include "auxiliary.h"
 #include "control_parameter.h"
+#include "cosmology.h"
 #include "refinement_indicators.h"
 #include "tree.h"
 
 
-struct
-{
-  int *use;
-  int use_buffer[max_level-min_level+1];
-  float weight;
-  float *threshold;
-  float threshold_buffer[max_level-min_level+1];
-}
-refinement_indicator[num_refinement_indicators];
+/*
+//  List of units for the 
+*/
 
 
-int neighbors[num_neighbors];
-float drho[nDim];
+refinement_t refinement_indicator[num_refinement_indicators];
 
 
 void control_parameter_set_refinement_indicator(const char *value, void *ptr, int ind)
@@ -32,7 +26,7 @@ void control_parameter_set_refinement_indicator(const char *value, void *ptr, in
   char *str, *tok;
   int id, from_level, to_level, level, n;
   float w;
-  char c;
+  char c, unit[10];
 
   str = cart_alloc(char,strlen(value)+1);
   strcpy(str,value); /* strtok destroys the input string */
@@ -122,7 +116,8 @@ void control_parameter_set_refinement_indicator(const char *value, void *ptr, in
       else
 	{
 	  n = 1;
-	  if(sscanf(tok,"%g%c",&w,&c)!=1 && sscanf(tok,"%d*%g%c",&n,&w,&c)!=2)
+	  unit[0] = 0;
+	  if(sscanf(tok,"%g%c",&w,&c)!=1 && sscanf(tok,"%d*%g%c",&n,&w,&c)!=2 && sscanf(tok,"%d*%g[%s]%c",&n,&w,unit,&c)!=3)
 	    {
 	      cart_error("Unable to read refinement THRESHOLD from token '%s' of string '%s'",tok,value);
 	    }
@@ -130,6 +125,30 @@ void control_parameter_set_refinement_indicator(const char *value, void *ptr, in
 	    {
 	      cart_error("Numerical multiplier %d in the threshold value for indicator %d must be positive",n,id);
 	    }
+	  /*
+	  //  Parse unit identifier
+	  */
+	  if(unit[0] != 0)
+	    {
+	      if(strcmp(unit,"M0") == 0)
+		{
+		  /*
+		  //  Multiply the value by the mean specie mass
+		  */
+		  switch(id)
+		    {
+		    default:
+		      {
+			cart_error("Unit <M0> is not valid for refinement indicator %d",id);
+		      }
+		    }
+		}
+	      else
+		{
+		  cart_error("String '%s' is not a valid refinement indicator unit",unit);
+		}
+	    }
+
 	  for(; level<=to_level && n>0; level++, n--)
 	    {
 	      refinement_indicator[id].use[level] = 1;
@@ -223,7 +242,8 @@ void config_verify_refinement_indicators()
 void mark_refinement_indicators( int cell, int level ) {
 	int i;
         float indicator = 0.0;
-
+	int neighbors[num_neighbors];
+	float drho[nDim];
 
 	if ( refinement_indicator[DARK_MASS_INDICATOR].use[level] ) {
 	        indicator = max( dark_mass_indicator(cell, level), indicator );
@@ -243,23 +263,23 @@ void mark_refinement_indicators( int cell, int level ) {
 	}
 
 	if ( refinement_indicator[SHOCK_INDICATOR].use[level] ) {
-		indicator = max( shock_indicator(cell, level), indicator );
+		indicator = max( shock_indicator(cell, level,neighbors), indicator );
 	}
 
 	if ( refinement_indicator[CONTACT_DISCONTINUITY_INDICATOR].use[level] ) {
-		indicator = max( contact_discontinuity_indicator(cell,level), indicator );
+		indicator = max( contact_discontinuity_indicator(cell,level,neighbors,drho), indicator );
 	}
 
 	if ( refinement_indicator[DENSITY_GRADIENT_INDICATOR].use[level] ) {
-		indicator = max( density_gradient_indicator(cell,level), indicator );
+		indicator = max( density_gradient_indicator(cell,level,neighbors,drho), indicator );
 	}
 
 	if ( refinement_indicator[PRESSURE_GRADIENT_INDICATOR].use[level] ) {
-		indicator = max( pressure_gradient_indicator(cell,level), indicator );
+		indicator = max( pressure_gradient_indicator(cell,level,neighbors), indicator );
 	}
 
 	if ( refinement_indicator[ENTROPY_GRADIENT_INDICATOR].use[level] ) {
-		indicator = max( entropy_gradient_indicator(cell,level), indicator );
+		indicator = max( entropy_gradient_indicator(cell,level,neighbors), indicator );
 	}
 #endif /* HYDRO */
 
@@ -288,7 +308,7 @@ float gas_mass_indicator( int cell, int level ) {
 	return min( ave_mass, refinement_indicator[GAS_MASS_INDICATOR].weight );
 }
 
-float shock_indicator( int cell, int level ) {
+float shock_indicator( int cell, int level, int neighbors[] ) {
 	int i;
 	float dp;
 	float dv;
@@ -317,7 +337,7 @@ float shock_indicator( int cell, int level ) {
 	return indicator;
 }
 
-float contact_discontinuity_indicator( int cell, int level ) {
+float contact_discontinuity_indicator( int cell, int level, int neighbors[], float drho[] ) {
         int i;
         float dp;
         float indicator = 0.0;
@@ -341,7 +361,7 @@ float contact_discontinuity_indicator( int cell, int level ) {
         return indicator;
 }
 
-float density_gradient_indicator( int cell, int level ) {
+float density_gradient_indicator( int cell, int level, int neighbors[], float drho[] ) {
 	int i;
 	float rho_ind1, rho_ind2;
 	float drho_indicator;
@@ -364,7 +384,7 @@ float density_gradient_indicator( int cell, int level ) {
 	return indicator;
 }
 
-float pressure_gradient_indicator( int cell, int level ) {
+float pressure_gradient_indicator( int cell, int level, int neighbors[] ) {
 	int i;
         float press_ind1, press_ind2;
         float indicator = 0.0;
@@ -391,7 +411,7 @@ float pressure_gradient_indicator( int cell, int level ) {
 
 }
 
-float entropy_gradient_indicator( int cell, int level ) {
+float entropy_gradient_indicator( int cell, int level, int neighbors[] ) {
 	return 0.0;
 }
 

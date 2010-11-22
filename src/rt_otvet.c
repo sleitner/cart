@@ -22,16 +22,25 @@
 int rtOtvetMaxNumIter = 10;
 
 
+extern struct rtGlobalValue rtAvgSource;
+extern struct rtGlobalValue rtAvgOTField;
+
+extern int rt_limit_signal_speed_to_c;
+
+
 int NumVars = 1 + rt_num_et_vars;
 int Vars[] = { RT_VAR_OT_FIELD,
-		       rt_et_offset + 0,
-		       rt_et_offset + 1,
-		       rt_et_offset + 2,
-		       rt_et_offset + 3,
-		       rt_et_offset + 4,
-		       rt_et_offset + 5 };
+	       rt_et_offset + 0,
+	       rt_et_offset + 1,
+	       rt_et_offset + 2,
+	       rt_et_offset + 3,
+	       rt_et_offset + 4,
+	       rt_et_offset + 5 };
 
 DEFINE_LEVEL_ARRAY(float,BufferFactor);
+
+
+int rtOtvetOTBox[rt_num_frequencies/2];
 
 
 void rtOtvetComputeGreenFunctions();
@@ -71,8 +80,12 @@ void rtInitRunTransferOtvet()
 }
 
 
-void rtStepBeginTransferOtvet()
+void rtStepBeginTransferOtvet(struct rtGlobalValue *abcMax)
 {
+  const float tauMin = 1.0e-2;
+  int i;
+
+  for(i=0; i<rt_num_frequencies/2; i++) rtOtvetOTBox[i] = (abcMax[i].Value*num_grid < tauMin);
 }
 
 
@@ -89,16 +102,14 @@ void rtAfterAssignDensityTransferOtvet(int level, int num_level_cells, int *leve
 #define varG(iL)    cell_var(indL2G[iL],ivarG)
 
 #define srcL(iL)    cell_rt_source(indL2G[iL])
-#define srcG(iL)    rtGlobals[RT_SOURCE_AVG].Value
+#define srcG(iL)    rtAvgSource.Value
 
 #define otfL(iL)    cell_var(indL2G[iL],RT_VAR_OT_FIELD)
-#define otfG(iL)    rtGlobals[RT_OT_FIELD_AVG].Value
+#define otfG(iL)    rtAvgOTField.Value
 
 
-void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
+void rtLevelUpdateTransferOtvet(int level)
 {
-  const float tauMin = 1.0e-2;
-
   /*
   // Extra arrays
   */
@@ -111,13 +122,8 @@ void rtLevelUpdateTransferOtvet(int level, MPI_Comm local_comm)
   int work;
   int num_level_cells, num_all_cells, num_total_cells, *nb;
   int iL, iG, j, offset, index;
-  int nit, ifreq, ivarL, ivarG;
-  float abcMin, abcMax;
-  float abcMin1, abcMax1;
-#ifdef RT_SIGNALSPEED_TO_C
-  int nit0;
+  int nit, ifreq, ivarL, ivarG, nit0;
   float xiUnit;
-#endif
 
   start_time(WORK_TIMER);
 
@@ -300,52 +306,19 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
       /*
       // Compute the absorption coefficient at this level
       */
-      rtComputeAbsLevel(num_total_cells,indL2G,ifreq,abc);
-
-      /*
-      // Compute the range of the abc array(s)
-      */
-      if(num_total_cells > 0)
-	{
-	  rtuGetLinearArrayMaxMin(num_total_cells,abc[0],&abcMax,&abcMin);
-#if (RT_CFI == 1)
-	  rtuGetLinearArrayMaxMin(num_total_cells,abc[1],&abcMax1,&abcMin1);
-	  if(abcMin > abcMin1) abcMin = abcMin1;
-	  if(abcMax < abcMax1) abcMax = abcMax1;
-#endif
-	}
-      else
-	{
-	  abcMin = 1.0e35;
-	  abcMax = 0.0;
-	}
-
-      end_time(WORK_TIMER);
-
-      /*
-      //  Make sure all procs have the same abcMin/Max
-      */
-      start_time(COMMUNICATION_TIMER);
-
-      MPI_Allreduce(&abcMin,&abcMin1,1,MPI_FLOAT,MPI_MIN,local_comm);
-      MPI_Allreduce(&abcMax,&abcMax1,1,MPI_FLOAT,MPI_MAX,local_comm);
-
-      end_time(COMMUNICATION_TIMER);
-
-      abcMin = abcMin1;
-      abcMax = abcMax1;
+      rtComputeAbsLevel(level,num_total_cells,indL2G,ifreq,abc);
 
       /*
       // Is the box optically thin?
       */
-      if(abcMax*num_grid < tauMin)
+      if(rtOtvetOTBox[ifreq])
 	{
 	  
 	  start_time(WORK_TIMER);
 
 	  if(work)
 	    {
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rtGlobals)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rtAvgSource,rtAvgOTField)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  varL(iL) = otfL(iL);
@@ -366,34 +339,26 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  */
 	  nit = rtOtvetMaxNumIter;
 
-#ifdef RT_SIGNALSPEED_TO_C
 	  /*
 	  // Number of iterations needed for the signal propagation speed to less or equal c.
 	  */
-	  xiUnit = units->length/(constants->c*units->time);
-	  nit0 = 1 + (int)(dtl[level]/xiUnit/cell_size[level]);
-	  if(nit > nit0)
+	  if(rt_limit_signal_speed_to_c)
 	    {
-	      cart_debug("OTVET: reducing iteration count from %d to %d",nit,nit0);
-	      nit = nit0;
+	      xiUnit = units->length/(constants->c*units->time);
+	      nit0 = 1 + (int)(dtl[level]/xiUnit/cell_size[level]);
+	      if(nit > nit0)
+		{
+		  cart_debug("OTVET: reducing iteration count from %d to %d",nit,nit0);
+		  nit = nit0;
+		}
 	    }
-#endif
 
-#ifdef DEBUG
-	  end_time(WORK_TIMER);
-	  rtuCheckGlobalValue(ifreq,"Otvet:ifreq",local_comm);
-#ifdef RT_SIGNALSPEED_TO_C
-	  rtuCheckGlobalValue(nit0,"Otvet:nit0",local_comm);
-#endif
-	  rtuCheckGlobalValue(nit,"Otvet:nit",local_comm);
-	  start_time(WORK_TIMER);
-#endif
 	  /*
 	  // Update local field
 	  */
 	  if(work)
 	    {
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rtGlobals,rhs)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rtAvgSource,rtAvgOTField,rhs)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  rhs[iL] = srcL(iL);
@@ -411,7 +376,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	  if(work)
 	    {
 	      start_time(WORK_TIMER);
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rtGlobals,rhs)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rtAvgSource,rtAvgOTField,rhs)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  rhs[iL] = srcG(iL);
@@ -429,7 +394,7 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
 	    {
 	      start_time(WORK_TIMER);
 
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rtGlobals)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,rtAvgSource,rtAvgOTField)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  if(varL(iL) < 0.0) varL(iL) = 0.0;

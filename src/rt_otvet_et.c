@@ -7,13 +7,13 @@
 #include "cell_buffer.h"
 #include "iterators.h"
 #include "parallel.h"
-#include "sfc.h"
 #include "rt_solver.h"
 #include "rt_transfer.h"
 #include "rt_utilities.h"
+#include "sfc.h"
+#include "timing.h"
 #include "top_level_fft.h"
 #include "tree.h"
-#include "timing.h"
 
 
 
@@ -65,7 +65,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
 
   if(level == min_level)
     {
-      top_level_fft(RT_VAR_SOURCE,NumVars-1,Vars+1,rtOtvetTopLevelEddingtonTensor);
+      top_level_fft(RT_VAR_SOURCE,NumVars-1,Vars+1,rtOtvetTopLevelEddingtonTensor);  /* hidden synchronous communication - only used for the top level */
 
       start_time(WORK_TIMER);
 
@@ -440,7 +440,7 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
   start_time(WORK_TIMER);
 
   eps1 = 0.01*cell_size[srcLevel]*cell_size[srcLevel];
-  eps2 = 4*cell_size[srcLevel]*cell_size[srcLevel];
+  eps2 = 9*cell_size[srcLevel]*cell_size[srcLevel];
 
   select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
 
@@ -448,7 +448,7 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
   for(index=0; index<num_level_cells; index++)
     {
       cell = level_cells[index];
-      cell_position_double(cell,pos);
+      cell_center_position(cell,pos);
 
       dr2 = eps1;
       for(i=0; i<nDim; i++)

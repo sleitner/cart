@@ -20,7 +20,7 @@
 #include "utils.h"
 
 
-float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvar, int *varid);
+float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar, int *varid);
 
 
 #ifdef STARFORM
@@ -28,10 +28,10 @@ extern double sf_min_stellar_particle_mass;
 #endif
 
 
-int ifritOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, int nvars, int *varid)
+int ifritOutputMesh(const char *filename, int level, int nbinIn[], double pcenIn[], int nvars, int *varid)
 {
   int i, ntemp, nbin[3];
-  double bb[6];
+  double pcen[3];
   float **vars;
   FILE *F;
 
@@ -39,21 +39,18 @@ int ifritOutputMesh(const char *filename, int level, int *nbinIn, double *bbIn, 
   for(i=0; i<nDim; i++)
     {
       cart_assert(nbinIn[i] > 0);
-      cart_assert(bbIn[2*i+1] > bbIn[2*i]);
 
       nbin[i] = nbinIn[i];
-      bb[2*i+0] = bbIn[2*i+0];
-      bb[2*i+1] = bbIn[2*i+1];
+      pcen[i] = pcenIn[i];
     }
 
   for(i=nDim; i<3; i++)
     {
       nbin[i] = 1;
-      bb[2*i+0] = 0.0;
-      bb[2*i+1] = num_grid;
+      pcen[i] = 0.5;
     }
 
-  vars = ifritUniformGrid_Sample(level,nbin,bb,nvars,varid);
+  vars = ifritUniformGrid_Sample(level,nbin,pcen,nvars,varid);
  
   if(local_proc_id == MASTER_NODE)
     {
@@ -121,7 +118,6 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
 {
   const float dr = 0.33;
   int i, j, k, size, rank, ntemp, nsub;
-  char s[999];
   double pos;
   float val;
   long ntot, nloc = 0L;
@@ -239,7 +235,7 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
 
 long ifritParticles_WriteBasicFile(const char *filename, double *bb, int flags)
 {
-  int i, j, k, size, rank, ntemp;
+  int ntemp;
   FILE *F;
   float w;
   long ntot;
@@ -342,11 +338,10 @@ void ifritOutputParticles(const char *fileroot, double *bb)
 #endif /* PARTICLES */
 
 
-void ifritOutputHalo(const char *fileroot, int floor_level, float zoom, const halo *h, int nvars, int *varid)
+void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const halo *h, int nvars, int *varid)
 {
-  const int nbin1 = 256;
-  int j, nbin[] = { nbin1, nbin1, nbin1 };
-  double bb[6], pos[3], dbb;
+  int j;
+  double bb[6], pos[3], dx;
   float dmax;
   char str[999];
 
@@ -363,28 +358,27 @@ void ifritOutputHalo(const char *fileroot, int floor_level, float zoom, const ha
       for(j=0; j<nDim; j++) pos[j] = h->pos[j];
     }
   
-  dbb = zoom*nbin1*pow(0.5,(double)floor_level);
+  dx = pow(0.5,(double)floor_level);
 
-  bb[0] = pos[0] - 0.5*dbb;
-  bb[1] = pos[0] + 0.5*dbb;
-  bb[2] = pos[1] - 0.5*dbb;
-  bb[3] = pos[1] + 0.5*dbb;
-  bb[4] = pos[2] - 0.5*dbb;
-  bb[5] = pos[2] + 0.5*dbb;
+  bb[0] = pos[0] - 0.5*dx*nbin[0];
+  bb[1] = pos[0] + 0.5*dx*nbin[0];
+  bb[2] = pos[1] - 0.5*dx*nbin[1];
+  bb[3] = pos[1] + 0.5*dx*nbin[1];
+  bb[4] = pos[2] - 0.5*dx*nbin[2];
+  bb[5] = pos[2] + 0.5*dx*nbin[2];
 
   if(local_proc_id == MASTER_NODE)
     {
-      cart_debug("Rebinning for IFrIT at (%lf,%lf,%lf) with size %lf",pos[0],pos[1],pos[2],dbb);
+      cart_debug("Rebinning for IFrIT at (%lf,%lf,%lf) with cell size %lf",pos[0],pos[1],pos[2],dx);
     }
 
-  sprintf(str,"%s-halo%03d",fileroot,h->id);
-#ifdef PARTICLES
-  ifritOutputParticles(str,bb);
-#endif /* PARTICLES */
-
+  strcpy(str,fileroot);
   strcat(str,"-mesh.bin");
-  ifritOutputMesh(str,max_level,nbin,bb,nvars,varid);
+  ifritOutputMesh(str,floor_level,nbin,pos,nvars,varid);
 
+#ifdef PARTICLES
+  ifritOutputParticles(fileroot,bb);
+#endif /* PARTICLES */
 }
 
 
@@ -396,23 +390,25 @@ void ifritOutputHalo(const char *fileroot, int floor_level, float zoom, const ha
 //
 // ************************************************
 */
-long ifritUniformGrid_GetSize(int level, int nbin[3], double bb[6])
+long ifritUniformGrid_GetSize(int level, int nbin[3], double pcen[3])
 {
   int i, j, k, cell;
   long n;
-  double pos[3];
+  double pos[3], dx;
+
+  dx = pow(0.5,(double)level);
 
   /* count number of buffer cells */
   n = 0;
   for(k=0; k<nbin[2]; k++)
     {
-      pos[2] = bb[4] + (bb[5]-bb[4])*(k+0.5)/nbin[2];
+      pos[2] = pcen[2] + dx*(k+0.5-0.5*nbin[2]);
       for(j=0; j<nbin[1]; j++)
 	{
-	  pos[1] = bb[2] + (bb[3]-bb[2])*(j+0.5)/nbin[1];
+	  pos[1] = pcen[1] + dx*(j+0.5-0.5*nbin[1]);
 	  for(i=0; i<nbin[0]; i++)
 	    {
-	      pos[0] = bb[0] + (bb[1]-bb[0])*(i+0.5)/nbin[0];
+	      pos[0] = pcen[0] + dx*(i+0.5-0.5*nbin[0]);
 	      cell = cell_find_position_above_level(level,pos);
 	      if(cell!=-1 && root_cell_type(root_cell_sfc_index(cell_parent_root_cell(cell)))==1)
 		{
@@ -426,23 +422,25 @@ long ifritUniformGrid_GetSize(int level, int nbin[3], double bb[6])
 }
 
 
-void ifritUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, int *varid, float **buf, long *loc)
+void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars, int *varid, float **buf, long *loc)
 {
   int i, j, k, var, cell;
   long offset, l;
-  double pos[3];
+  double pos[3], dx;
+
+  dx = pow(0.5,(double)level);
 
   l = 0;
   for(k=0; k<nbin[2]; k++)
     {
-      pos[2] = bb[4] + (bb[5]-bb[4])*(k+0.5)/nbin[2];
+      pos[2] = pcen[2] + dx*(k+0.5-0.5*nbin[2]);
       for(j=0; j<nbin[1]; j++)
 	{
-	  pos[1] = bb[2] + (bb[3]-bb[2])*(j+0.5)/nbin[1];
+	  pos[1] = pcen[1] + dx*(j+0.5-0.5*nbin[1]);
 	  offset = nbin[1]*(j+nbin[2]*k);
 	  for(i=0; i<nbin[0]; i++)
 	    {
-	      pos[0] = bb[0] + (bb[1]-bb[0])*(i+0.5)/nbin[0];
+	      pos[0] = pcen[0] + dx*(i+0.5-0.5*nbin[0]);
 	      cell = cell_find_position_above_level(level,pos);
 	      if(cell!=-1 && root_cell_type(root_cell_sfc_index(cell_parent_root_cell(cell)))==1)
 		{
@@ -460,13 +458,23 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, 
 #endif /* HYDRO */
 		      else switch(varid[var])
 			{
-#ifdef RADIATIVE_TRANSFER
+#ifdef HYDRO
+			case I_GAS_NUMBER_DENSITY:
+			  {
+			    buf[var][l] = units->number_density*cell_gas_density(cell);
+			    break;
+			  }
 			case I_GAS_TEMPERATURE:
 			  {
 			    buf[var][l] = units->temperature*cell_gas_temperature(cell);
 			    break;
 			  }
-#endif /* RADIATIVE_TRANSFER */
+			case I_GAS_TOVERMU:
+			  {
+			    buf[var][l] = units->temperature*(cell_gas_gamma(cell)-1)*cell_gas_internal_energy(cell)/cell_gas_density(cell);
+			    break;
+			  }
+#endif /* HYDRO */
 			case I_CELL_LEVEL:
 			  {
 			    buf[var][l] = cell_level(cell);
@@ -477,13 +485,21 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, 
 			    buf[var][l] = local_proc_id;
 			    break;
 			  }
-#ifdef HYDRO
-			case I_GAS_NUMBER_DENSITY:
+#ifdef ENRICH
+			case I_GAS_METAL_DENSITY:
 			  {
-			    buf[var][l] = units->number_density*cell_gas_density(cell);
+			    buf[var][l] = cell_gas_metal_density(cell);
 			    break;
 			  }
-#endif /* HYDRO */
+			case I_GAS_METALLICITY:
+			  {
+			    buf[var][l] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
+			    break;
+			  }
+#endif /* ENRICH */
+
+
+
 			default:
 			  {
 			    buf[var][l] = 0.0;
@@ -499,7 +515,7 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double bb[6], int nvars, 
 }
 
 
-float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars, int *varid)
+float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvars, int *varid)
 {
   int i, ip;
   long l, ncells;
@@ -523,7 +539,7 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars,
 	  */
 	  if(ip == 0)
 	    {
-	      ncells = ifritUniformGrid_GetSize(level,nbin,bb);
+	      ncells = ifritUniformGrid_GetSize(level,nbin,pcen);
 	    }
 	  else
 	    {
@@ -541,7 +557,7 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars,
 	  */
 	  if(ip == 0)
 	    {
-	      ifritUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
+	      ifritUniformGrid_FillData(level,nbin,pcen,nvars,varid,buf,loc);
 	    }
 	  else
 	    {
@@ -575,7 +591,7 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars,
       /*
       //  Measure & transfer buffer size
       */
-      ncells = ifritUniformGrid_GetSize(level,nbin,bb);
+      ncells = ifritUniformGrid_GetSize(level,nbin,pcen);
       MPI_Send(&ncells,1,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
 
       /*
@@ -587,7 +603,7 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double bb[6], int nvars,
       /*
       //  Fill & transfer buffers
       */
-      ifritUniformGrid_FillData(level,nbin,bb,nvars,varid,buf,loc);
+      ifritUniformGrid_FillData(level,nbin,pcen,nvars,varid,buf,loc);
 
       MPI_Send(loc,ncells,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
       for(i=0; i<nvars; i++) MPI_Send(buf[i],ncells,MPI_FLOAT,MASTER_NODE,0,MPI_COMM_WORLD);

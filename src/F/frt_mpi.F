@@ -38,7 +38,8 @@ C
 C
 C
 C
-      subroutine frtQueryId(id)
+      subroutine frtSetIONode(ioNode)
+      logical ioNode
 #ifdef RT_PARALLEL_USE_MPI
       include 'mpif.h'
 #endif /* RT_PARALLEL_USE_MPI */
@@ -52,9 +53,11 @@ C
          call frtAbort
       endif
 
+      ioNode = (id .eq. 0)
+
 #else
 
-      id = 0
+      ioNode = .true.
 
 #endif /* RT_PARALLEL_USE_MPI */
 

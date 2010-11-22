@@ -61,10 +61,9 @@ C
 C
 C  Local rates tables
 C
-        common/RT_XRS_D/ sgpRate0SE(istabDim)
-	common/RT_XRS_E/ sgpTabSE(istabDim,NOPT3)
+	common/RT_XRS_D/ qTabSE(istabDim,NOPT3)
 C
 C  Integration weights and normalization
 C
-        common/RT_XRS_F/ wpTabSE(istabDim,NRAD)
+        common/RT_XRS_E/ wpTabSE(istabDim,NRAD)
 

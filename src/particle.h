@@ -15,8 +15,8 @@
 
 extern int num_row;
 
-extern float particle_t[num_particles];
-extern float particle_dt[num_particles];
+extern double particle_t[num_particles];
+extern double particle_dt[num_particles];
 extern double particle_x[num_particles][nDim];
 extern double particle_v[num_particles][nDim];
 

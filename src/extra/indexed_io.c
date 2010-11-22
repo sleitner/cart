@@ -1,24 +1,23 @@
+#include "config.h"
+
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <string.h>
 
-#include <mpi.h>
-
-#include "defs.h"
+#include "auxiliary.h"
+#include "cell_buffer.h"
+#include "hydro.h"
+#include "index_hash.h"
+#include "io.h"
+#include "iterators.h"
+#include "parallel.h"
+#include "sfc.h"
+#include "skiplist.h"
 #include "timestep.h"
 #include "tree.h"
-#include "io.h"
 #include "units.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "sfc.h"
-#include "iterators.h"
-#include "auxiliary.h"
-#include "hydro.h"
-#include "skiplist.h"
-#include "index_hash.h"
+
 
 #ifdef HYDRO
 

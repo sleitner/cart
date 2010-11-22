@@ -6,8 +6,6 @@
 #endif
 
 
-#include <mpi.h>
-
 /*
 //  Usefull, RT-independent calls for diagnistics
 */
@@ -23,6 +21,9 @@ void rtGetSobolevFactors(int cell, int level, float *len, float *vel);
 #endif
 
 
+#include <mpi.h>
+
+
 void rtInitSource(int level);
 float rtSource(int ipart);
 
@@ -34,13 +35,15 @@ void rtConfigVerify();
 void rtInitRun();
 void rtStepBegin();
 void rtStepEnd();
-void rtLevelUpdate(int level, MPI_Comm local_comm);
+void rtLevelUpdate(int level);
+void rtGlobalUpdate(int top_level, MPI_Comm level_com);
 
 /*
 //  This function can be called more than once per top level step
-//  to update internal RT tables.
+//  to update internal RT tables. It calls rtGlobalUpdate(...) internally,
+//  so if it is used, then there is no need to call rtGlobalUpdate
 */ 
-void rtUpdateTables();
+void rtUpdateTables(int top_level, MPI_Comm level_com);
 
 /*
 //  Using somewhat less descriptive function names in the expectation
@@ -55,6 +58,7 @@ void rtAfterAssignDensity2(int level, int num_level_cells, int *level_cells);
 */
 float rtTem(int cell);
 float rtDustToGas(int cell);
+void rtGetCoolingRate(int cell, float *cooling_rate, float *heating_rate);
 void rtGetPhotoRates(int cell, float rate[]);
 void rtGetRadiationField(int cell, int n, const int idxi[], float ngxi[]);
 void rtGetBinIds(int n, const float wlen[], int idxi[]);

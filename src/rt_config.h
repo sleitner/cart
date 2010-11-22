@@ -47,8 +47,8 @@
 //  There is no sense in using non-monoatomic thermodynamics
 //  if chemistry is not included
 */
-#ifndef RT_MONOATOMIC
-#define RT_MONOATOMIC
+#ifdef RT_EXACT_EOS
+#undef RT_EXACT_EOS
 #endif
 
 /*
@@ -71,33 +71,19 @@
 
 
 /*
-//  Use log interpolation for photo rates. 
+//  Use log interpolation for photo rates. I cannot imagine it
+//  should ever be off, hence it is here.
 */
 #define RT_INTERPOLLOG
 
 
 /*
-//  If the required photo rate is not found in the rate table, use direct
-//  integration to compute it (which would be VERY SLOW). If unset, assume
-//  that the table is wide enough (parameter acOmax from rt_tables.h is
-//  large enough) for the source spectrum and set the rate to zero.
-*/
-#define RT_NARROWTABLE
-
-
-/*
 //  Allow for non-equilibrium abundances for H_2^+ and H^-. Tom Abel claimed
 //  that those two are always in the equilibrium. This is introduced for 
-//  testing purposes only, so it is hidden here.
+//  testing purposes only, so it is hidden here (in fact, it is not fully
+//  implemented in the C part.
 */
 /* #define RT_8SPECIES */
-
-/*
-//  Apply flux-conserving correction a-la Abel to photoionization rates.
-//  May slow down the cooling computation. So far, I found no effect, so it
-//  is off by default
-*/
-/* #define RT_TRANSFER_FLUX_CONSERVING */
 
 
 /*
@@ -106,13 +92,32 @@
 //           1 = Shapiro & Kang / Lepp & Shull
 //           2 = Galli & Palla
 */
+#ifndef RT_H2_RATE
 #define RT_H2_RATE 0
+#endif
+
 
 /*
-//  By defult use the full chemical model -  it is the only one
-//  that works in all regimes
+//  Dust absorption cross-section
+//  0 = LMC-like dust
+//  1 = SMC-like dust
+//  (if underfined, defaults to LMC-like)
 */
-#define RT_CHEMISTRY_FULL_MODEL
+#ifndef RT_DUST_CS
+#define RT_DUST_CS 0
+#endif
+
+
+/*
+//  Mode of ionization clumping factor:
+//  0:  no clumping factors
+//  1:  use clumping factors in external RF only
+//  2:  use clumping factors in full RF 
+//  (if underfined, defaults to no clumping)
+*/
+#ifndef RT_CFI
+#define RT_CFI 0
+#endif
 
 /*
 //  A helper switch to optimize calculations if photoionization and
@@ -121,8 +126,8 @@
 //  (May be removed after the development is complete.)
 */
 #if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-/* #define RT_VARIABLE_PRATES */
-/* #define RT_VARIABLE_RFIELD */
+#define RT_VARIABLE_PRATES
+#define RT_VARIABLE_RFIELD
 #endif
 
 /*

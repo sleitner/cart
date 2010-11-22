@@ -15,20 +15,28 @@
 
 #ifdef RT_TRANSFER
 
+
 #include <mpi.h>
+
 
 void rtInitRunTransfer();
 void rtStepBeginTransfer();
 void rtStepEndTransfer();
 void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells);
-void rtLevelUpdateTransfer(int level, MPI_Comm local_comm);
+void rtLevelUpdateTransfer(int level);
+void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com);
 
-void rtComputeAbsLevel(int ncells, int *cells, int ifreq, float **abc);
+void rtComputeAbsLevel(int level, int ncells, int *cells, int ifreq, float **abc);
 
 #ifdef RT_SINGLE_SOURCE
 extern float rtSingleSourceVal;
 extern double rtSingleSourcePos[nDim];
 #endif
+
+
+struct rtGlobalValue;
+extern struct rtGlobalValue rtAvgRF[];
+
 
 #endif /* RT_TRANSFER */
 #endif /* RADIATIVE_TRANSFER */

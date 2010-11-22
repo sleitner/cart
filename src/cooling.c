@@ -24,8 +24,8 @@ double Zlmin, Zlmax, dlZ; /* metallicity */
 double rsmin, rsmax, drs; /* scale factor */
 double dlti, dldi, dlZi, drsi;
 
-double coolcl[nrsmax][nlzmax][nldmax][nltmax];
-double ccl_rs[nlzmax][nldmax][nltmax];
+cooling_t coolcl[nrsmax][nlzmax][nldmax][nltmax];
+cooling_t ccl_rs[nlzmax][nldmax][nltmax];
 double f_ion[nrsmax][nlzmax][nldmax][nltmax];
 
 void init_cooling() {
@@ -67,7 +67,12 @@ void init_cooling() {
 					cdum = max( cdum, ct_crit );
 					hdum = max( hdum, smallrate );
 
+#ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 					coolcl[irs][ilz][ild][ilt] = cdum - hdum;
+#else
+					coolcl[irs][ilz][ild][ilt].Cooling = max(0.0,cdum);
+					coolcl[irs][ilz][ild][ilt].Heating = max(0.0,hdum);
+#endif
 					f_ion[irs][ilz][ild][ilt] = d[5] / pow( 10.0, d[1] );
 				}
 			}
@@ -96,6 +101,7 @@ void set_cooling_redshift( double auni ) {
 		/* just copy over specific redshift */
 		for ( ilz = 0; ilz < nlz; ilz++ ) {
 			for ( ild = 0; ild < nld; ild++ ) {
+#pragma omp parallel for default(none), private(ilt), shared(irs1,irs2,ilz,ild,ccl_rs,coolcl,nlt)
 				for ( ilt = 0; ilt < nlt; ilt++ ) {
 					ccl_rs[ilz][ild][ilt] = coolcl[irs1][ilz][ild][ilt];
 				}
@@ -108,12 +114,16 @@ void set_cooling_redshift( double auni ) {
 
 		for ( ilz = 0; ilz < nlz; ilz++ ) {
 			for ( ild = 0; ild < nld; ild++ ) {
+#pragma omp parallel for default(none), private(ilt,ac,bc), shared(irs1,irs2,ilz,ild,ccl_rs,coolcl,nlt,rs,rs1,rs2)
 				for ( ilt = 0; ilt < nlt; ilt++ ) {
-					ac = ( coolcl[irs2][ilz][ild][ilt] - coolcl[irs1][ilz][ild][ilt] ) /
-						(rs2 - rs1);
-					bc = coolcl[irs1][ilz][ild][ilt] - ac * rs1;
-
-					ccl_rs[ilz][ild][ilt] = ac*rs + bc;
+					ac = (rs2-rs)/(rs2-rs1);
+					bc = (rs-rs1)/(rs2-rs1);
+#ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
+					ccl_rs[ilz][ild][ilt] = ac*coolcl[irs1][ilz][ild][ilt] + bc*coolcl[irs2][ilz][ild][ilt];
+#else
+					ccl_rs[ilz][ild][ilt].Cooling = ac*coolcl[irs1][ilz][ild][ilt].Cooling + bc*coolcl[irs2][ilz][ild][ilt].Cooling;
+					ccl_rs[ilz][ild][ilt].Heating = ac*coolcl[irs1][ilz][ild][ilt].Heating + bc*coolcl[irs2][ilz][ild][ilt].Heating;
+#endif
 				}
 			}
 		}
@@ -122,13 +132,16 @@ void set_cooling_redshift( double auni ) {
 	end_time( WORK_TIMER );
 }
 
-double cooling_rate( double nHlog, double T_g, double Zlog ) {
+cooling_t cooling_rate( double nHlog, double T_g, double Zlog ) {
 	double Tlog;
 	int it1, it2;
 	int id1, id2;
 	int iz1, iz2;
 	double dd,td,zd;
 	double d1,d2,d3,t1,t2,t3;
+#ifndef OLDSTYLE_COOLING_EXPLICIT_SOLVER
+	cooling_t ret;
+#endif
 
 	/* compute temperature bin */
 	Tlog = log10(T_g) + 4.0;
@@ -175,6 +188,8 @@ double cooling_rate( double nHlog, double T_g, double Zlog ) {
 	cart_assert( t3 >= 0.0 && t3 <= 1.0 );
 */
 
+#ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
+
 	return	t1*t2*t3 * ccl_rs[iz1][id1][it1] +
 		d1*t2*t3 * ccl_rs[iz1][id1][it2] +
 		t1*d2*t3 * ccl_rs[iz1][id2][it1] +
@@ -183,8 +198,31 @@ double cooling_rate( double nHlog, double T_g, double Zlog ) {
 		d1*t2*d3 * ccl_rs[iz2][id1][it2] +
 		t1*d2*d3 * ccl_rs[iz2][id2][it1] +
 		d1*d2*d3 * ccl_rs[iz2][id2][it2];
+
+#else  /* OLDSTYLE_COOLING_EXPLICIT_SOLVER */
+
+	ret.Cooling =   t1*t2*t3 * ccl_rs[iz1][id1][it1].Cooling +
+			d1*t2*t3 * ccl_rs[iz1][id1][it2].Cooling +
+			t1*d2*t3 * ccl_rs[iz1][id2][it1].Cooling +
+			d1*d2*t3 * ccl_rs[iz1][id2][it2].Cooling +
+			t1*t2*d3 * ccl_rs[iz2][id1][it1].Cooling +
+			d1*t2*d3 * ccl_rs[iz2][id1][it2].Cooling +
+			t1*d2*d3 * ccl_rs[iz2][id2][it1].Cooling +
+			d1*d2*d3 * ccl_rs[iz2][id2][it2].Cooling;
+	ret.Heating =   t1*t2*t3 * ccl_rs[iz1][id1][it1].Heating +
+			d1*t2*t3 * ccl_rs[iz1][id1][it2].Heating +
+			t1*d2*t3 * ccl_rs[iz1][id2][it1].Heating +
+			d1*d2*t3 * ccl_rs[iz1][id2][it2].Heating +
+			t1*t2*d3 * ccl_rs[iz2][id1][it1].Heating +
+			d1*t2*d3 * ccl_rs[iz2][id1][it2].Heating +
+			t1*d2*d3 * ccl_rs[iz2][id2][it1].Heating +
+			d1*d2*d3 * ccl_rs[iz2][id2][it2].Heating;
+	return ret;
+
+#endif /* OLDSTYLE_COOLING_EXPLICIT_SOLVER */
 }
 
+#ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 void test_cooling() {
 	double a, rhogl, T_g, Z_met, cr;
 	double Tl_min, Tl_max, d_Tl;
@@ -219,6 +257,7 @@ void test_cooling() {
 		cart_error("done outputting table");
 	}
 }
+#endif /* OLDSTYLE_COOLING_EXPLICIT_SOLVER */
 
 #endif /* COOLING && !RADIATIVE_TRANSFER */
 

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "auxiliary.h"
+#include "cell_buffer.h"
 #include "cosmology.h"
 #include "hydro.h"
 #include "iterators.h"
@@ -564,12 +565,11 @@ void gicReadParticleData(const char *rootname, char *type, int dc_off)
   cosmology_set(OmegaB,manifest->OmegaB);
   cosmology_set(OmegaL,manifest->OmegaL);
   cosmology_set(h,manifest->h100);
-  if(dc_off){ 
+
+  if(dc_off)
     cosmology_set(DeltaDC,0.0);
-  }else{
+  else
     cosmology_set(DeltaDC,fileHeader->DeltaDC);
-  }
-   
 
   box_size = manifest->dx*num_grid;
 
@@ -1148,14 +1148,13 @@ void gic_init()
   const char *tmp, *rootname;
   char type[2];
   int dc_off = 0;
-  double aexp0, aexpv, vFac ;
 
   /*
   //  Make sure we have a blank slate
   */
   if(cosmology_is_set())
     {
-      cart_error("Cosmology is set before GIC files are read. Cosmological parameters should be set in the config file when using the GIc reader.");
+      cart_error("Cosmology is set before GIC files are read. Cosmological parameters should NOT be set in the config file when using the GIC reader.");
     }
   
   /*
@@ -1165,7 +1164,7 @@ void gic_init()
     {
       if(num_options < 1)
 	{
-          cart_error("An option -root=<name> is required, where <name> is the root name for a set of GIC input files.\n");
+          cart_error("An option --root=<name> is required, where <name> is the root name for a set of GIC input files.\n");
         }
     }
 
@@ -1174,7 +1173,7 @@ void gic_init()
       /*
       //  Root name for data files
       */
-      tmp = check_option1(options[i],"root",NULL);
+      tmp = check_option1(options[i],"-root",NULL);
       if(tmp != NULL)
 	{
 	  rootname = tmp;
@@ -1184,7 +1183,7 @@ void gic_init()
       /*
       //  Switch off the DC mode
       */
-      tmp = check_option0(options[i],"no-dc");
+      tmp = check_option0(options[i],"-no-dc");
       if(tmp != NULL)
 	{
 	  dc_off = 1;
@@ -1209,7 +1208,7 @@ void gic_init()
 
   gicBalanceLoad(rootname,type);
   gicReadParticleData(rootname,type,dc_off);
-  cart_debug("read in particles with velocity on the whole step");
+  cart_debug("read in particles");
 
 #ifdef HYDRO
 
@@ -1226,6 +1225,7 @@ void gic_init()
   cart_debug("au[min_level] = %f", auni[min_level] );
   cart_debug("ab[min_level] = %f", abox[min_level] );
   cart_debug("DC mode = %f", cosmology->DeltaDC );
+
   cosmology_set_fixed();
 
   for(level=min_level+1; level<=max_level; level++)
@@ -1235,21 +1235,13 @@ void gic_init()
       abox[level] = abox[min_level];
     }
 
-  cart_debug("choose timestep and set velocity on the half step");
-  dtl[min_level] = 0.0;
-  choose_timestep( &dtl[min_level] );
-  aexpv = abox_from_tcode( tl[min_level] - 0.5*dtl[min_level]  ); //sam
-  aexp0 = abox[min_level];
-  vFac = ( dPlus(aexpv) * aexpv * cosmology_mu(aexpv)/(aexpv*aexpv) ) / ( dPlus(aexp0) * aexp0 * cosmology_mu(aexp0)/(aexp0*aexp0) ) ;
-  cart_debug("vFac(aexpv)/vFac(aexp0)=%f",vFac);
-
   for(i=0; i<num_particles; i++) if(particle_level[i] != FREE_PARTICLE_LEVEL)
     {
       particle_t[i] = tl[min_level];
-      particle_dt[i] = dtl[min_level];
-      particle_v[i][0] *= vFac;
-      particle_v[i][1] *= vFac;
-      particle_v[i][2] *= vFac;
+      /*
+      //  We set the step to 0 so that the first leapfrog step is correct
+      */
+      particle_dt[i] = 0.0;
     }
 
 #ifdef STARFORM

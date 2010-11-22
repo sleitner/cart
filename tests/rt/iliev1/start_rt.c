@@ -21,6 +21,10 @@
 #include "extra/ifrit.h"
 
 
+#ifdef RT_DEBUG
+#include "rt_debug.h"
+#endif
+
 const float N50 = 0.05;
 const float T_i = 1.0e4;
 const int BottomLevel = 2;
@@ -345,4 +349,16 @@ void init_run()
    check_map();
    
    run_output();
+  /*
+  //  Debugging parameters
+  */
+#ifdef RADIATIVE_TRANSFER
+#ifdef RT_DEBUG
+  rt_debug.Mode = 1;
+  rt_debug.Stop = 0;
+  rt_debug.Pos[0] = rtSingleSourcePos[0] - 0.5*pow(0.5,BottomLevel);
+  rt_debug.Pos[1] = rtSingleSourcePos[1] - 0.5*pow(0.5,BottomLevel);
+  rt_debug.Pos[2] = rtSingleSourcePos[2] - 0.5*pow(0.5,BottomLevel);
+#endif
+#endif
 }

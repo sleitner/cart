@@ -154,21 +154,23 @@ C
 	common/RT_TAB_H/ tauH1m, tauG1m, tauG2m,
      .	                 altH1m, altG1m, altG2m,
      .		         tH1min, tG1min, tG2min,
-     .		         tH1max, tG1max, tG2max, 
+     .		         tH1max, tG1max, tG2max,
      .                   iptabMax
 	common/RT_TAB_I/ itloc2(NOPTT,NOPTT)
 C
 C  Radiation field tables: global field
 C
-	common/RT_TAB_J/ pRate0(iptabDim), pTab(iptabDim,NOPT3)
+	common/RT_TAB_J/ pRate0(iptabDim), 
+     .			 pTab3(iptabDim,NOPT3)
 C
 C  Radiation field tables: local field
 C
-	common/RT_TAB_K/ sgpRate0(iptabDim), sgpTab(iptabDim,NOPT3)
+	common/RT_TAB_K/ qRate0(iptabDim), 
+     .			 qTab3(iptabDim,NOPT3)
 C
 C  Integration weights and normalization
 C
-	common/RT_TAB_L/ wpTab(iptabDim,NRAD)
+	common/RT_TAB_L/ wpTab(iptabDim,NRAD), uvFac(iptabDim)
 C
 C  Radiation mesh
 C
@@ -179,15 +181,16 @@ C
 C
 C  Cross sections: atomic & dust
 C
-	common/RT_TAB_O/ csH1(NRAD),  csG1(NRAD),  csG2(NRAD),
-     .                   csH1n(NRAD), csG1n(NRAD), csG2n(NRAD),
-     .			 csLyS(NRAD), csLySn(NRAD),
-     .	                 csDust(NRAD), csDustn(NRAD),
-     .			 csH1tr, csG1tr, csG2tr,
+	common/RT_TAB_O/ csH1(NRAD), csH1n(NRAD),
+     .			 csG1(NRAD), csG1n(NRAD),
+     .			 csG2(NRAD), csG2n(NRAD),
+     .	                 csUV(NRAD), csUVn(NRAD),
+     .			 csDust(NRAD),
+     .			 csH1tr, csG1tr, csG2tr, csUVtr,
      .                   csH1AB, csG1AB, csG2AB
-	common/RT_TAB_P/ lrH1tr, lrG1tr, lrG2tr,
+	common/RT_TAB_P/ lrH1tr, lrG1tr, lrG2tr, lrUVtr,
      .                   lrH1rB, lrG1rB, lrG2rB,
-     .                   lrmin, lrmax, lrLStr, lrDUtr, lrSEtr
+     .                   lrmax, lrDUtr, lrSEtr
 C
 C  Cross sections: chemistry 
 C  (LW = LW bands, 31 = 32 para, 32 = 32 ortho)

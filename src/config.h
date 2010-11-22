@@ -16,9 +16,11 @@
 #error "COOLING cannot be defined without HYDRO"
 #endif
 
+
 #if defined(RADIATIVE_TRANSFER) && !defined(HYDRO)
 #error "RADIATIVE_TRANSFER cannot be defined without HYDRO"
 #endif
+
 
 #ifndef STARFORM
 
@@ -26,24 +28,55 @@
 #error "ENRICH cannot be defined without STARFORM"
 #endif
 
-#ifdef FEEDBACK
-#error "FEEDBACK cannot be defined without STARFORM"
-#endif
-
-#ifdef STELLARMASSLOSS
-#error "STELLARMASSLOSS cannot be defined without STARFORM"
-#endif
-
 #endif /* STARFORM */
 
-#if defined(FEEDBACK_SNIa) && !defined(FEEDBACK)
-#error "FEEDBACK_SNIa cannot be defined without FEEDBACK"
-#endif
 
 #if defined(ENRICH_SNIa) && !defined(ENRICH)
 #error "ENRICH_SNIa cannot be defined without ENRICH"
 #endif
 
+
+#ifdef RADIATIVE_TRANSFER
+
+#if defined(RT_UV) && !defined(RT_CHEMISTRY)
+#error "RT_UV requires RT_CHEMISTRY"
+#endif
+
+#endif /* RADIATIVE_TRANSFER */
+
+
+#ifdef LAPIDUS
+#error "The LAPIDUS define is now obsolete; use <apply-lapidus-viscosity> control parameter in the .cfg file."
+#endif
+
+
+#ifdef DENSGRADSMOOTH
+#error "The DENSGRADSMOOTH define is now obsolete; use <smooth-density-gradients> control parameter in the .cfg file."
+#endif
+
+
+#ifdef PRESSURE_FLOOR
+#error "The PRESSURE_FLOOR define is now obsolete; use <pressure-floor-min-level> control parameter in the .cfg file; set this to -1 to disable the pressure floor."
+#endif
+
+
+#ifdef PRESSURELESS_FLUID
+#error "The PRESSURELESS_FLUID define is now obsolete; use <pressureless-fluid-eos> control parameter in the .cfg file."
+#endif
+
+
+#if defined(METALCOOLING) || defined(NO_METALCOOLING)
+#error "Switches METALCOOLING and NO_METALCOOLIN are now obsolete; metal cooling is on by default (as physically meaningful), to disable metal cooling do not use ENRICH define."
+#endif
+
+
+#if defined(FEEDBACK) || defined(FEEDBACK_SNIa)
+#error "Switches FEEDBACK and FEEDBACK_SNI are now obsolete; stellar feedback is on by default, set <snII:energy-per-explosion> and <snIa:energy-per-explosion> control parameters to zero in the .cfg file to disable stellar feedback of each kind."
+#endif
+
+#ifdef STELLARMASSLOSS
+#error "The STELLARMASSLOSS define is now obsolete; stellar mass loss is on by default, set the <ml:loss-rate> control parameter to zero to disable the stellar mass loss."
+#endif
 
 /*
 //  Maximum number of processors
@@ -88,14 +121,5 @@ extern type *const name
 #ifdef RADIATIVE_TRANSFER
 #include "rt_config.h"
 #endif
-
-
-/*
-// Some other, perhaps temporary, settings
-*/
-#ifdef COSMOLOGY
-#define LEGACY_UNITS
-#endif /* COSMOLOGY */
-
 
 #endif

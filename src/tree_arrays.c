@@ -138,7 +138,7 @@ const int ishift[num_neighbors][nDim] = {
 
 /* array which describes how child cells are offset from
 * the center of their parent oct */
-const float cell_delta[num_children][nDim] = {
+const double cell_delta[num_children][nDim] = {
 	#if nDim == 1
 		{ -0.5 }, { 0.5 }
 	#elif nDim == 2

@@ -25,6 +25,7 @@ int cells_to_refine[num_octs];
 int num_cells_to_refine;
 
 int refinement_is_static        = 0;
+int refinement_volume_level     = min_level;
 
 float split_tolerance		= 0.8;
 float join_tolerance		= 0.2;
@@ -39,7 +40,9 @@ float momentum_increment	= 0.4;
 
 void config_init_refinement()
 {
-  control_parameter_add2(control_parameter_int,&refinement_is_static,"ref:static","refinement_is_static","the dimensionless tolerance for adaptively splitting a given cell. Should be above <ref:join-tolerance> and below 1.");
+  control_parameter_add2(control_parameter_int,&refinement_is_static,"ref:static","refinement_is_static","makes the refinement mesh static. All the refinement must be done manually in init_run() call.");
+
+  control_parameter_add2(control_parameter_int,&refinement_volume_level,"ref:volume-level","refinement_volume_level","sets the level below which refinement_volume_min/max restriction is tested.");
 
   control_parameter_add3(control_parameter_float,&split_tolerance,"ref:split-tolerance","split_tolerance","wsplit","the dimensionless tolerance for adaptively splitting a given cell. Should be above <ref:join-tolerance> and below 1.");
 
@@ -61,6 +64,8 @@ void config_init_refinement()
 
 void config_verify_refinement()
 {
+  cart_assert(refinement_volume_level>=min_level && refinement_volume_level<=max_level);
+
   cart_assert(refinement_is_static==0 || refinement_is_static==1);
 
   cart_assert(split_tolerance>0.0 && split_tolerance<1.0);
@@ -83,7 +88,7 @@ void config_verify_refinement()
 
 void modify( int level, int op ) {
 	int i, j;
-	float pos[nDim];
+	double pos[nDim];
 	int diff;
 	int icell;
 	int num_level_cells;
@@ -140,15 +145,15 @@ void modify( int level, int op ) {
 		end_time( DIFFUSION_STEP_TIMER );
 	}
 
-	/* check refinement mask */
+	if ( level >= refinement_volume_level ) {
+	  /* check refinement mask */
 #pragma omp parallel for default(none), private(i,icell,pos,j) shared(refinement_volume_min,refinement_volume_max,cell_vars,num_level_cells,level_cells)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
+		for ( i = 0; i < num_level_cells; i++ ) {
+			icell = level_cells[i];
 
-		cell_position( icell, pos );
+			cell_center_position( icell, pos );
 
-		for ( j = 0; j < nDim; j++ ) {
-			if ( pos[j] < refinement_volume_min[j] || pos[j] > refinement_volume_max[j] ) {
+			for ( j = 0; j < nDim; j++ )  if ( pos[j] < refinement_volume_min[j] || pos[j] > refinement_volume_max[j] ) {
 				refinement_indicator( icell, 0 ) = 0.0;
 			}
 		}

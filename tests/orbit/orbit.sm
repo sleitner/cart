@@ -1,0 +1,86 @@
+erase
+lweight 2
+
+
+location 4000 32000 4000 32000
+
+
+if ( $?XMAX == 0 ) { define XMAX 8 }
+
+
+limits -$XMAX $XMAX -$XMAX $XMAX
+notation -2 2 -2 2
+ticksize 0 0 0 0
+expand 1.5
+box
+expand 2.0
+xlabel X (AU)
+ylabel Y (AU)
+
+
+macro ref_hi { 
+define N 16
+define XX (8)
+set dimen(x) = 2
+set dimen(y) = 2
+do level=0,3 {
+	do i=1,$N-1 {
+		set x[0] = -$XX
+		set x[1] =  $XX
+		set y[0] = 2*$XX/$N*($i-$N/2)
+		set y[1] = y[0]
+		connect x y 
+		set y[0] = -$XX
+		set y[1] =  $XX
+		set x[0] = 2*$XX/$N*($i-$N/2)
+		set x[1] = x[0]
+		connect x y 
+	}
+	define XX (0.5*$XX)
+}
+}
+
+
+macro ref_uni {
+lweight 1
+set n = { 32 60 116 }
+define XX ($XMAX)
+set dimen(x) = 2
+set dimen(y) = 2
+do level=1,3 {
+	define N (n[$level-1])
+	do i=1,$N-1 {
+		set x[0] = -$XX
+		set x[1] =  $XX
+		set y[0] = 2*$XX/$N*($i-$N/2)
+		set y[1] = y[0]
+		connect x y 
+		set y[0] = -$XX
+		set y[1] =  $XX
+		set x[0] = 2*$XX/$N*($i-$N/2)
+		set x[1] = x[0]
+		connect x y 
+	}
+	define XX ($XX-0.5**($level))
+	define N3 ($N**3)
+	echo $level $N3
+}
+}
+
+
+ref_hi
+
+lweight 2
+
+macro plot 14 {
+	da $1
+	read { t 1 x 2 y 3 z 4 }
+
+	ctype $2
+	connect x y
+	ctype 0
+}
+
+
+input wtp.inc
+

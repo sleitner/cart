@@ -23,7 +23,11 @@
 */
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
+#ifdef RT_UV
+#define rt_num_frequencies      8
+#else
 #define rt_num_frequencies      6
+#endif
 
 #define rt_num_et_vars          (nDim*(nDim+1)/2)
 #define rt_num_vars             (2+rt_num_et_vars+rt_num_frequencies)

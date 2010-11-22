@@ -851,6 +851,7 @@ void log_diagnostics() {
 
 double offset = 0.0;
 unsigned long record = 0;
+extern int current_step_level;
 
 void debug_breakpoint(int timerid, int start, const char *file, int line)
 {
@@ -873,17 +874,17 @@ void debug_breakpoint(int timerid, int start, const char *file, int line)
 	{
 	case 0:
 	  {
-	    fprintf(f,"%10lu: %s @ %d: %s done at %f sec.\n",record++,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu/L=%2d: %s @ %d: %s done at %f sec.\n",record++,current_step_level,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
 	    break;
 	  }
 	case 1:
 	  {
-	    fprintf(f,"%10lu: %s @ %d: %s started at %f sec.\n",record++,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
+	    fprintf(f,"%10lu/L=%2d: %s @ %d: %s started at %f sec.\n",record++,current_step_level,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
 	    break;
 	  }
 	default:
 	  {
-	    fprintf(f,"%10lu: %s @ %d: marker #%d set at %f sec.\n",record++,file,line,timerid,MPI_Wtime()-offset);
+	    fprintf(f,"%10lu/L=%2d: %s @ %d: marker #%d set at %f sec.\n",record++,current_step_level,file,line,timerid,MPI_Wtime()-offset);
 	  }
 	}
       fclose(f);

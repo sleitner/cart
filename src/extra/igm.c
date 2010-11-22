@@ -7,6 +7,7 @@
 #include <mpi.h>
 
 #include "auxiliary.h"
+#include "cell_buffer.h"
 #include "cosmology.h"
 #include "iterators.h"
 #include "parallel.h"
@@ -27,20 +28,15 @@
 #include "F/frt_c.h"
 
 
-void extDumpRadiationBackground()
+void extDumpRadiationBackground(const char *filename)
 {
   int i;
   FILE *f;
   float w, nxi, uJnu = 1.5808e-17/pow(auni[min_level],3.0);
 
-  /*
-  // Init internal data
-  */
-  rtStepBegin();
-
   if(local_proc_id == MASTER_NODE)
     {
-      f = fopen("jnu.res","w");
+      f = fopen(filename,"w");
       cart_assert(f != NULL);
 
       fprintf(f,"# wlen[A]  jnu[cgs] at a=%lf\n",auni[min_level]);
@@ -62,17 +58,12 @@ void extDumpRadiationBackground()
 void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf)
 {
   int i;
-  int lbins[rt_num_frequencies];
+  int lbins[rt_num_frequencies], vars[rt_num_frequencies];
   float nxi[rt_num_frequencies];
   MESH_RUN_DECLARE(level,cell);
   float uJnu = 1.5808e-17/pow(auni[min_level],3.0);
 
   cart_assert(nbins>0 && nbins<=rt_num_frequencies);
-
-  /*
-  // Init internal data
-  */
-  rtStepBegin();
 
   /*
   //  Find the frequency bin indecies
@@ -104,6 +95,11 @@ void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf)
 	}
     }
 
+  for(i=0; i<nbins; i++)
+    {
+      vars[i] = rt_disk_offset + i;
+    }
+
   /*
   //  Extract radiation field and store it in the cell_vars array
   */
@@ -112,18 +108,21 @@ void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf)
     {
       cart_debug("Extracting radiation field on level %d...",level);
     }
-#pragma omp parallel for default(none), private(_Index,cell,i,nxi), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,nbins,lbins)
+#pragma omp parallel for default(none), private(_Index,cell,i,nxi), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,vars,nbins,lbins)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   if(cell_is_leaf(cell))
     {
       rtGetRadiationField(cell,nbins,lbins,nxi);
       for(i=0; i<nbins; i++)
 	{
-	  cell_var(cell,rt_disk_offset+i) = nxi[i];
+	  cell_var(cell,vars[i]) = nxi[i];
 	}
 
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+  
+  update_buffer_level(level,vars,nbins);
+
   MESH_RUN_OVER_LEVELS_END;
 }  
 
@@ -131,16 +130,11 @@ void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf)
 void extExtractPhotoRates(int nbins, const int lbins[], float mean_rate[])
 {
   int i;
+  int vars[rt_num_frequencies];
   float rate[frtRATE_DIM], rate0[frtRATE_DIM];
   MESH_RUN_DECLARE(level,cell);
 
   cart_assert(nbins>0 && nbins<=rt_num_frequencies);
-
-  /*
-  // Init internal data
-  */
-  rtStepBegin();
-  rtUpdateTables();
 
   /*
   //  Find the mean rates
@@ -159,6 +153,11 @@ void extExtractPhotoRates(int nbins, const int lbins[], float mean_rate[])
 	}
     }
 
+  for(i=0; i<nbins; i++)
+    {
+      vars[i] = rt_disk_offset + i;
+    }
+
   /*
   //  Extract radiation field and store it in the cell_vars array
   */
@@ -167,33 +166,35 @@ void extExtractPhotoRates(int nbins, const int lbins[], float mean_rate[])
     {
       cart_debug("Extracting photo rates on level %d...",level);
     }
-#pragma omp parallel for default(none), private(_Index,cell,i,rate), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,nbins,lbins)
+#pragma omp parallel for default(none), private(_Index,cell,i,rate), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,vars,nbins,lbins)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   if(cell_is_leaf(cell))
     {
       rtGetPhotoRates(cell,rate);
       for(i=0; i<nbins; i++)
 	{
-	  cell_var(cell,rt_disk_offset+i) = rate[lbins[i]];
+	  cell_var(cell,vars[i]) = rate[lbins[i]];
 	}
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+  
+  update_buffer_level(level,vars,nbins);
+
   MESH_RUN_OVER_LEVELS_END;
 }  
 
 
 #if defined(RT_TRANSFER) && defined(RT_EXTERNAL_BACKGROUND)
 
-#include "rt_tree.h"
-
 /*
 //  Find proximity zones around galaxies
 */
 float *extProximityZone_MeanRF;
+#define NBINS 4
 
 typedef struct extProximityZone_DataType
 {
-  float R[3];
+  float R[NBINS];
 }
 extProximityZone_Data;
 
@@ -201,12 +202,13 @@ extProximityZone_Data;
 int extProximityZone_Worker(int id, int cell, double r1, double r2, losBuffer data)
 {
   float rf;
-  int i, j, nb[num_neighbors];
+  int i, j, ret, nb[num_neighbors];
   extProximityZone_Data *d = (extProximityZone_Data *)data.Data;
 
   cell_all_neighbors(cell,nb);
 
-  for(j=0; j<3; j++)
+  ret = 1;
+  for(j=0; j<NBINS; j++) if(d->R[j] < 0.0)
     {
       /*
       //  Average over neighbors to reduce numerical noise
@@ -217,53 +219,61 @@ int extProximityZone_Worker(int id, int cell, double r1, double r2, losBuffer da
 	  rf += cell_var(nb[i],rt_disk_offset+j);
 	}
       rf /= (2+num_neighbors);
-      if(d->R[j]<0.0 && rf<2*extProximityZone_MeanRF[j])
+      if(rf < 2*extProximityZone_MeanRF[j])
 	{
 	  d->R[j] = r2;
 	}
+      else
+	{
+	  ret = 0;
+	}
+      //if(j == 0) cart_debug("%le %le %e %e",r1,r2,rf,extProximityZone_MeanRF[j]);
     }
 
-  for(j=0; j<3; j++)
-    {
-      if(d->R[j] < 0.0) break;
-    }
-
-  return (j==3 ? 1 : 0);
+  return ret;
 }
 
 
-void extProximityZone_Collector(losBuffer *result, losSegment *next)
+void extProximityZone_Collector(losBuffer *result, int num_segments, const losSegment *segments)
 {
-  int j;
+  int i, j;
   extProximityZone_Data *dr = (extProximityZone_Data *)result->Data;
-  extProximityZone_Data *dn = (extProximityZone_Data *)next->Buffer.Data;
+  extProximityZone_Data *dn;
 
-   for(j=0; j<3; j++)
+  for(i=0; i<num_segments; i++)
     {
-      if(dr->R[j]<0.0 && dn->R[j]>0.0) /* segments are ordered */
+      dn = (extProximityZone_Data *)segments[i].Buffer.Data;
+
+      for(j=0; j<NBINS; j++) if(dn->R[j] > 0.0)
 	{
-	  dr->R[j] = dn->R[j];
+	  if(dr->R[j] < 0.0) /* first assignment */
+	    {
+	      dr->R[j] = dn->R[j];
+	    }
+	  else
+	    {
+	      dr->R[j] = min(dr->R[j],dn->R[j]);     
+	    }
 	}
     }
 }
 
 
-void extFindProximityZones(const char *fname, int floor_level, int nside, int halo_id, const halo_list *halos)
+void extProximityZones(const char *fname, int resolution_level, int nside, int halo_id, const halo_list *halos)
 {
-  const float wbins[] = { 1000.0, 911.75, 504.25, 227.83 };
-  const int lbins[] = { 12, 5, 3, 1 };
-  const int nbins = sizeof(wbins)/sizeof(float);
+  //const float wbins[NBINS] = { 1000.0, 911.75, 504.25, 227.83 };
+  const int lbins[NBINS] = { 12, 5, 3, 1 };
 
   int npix = 12*nside*nside;
   int j, ipix, ih;
-  float mean_rf[nbins], uKpc = units->length/(1.0e3*constants->pc);
+  float mean_rf[NBINS], uKpc = units->length/constants->kpc;
   FILE *f;
 
   losBuffer *lines;
   extProximityZone_Data *data;
 
-  int nd[nbins];
-  float Ravg[nbins], Rmin[nbins], Rmax[nbins];
+  int nd[NBINS];
+  float Ravg[NBINS], Rmin[NBINS], Rmax[NBINS];
 
   if(halos == NULL)
     {
@@ -289,8 +299,8 @@ void extFindProximityZones(const char *fname, int floor_level, int nside, int ha
   /*
   //  Extract radiation field and store it in the cell_vars array
   */
-  //extExtractRadiationField(nbins,wbins,mean_rf);
-  extExtractPhotoRates(nbins,lbins,mean_rf);
+  //extExtractRadiationField(NBINS,wbins,mean_rf);
+  extExtractPhotoRates(NBINS,lbins,mean_rf);
   extProximityZone_MeanRF = mean_rf;
 
   /*
@@ -309,26 +319,20 @@ void extFindProximityZones(const char *fname, int floor_level, int nside, int ha
   /*
   //  Loop over all halos resoved to the lowest possible level at the center
   */
-  for(ih=0; ih<halos->num_halos; ih++) if((halo_id==0 || halo_id==halos->list[ih].id) && halo_level(&halos->list[ih],MPI_COMM_WORLD)==floor_level)
+  for(ih=0; ih<halos->num_halos; ih++) if((halo_id==0 || halo_id==halos->list[ih].id) && halo_level(&halos->list[ih],MPI_COMM_WORLD)>=resolution_level)
     {
-
-      if(local_proc_id == MASTER_NODE)
-	{
-	  printf("Halo #%d (%g Msun): analysing...",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir);
-	}
-
       /*
       //  Init LOS buffers
       */
-#pragma omp parallel for default(none), private(ipix,j), shared(npix,lines,data,nbins)
+#pragma omp parallel for default(none), private(ipix,j), shared(npix,lines,data)
       for(ipix=0; ipix<npix; ipix++)
 	{
-	  for(j=0; j<nbins; j++) data[ipix].R[j] = -1;
+	  for(j=0; j<NBINS; j++) data[ipix].R[j] = -1;
 	}
 
-      losTraverseSky(nside,halos->list[ih].pos,0.5*num_grid,floor_level,lines,extProximityZone_Worker,extProximityZone_Collector);
+      losTraverseSky(nside,halos->list[ih].pos,0.5*num_grid,max_level,lines,extProximityZone_Worker,extProximityZone_Collector);
 
-      for(j=0; j<nbins; j++)
+      for(j=0; j<NBINS; j++)
 	{
 	  nd[j] = 0;
 	  Ravg[j] = 0.0;
@@ -338,7 +342,7 @@ void extFindProximityZones(const char *fname, int floor_level, int nside, int ha
 
       for(ipix=0; ipix<npix; ipix++)
 	{
-	  for(j=0; j<nbins; j++) if(data[ipix].R[j] > 0.0)
+	  for(j=0; j<NBINS; j++) if(data[ipix].R[j] > 0.0)
 	    {
 	      nd[j]++;
 	      Ravg[j] += data[ipix].R[j];
@@ -347,11 +351,11 @@ void extFindProximityZones(const char *fname, int floor_level, int nside, int ha
 	    }
 	}
 
-      for(j=0; j<nbins; j++) if(nd[j] > 0) Ravg[j] /= nd[j];
+      for(j=0; j<NBINS; j++) if(nd[j] > 0) Ravg[j] /= nd[j];
 
       if(local_proc_id == MASTER_NODE)
 	{
-	  printf("\rHalo #%d proximity zone: %g %g %g\n",halos->list[ih].id,Rmin[0]*uKpc,Ravg[0]*uKpc,Rmax[0]*uKpc);
+	  printf("\rHalo #%d proximity zone: %g %g %g\n",halos->list[ih].id,Ravg[0]*uKpc,Ravg[1]*uKpc,Ravg[2]*uKpc);
 	  fprintf(f,"%4d %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e  %9.3e %9.3e %9.3e\n",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir,units->velocity/constants->kms*halos->list[ih].vmax,units->length/constants->kpc*halos->list[ih].rvir,Ravg[0]*uKpc,Rmin[0]*uKpc,Rmax[0]*uKpc,Ravg[1]*uKpc,Rmin[1]*uKpc,Rmax[1]*uKpc,Ravg[2]*uKpc,Rmin[2]*uKpc,Rmax[2]*uKpc,Ravg[3]*uKpc,Rmin[3]*uKpc,Rmax[3]*uKpc);
 	}
     }
@@ -371,10 +375,10 @@ void extFindProximityZones(const char *fname, int floor_level, int nside, int ha
 
 
 #ifdef HYDRO
-void extDumpGasFractions(const char *fname, const halo_list *halos)
+void extGasFractions(const char *fname, halo_list *halos)
 {
-  const int nmass = 4;
-  int j, ih;
+  const int nmass = 5;
+  int j, ih, *hlev;
   float *massl[nmass], *mass[nmass];
   FILE *f;
   MESH_RUN_DECLARE(level,cell);
@@ -388,7 +392,10 @@ void extDumpGasFractions(const char *fname, const halo_list *halos)
   /*
   //  Map cells
   */
-  extMapHaloCells(VAR_ACCEL+0,min_level,halos,1.0);
+  if(halos->map == -1)
+    {
+      map_halos(VAR_ACCEL,min_level,halos,1.0);
+    }
 
 #ifndef RADIATIVE_TRANSFER
   for(level=min_level; level<=max_level; level++)
@@ -421,7 +428,8 @@ void extDumpGasFractions(const char *fname, const halo_list *halos)
 	  massl[1][ih] += cell_gas_density(cell)*cell_volume[level];
 #ifdef RADIATIVE_TRANSFER
 	  massl[2][ih] += cell_HI_density(cell)*cell_volume[level];
-	  massl[3][ih] += cell_H2_density(cell)*cell_volume[level];
+	  massl[3][ih] += cell_HII_density(cell)*cell_volume[level];
+	  massl[4][ih] += 2*cell_H2_density(cell)*cell_volume[level];
 #endif /* RADIATIVE_TRANSFER */
 	}
     }
@@ -434,6 +442,17 @@ void extDumpGasFractions(const char *fname, const halo_list *halos)
       MPI_Allreduce(massl[j],mass[j],halos->num_halos,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
     }
 
+  for(j=0; j<nmass; j++)
+    {
+      cart_free(massl[j]);
+    }
+
+  hlev = cart_alloc(int,halos->num_halos);
+  for(ih=0; ih<halos->num_halos; ih++) 
+    {
+      hlev[ih] = halo_level(&halos->list[ih],MPI_COMM_WORLD);
+    }
+
   /*
   // Open output file
   */
@@ -444,21 +463,21 @@ void extDumpGasFractions(const char *fname, const halo_list *halos)
 	{
 	  cart_error("Unable to open output file.");
 	}
-      fprintf(f,"# id Mvir..... Mtot..... Mgas..... MHI...... MH2...... Level\n");
+      fprintf(f,"# id Mvir..... Mtot..... Mgas..... MHI...... MHII..... MH2...... Level (all masses are in Msun)\n");
       fprintf(f,"#\n");
 
       for(ih=0; ih<halos->num_halos; ih++) 
 	{
-	  fprintf(f,"%4d %9.3e %9.3e %9.3e %9.3e %9.3e %2d %9.3e\n",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir,mass[0][ih]*units->mass/constants->Msun,mass[1][ih]*units->mass/constants->Msun,mass[2][ih]*units->mass/constants->Msun,mass[3][ih]*units->mass/constants->Msun,halo_level(&halos->list[ih],MPI_COMM_WORLD),units->velocity/constants->kms*halos->list[ih].vmax);
+	  fprintf(f,"%4d %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %2d %9.3e\n",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir,mass[0][ih]*units->mass/constants->Msun,mass[1][ih]*units->mass/constants->Msun,mass[2][ih]*units->mass/constants->Msun,mass[3][ih]*units->mass/constants->Msun,mass[4][ih]*units->mass/constants->Msun,hlev[ih],units->velocity/constants->kms*halos->list[ih].vmax);
 	}
       
       fclose(f);
     }
 
+  cart_free(hlev);
   for(j=0; j<nmass; j++)
     {
       cart_free(mass[j]);
-      cart_free(massl[j]);
     }
 }
 #endif /* HYDRO */

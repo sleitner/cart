@@ -39,12 +39,6 @@ C
       data fGal /1.0/, fQSO/1.0/
       data IPOP /2/, IREC/0/
 C
-#ifdef RT_DUST
-      write(0,*) 'RT_Base: fatal error, ',
-     .   'RT_DUST is on - this is not fully debugged yet.'
-      call frtAbort
-#endif
-C
       if(Yp.lt.1.0e-10 .or. Yp.gt.0.99) then
          write(0,*) 'RT_Base: fatal error, ',
      .        'Yp must be between 1e-10 and 0.99.'
@@ -52,8 +46,8 @@ C
       endif
 C
 #ifdef RT_OUTPUT
-      call frtQueryId(id)
-      if(id .eq. 0) then
+      call frtSetIONode(ioNode)
+      if(ioNode) then
          open(unit=81, file='rt-run.log')
          write(81,*) 'Run:'
          write(81,*) 'Yp:       ', Yp
@@ -107,14 +101,13 @@ C
 C
 C
 C
-      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel,
-     .     rfAvg)
+      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
-      dimension guv(NRAD), rfAvg(*)
+      dimension guv(NRAD)
 C
       include 'frt_inline.inc'
 C
@@ -126,8 +119,7 @@ C
       Hubble = Hubblel
 C
 #ifdef RT_OUTPUT
-      call frtQueryId(id)
-      if(id .eq. 0) then
+      if(ioNode) then
          open(unit=81, file='rt-run.log', access='append')
          write(81,*) 'Step:'
          write(81,*) '   uDen:   ', uDen
@@ -154,8 +146,7 @@ C
       uColumn = CSSTAR*uDen*uLen
 
 #ifdef RT_DEBUG
-      call frtQueryId(id)
-      if(id .eq. 0) then
+      if(ioNode) then
          write(6,*) 'RT_Base: uDen = ', uDen
          write(6,*) 'RT_Base: uLen = ', uLen
          write(6,*) 'RT_Base: uTime = ', uTime
@@ -295,8 +286,6 @@ C$OMP+SHARED(angLoc)
 #endif /* RT_EXTERNAL_BACKGROUND != RT_BACKGROUND_SELFCONSISTENT */
 #endif /* RT_EXTERNAL_BACKGROUND */
 
-      call frtSetGlobalRadiationFields(rfAvg)
-
       return
       end
 C
@@ -322,15 +311,16 @@ C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
       enddo
 
 #ifdef RT_OUTPUT
-      call frtQueryId(id)
-      if(id .eq. 0) then
-         write(6,*) 'RT: properties of global radiation fields:'
-         write(6,*) '  nu_H1: ', angUni(lrH1tr), angAvg(lrH1tr), 
+      if(ioNode) then
+         open(unit=81, file='rt-run.log', access='append')
+         write(81,*) 'RT: properties of global radiation fields:'
+         write(81,*) '  nu_H1: ', angUni(lrH1tr), angAvg(lrH1tr), 
      .        angEff(lrH1tr), facLX*guvEff(lrH1tr)
-         write(6,*) '  nu_G1: ', angUni(lrG1tr), angAvg(lrG1tr), 
+         write(81,*) '  nu_G1: ', angUni(lrG1tr), angAvg(lrG1tr), 
      .        angEff(lrG1tr), facLX*guvEff(lrG1tr)
-         write(6,*) '  nu_G2: ', angUni(lrG2tr), angAvg(lrG2tr), 
+         write(81,*) '  nu_G2: ', angUni(lrG2tr), angAvg(lrG2tr), 
      .        angEff(lrG2tr), facLX*guvEff(lrG2tr)
+         close(81)
       endif
 #endif
 
@@ -352,14 +342,14 @@ C
 C
 C
 C
-      subroutine frtStepEnd(vol,parAvg,abcAvg)
+      subroutine frtStepEnd(vol,parAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
       include 'frt_global.inc'
-      dimension parAvg(*), abcAvg(*)
+      dimension parAvg(*)
 C
       dimension axi(NRAD), sxi(NRAD), xib(NRAD)
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
@@ -371,8 +361,7 @@ C
 C  Diagnostics
 C
 #ifdef RT_OUTPUT
-      call frtQueryId(id)
-      if(id .eq. 0) then
+      if(ioNode) then
 
          ftabHit = gInfo(infoTabH)
          ftabMiss = gInfo(infoTabM)
@@ -383,22 +372,27 @@ C
          ftabFill = 2.0*NOPT**3
 #endif
          
+         open(unit=81, file='rt-run.log', access='append')
+
          if(ftabHit .gt. 0.5) then
-            write(6,*) 'RT_Tables: miss/hit ', 
+            write(81,*) 'RT_Tables: miss/hit ', 
      .           ftabMiss/ftabHit, ', fill/hit ', ftabFill/ftabHit
          endif
 
          if(gInfo(infoCall) .gt. gInfo(infoFail)) then
-            write(6,*) 'RT_Cooling: avg # of steps ', 
+            write(81,*) 'RT_Cooling: avg # of steps ', 
      .           gInfo(infoNAvg)/(gInfo(infoCall)-gInfo(infoFail))
-            write(6,*) 'RT_Cooling: max # of steps ', 
+            write(81,*) 'RT_Cooling: max # of steps ', 
      .           gInfo(infoNMax)
          endif
 
          if(gInfo(infoFail) .gt. 0.0d0) then
-            write(6,*) 'RT_Coolin: fail/call ', 
+            write(81,*) 'RT_Coolin: fail/call ', 
      .           gInfo(infoFail)/gInfo(infoCall)
          endif
+
+         close(81)
+
       endif
 #endif
 
@@ -434,21 +428,20 @@ C
          axi(lr) = 0.0
       enddo
 C
-C Optically thin absortion from Lyman Series and dust
+C Optically thin absortion from dust
 C
+#ifdef RT_DUST_ABSORBS_BACKGROUND
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(axi,CRAD2,csDust,lrmin,lrmax,csLyS,gData)
-      do lr=lrmin,lrmax
-         axi(lr) = axi(lr) + CRAD2*csLyS(lr)*gData(iavgCXH1)
-#ifdef RT_DUST
+C$OMP+SHARED(axi,CRAD2,csDust,lrmax,gData)
+      do lr=1,lrmax
          axi(lr) = axi(lr) + CRAD2*csDust(lr)*gData(iavgDust)
-#endif
       enddo
- 
+#endif
+
 #ifdef RT_TRANSFER
      
-      call frtTransferComputeAverageAbs(axi,abcAvg)
+      call frtTransferComputeAverageAbs(axi)
 
 #else
 
@@ -457,9 +450,8 @@ C Optically thin absortion
 C
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(axi,CRAD2,lrmin,lrmax,csH1,csG1,csG2,gData)
-      do lr=lrmin,lrmax
-               
+C$OMP+SHARED(axi,CRAD2,lrH1tr,lrmax,csH1,csG1,csG2,gData)
+      do lr=lrH1tr,lrmax
          axi(lr) = axi(lr) + CRAD2*(csH1(lr)*gData(iavgCXH1)+
      .        csG1(lr)*gData(iavgCXG1)+csG2(lr)*gData(iavgCXG2))
       enddo
@@ -596,8 +588,7 @@ C$OMP+SHARED(angUni,angLoc,angAvg)
       angH1tr = angAvg(lrH1tr)
 
 #ifdef RT_DEBUG
-      call frtQueryId(id)
-      if(id .eq. 0) then
+      if(ioNode) then
          fac = 1.59e-17/aExp**3
          write(6,*) 'RT: <abs_HI> = ', axiH1tr, axiH1tr/csH1tr/CRAD2
          write(6,*) 'RT: <PIR_HI> = ', 
@@ -782,7 +773,11 @@ C
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
-      include 'frt_transfer.inc'
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
 #endif
       dimension rf(*)
       include 'frt_inline.inc'
@@ -794,20 +789,25 @@ C
          tauH1l = rf(irfH1gf)
          tauG1l = rf(irfG1gf)
          tauG2l = rf(irfG2gf)
+#ifdef RT_UV
+         tauUVl = rf(irfUVgf)
+#endif
 #else
          tauH1l = 0.0
          tauG1l = 0.0
          tauG2l = 0.0
+#ifdef RT_UV
+         tauUVl = 0.0
+#endif
+#endif
+
+#ifdef RT_UV
+         taul = csUVn(lr)*tauUVl
+#else
+         taul = 0.0
 #endif
          if(tauH1l .gt. 0.0) then
-#ifdef RT_DUST
-            csH1l = zdust*csDustn(lr) + csLySn(lr) + csH1n(lr)
-#else
-            csH1l = csLySn(lr) + csH1n(lr)
-#endif
-            taul = csH1l*tauH1l
-         else
-            taul = 0.0
+            taul = taul + csH1n(lr)*tauH1l
          endif
          if(tauG1l .gt. 0.0) then
             taul = taul + csG1n(lr)*tauG1l
@@ -817,7 +817,10 @@ C
          endif
 
          if(
-     .        (tauH1l.lt.0 .and. lr.ge.lrmin .and. lr.lt.lrG1tr) .or.
+#ifdef RT_UV
+     .        (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+#endif
+     .        (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr) .or.
      .        (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr) .or.
      .        (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
             anxi = 0.0
@@ -832,16 +835,17 @@ C
          tauH1l = rf(irfH1lf)
          tauG1l = rf(irfG1lf)
          tauG2l = rf(irfG2lf)
-
-         if(tauH1l .gt. 0.0) then
-#ifdef RT_DUST
-            csH1l = zdust*csDustn(lr) +  csH1n(lr)
-#else
-            csH1l = csH1n(lr)
+#ifdef RT_UV
+         tauUVl = rf(irfUVlf)
 #endif
-            taul = csH1l*tauH1l
-         else
-            taul = 0.0
+
+#ifdef RT_UV
+         taul = csUVn(lr)*tauUVl
+#else
+         taul = 0.0
+#endif
+         if(tauH1l .gt. 0.0) then
+            taul = taul + csH1n(lr)*tauH1l
          endif
          if(tauG1l .gt. 0.0) then
             taul = taul + csG1n(lr)*tauG1l
@@ -851,7 +855,10 @@ C
          endif
 
          if(
-     .        (tauH1l.lt.0 .and. lr.ge.lrmin .and. lr.lt.lrG1tr) .or.
+#ifdef RT_UV
+     .        (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+#endif
+     .        (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr) .or.
      .        (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr) .or.
      .        (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
          else

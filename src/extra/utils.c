@@ -33,7 +33,7 @@ void extFindMaxVar(int var, float *val, double *pos, double dist)
     {
       if(pos!=NULL && dist>0.0)
 	{
-	  cell_position_double(cell,p);
+	  cell_center_position(cell,p);
 	  select = (compute_distance_periodic(p,pos) < dist);
 	}
       else select = 1;
@@ -56,7 +56,7 @@ void extFindMaxVar(int var, float *val, double *pos, double dist)
     {
       if(local_proc_id == out.rank)
 	{
-	  cell_position_double(cellMax,pos);
+	  cell_center_position(cellMax,pos);
 	}
       MPI_Bcast(pos,3,MPI_DOUBLE,out.rank,MPI_COMM_WORLD);
     }

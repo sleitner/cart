@@ -195,8 +195,7 @@ C
       if(vol .gt. 0.0) then
          w = vol*dtStep*weight
 #ifdef RT_DEBUG
-         call frtQueryId(id)
-         if(id .eq. 0) then
+         if(ioNode) then
             write(6,*) 'RT: internal vol*dt = ', dDataBufGlob(iavgNorm)
             write(6,*) 'RT: external vol*dt = ', vol*dtStep
          endif

@@ -31,6 +31,8 @@ C
 C
 C  Parameter indecies
 C  (yes, iparZsol = iparDGas)
+C  (yes, iparCool = iparSDp1)
+C  (yes, iparHeat = iparSDp2)
 C
         parameter(iparRhoB =  1)
         parameter(iparZsol =  2)
@@ -45,7 +47,9 @@ C
         parameter(iparVolB = 10)
         parameter(iparRecB = 11)
         parameter(iparSDp1 = 12)
+        parameter(iparCool = 12)
         parameter(iparSDp2 = 13)
+        parameter(iparHeat = 13)
         parameter(iparSDp3 = 14)
         parameter(iparCFH1 = 15)
         parameter(iparCFG1 = 16)
@@ -90,6 +94,9 @@ C
      .                    facLX, facLya, facRecB
         common/RT_BASE_D/ yLimit(ieqDim), ySmall(ieqDim)
 	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, dtStep
+C
+	logical ioNode
+	common/RT_BASE_F/ ioNode
 C
 	include 'frt_f77.inc'
 

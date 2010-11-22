@@ -13,34 +13,34 @@ typedef void (*DumpWorker)(int level, int cell, int num, float *ptr);
 
 
 /*
-//  Set cell_var(c,var) with the halo index+1 for each halo, or 0 if belongs to none;
-//  a cell belongs to a halo if it is inside its size_factor*Rtrunc, and satellites are
-//  accounted for properly.
+//  Dump ASCII files with cell data and spherically averaged profiles.
+//  If halos is not NULL, these two calls overwrite VAR_ACCEL variable.
+//  <weight_id> array determined as the profiles are weighted: 
+//    0: volume average
+//    1: total mass average
+//    2: baryonic mass average
 */
-void extMapHaloCells(int var, int floor_level, const struct HALO_LIST *halos, float size_factor);
+void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **header, int level1, int level2, struct HALO_LIST *halos);
 
-void extDumpLevels(const char *fname, int nout, DumpWorker worker, int level1, int level2, const struct HALO_LIST *halos);
-
-void extDumpProfiles(const char *fname, int nout, DumpWorker worker, int floor_level, float rmin, float rmax, int ndex, const struct HALO_LIST *halos);
+void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, int resolution_level, float rmin, float rmax, int ndex, struct HALO_LIST *halos);
 
 /*
 //  SF law from stellar particles
 */
+#if defined(PARTICLES) && defined(STARFORM)
 void extStarFormationLaw(const char *fname, float spatial_scale, float time_scale, float stellar_age_limit, const struct HALO_LIST *halos);
+#endif
 
 /*
 //  SF law for instantaneous star formation from gas only
 */
+#if defined (HYDRO) && defined(STARFORM)
 void extStarFormationLaw2(const char *fname, float spatial_scale, const struct HALO_LIST *halos);
+#endif
 
 /*
-//  Compute column densities and compare them with the Sobolev-like approximations
+//  Dump stellar particles for a given halo within a given fraction of Rvir
 */
-void extCheckSobolevApproximations(const char *fname, int floor_level, int nside, double len);
-
-/*
-//  Output SFR, RF, and other quantieis on the hierarchy of scales, both average and variances.
-*/
-void extRFvsSFR(const char *froot, int top_level, const struct HALO_LIST *halos);
+void extHaloStars(const char *fname, const struct HALO *h, float rmax);
 
 #endif  /* __EXT_ISM_H__ */

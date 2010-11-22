@@ -10,7 +10,19 @@
 
 void init_cooling();
 void set_cooling_redshift( double a );
-double cooling_rate( double rhogl, double T_g, double Z_met );
+
+#ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
+typedef double cooling_t;
+#else
+typedef struct COOLING_TYPE
+{
+  double Cooling;
+  double Heating;
+}
+cooling_t;
+#endif
+
+cooling_t cooling_rate( double rhogl, double T_g, double Z_met );
 
 #endif /* COOLING */
 
