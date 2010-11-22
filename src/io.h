@@ -129,7 +129,7 @@ void write_hydro_tracers( char *filename );
 //  Other setting in the other run must be the same as in the current one (i.e.
 //  no reading a cooing data file into an adiabatic run).
 */
-void set_read_grid_mode(int mode);
-void set_read_particles_mode(int mode);
+void set_grid_file_mode(int mode);
+void set_particle_file_mode(int mode);
 
 #endif

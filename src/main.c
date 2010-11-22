@@ -80,7 +80,7 @@ int main ( int argc, char *argv[]) {
 	if ( argc < 2 )
 	  {
 	    config_create_file("sample.cfg");
-	    cart_error("Usage: art <config_file> [-r/--restart[=<aexp>]] [ options ] ]\n   A documented sample of <config_file> is created\n   in the current working directory as sample.cfg");
+	    cart_error("Usage: art <config_file> [-r/--restart[=<aexp>]] [-pfm/--particle-file-mode=<mode>] [-gfm/--grid-file-mode=<mode>] ...\n   A documented sample of <config_file> is created\n   in the current working directory as sample.cfg");
 	  }
 	else
 	  {
@@ -172,7 +172,7 @@ int main ( int argc, char *argv[]) {
 			  {
 			    cart_error("-pfm=<mode> requires an integer <mode> between 0 and 2 as an argument.");
 			  }
-			set_read_particles_mode(mode);
+			set_particle_file_mode(mode);
 			options++;
 			num_options--;
 		      }
@@ -191,7 +191,7 @@ int main ( int argc, char *argv[]) {
 			  {
 			    cart_error("-gfm=<mode> requires an integer <mode> between 0 and 2 as an argument.");
 			  }
-			set_read_grid_mode(mode);
+			set_grid_file_mode(mode);
 			options++;
 			num_options--;
 		      }

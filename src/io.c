@@ -57,8 +57,8 @@ float *outputs = NULL;
 #endif
 
 
-int read_grid_mode = 0;
-int read_particles_mode = 0;
+int grid_file_mode = 0;
+int particle_file_mode = 0;
 
 
 /*
@@ -764,15 +764,15 @@ void save_check() {
 }
 
 
-void set_read_grid_mode(int mode)
+void set_grid_file_mode(int mode)
 {
-  if(mode>=-2 && mode<=2) read_grid_mode = mode;
+  if(mode>=-2 && mode<=2) grid_file_mode = mode;
 }
 
 
-void set_read_particles_mode(int mode)
+void set_particle_file_mode(int mode)
 {
-  if(mode>=-2 && mode<=2) read_particles_mode = mode;
+  if(mode>=-2 && mode<=2) particle_file_mode = mode;
 }
 
 
@@ -789,7 +789,7 @@ void set_read_particles_mode(int mode)
 #include "io1.def"
 
 void restart_load_balance( char *grid_filename, char *particle_header_filename, char *particle_data ) {
-  switch(read_particles_mode)
+  switch(particle_file_mode)
     {
     case 0:
     case 1:
@@ -806,7 +806,7 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
       }
     default:
       {
-	cart_error("Invalid read_particles_mode=%d",read_particles_mode);
+	cart_error("Invalid particle_file_mode=%d",particle_file_mode);
       }
     }
 }
@@ -2488,7 +2488,7 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 void read_particles( char *header_filename, char *data_filename, 
 			char *timestep_filename, char *stellar_filename,
 			int num_sfcs, int *sfc_list ) {
-  switch(read_particles_mode)
+  switch(particle_file_mode)
     {
     case 0:
       {
@@ -2509,10 +2509,10 @@ void read_particles( char *header_filename, char *data_filename,
       }
     default:
       {
-	cart_error("Invalid read_particles_mode=%d",read_particles_mode);
+	cart_error("Invalid particle_file_mode=%d",particle_file_mode);
       }
     }
-  if(read_particles_mode > 0) read_particles_mode = 0; /* Auto-reset */
+  if(particle_file_mode > 0) particle_file_mode = 0; /* Auto-reset */
 }
 #endif /* PARTICLES */
 
@@ -4063,7 +4063,7 @@ void read_grid_binary( char *filename ) {
 #endif
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
-	switch(read_grid_mode)
+	switch(grid_file_mode)
 	  {
 	  case  0:
 	    {
@@ -4087,10 +4087,10 @@ void read_grid_binary( char *filename ) {
 	    }
 	  default:
 	    {
-	      cart_error("Invalid read_grid_mode=%d in a call to  read_grid_binary",read_grid_mode);
+	      cart_error("Invalid grid_file_mode=%d in a call to  read_grid_binary",grid_file_mode);
 	    }
 	  }
-	if(read_grid_mode > 0) read_grid_mode = 0; /* Auto-reset */
+	if(grid_file_mode > 0) grid_file_mode = 0; /* Auto-reset */
 
 	cart_assert( num_output_files >= 1 && num_output_files <= num_procs );
 

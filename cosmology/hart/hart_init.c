@@ -36,10 +36,6 @@ void hart_init() {
 	sprintf( filename, "%s/PMcrd.DAT", output_directory );
 	sprintf( filename2, "%s/PMcrs0.DAT", output_directory );
 
-#ifdef OLDSTYLE_PARTICLE_HART_INIT_MODE
-	cart_debug("Setting particle file mode to %d",OLDSTYLE_PARTICLE_HART_INIT_MODE);
-	set_read_particles_mode(OLDSTYLE_PARTICLE_HART_INIT_MODE);
-#endif
 	restart_load_balance( NULL, filename, filename2 );
 
 	read_particles( filename, filename2, NULL, NULL, 0, NULL );

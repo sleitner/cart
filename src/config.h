@@ -66,12 +66,12 @@
 
 
 #if defined(METALCOOLING) || defined(NO_METALCOOLING)
-#error "Switches METALCOOLING and NO_METALCOOLIN are now obsolete; metal cooling is on by default (as physically meaningful), to disable metal cooling do not use ENRICH define."
+#error "Switches METALCOOLING and NO_METALCOOLING are now obsolete; metal cooling is on by default (as physically meaningful), to disable metal cooling do not use ENRICH define."
 #endif
 
 
 #if defined(FEEDBACK) || defined(FEEDBACK_SNIa)
-#error "Switches FEEDBACK and FEEDBACK_SNI are now obsolete; stellar feedback is on by default, set <snII:energy-per-explosion> and <snIa:energy-per-explosion> control parameters to zero in the .cfg file to disable stellar feedback of each kind."
+#error "Switches FEEDBACK and FEEDBACK_SNIa are now obsolete; stellar feedback is on by default, set <snII:energy-per-explosion> and <snIa:energy-per-explosion> control parameters to zero in the .cfg file to disable stellar feedback of each kind."
 #endif
 
 #ifdef STELLARMASSLOSS
