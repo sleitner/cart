@@ -7,6 +7,7 @@
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "control_parameter.h"
 #include "cosmology.h"
 #include "gravity.h"
 #include "iterators.h"
@@ -17,6 +18,26 @@
 #include "timing.h"
 #include "tree.h"
 #include "units.h"
+
+
+int num_smooth_iterations = 60;   // used to be called MAX_SOR_ITER
+float spectral_radius = 0.95;     // used to be called rhoJ
+
+
+void config_init_gravity()
+{
+  control_parameter_add3(control_parameter_int,&num_smooth_iterations,"gravity:num-iterations","num_smooth_iterations","MAX_SOR_ITER","number of iterations in the gravity relation solver (smooth)");
+
+  control_parameter_add3(control_parameter_float,&spectral_radius,"gravity:spectral-radius","spectral_radius","rhoJ","Jacobi spectra radius for successful overrelation iterations.");
+}
+
+void config_verify_hydro()
+{
+  cart_assert(num_smooth_iterations > 0); 
+
+  cart_assert(spectral_radius>0.0 && spectral_radius<1.0);
+
+}
 
 
 void solve_poisson( int level, int flag ) {
@@ -124,9 +145,6 @@ void prolongate( int level ) {
 	update_buffer_level( level, prolongation_vars, 1 );
 	end_time( PROLONGATE_UPDATE_TIMER );
 }
-
-#define MAX_SOR_ITERS	60
-#define rhoJ		0.95
 
 void smooth( int level ) {
 	int iter;
@@ -617,7 +635,7 @@ void smooth( int level ) {
 	wsor6 = 1.0 / 6.0;
 	trfi2 = units->potential * cell_size_inverse[level];
 
-	for ( iter = 0; iter < MAX_SOR_ITERS; iter++ ) {
+	for ( iter = 0; iter < num_smooth_iterations; iter++ ) {
 		if ( iter > 0 ) {
 			start_time( COMMUNICATION_TIMER );
 
@@ -722,7 +740,7 @@ void smooth( int level ) {
 		}
 
 		/* chebyshev acceleration */
-		wsor = 1.0 / ( 1.0 - 0.25 * rhoJ*rhoJ*wsor );
+		wsor = 1.0 / ( 1.0 - 0.25 * spectral_radius*spectral_radius*wsor );
 		wsor6 = wsor / 6.0;
 		trfi2 = wsor * units->potential * cell_size_inverse[level];
 
@@ -774,7 +792,7 @@ void smooth( int level ) {
 		}
 
 		/* chebyshev acceleration */
-		wsor = 1.0 / ( 1.0 - 0.25 * rhoJ*rhoJ*wsor );
+		wsor = 1.0 / ( 1.0 - 0.25 * spectral_radius*spectral_radius*wsor );
 		wsor6 = wsor / 6.0;
 		trfi2 = wsor * units->potential * cell_size_inverse[level];
 
