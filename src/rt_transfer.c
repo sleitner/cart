@@ -433,9 +433,6 @@ void rtSetGlobalAbsorption(struct rtGlobalValue *abcAvg, struct rtGlobalValue *a
   float amin, amax;
   MESH_RUN_DECLARE(level,cell);
   float *abc[2], *abc1, w;
-#ifdef RT_DEBUG
-  int j;
-#endif
 
   start_time(WORK_TIMER);
 
@@ -488,7 +485,7 @@ void rtSetGlobalAbsorption(struct rtGlobalValue *abcAvg, struct rtGlobalValue *a
 	  if(w<0.0 || isnan(w)) 
 	    {
 	      cart_debug("Oops: %d %d %d %d %g",i,ifield,_Index,cell,w);
-	      for(j=0; j<num_vars; j++)
+	      for(int j=0; j<num_vars; j++)
 		{
 		  cart_debug("Var: %d %g",j,cell_var(cell,j));
 		}

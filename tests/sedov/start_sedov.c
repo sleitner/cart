@@ -46,13 +46,13 @@
 #define E		(1e7)
 
 void refine_level( int cell, int level ) {
-	float pos[nDim];
+	double pos[nDim];
 	float r;
 
 	cart_assert( cell >= 0 && cell < num_cells );
 	cart_assert( cell_level(cell) == level );
 	
-	cell_position(cell, pos);
+	cell_center_position(cell, pos);
 
 	pos[0] -= 0.5*num_grid;
 	pos[1] -= 0.5*num_grid;
@@ -69,7 +69,7 @@ void refine_level( int cell, int level ) {
 	
 void sedov_initial_conditions( int icell ) {
 	float r;
-	float pos[nDim];
+	double pos[nDim];
 	
 	cell_gas_density(icell) = 1.0/rho0;
 	cell_momentum(icell,0) = 0.0;
@@ -78,7 +78,7 @@ void sedov_initial_conditions( int icell ) {
 	cell_gas_gamma(icell) = constants->gamma;
 
 	/* now add some energy  */
-	cell_position(icell, pos);
+	cell_center_position(icell, pos);
 
 	pos[0] -= 0.5*num_grid;
 	pos[1] -= 0.5*num_grid;
@@ -160,13 +160,13 @@ float rho[num_bins];
 float avgs[num_bins];
 
 void radial_average( int cell, int level ) {
-        float pos[nDim];
+        double pos[nDim];
         float r1, r, v;
         float amt, cur_r;
         int bin;
                                                                                                                                                             
         if ( cell_is_leaf( cell ) ) {
-                cell_position(cell, pos);
+                cell_center_position(cell, pos);
                 r = sqrt( (pos[0]-((float)num_grid/2.0))*(pos[0]-((float)num_grid/2.0))+
                         (pos[1]-((float)num_grid/2.0))*(pos[1]-((float)num_grid/2.0))+
                         (pos[2]-((float)num_grid/2.0))*(pos[2]-((float)num_grid/2.0)));

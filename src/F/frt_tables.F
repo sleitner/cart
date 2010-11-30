@@ -1490,7 +1490,7 @@ C
 C  Main tables: we work in the approximation that the UV absorption
 C  can be added posteriori to a 3D table.
 C
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
 
       tauH1m = 1.0
       tauG1m = 1.0
@@ -1656,7 +1656,7 @@ C$OMP+ itloc2,pTab3,qTab3,pUV,qUV,wpTab,facPhot,facLX,iptabMax)
          enddo
       enddo
 
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
 #ifdef RT_XRAYS
       call frtFillRadiationTablesSE
@@ -1711,7 +1711,7 @@ C
       tauUVl = 0.0
 #endif
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
 
       call frtSampleTable3(tauH1l,tauG1l,tauG2l,
      .     iptabDim,pTab3,jmax,pRate,iOk)
@@ -1726,13 +1726,13 @@ C
 #endif
       else
 
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
          do j=1,jmax
             pRate(j) = 0.0
          enddo
 
-#if defined(RT_NARROWTABLE) || !defined(RT_TABLES)
+#if defined(RT_NARROW_TABLE) || defined(RT_NO_TABLE)
 
          itab(2) = itab(2) + 1
 
@@ -1754,11 +1754,11 @@ C
             pRate(j) = facPhot*max(0.0,pRate(j))
          enddo
 
-#endif /* RT_NARROWTABLE || !RT_TABLES */
+#endif /* RT_NARROWTABLE || RT_NO_TABLE */
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
       endif
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
 #ifdef RT_CHEMISTRY
 #ifdef RT_UV
@@ -1788,7 +1788,7 @@ C
       tauUVl = 0.0
 #endif
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
 
       call frtSampleTable3(tauH1l,tauG1l,tauG2l,
      .     iptabDim,qTab3,jmax,qRate,iOk)
@@ -1803,13 +1803,13 @@ C
 #endif
       else
 
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
          do j=1,jmax
             qRate(j) = 0.0
          enddo
 
-#if defined(RT_NARROWTABLE) || !defined(RT_TABLES)
+#if defined(RT_NARROW_TABLE) || defined(RT_NO_TABLE)
 
          itab(2) = itab(2) + 1
 
@@ -1831,11 +1831,11 @@ C
             qRate(j) = facLX*facPhot*max(0.0,qRate(j))
          enddo
 
-#endif /* RT_NARROWTABLE || !RT_TABLES */
+#endif /* RT_NARROWTABLE || RT_NO_TABLE */
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
       endif
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
 #ifdef RT_CHEMISTRY
 #ifdef RT_UV
@@ -2082,7 +2082,7 @@ C
 C
 C
 C     
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
       subroutine frtSampleTable3(tauH1l,tauG1l,tauG2l,
      .     nmax,table,nout,out,iOk)
       include 'frt_base.inc'
@@ -2226,7 +2226,7 @@ C
 
       return
       end
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 C
 C
 C

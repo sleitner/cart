@@ -1,5 +1,3 @@
-#ifndef __DEFS_H__
-#define __DEFS_H__
 
 #define DEBUG
 
@@ -11,4 +9,3 @@
 #define num_refinement_levels		0
 #define num_octs			1000
 
-#endif

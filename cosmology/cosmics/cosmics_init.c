@@ -559,13 +559,10 @@ void cosmics_init()
       abox[level] = abox[min_level];
     }
 
-  dtl[min_level] = 0.0;
-  choose_timestep( &dtl[min_level] );
-
   for(i=0; i<num_particles; i++) if(particle_level[i] != FREE_PARTICLE_LEVEL)
     {
       particle_t[i] = tl[min_level];
-      particle_dt[i] = dtl[min_level];
+      particle_dt[i] = 0.0;
     }
 
 #ifdef STARFORM

@@ -27,13 +27,13 @@
 void refine_level( int cell, int level )
 {
   int j;
-  float pos[nDim];
+  double pos[nDim];
   float r;
 
   cart_assert( cell >= 0 && cell < num_cells );
   cart_assert( cell_level(cell) == level );
 	
-  cell_position(cell, pos);
+  cell_center_position(cell, pos);
 
   for(j=0; j<nDim; j++)
     {
@@ -56,11 +56,11 @@ void refine_level( int cell, int level )
 void rt_initial_conditions( int cell )
 {
   int j;
-  float pos[nDim];
+  double pos[nDim];
   float r;
   float rho, dxscal = 0.1*num_grid;
 
-  cell_position(cell, pos);
+  cell_center_position(cell, pos);
 
   for(j=0; j<nDim; j++)
     {
@@ -185,11 +185,9 @@ void init_run()
    tl[min_level] = 0.0;
 
    dtl[min_level] = 1.0e7/(units->time*constants->yr);
-   choose_timestep( &dtl[min_level] );
 
    for ( level = min_level+1; level <= max_level; level++ )
      {
-       dtl[level] = 0.5*dtl[level-1];
        tl[level] = tl[min_level];
        abox[level] = abox[min_level];		
      }
@@ -250,7 +248,7 @@ void init_run()
 	   particle_mass[num_local_particles] = particle_species_mass[species];
        
 	   particle_t[num_local_particles] = 0.0;
-	   particle_dt[num_local_particles] = dtl[cell_level(cell)];
+	   particle_dt[num_local_particles] = 0.0;
 
 	   particle_level[num_local_particles] = cell_level(cell);
 

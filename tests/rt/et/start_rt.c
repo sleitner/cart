@@ -38,13 +38,13 @@ void units_set_art(double OmegaM, double h, double Lbox);
 void refine_level( int cell, int level )
 {
   int j;
-  float pos[nDim];
+  double pos[nDim];
   float r = 0.25*pow(0.5,level)*num_grid;
   
   cart_assert( cell >= 0 && cell < num_cells );
   cart_assert( cell_level(cell) == level );
   
-  cell_position(cell, pos);
+  cell_center_position(cell, pos);
 
   for(j=0; j<nDim; j++)
     {
@@ -304,11 +304,9 @@ void init_run()
   tl[min_level] = 0.0;
   
   dtl[min_level] = 10*constants->Myr/units->time;
-  choose_timestep( &dtl[min_level] );
 
   for ( level = min_level+1; level <= max_level; level++ )
     {
-      dtl[level] = 0.5*dtl[level-1];
       tl[level] = tl[min_level];
     }
 

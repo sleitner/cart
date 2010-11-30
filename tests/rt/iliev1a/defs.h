@@ -1,5 +1,3 @@
-#ifndef __DEFS_H__
-#define __DEFS_H__
 
 #define DEBUG
 
@@ -16,4 +14,3 @@
 #define num_particles                   300000
 #define num_star_particles              1
 
-#endif

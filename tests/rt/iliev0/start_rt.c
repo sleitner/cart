@@ -150,7 +150,7 @@ void init_run()
 #ifdef RT_DEBUG
   rt_debug.Mode = 1;
   rt_debug.Stop = 0;
-  cell_position_double(1,rt_debug.Pos);
+  cell_center_position(1,rt_debug.Pos);
 #endif
 #endif
 }

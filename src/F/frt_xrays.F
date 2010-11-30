@@ -60,7 +60,7 @@ C
 C
 C  Main tables
 C
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
 
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lo1,lo2,lo3,tauH1l,tauG1l,tauG2l,itind,itind2,j,
@@ -185,7 +185,7 @@ C
          enddo
       enddo
 
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
       return
       end
@@ -229,7 +229,7 @@ C
       tauUVl = 0.0
 #endif
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
 
       call frtSampleTable3(tauH1l,tauG1l,tauG2l,
      .     istabDim,pTabSE,istabDim,pRate1,iOk)
@@ -244,13 +244,13 @@ C
 #endif
       else
 
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
          do j=1,istabDim
             pRate1(j) = 0.0
          enddo
 
-#if defined(RT_NARROWTABLE) || !defined(RT_TABLES)
+#if defined(RT_NARROW_TABLE) || defined(RT_NO_TABLE)
 
          itab(2) = itab(2) + 1
 
@@ -267,9 +267,9 @@ C
             pRate1(j) = facPhot*max(0.0,pRate1(j))
          enddo
 
-#endif /* RT_NARROWTABLE || !RT_TABLES */
+#endif /* RT_NARROW_TABLE || RT_NO_TABLE */
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
       endif
 #endif
 #endif // RT_EXTERNAL_BACKGROUND
@@ -286,7 +286,7 @@ C
       tauUVl = 0.0
 #endif
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
 
       call frtSampleTable3(tauH1l,tauG1l,tauG2l,
      .     istabDim,qTabSE,istabDim,qRate1,iOk)
@@ -301,13 +301,13 @@ C
 #endif
       else
 
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
          do j=1,istabDim
             qRate1(j) = 0.0
          enddo
 
-#if defined(RT_NARROWTABLE) || !defined(RT_TABLES)
+#if defined(RT_NARROW_TABLE) || defined(RT_NO_TABLE)
 
          itab(2) = itab(2) + 1
 
@@ -324,11 +324,11 @@ C
             qRate1(j) = facLX*facPhot*max(0.0,qRate1(j))
          enddo
 
-#endif /* RT_NARROWTABLE || !RT_TABLES */
+#endif /* RT_NARROWTABLE || RT_NO_TABLE */
 
-#ifdef RT_TABLES
+#ifndef RT_NO_TABLE
       endif
-#endif /* RT_TABLES */
+#endif /* RT_NO_TABLE */
 
 #endif /* RT_TRANSFER */
 

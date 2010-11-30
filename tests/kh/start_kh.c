@@ -56,7 +56,7 @@ void run_output() {
 
 void init_run() {
 	int i;
-	float pos[nDim];
+	double pos[nDim];
 	int level, icell;
 	int num_level_cells;
 	int *level_cells;
@@ -78,7 +78,7 @@ void init_run() {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
-			cell_position(icell, pos);
+			cell_center_position(icell, pos);
 
 			if ( fabs(pos[1]/(double)num_grid - 0.5) < 0.25 ) {
 				cell_gas_density(icell) = 2.0;
@@ -119,11 +119,4 @@ void init_run() {
 
 	/* set time variables */
 	tl[min_level] = t_init;
-	dtl[min_level] = 0.0;
-	choose_timestep( &dtl[min_level] );
-
-	for ( level = min_level+1; level <= max_level; level++ ) {
-		dtl[level] = 0.5*dtl[level-1];
-		tl[level] = tl[min_level];
-	}
 }

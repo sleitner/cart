@@ -124,6 +124,12 @@
 */
 ?#define RT_CHEMISTRY_MINIMAL_MODEL
 
+/*
+//  Disable the use of a table for computing photoionization rates. Without 
+//  using a table, computing rates will be VERY SLOW; basically, this should
+//  always be OFF except for testing.
+*/
+?#define RT_NO_TABLE
 
 /*
 //  If the required photo rate is not found in the rate table, use direct
@@ -131,7 +137,7 @@
 //  that the table is wide enough (parameter acOmax from rt_tables.h is
 //  large enough) for the source spectrum and set the rate to zero.
 */
-?#define RT_NARROWTABLE
+?#define RT_NARROW_TABLE
 
 
 /*
@@ -171,11 +177,5 @@
 //  Produce diagnostic output 
 */
 ?#define RT_OUTPUT
-
-
-/*
-//  Use tables for computing photoionization rates. 
-*/
-?#define RT_TABLES
 
 

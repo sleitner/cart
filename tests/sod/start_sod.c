@@ -24,7 +24,7 @@ void run_output() {
 	char filename[256];
 	FILE *output;
 	int coords[nDim];
-	float pos[nDim];
+	double pos[nDim];
 	int icell;
 
 	/* output 1-d slice through middle of volume */
@@ -41,7 +41,7 @@ void run_output() {
 		icell = root_cell_location( sfc_index(coords) );
 
 		if ( icell != NULL_OCT ) {
-			cell_position( icell, pos );
+			cell_center_position( icell, pos );
 
 			fprintf( output, "%e %e %e %e\n", pos[0], cell_gas_density(icell),
 				cell_momentum(icell,0), cell_gas_pressure(icell) );
@@ -58,7 +58,7 @@ void run_output() {
 
 void init_run() {
 	int i;
-	float pos[nDim];
+	double pos[nDim];
 	int level, icell;
 	int num_level_cells;
 	int *level_cells;
@@ -80,7 +80,7 @@ void init_run() {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
-			cell_position(icell, pos);
+			cell_center_position(icell, pos);
 			
 			cell_momentum(icell,0) = 0.0;
 			cell_momentum(icell,1) = 0.0;
@@ -117,11 +117,4 @@ void init_run() {
 
 	/* set time variables */
 	tl[min_level] = t_init;
-	dtl[min_level] = 0.0;
-	choose_timestep( &dtl[min_level] );
-
-	for ( level = min_level+1; level <= max_level; level++ ) {
-		dtl[level] = 0.5*dtl[level-1];
-		tl[level] = tl[min_level];
-	}
 }

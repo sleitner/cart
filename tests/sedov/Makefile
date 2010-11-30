@@ -1,6 +1,5 @@
 TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
-NO_RT = 1
 
 .phony: compile run clean
 
@@ -18,4 +17,4 @@ sedov: .obj $(OBJS) defs.h start_sedov.c .obj/extra/viewdump.o .obj/extra/ifrit.
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_sedov.c -o sedov .obj/extra/viewdump.o .obj/extra/ifrit.o .obj/extra/utils.o $(LIBS) $(EXTRALIBS)
 
 clean:
-	@rm -rf .obj sedov core
+	@rm -rf .obj sedov core list_defines.h

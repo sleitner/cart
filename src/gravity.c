@@ -31,7 +31,7 @@ void config_init_gravity()
   control_parameter_add3(control_parameter_float,&spectral_radius,"gravity:spectral-radius","spectral_radius","rhoJ","Jacobi spectra radius for successful overrelation iterations.");
 }
 
-void config_verify_hydro()
+void config_verify_gravity()
 {
   cart_assert(num_smooth_iterations > 0); 
 

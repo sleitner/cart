@@ -9,4 +9,4 @@ art: .obj $(OBJS) defs.h rt_defs.h start_rt.c .obj/extra/healpix.o .obj/extra/if
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_rt.c -o art $(LIBS) $(EXTRALIBS) .obj/extra/healpix.o .obj/extra/ifrit.o .obj/extra/utils.o
 
 clean:
-	rm -rf .obj *.o art core *.il
+	rm -rf .obj *.o art core *.il list_defines.h

@@ -8,6 +8,7 @@
 #include "control_parameter.h"
 #include "cosmology.h"
 #include "density.h"
+#include "gravity.h"
 #include "hydro.h"
 #include "io.h"
 #include "load_balance.h"
@@ -221,7 +222,6 @@ void config_print_to_file(const char *filename, int append)
 
 #ifdef RADIATIVE_TRANSFER 
   fprintf(f,"Radiative transfer settings:\n");
-  PRINT(RT_TABLES);
   PRINT(RT_TRANSFER);
   PRINT(RT_TRANSFER_METHOD);
   PRINT(RT_UV);
@@ -363,6 +363,10 @@ void config_init()
 
 #ifdef HYDRO
   config_init_hydro();
+#endif
+
+#ifdef GRAVITY
+  config_init_gravity();
 #endif
 
 #ifdef REFINEMENT

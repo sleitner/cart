@@ -1,6 +1,5 @@
 TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
-NO_RT = 1
 
 compile:	cart
 
@@ -24,4 +23,4 @@ ICs:
 prep: DAT logs ICs 
 	
 clean:
-	rm -rf $(OBJS) .obj *.il core start_cosmology.o cart 
+	rm -rf $(OBJS) .obj *.il core start_cosmology.o cart list_defines.h

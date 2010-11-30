@@ -20,7 +20,7 @@
 #include "extra/ifrit.h"
 
 
-const int depth = max_level - min_level - 3;
+#define depth  (max_level-min_level-3)
 
 const float phi0 = M_PI/180*0;
 const float vel0 = 1.3;
@@ -35,13 +35,13 @@ const double scale = 1 << depth;
 void refine_level(int cell, int level)
 {
   int j;
-  float pos[nDim];
+  double pos[nDim];
   float r, rmax;
 
   cart_assert( cell >= 0 && cell < num_cells );
   cart_assert( cell_level(cell) == level );
 	
-  cell_position(cell, pos);
+  cell_center_position(cell, pos);
 
   for(j=0; j<nDim; j++)
     {
@@ -129,7 +129,7 @@ void run_output()
 
   //if(cell_is_leaf(cell))
     {
-      cell_position_double(cell,pos);
+      cell_center_position(cell,pos);
       for(j=0; j<nDim; j++)
 	{
 	  pos[j] -= 0.5*num_grid;

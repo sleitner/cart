@@ -1,31 +1,32 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <time.h>
-#include <math.h>
-#include <mpi.h>
+#include "config.h"
 
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
-#include "defs.h"
 #include "auxiliary.h"
-#include "tree.h"
-#include "particle.h"
-#include "sfc.h"
-#include "parallel.h"
 #include "cell_buffer.h"
+#include "cosmology.h"
+#include "density.h"
+#include "gravity.h"
+#include "hydro.h"
+#include "io.h"
 #include "iterators.h"
 #include "load_balance.h"
-#include "timestep.h"
+#include "parallel.h"
+#include "particle.h"
 #include "refinement.h"
 #include "refinement_operations.h"
-#include "extra/viewdump.h"
+#include "sfc.h"
+#include "timestep.h"
 #include "timing.h"
+#include "tree.h"
 #include "units.h"
-#include "hydro.h"
-#include "gravity.h"
-#include "density.h"
-#include "io.h"
+
+#include "extra/viewdump.h"
 
 #define a_cross		(1.0/(1.0+10.0))
 
@@ -38,21 +39,21 @@ double ddgrowthdt;
 double ampl;
 double ak;
 
-void compute_omegas( double a, double *Omega, double *OmegaL ) {
+void compute_omegas( double a, double *OmegaM, double *OmegaL ) {
 	double f;
                                                                                                                                                             
-	f = a + Omega0 * (1.0-a) + OmegaL0 * (a*a*a - a);
+	f = a + cosmology->OmegaM * (1.0-a) + cosmology->OmegaL * (a*a*a - a);
                                                                                                                                                             
-	*Omega = Omega0 / f;
-	*OmegaL = OmegaL0 / f;
+	*OmegaM = cosmology->OmegaM / f;
+	*OmegaL = cosmology->OmegaL / f;
 }
 
 
-double g_CPT( double Omega, double OmegaL ) {
-	return 0.25* Omega / (
-		pow( Omega, 4.0/7.0 ) -
+double g_CPT( double OmegaM, double OmegaL ) {
+	return 0.25* OmegaM / (
+		pow( OmegaM, 4.0/7.0 ) -
 		OmegaL +
-		(1.0-0.5*Omega)*(1.0+OmegaL/70.0) );
+		(1.0-0.5*OmegaM)*(1.0+OmegaL/70.0) );
 }
 
 double growth( double a ) 
@@ -60,15 +61,15 @@ double growth( double a )
  *  from Caroll, Press & Turner 1992, ARA&A 30, 499
  */
 {
-	double Omega, OmegaL;
+	double OmegaM, OmegaL;
 
-	if ( Omega0 == 1.0 && OmegaL0 == 0.0 ) {
+	if ( cosmology->OmegaM == 1.0 && cosmology->OmegaL == 0.0 ) {
 		return a;
 	} else {
-		compute_omegas( a, &Omega, &OmegaL );
+		compute_omegas( a, &OmegaM, &OmegaL );
 
-		return a * g_CPT( Omega, OmegaL ) / 
-			g_CPT( Omega0, OmegaL0 );
+		return a * g_CPT( OmegaM, OmegaL ) / 
+			g_CPT( cosmology->OmegaM, cosmology->OmegaL );
 	}
 }
 
@@ -144,7 +145,7 @@ double c1,c2,c3;
 double phi0;
 
 void output_cell( int cell, int level ) {
-	float pos[nDim];
+	double pos[nDim];
 	double q;
 	double kq;
 	double rho, v, g, phi;
@@ -161,7 +162,7 @@ void output_cell( int cell, int level ) {
 #endif
 
 	if ( cell_is_leaf(cell) ) {
-		cell_position(cell,pos);
+		cell_center_position(cell,pos);
 
 		x0 = pos[0];
 		q = root_finder( qsolve, 0.0, num_grid, 1e-9, 1e-9 );
@@ -176,7 +177,7 @@ void output_cell( int cell, int level ) {
 
 		x_a = q + dgrowth_a*ampl*sin(kq);
                                                                                                                                                             
-		rho = Omega0 / ( 1.0 + ak*dgrowth*ampl*cos(kq) );
+		rho = cosmology->OmegaM / ( 1.0 + ak*dgrowth*ampl*cos(kq) );
 		v = ddgrowthdt*ampl*sin(kq);
 		g = -6.0*abox_a*( rhogas0*q - x_a );
 
@@ -348,6 +349,8 @@ void run_output() {
 	}
 }
 
+void units_set_art(double OmegaM, double h, double Lbox);
+
 void init_run() {
 	int i, j, k;
 	int index;
@@ -367,6 +370,9 @@ void init_run() {
 	int num_level_cells;
 	int *level_cells;
 
+	units_set_art(cosmology->OmegaM,cosmology->h,box_size);
+        units_reset();
+
         build_cell_buffer();
         repair_neighbors();
 
@@ -378,11 +384,11 @@ void init_run() {
                 abox[i] = auni[i] = a;
 	}
 
-	rhogas0 = Omegab0/Omega0;
+	rhogas0 = cosmology->OmegaB/cosmology->OmegaM;
 	cart_debug("rhogas0 = %e", rhogas0 );
 
 	/* calculate temperature */
-	a_th = 1.0 / ( 1e3 * pow(Omegab0*hubble*hubble, 0.4) );
+	a_th = 1.0 / ( 1e3 * pow(cosmology->OmegaB*cosmology->h*cosmology->h, 0.4) );
 
 	if ( a < a_th ) {
 		TinitK = 2.726 / a;
@@ -390,7 +396,7 @@ void init_run() {
 		TinitK = 2.726 / a_th * (a_th/a)*(a_th/a);
 	}
 
-	Tinit = TinitK * a*a / (0.31*T0/0.6);
+	Tinit = TinitK/units->temperature;
 
 #ifdef PRESSURELESS_FLUID
 	p0 = 1e-20;
@@ -421,7 +427,6 @@ void init_run() {
 #endif /* HYDRO */
 
         dtl[min_level] = 0.0;
-        choose_timestep( &dtl[min_level] );
 
 #ifdef PARTICLES
 	num_row = num_grid;

@@ -672,7 +672,7 @@ void set_timestepping_scheme()
 #ifdef CONSTANT_TIMESTEP
 
 #ifdef RADIATIVE_TRANSFER
-  rtModifyTimeStep(dt_local);
+  rtModifyTimeStep(&dt_local);
 #endif /* RADIATIVE_TRANSFER */
 
   start_time( CHOOSE_TIMESTEP_COMMUNICATION_TIMER );

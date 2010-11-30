@@ -1,6 +1,5 @@
 TOP_DIR = ../..
 SRC_DIR = $(TOP_DIR)/src
-NO_RT = 1
 
 compile:	zeldovich
 
@@ -10,4 +9,4 @@ zeldovich: .obj $(OBJS) defs.h start_zeldovich.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_zeldovich.c -o zeldovich $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf .obj *.il core start_seldovich.o zeldovich
+	rm -rf .obj *.il core start_seldovich.o zeldovich list_defines.h

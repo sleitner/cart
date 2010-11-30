@@ -8,6 +8,9 @@
 
 #ifdef GRAVITY
 
+void config_init_gravity();
+void config_verify_gravity();
+
 void solve_poisson( int level, int flag);
 void copy_potential( int level );
 void interpolate_potential( int level ); 
