@@ -141,12 +141,11 @@ const char *ngDumpHeader[] = {
 };
 #else
 const char *ngDumpHeader[] = {
-  "baryon number density (cm^{-3}",
+  "baryon number density (cm^{-3})",
   "temperature (K)",
   "baryon column density (cm^{-2})",
   "gas metallicity (solar units)",
-  "total density (in units of the mean)",
-  "baryon density (in units of the mean)"
+  "total density (g/cm^3)",
 };
 #endif
 
@@ -175,7 +174,6 @@ const int ngDumpWeight[] = {
   2,
   2,
   2,
-  0,
   0
 };
 #endif
@@ -194,7 +192,7 @@ void ngDumpWorker(int level, int cell, int num, float *ptr)
 #ifdef RADIATIVE_TRANSFER
   cart_assert(num >= 12);
 #else
-  cart_assert(num >= 6);
+  cart_assert(num >= 5);
 #endif
 
 #ifdef HYDRO
@@ -240,10 +238,7 @@ void ngDumpWorker(int level, int cell, int num, float *ptr)
 
 #else  /* RADIATIVE_TRANSFER */
 
-  ptr[4] = cell_density(cell)*cell_volume_inverse[level] + 1.0;
-#ifdef HYDRO
-  ptr[5] = cell_gas_density(cell);
-#endif /* HYDRO */
+  ptr[4] = units->density*(cell_density(cell)*cell_volume_inverse[level]+1.0)/(cgs->g/pow(cgs->cm,3.0));
 
 #endif /* RADIATIVE_TRANSFER */
 }
@@ -317,7 +312,7 @@ void ngDumpProfiles(const char *filename, int resolution_level, float rmin, floa
 #ifdef COSMOLOGY
   ngInitRT();
   ngInitDensity();
-  extDumpProfiles(ngOutputFile(filename),ngDumpSize,ngDumpWorker,ngDumpHeader,ngDumpWeight,resolution_level,rmin,rmax,10,ngHalos);
+  extDumpProfiles(ngOutputFile(filename),ngDumpSize,ngDumpWorker,ngDumpHeader,ngDumpWeight,resolution_level,rmin,rmax,25,ngHalos);
   ngIsDirty[VAR_ACCEL] = 1;
 #else
   cart_debug("COSMOLOGY is not set. Skipping ngDumpProfiles.");

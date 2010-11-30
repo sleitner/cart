@@ -196,7 +196,7 @@ void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char 
   FILE *f;
   char str[999];
   float *buffer, *gbuffer, *weight, *gweight, *ptr, w[num_weights];
-  double pos[3], dx, r2, uRad2;
+  double pos[3], r, uRad;
   int ntot, ibin;
   float *rbin, lrmin, vol;
   
@@ -231,7 +231,7 @@ void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char 
   weight = cart_alloc(float, ntot*num_weights );
   gweight = cart_alloc(float, ntot*num_weights );
 
-  uRad2 = pow(units->length/constants->kpc,2.0);
+  uRad = units->length/constants->kpc;
 
   /*
   //  Map cells
@@ -270,15 +270,9 @@ void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char 
       if(cell_is_leaf(cell) && ih+1==(int)(0.5+cell_var(cell,VAR_ACCEL)))
 	{
 	  cell_center_position(cell,pos);
-	  for(j=0, r2=0.0; j<nDim; j++)
-	    {
-	      dx = pos[j] - halos->list[ih].pos[j];
-	      if(dx < -0.5*num_grid) dx += num_grid;
-	      if(dx >  0.5*num_grid) dx -= num_grid;
-	      r2 += dx*dx;
-	    }
+	  r = compute_distance_periodic(pos,halos->list[ih].pos);
 	  
-	  ibin = (int)(0.5+(0.5*log10(1.0e-35+uRad2*r2)-lrmin)*ndex);
+	  ibin = (int)((log10(1.0e-35+uRad*r)-lrmin)*ndex);
 	  if(ibin < 0) ibin = 0;
 	  if(ibin>=0 && ibin<ntot)
 	    {
