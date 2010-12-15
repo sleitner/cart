@@ -7,7 +7,7 @@ all: hart_to_cart cart_to_hart
 include $(TOP_DIR)/Make.config
 
 NEWSRCS = $(filter-out main.c,$(SRCS)) 
-NEWOBJS = $(patsubst %.c,.obj/./%.o,$(NEWSRCS)) .obj/extra/hart_io.o
+NEWOBJS = $(patsubst %.c,.obj/./%.o,$(NEWSRCS)) .obj/extra/hart_io.o  $(patsubst %.F,.obj/F/%.o,$(FSRCS))
 
 hart_to_cart: .obj $(NEWOBJS) defs.h hart_to_cart.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(NEWOBJS) \
