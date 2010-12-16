@@ -40,7 +40,7 @@ int Vars[] = { RT_VAR_OT_FIELD,
 DEFINE_LEVEL_ARRAY(float,BufferFactor);
 
 
-int rtOtvetOTBox[rt_num_frequencies/2];
+int rtOtvetOTBox[rt_num_freqs];
 
 
 void rtOtvetComputeGreenFunctions();
@@ -66,11 +66,11 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *in
 
 void rtInitRunTransferOtvet()
 {
-  int i;
+  int level;
 
-  for(i=min_level; i<=max_level; i++)
+  for(level=min_level; level<=max_level; level++)
     {
-      BufferFactor[i] = 2.0;
+      BufferFactor[level] = 2.0;
     }
 
   if(local_proc_id == MASTER_NODE)
@@ -83,9 +83,9 @@ void rtInitRunTransferOtvet()
 void rtStepBeginTransferOtvet(struct rtGlobalValue *abcMax)
 {
   const float tauMin = 1.0e-2;
-  int i;
+  int freq;
 
-  for(i=0; i<rt_num_frequencies/2; i++) rtOtvetOTBox[i] = (abcMax[i].Value*num_grid < tauMin);
+  for(freq=0; freq<rt_num_freqs; freq++) rtOtvetOTBox[freq] = (abcMax[freq].Value*num_grid < tauMin);
 }
 
 
@@ -122,7 +122,7 @@ void rtLevelUpdateTransferOtvet(int level)
   int work;
   int num_level_cells, num_all_cells, num_total_cells, *nb;
   int iL, iG, j, offset, index;
-  int nit, ifreq, ivarL, ivarG, nit0;
+  int nit, freq, ivarL, ivarG, nit0;
   float xiUnit;
 
   start_time(WORK_TIMER);
@@ -295,23 +295,25 @@ C$OMP+SHARED(var,varET,varOT,varSR,indLG,nTotCells)
   /*
   // Iterate over all non-zero frequencies, two at a time (local and global fields)
   */
-  for(ifreq=0; ifreq<rt_num_frequencies/2; ifreq++)
+  for(freq=0; freq<rt_num_freqs; freq++)
     {
 
       start_time(WORK_TIMER);
 
-      ivarL = rt_freq_offset + ifreq;
-      ivarG = ivarL + rt_num_frequencies/2;
+      ivarL = rt_field_offset + freq;
+      ivarG = ivarL + rt_num_freqs;
 
       /*
       // Compute the absorption coefficient at this level
       */
-      rtComputeAbsLevel(level,num_total_cells,indL2G,ifreq,abc);
+      rtComputeAbsLevel(level,num_total_cells,indL2G,freq,abc);
+
+      end_time(WORK_TIMER);
 
       /*
       // Is the box optically thin?
       */
-      if(rtOtvetOTBox[ifreq])
+      if(rtOtvetOTBox[freq])
 	{
 	  
 	  start_time(WORK_TIMER);

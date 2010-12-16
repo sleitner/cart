@@ -126,8 +126,14 @@
 //  (May be removed after the development is complete.)
 */
 #if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-#define RT_VARIABLE_PRATES
-#define RT_VARIABLE_RFIELD
+#define RT_VARIABLE_RF
+#endif
+
+/*
+//  A convenient combination switch
+*/
+#if (defined(RT_UV) && defined(RT_CUSTOM_DUST_TO_GAS)) || (RT_CFI > 0)
+#define RT_ABSORPTION_CALLBACK_FULL
 #endif
 
 /*

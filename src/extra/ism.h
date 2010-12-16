@@ -22,7 +22,9 @@ typedef void (*DumpWorker)(int level, int cell, int num, float *ptr);
 */
 void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **header, int level1, int level2, struct HALO_LIST *halos);
 
-void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, int resolution_level, float rmin, float rmax, int ndex, struct HALO_LIST *halos);
+void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, struct HALO_LIST *halos, int resolution_level, float outer_edge);
+
+void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, double center[3]);
 
 /*
 //  SF law from stellar particles

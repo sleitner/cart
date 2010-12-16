@@ -143,17 +143,13 @@ double sf_recipe1_rate(int cell)
 
 #ifdef RADIATIVE_TRANSFER
 
-  fH2_cell = 2*cell_H2_density(cell)/(2*cell_H2_density(cell)+cell_HI_density(cell));
+  fH2_cell = cell_H2_fraction(cell);
 
 #else /* RADIATIVE_TRANSFER */
-    double zSol_cell;
 
-#ifdef ENRICH
-  zSol_cell = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
-#else
-  zSol_cell = 0.0;
-#endif /* ENRICH */
-  fH2_cell = (max(1.0e-3,zSol_cell)*nH > 30.0) ? 1.0 : 0.0;
+  cart_error("SF Recipe #1: only works with RADIATIVE_TRANSFER activated.");
+
+  fH2_cell = 0.0;
 
 #endif /* RADIATIVE_TRANSFER */
 
@@ -177,11 +173,6 @@ double sf_recipe2_rate(int cell)
   double fH2_cell, nH_eff;
   double nH = constants->XH*units->number_density*cell_gas_density(cell);
   
-#ifdef RADIATIVE_TRANSFER
-
-  fH2_cell = 2*cell_H2_density(cell)/(2*cell_H2_density(cell)+cell_HI_density(cell));
-
-#else /* RADIATIVE_TRANSFER */
   double zSol_cell;
   double D_MW,U_MW; 
   double Dstar,g,s,x,alpha,lambda;
@@ -190,7 +181,7 @@ double sf_recipe2_rate(int cell)
 #ifdef ENRICH
   zSol_cell = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
-  cart_error("ERROR: Need enrichment for recipe2");
+  cart_error("ERROR: Need enrichment for SF Recipe #2");
   zSol_cell = 0.0;
 #endif /* ENRICH */
 
@@ -199,7 +190,7 @@ double sf_recipe2_rate(int cell)
     U_MW = sf_recipe2.U_MW ;
   }else{
     //UV <= unknown  esp at high z
-    cart_error("recipe2: fit U_MW to some local SF estimate. This has not been done yet.");
+    cart_error("SF Recipe #2: fit U_MW to some local SF estimate. This has not been done yet.");
   }
   if( sf_recipe2.D_MW >0 ){
     D_MW = sf_recipe2.D_MW ;
@@ -220,8 +211,6 @@ double sf_recipe2_rate(int cell)
     x=x/pow(g,0.25);
     fH2_cell = 1 / ( 1 + exp(-4*x - 3*pow(x,3)) );
   }
-  
-#endif /* RADIATIVE_TRANSFER */
   
   if(nH > sf_recipe2.very_high_density) fH2_cell = 1.0;
   

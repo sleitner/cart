@@ -148,10 +148,10 @@ C
       EAvg_G = sum1_G/(1.0e-35+sum0_G)
 
       if(ioNode) then
-         open(unit=81, file='rt-run.log', access='append')
-         write(81,*) 'RT_Spectrum: <E>_G = ', EAvg_G
-         write(81,*) 'RT_Spectrum: <E>_Q = ', EAvg_Q
-         close(81)
+         open(unit=IOUNIT, file='rt-run.log', access='append')
+         write(IOUNIT,*) 'RT_Spectrum: <E>_G = ', EAvg_G
+         write(IOUNIT,*) 'RT_Spectrum: <E>_Q = ', EAvg_Q
+         close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */
 

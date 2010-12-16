@@ -18,10 +18,6 @@
 #include "tree.h"
 #include "units.h"
 
-#ifdef RADIATIVE_TRANSFER
-#include "F/frt_c.h"
-#endif
-
 #include "halo_finder.h"
 #include "ism.h"
 
@@ -188,7 +184,7 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
 }
 
 
-void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, int resolution_level, float rmin, float rmax, int ndex, halo_list *halos)
+void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, halo_list *halos, int resolution_level, float outer_edge)
 {
   const int num_weights = 3;
   int i, j, ih;
@@ -198,7 +194,7 @@ void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char 
   float *buffer, *gbuffer, *weight, *gweight, *ptr, w[num_weights];
   double pos[3], r, uRad;
   int ntot, ibin;
-  float *rbin, lrmin, vol;
+  float *rbin, lrmin;
   
   cart_assert(ndex>0 && rmax>0.0 && rmin>0.0);
 
@@ -238,7 +234,7 @@ void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char 
   */
   if(halos->map == -1)
     {
-      map_halos(VAR_ACCEL,min_level,halos,1.0);
+      map_halos(VAR_ACCEL,min_level,halos,outer_edge);
     }
 
   /*
@@ -342,20 +338,151 @@ void extDumpProfiles(const char *fname, int nout, DumpWorker worker, const char 
 }
 
 
+void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, double center[3])
+{
+  const int num_weights = 3;
+  int i, j;
+  MESH_RUN_DECLARE(level,cell);
+  FILE *f;
+  char str[999];
+  float *buffer, *gbuffer, *weight, *gweight, *ptr, w[num_weights];
+  double pos[3], r, uRad;
+  int ntot, ibin;
+  float *rbin, lrmin;
+  
+  cart_assert(ndex>0 && rmax>0.0 && rmin>0.0);
+
+  for(j=0; j<nout; j++) 
+    {
+      if(weight_id[j]<0 || weight_id[j]>=num_weights) cart_error("Invalid weight id[%d] = %d (should be between 0 and %d)",j,weight_id[j],num_weights-1);
+    }
+
+  lrmin = log10(rmin);
+  ntot = (int)(0.5+(log10(rmax)-lrmin)*ndex);
+  cart_assert(ntot > 0);
+
+  cart_debug("Dumping a profile with %d bins...",ntot);
+
+  rbin = cart_alloc(float,ntot);
+  for(i=0; i<ntot; i++) rbin[i] = pow(10.0,lrmin+(i+0.5)/ndex); 
+
+  /*
+  //  Create the buffer
+  */
+  buffer = cart_alloc(float, ntot*nout );
+  gbuffer = cart_alloc(float, ntot*nout );
+
+  weight = cart_alloc(float, ntot*num_weights );
+  gweight = cart_alloc(float, ntot*num_weights );
+
+  uRad = units->length/constants->kpc;
+
+  /*
+  //  Fill in the buffer
+  */
+  ptr = gbuffer;
+
+  for(i=0; i<ntot; i++)
+    {
+      for(j=0; j<num_weights; j++)
+	{
+	  weight[j+i*num_weights] = 0.0;
+	}
+      for(j=0; j<nout; j++)
+	{
+	  buffer[j+i*nout] = 0.0;
+	}
+    }
+
+  MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
+
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  
+  if(cell_is_leaf(cell))
+    {
+      cell_center_position(cell,pos);
+      r = compute_distance_periodic(pos,center);
+	  
+      ibin = (int)((log10(1.0e-35+uRad*r)-lrmin)*ndex);
+      if(ibin < 0) ibin = 0;
+      if(ibin>=0 && ibin<ntot)
+	{
+	  for(j=0; j<nout; j++) ptr[j] = 0.0;
+	  worker(level,cell,nout,ptr);
+
+	  w[0] = cell_volume[level];
+	  w[1] = (cell_density(cell)+cell_volume[level]);
+#ifdef HYDRO
+	  w[2] = cell_gas_density(cell)*cell_volume[level];
+#else
+	  w[2] = 1;
+#endif
+
+	  for(j=0; j<num_weights; j++)
+	    {
+	      weight[j+ibin*num_weights] += w[j];
+	    }
+	  for(j=0; j<nout; j++)
+	    {
+	      buffer[j+ibin*nout] += ptr[j]*w[weight_id[j]];
+	    }
+	}
+    }
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+  MESH_RUN_OVER_LEVELS_END;
+  
+  MPI_Allreduce(buffer,gbuffer,ntot*nout,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
+  MPI_Allreduce(weight,gweight,ntot*num_weights,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
+
+  for(i=0; i<ntot; i++)
+    {
+      for(j=0; j<nout; j++) if(gweight[weight_id[j]+i*num_weights] > 0.0)
+	{
+	  gbuffer[j+i*nout] /= gweight[weight_id[j]+i*num_weights];
+	}
+    }
+
+  if(local_proc_id == MASTER_NODE)
+    {
+      sprintf(str,"%s",fname);
+      f = fopen(str,"w");
+      cart_assert(f != NULL);
+
+      fprintf(f,"# Columns:\n");
+      for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,header[i]);
+      fprintf(f,"#\n");
+
+      for(i=0; i<ntot; i++)
+	{
+	  ptr = gbuffer + nout*i;
+
+	  fprintf(f,"%9.3e ",pow(10.0,lrmin+(i+0.5)/ndex));
+	  for(j=0; j<nout; j++) fprintf(f," %9.3e",ptr[j]);
+	  fprintf(f,"\n");
+	}
+      fclose(f);
+    }
+
+  cart_free(weight);
+  cart_free(gweight);
+
+  cart_free(buffer);
+  cart_free(gbuffer);
+
+}
+
+
 #if defined(PARTICLES) && defined(STARFORM)
 void extStarFormationLaw(const char *fname, float spatial_scale, float time_scale, float stellar_age_limit, const halo_list *halos)
 {
   int i, j, ih, level, size, rank, lstarted, gstarted, select;
   int num_level_cells, *level_cells, *index, cell;
-  float *sfr, *mst, *zst, uLen, uDen, uTime, uRate, dt, dmw, umw;
+  float *sfr, *mst, *zst, uLen, uDen, uTime, uRate, dt;
   double pos[nDim];
   FILE *f;
   char str[999];
   int nselproc, nseltot;
   int level_halo, level_global;
-#ifdef RADIATIVE_TRANSFER
-  float rate[frtRATE_DIM];
-#endif
 
   time_scale *= 1.0e6;  /* turn Myr into years */
   stellar_age_limit *= 1.0e6;
@@ -551,10 +678,7 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
 
 			      fprintf(f,"%9.3e %9.3e %9.3e ",uRate*sfr[j],uDen*cell_gas_density(level_cells[j]),cell_gas_metal_density(level_cells[j])/constants->Zsun/cell_gas_density(level_cells[j]));
 #ifdef RADIATIVE_TRANSFER
-			      dmw = rtDustToGas(level_cells[j]);
-			      rtGetPhotoRates(level_cells[j],rate);
-			      umw = rate[frtRATE_CiLW]*1.05e10;
-			      fprintf(f,"%9.3e %9.3e %9.3e %9.3e %9.3e ",uDen*cell_HI_density(level_cells[j]),uDen*cell_HII_density(level_cells[j]),uDen*2*cell_H2_density(level_cells[j]),dmw,umw);
+			      fprintf(f,"%9.3e %9.3e %9.3e %9.3e %9.3e ",uDen*cell_HI_density(level_cells[j]),uDen*cell_HII_density(level_cells[j]),uDen*2*cell_H2_density(level_cells[j]),rtDmw(level_cells[j]),rtUmw(level_cells[j]));
 #endif
 			      fprintf(f,"%9.3e %9.3e\n",units->mass/constants->Msun*mst[j],zst[j]/constants->Zsun);
 			    }
@@ -585,15 +709,12 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_lis
   int i, j, ih, level, ll, size, rank, lstarted, gstarted, select;
   int num_level_cells, *level_cells, cell;
   int num_ll_cells, *ll_cells, *index;
-  float *sfr, *sfr1, uLen, uDen, uTime, uRate, dmw, umw;
+  float *sfr, *sfr1, uLen, uDen, uTime, uRate;
   double pos[nDim];
   FILE *f;
   char str[999];
   int nselproc, nseltot;
   int level_halo, level_global;
-#ifdef RADIATIVE_TRANSFER
-  float rate[frtRATE_DIM];
-#endif
 
   uLen = units->length/constants->kpc; /* phys pc */
   level = nearest_int(-log(spatial_scale/uLen)/log(2.0));
@@ -787,10 +908,7 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_lis
 
 			      fprintf(f,"%9.3e %9.3e %9.3e ",uRate*sfr[j],uDen*cell_gas_density(level_cells[j]),cell_gas_metal_density(level_cells[j])/constants->Zsun/cell_gas_density(level_cells[j]));
 #ifdef RADIATIVE_TRANSFER
-			      dmw = rtDustToGas(level_cells[j]);
-			      rtGetPhotoRates(level_cells[j],rate);
-			      umw = rate[frtRATE_CiLW]*1.05e10;
-			      fprintf(f,"%9.3e %9.3e %9.3e %9.3e %9.3e ",uDen*cell_HI_density(level_cells[j]),uDen*cell_HII_density(level_cells[j]),uDen*2*cell_H2_density(level_cells[j]),dmw,umw);
+			      fprintf(f,"%9.3e %9.3e %9.3e %9.3e %9.3e ",uDen*cell_HI_density(level_cells[j]),uDen*cell_HII_density(level_cells[j]),uDen*2*cell_H2_density(level_cells[j]),rtDmw(level_cells[j]),rtUmw(level_cells[j]));
 #endif
 			      fprintf(f,"\n");
 			    }

@@ -504,6 +504,7 @@ void crude_stellar_mass_fractions( halo_list *halos ) {
 
 #endif /* STARFORM */
 
+#ifdef CHECK_LEGACY_UNITS
 void compute_halo_properties( char *analysis_directory, int halo_section, halo_list *halos ) {
 	int i, j, k;
 	int coords[nDim];
@@ -675,7 +676,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	double bin_total_xray_Tcont2[max_bins];
 
 	/* set up conversion constants */
-#ifdef CHECK_LEGACY_UNITS
 	double r0 = legacy_units->r0;
 	double aM0 = legacy_units->M0;
 #ifdef HYDRO
@@ -685,9 +685,6 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	szfact = 3.9207e-15 * ( constants->gamma - 1.0 ) * legacy_units->T0 * legacy_units->r0 * cosmology->OmegaM * cosmology->h / 
 			(abox[min_level]*abox[min_level]*abox[min_level]*abox[min_level]);
 #endif
-#else  /* CHECK_LEGACY_UNITS */
-#error "This function uses legacy units that have not been converted yet. Define CHECK_LEGACY_UNITS."
-#endif /* CHECK_LEGACY_UNITS */
 
 	rfact = 1.0e3 * units->length * constants->pc; /* proper kpc -> code units */
 	vfact = units->velocity;
@@ -2851,8 +2848,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 		fclose( rlist[i] );
 	}
 }
-
-#endif /* COSMOLOGY */
+#endif /* CHECK_LEGACY_UNITS */
 
 
 int halo_level( const halo *h, MPI_Comm local_comm )
@@ -3059,3 +3055,4 @@ void map_halos(int var, int resolution_level, halo_list *halos, float size_facto
   cart_free(halo_levels);
 }
 
+#endif /* COSMOLOGY */

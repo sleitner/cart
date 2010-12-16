@@ -10,6 +10,9 @@ typedef struct NG_VAR_LIST_TYPE
 ng_var_list_t;
 
 
+const char *ngOutputFile(const char *filepath);
+
+
 /* Load hlist file for other command to use. */
 void ngLoadHalos(const char *dirname);
 
@@ -25,7 +28,7 @@ void ngGasFractions(const char *filename);
 
 /* Produce IFrIR uniform scalars file of <nbin>^3 size, centered at <pos>, resolved to <floor_level>.
 // If <list> is NULL, use the default variables to save in the file. */
-void ngRegion2IFrIT(const char *filename, int nbin, int floor_level, double pos[], const ng_var_list_t *list);
+void ngRegion2IFrIT(const char *filename, int nbin, int floor_level, const double pos[], const ng_var_list_t *list);
 
 /* As above, but now center at a given halo with id=<id>. */
 void ngHalo2IFrIT(const char *filename, int floor_level, int id, const ng_var_list_t *list);

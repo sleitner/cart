@@ -258,7 +258,7 @@ void config_verify_timestep()
   cart_assert(max_time_refinement_factor >= min_time_refinement_factor);
 
 #ifndef HYDRO
-  if(min_time_refinement_factor==1 && particle_cfl==0.0)
+  if(min_time_refinement_factor==1 && max_time_refinement_factor>1 && particle_cfl==0.0)
     {
       cart_error("In a pure N-body mode, with <particle-cfl> parameter set to 0.0, it is incorrect to set the <time-refinement-factor:min> parameter to 1. In that case there is no condition to make time-steps on lower levels smaller than on the top level, so the particle trajectories will be integrated incorrectly.");
     }
@@ -324,10 +324,6 @@ int global_timestep() {
 	ret = timestep( min_level, MPI_COMM_WORLD );
 	current_step_level = -1;
 
-#ifdef USER_PLUGIN
-	PLUGIN_POINT(GlobalStepEnd)();
-#endif
-
 	/* check if any other processors had problems (violation of CFL condition) */
 	start_time( COMMUNICATION_TIMER );
 	MPI_Allreduce( &ret, &global_ret, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD );
@@ -361,6 +357,11 @@ int global_timestep() {
 #ifdef RADIATIVE_TRANSFER	
 		rtStepEnd();
 #endif /* RADIATIVE_TRANSFER */
+
+#ifdef USER_PLUGIN
+		PLUGIN_POINT(GlobalStepEnd)();
+#endif
+
 	} else {
 		start_time( COMMUNICATION_TIMER );
 		fdt = frac_dt;
@@ -533,7 +534,7 @@ int timestep( int level, MPI_Comm level_com )
 
 	if ( level <= max_mpi_sync_level ) {
 		start_time( COMMUNICATION_TIMER );
-		MPI_Allreduce( &ret, &true_ret, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+		MPI_Allreduce( &ret, &true_ret, 1, MPI_INT, MPI_MIN, level_com);
 		end_time( COMMUNICATION_TIMER );
 
 		if ( true_ret < 0 ) {
@@ -781,7 +782,11 @@ void set_timestepping_scheme()
 #endif
     }
 
+  end_time( WORK_TIMER );
+
 #endif /* CONSTANT_TIMESTEP */
+
+  start_time( WORK_TIMER );
 
   dtl[min_level] = dt_new;
   time_refinement_factor[min_level] = 1;
@@ -846,7 +851,7 @@ void set_timestepping_scheme()
 
   for(level=min_level+1; level<=lowest_level; level++)
     {
-      time_refinement_factor[level] = max(min_time_refinement_factor,1+(int)(dtl[level-1]/dtl[level]));
+      time_refinement_factor[level] = max(min_time_refinement_factor,(int)(0.999+dtl[level-1]/dtl[level]));
       dtl[level] = dtl[level-1]/time_refinement_factor[level];
     }
 
@@ -877,12 +882,13 @@ void set_timestepping_scheme()
   //  these levels can appear during the time-step. If their time-steps are
   //  not refined, the CFL condition is guaranteed to be violated as soon
   //  as a new level steps for the first time. So, as a first guess, set
-  //  their refinement scheme to the old-style, factor-of-two refinement.
+  //  their refinement scheme to the old-style, factor-of-two refinement
+  //  (if it is allowed).
   */
   for(level=lowest_level+1; level<=max_level; level++)
     {
-      time_refinement_factor[level] = 2;
-      dtl[level] = 0.5*dtl[level-1];
+      time_refinement_factor[level] = min(2,max_time_refinement_factor);
+      dtl[level] = dtl[level-1]/time_refinement_factor[level];
     }
 
   /*

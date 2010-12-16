@@ -132,11 +132,24 @@ float rt_coherence_length = 0.3;
 int rt_limit_signal_speed_to_c = 1;
 
 
-void rtPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_real *rRadField0, frt_real **pRadField1);
-void rtUnPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_real *rRadField1);
+void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf);
+void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf);
 
 
 float rt_src_rate;
+
+
+#ifdef RT_TRANSFER
+#define DEFINE_FRT_INTEFACE(_var_,_rawrf_) \
+  frt_real _var_[FRT_DIM]; \
+  frt_real _rawrf_##Buffer[rt_num_fields]; \
+  frt_real *_rawrf_ = _rawrf_##Buffer
+#else
+#define DEFINE_FRT_INTEFACE(_var_,_rawrf_) \
+  frt_real _var_[FRT_DIM]; \
+  frt_real *_rawrf_##Buffer = NULL; \
+  frt_real *_rawrf_ = _rawrf_##Buffer
+#endif
 
 
 void rtInitSource(int level)
@@ -263,25 +276,18 @@ void rtConfigVerify()
 void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 {
   int i, cell, nchunk;
-  float soblen, sobvel;
 
   /* 
   //  Specify types for the Fortran interface
   */
-  frt_real rTime, rVar[frtVAR_DIM], rPar[frtPAR_DIM];
-#ifdef RT_TRANSFER
-  frt_real rBuffer[rt_num_frequencies];
-  frt_real rRadField0[2];
-#else
-  frt_real *rBuffer = 0, *rRadField0 = 0;
-#endif
-  frt_real *rRadField1 = rBuffer;
+  DEFINE_FRT_INTEFACE(var,rawrf);
+  frt_real time;
   frt_intg info;
 
   /*
   //  The following may be a waste of time if the types are consistent, but compiler should take care of that 
   */
-  rTime = dtl[level];
+  time = dtl[level];
 
   /* 
   //  OpenMP chunk size 
@@ -292,46 +298,30 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
   /*
   //  Main loop
   */
-#pragma omp parallel for default(none), private(i,cell,rVar,rPar,rBuffer,rRadField0,rRadField1,soblen,sobvel,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,rTime,cell_size,rt_debug,nchunk), schedule(dynamic,nchunk)
+#pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,time,cell_size,rt_debug,nchunk), schedule(dynamic,nchunk)
   for(i=0; i<num_level_cells; i++) if(cell_is_leaf((cell = level_cells[i])) && cell_gas_density(cell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
     {
       
-      rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
-
-      /*
-      //    Cell size for flux-conserving correction
-      */
-#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-      rPar[frtPAR_CELL] = cell_size[level];
-#endif /* RT_TRANSFER && RT_TRANSFER_FLUX_CONSERVING */
-
-      /*
-      //    Sobolev length 
-      */
-#ifdef RT_CHEMISTRY
-      rtGetSobolevFactors(cell,level,&soblen,&sobvel);
-      rPar[frtPAR_SOBL] = soblen;
-      rPar[frtPAR_NUMF] = sobvel*rTime/cell_size[level];
-#endif
+      rtPackCellData(level,cell,var,&rawrf);
 
 #ifdef RT_DEBUG
       if(rt_debug.Mode==1 && cell==cell_find_position(rt_debug.Pos))
 	{
-	  rPar[frtPAR_DEB] = 10 + (rt_debug.Stop>1 ? 1 : 0);
+	  var[FRT_Debug] = 10 + (rt_debug.Stop>1 ? 1 : 0);
 	  cart_debug("In cell-level debug for cell %d#%d",cell,cell_level(cell));
 	}
       else
 	{
-	  rPar[frtPAR_DEB] = 0.0;
+	  var[FRT_Debug] = 0.0;
 	}
 #endif
 
       /*
       //  Call the Fortran worker 
       */
-      frtCall(cooloff)(rPar,rRadField0,rRadField1,&rTime,rVar,&info);
+      frtCall(cooloff)(var,rawrf,&time,&info);
 
-      rtUnPackCellData(level,cell,rVar,rPar,rRadField1);
+      rtUnPackCellData(level,cell,var,rawrf);
     }
 }
 
@@ -351,6 +341,7 @@ void rtInitRun()
   frt_real fQSO = rt_uv_emissivity_quasars;
   frt_intg IPOP = rt_stellar_pop;
   frt_intg IREC = 0;
+  frt_intg IOUNIT = 81;
 
   start_time(WORK_TIMER);
 
@@ -369,9 +360,10 @@ void rtInitRun()
   frtCall(setrun).fQSO = rt_uv_emissivity_quasars;
   frtCall(setrun).IPOP = rt_stellar_pop;
   frtCall(setrun).IREC = 0;
+  frtCall(setrun).IOUNIT = 81;
   
   //frtCall(initrun)();
-  frtCall(initrun2)(&Yp,&Tmin,&D2Gmin,&ClumpH2,&CohLenH2,&fGal,&fQSO,&IPOP,&IREC);
+  frtCall(initrun2)(&Yp,&Tmin,&D2Gmin,&ClumpH2,&CohLenH2,&fGal,&fQSO,&IPOP,&IREC,&IOUNIT);
 
   end_time(WORK_TIMER);
 
@@ -386,11 +378,11 @@ void rtUpdateTables(int top_level, MPI_Comm level_com)
 {
 #ifdef RT_TRANSFER
   int i;
-  frt_real rfAvg[rt_num_frequencies];
+  frt_real rfAvg[rt_num_fields];
 
   rtGlobalUpdateTransfer(top_level,level_com);
 
-  for(i=0; i<rt_num_frequencies; i++) rfAvg[i] = rtAvgRF[i].Value;
+  for(i=0; i<rt_num_fields; i++) rfAvg[i] = rtAvgRF[i].Value;
 #else
   frt_real *rfAvg = NULL;
 #endif
@@ -451,7 +443,7 @@ void rtStepBegin()
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 	cart_debug("RT_VAR_OT_FIELD: %d",RT_VAR_OT_FIELD);
 	cart_debug("rt_et_offset: %d",rt_et_offset);
-	cart_debug("rt_freq_offset: %d",rt_freq_offset);
+	cart_debug("rt_field_offset: %d",rt_field_offset);
 #endif
 #endif
 	for(i=0; i<num_vars; i++)
@@ -498,12 +490,12 @@ void rtStepEnd()
   if(cell_is_leaf(cell))
     {
 #ifdef RT_VAR_SOURCE
-      sumSrc += cell_vars[cell][RT_VAR_SOURCE]*cell_volume[level];
+      sumSrc += cell_var(cell,RT_VAR_SOURCE)*cell_volume[level]/num_root_cells;
 #endif
 #ifdef RT_CHEMISTRY
-      sumRho += cell_gas_density(cell)*cell_volume[level];
-      sumRhoHI += cell_HI_density(cell)*cell_volume[level];
-      sumRhoH2 += cell_H2_density(cell)*cell_volume[level];
+      sumRho += cell_gas_density(cell)*cell_volume[level]/num_root_cells;
+      sumRhoHI += cell_HI_density(cell)*cell_volume[level]/num_root_cells;
+      sumRhoH2 += cell_H2_density(cell)*cell_volume[level]/num_root_cells;
 #endif
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
@@ -610,6 +602,8 @@ void rtGlobalUpdate(int top_level, MPI_Comm level_com)
 #ifdef RT_TRANSFER
   rtGlobalUpdateTransfer(top_level,level_com);
 #endif
+  
+  //rtUpdateTables(top_level,level_com);
 
   end_time(RT_GLOBAL_UPDATE_TIMER);
 }
@@ -618,76 +612,98 @@ void rtGlobalUpdate(int top_level, MPI_Comm level_com)
 /*
 //  Helper functions for Fortran workers
 */
-void rtPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_real *rRadField0, frt_real **pRadField1)
+void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf)
 {
   int i;
-
-  /*
-  //  Default values of all parameters is 0
-  */
-  for(i=0; i<frtPAR_DIM; i++) rPar[i] = 0.0;
-
-  /*
-  //  Set parameters:
-  //
-  //    Density in code units
-  */
-  rPar[frtPAR_RHO] = cell_gas_density(cell);
-  /*
-  //    Cell volume in code units
-  */
-#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
-  rPar[frtPAR_VOL] = cell_volume[level];
+#ifdef RT_CHEMISTRY
+  float soblen, sobvel;
 #endif
-  /*
-  //    Metallicity in units of solar
-  */
-#ifdef ENRICH
-  rPar[frtPAR_ZSOL] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
-#else
-  rPar[frtPAR_ZSOL] = 0.0;
-#endif
+
+  frtCall(initvar)(var);
 
   /* 
   //  Pack elemental abundances 
   */
-  rVar[frtVAR_Ein] = units->temperature*cell_gas_internal_energy(cell)/rPar[frtPAR_RHO];
-  rVar[frtVAR_XHI] = cell_HI_density(cell)/rPar[frtPAR_RHO];
-  rVar[frtVAR_XHII] = cell_HII_density(cell)/rPar[frtPAR_RHO];
-  rVar[frtVAR_XHeI] = cell_HeI_density(cell)/rPar[frtPAR_RHO];
-  rVar[frtVAR_XHeII] = cell_HeII_density(cell)/rPar[frtPAR_RHO];
-  rVar[frtVAR_XHeIII] = cell_HeIII_density(cell)/rPar[frtPAR_RHO];
-  rVar[frtVAR_XH2] = cell_H2_density(cell)/rPar[frtPAR_RHO];
+  var[FRT_Ein] = units->temperature*cell_gas_internal_energy(cell)/cell_gas_density(cell);
+  var[FRT_XHI] = cell_HI_density(cell)/cell_gas_density(cell);
+  var[FRT_XHII] = cell_HII_density(cell)/cell_gas_density(cell);
+  var[FRT_XHeI] = cell_HeI_density(cell)/cell_gas_density(cell);
+  var[FRT_XHeII] = cell_HeII_density(cell)/cell_gas_density(cell);
+  var[FRT_XHeIII] = cell_HeIII_density(cell)/cell_gas_density(cell);
+  var[FRT_XH2] = cell_H2_density(cell)/cell_gas_density(cell);
 #ifdef RT_8SPECIES
-  rVar[frtVAR_XH2p] = rVar[frtVAR_XHm] = 0.0;
+  var[FRT_XH2p] = var[FRT_XHm] = 0.0;
+#endif
+
+  /*
+  //  Pack parameters (in the order they appear, to improve cache performance):
+  //  Density in code units
+  */
+  var[FRT_Density] = cell_gas_density(cell);
+
+  /*
+  //  Metallicity in units of solar
+  */
+#ifdef ENRICH
+  var[FRT_Metallicity] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
+#else
+  var[FRT_Metallicity] = 0.0;
+#endif
+
+  /*
+  //  Sobolev length 
+  */
+#ifdef RT_CHEMISTRY
+  rtGetSobolevFactors(cell,level,&soblen,&sobvel);
+  var[FRT_SobolevLength] = soblen;
+  var[FRT_NumericalDiffusionFactor] = sobvel*dtl[level]/cell_size[level];
 #endif
 
   /* 
-  //  Pack radiation field 
+  //  OT radiation fields
+  */
+#ifdef RT_VAR_OT_FIELD  
+  var[FRT_OTRadiationFieldLocal] = cell_var(cell,RT_VAR_OT_FIELD);
+  var[FRT_OTRadiationFieldGlobal] = rtAvgOTField.Value;
+#endif
+
+  /*
+  //    Cell volume in code units
+  */
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+  var[FRT_ResolutionElementVolume] = cell_volume[level];
+#endif
+
+  /*
+  //    Cell size for flux-conserving correction
+  */
+#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
+  var[FRT_ResolutionElementSize] = cell_size[level];
+#endif /* RT_TRANSFER && RT_TRANSFER_FLUX_CONSERVING */
+
+  /* 
+  //  Pack radiation field (if requested)
   */
 #ifdef RT_TRANSFER
-  if(sizeof(frt_real) != sizeof(float))  /* Optimization */
+  if(p_rawrf != NULL)
     {
-      for(i=0; i<rt_num_frequencies; i++)
+      if(sizeof(frt_real) != sizeof(float))  /* Optimization */
 	{
-	  (*pRadField1)[i] = cell_var(cell,rt_freq_offset+i);
+	  for(i=0; i<rt_num_fields; i++)
+	    {
+	      (*p_rawrf)[i] = cell_var(cell,rt_field_offset+i);
+	    }
+	}
+      else
+	{
+	  *p_rawrf = cell_vars[cell] + rt_field_offset;
 	}
     }
-  else
-    {
-      *pRadField1 = cell_vars[cell] + rt_freq_offset;
-    }
-#ifdef RT_VAR_OT_FIELD  
-  rRadField0[0] = cell_var(cell,RT_VAR_OT_FIELD);
-  rRadField0[1] = rtAvgOTField.Value;
-#else
-  rRadField0[0] = rRadField0[1] = 0.0;
-#endif
 #endif /* RT_TRANSFER */
 }
 
 
-void rtUnPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt_real *rRadField1)
+void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf)
 {
 #ifdef RT_DEBUG
   int j, fail;
@@ -696,28 +712,28 @@ void rtUnPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt
   /*
   //  Unpack radiation field (if needed) 
   */
-#if defined(RT_TRANSFER) && defined(RT_VARIABLE_RFIELD)
+#if defined(RT_TRANSFER) && defined(RT_VARIABLE_RF)
   int i;
   if(sizeof(frt_real) != sizeof(float))  /* Optimization */
     {
-      for(i=0; i<rt_num_frequencies; i++)
+      for(i=0; i<rt_num_fields; i++)
 	{
-	  cell_var(cell,rt_freq_offset+i) = rRadField1[i];
+	  cell_var(cell,rt_field_offset+i) = rawrf[i];
 	}
     }
 #endif
 
 #ifdef RT_DEBUG
-  for(fail=j=0; j<frtVAR_DIM; j++)
+  for(fail=j=0; j<FRT_DIM; j++)
     {
-      if(isnan(rVar[j])) fail = 1;
+      if(isnan(var[j])) fail = 1;
     }
 
   if(fail)
     {
-      for(j=0; j<frtVAR_DIM; j++)
+      for(j=0; j<FRT_DIM; j++)
 	{
-	  cart_debug("Var[%d] = %g",j,rVar[j]);
+	  cart_debug("Var[%d] = %g",j,var[j]);
 	}
       cart_error("frtCoolOff returned NaN");
     }
@@ -726,22 +742,15 @@ void rtUnPackCellData(int level, int cell, frt_real rVar[], frt_real rPar[], frt
   /*
   //  Unpack elemental abundances 
   */
-  cell_gas_internal_energy(cell) = max(gas_temperature_floor,rVar[frtVAR_Ein])*rPar[frtPAR_RHO]/units->temperature;
+  cell_gas_internal_energy(cell) = max(gas_temperature_floor,var[FRT_Ein])*cell_gas_density(cell)/units->temperature;
   cell_gas_energy(cell) = cell_gas_kinetic_energy(cell) + cell_gas_internal_energy(cell);
-  cell_HI_density(cell) = rVar[frtVAR_XHI]*rPar[frtPAR_RHO];
-  cell_HII_density(cell) = rVar[frtVAR_XHII]*rPar[frtPAR_RHO];
-  cell_HeI_density(cell) = rVar[frtVAR_XHeI]*rPar[frtPAR_RHO];
-  cell_HeII_density(cell) = rVar[frtVAR_XHeII]*rPar[frtPAR_RHO];
-  cell_HeIII_density(cell) = rVar[frtVAR_XHeIII]*rPar[frtPAR_RHO];
-  cell_H2_density(cell) = rVar[frtVAR_XH2]*rPar[frtPAR_RHO];
-
-#ifdef RT_EXACT_EOS
-#ifdef RT_HIGH_DENSITY
-  cell_gas_gamma(cell) = frtCall(gamma)(Ein,rVar,rPar+1);
-#else
-  cell_gas_gamma(cell) = frtCall(gamma)(Ein,rVar);
-#endif /* RT_HIGH_DENSITY */
-#endif /* RT_EXACT_EOS */
+  cell_HI_density(cell) = var[FRT_XHI]*cell_gas_density(cell);
+  cell_HII_density(cell) = var[FRT_XHII]*cell_gas_density(cell);
+  cell_HeI_density(cell) = var[FRT_XHeI]*cell_gas_density(cell);
+  cell_HeII_density(cell) = var[FRT_XHeII]*cell_gas_density(cell);
+  cell_HeIII_density(cell) = var[FRT_XHeIII]*cell_gas_density(cell);
+  cell_H2_density(cell) = var[FRT_XH2]*cell_gas_density(cell);
+  cell_gas_gamma(cell) = var[FRT_Gamma];
 }
 
 
@@ -769,131 +778,70 @@ void rtModifyTimeStep(double *dt)
 */
 float rtTem(int cell)
 {
-  frt_real buffer[7];
+  frt_real var[FRT_DIM];
 
-  if(sizeof(frt_real) == sizeof(float))  /* Optimization */
-    {
-      return frtCall(tem)(&(cell_gas_internal_energy(cell)),cell_vars[cell]+RT_HVAR_OFFSET-1);
-    }
-  else
-    {
-      buffer[0] = cell_gas_internal_energy(cell);
-      buffer[1] = cell_HI_density(cell);
-      buffer[2] = cell_HII_density(cell);
-      buffer[3] = cell_HeI_density(cell);
-      buffer[4] = cell_HeII_density(cell);
-      buffer[5] = cell_HeIII_density(cell);
-      buffer[6] = cell_H2_density(cell);
-      return frtCall(tem)(buffer+0,buffer);
-    }
+  rtPackCellData(cell_level(cell),cell,var,NULL);
+  return frtCall(tem)(var);
 }
 
 
-float rtDustToGas(int cell)
+float rtDmw(int cell)
 {
-  frt_real Zsol;
-  float ret;
+#ifdef RT_CUSTOM_DUST_TO_GAS
+  frt_real var[FRT_DIM];
 
-  /*
-  //    Metallicity in units of solar
-  */
+  rtPackCellData(cell_level(cell),cell,var,NULL);
+  return frtCall(dusttogas)(var);
+#else  /* RT_CUSTOM_DUST_TO_GAS */
 #ifdef ENRICH
-  Zsol = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
+  return cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
-  Zsol = 0.0;
+  return 0.0;
 #endif
-
-  /*
-  //  Call Fortran worker
-  */
-  ret = frtCall(dusttogas)(&Zsol);
-  return max(rt_dust_to_gas_floor,ret);
+#endif /* RT_CUSTOM_DUST_TO_GAS */
 }
 
 
-#ifdef RT_DEBUG
-void rtPrintValue(const char *name, float val, int pDen, int pLen, int pTime)
+/*
+//  UV field at 12.0eV in units of Draine field (1.0e6 phot/cm^2/s/ster/eV)
+*/
+void rtGetPhotoRates(int cell, float *rate);
+float rtUmw(int cell)
 {
-  frt_real fval = val;
-  frt_intg fpDen = pDen;
-  frt_intg fpLen = pLen;
-  frt_intg fpTime = pTime;
+  float rate[FRT_RATE_DIM];
+  
+  rtGetPhotoRates(cell,rate);
 
-  val = frtCall(logwithunits)(&fval,&fpDen,&fpLen,&fpTime);
-  cart_debug("Checking: lg(%s) = %g",name,val);
+  return rate[FRT_RATE_DissociationLW]*1.05e10;
 }
-#endif
 
 
 void rtGetCoolingRate(int cell, float *cooling_rate, float *heating_rate)
 {
-  int level;
-  float soblen, sobvel;
+  DEFINE_FRT_INTEFACE(var,rawrf);
+  frt_real c, h;
 
-  /* 
-  //  Specify types for the Fortran interface
-  */
-  frt_real rVar[frtVAR_DIM], rPar[frtPAR_DIM];
-#ifdef RT_TRANSFER
-  frt_real rBuffer[rt_num_frequencies];
-  frt_real rRadField0[2];
-#else
-  frt_real *rBuffer = 0, *rRadField0 = 0;
-#endif
-  frt_real *rRadField1 = rBuffer;
-  frt_real rCool, rHeat;
-
-  level = cell_level(cell);
-  rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
-
-  /*
-  //    Cell size for flux-conserving correction
-  */
-#if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
-  rPar[frtPAR_CELL] = cell_size[level];
-#endif /* RT_TRANSFER && RT_TRANSFER_FLUX_CONSERVING */
-
-  /*
-  //    Sobolev length 
-  */
-#ifdef RT_CHEMISTRY
-  rtGetSobolevFactors(cell,level,&soblen,&sobvel);
-  rPar[frtPAR_SOBL] = soblen;
-  rPar[frtPAR_NUMF] = sobvel*dtl[level]/cell_size[level];
-#endif
+  rtPackCellData(cell_level(cell),cell,var,&rawrf);
 
 #ifdef RT_FIXED_ISM
-  rPar[frtPAR_ZSOL] = rt_dust_to_gas_floor;
+  var[FRT_Metallicity] = rt_dust_to_gas_floor;
 #endif
 
   /*
   //  Call the Fortran worker 
   */
-  frtCall(coolingrate)(rPar,rRadField0,rRadField1,rVar,&rCool,&rHeat);
+  frtCall(getcoolingrate)(var,rawrf,&c,&h);
 
-  *cooling_rate = rCool;
-  *heating_rate = rHeat;
+  *cooling_rate = c;
+  *heating_rate = h;
 }
 
 
-void rtGetPhotoRates(int cell, float rate[])
+void rtGetPhotoRates(int cell, float *rate)
 {
-  int i, level;
-
-  /* 
-  //  Specify types for the Fortran interface
-  */
-  frt_real rVar[frtVAR_DIM], rPar[frtPAR_DIM], pRate[frtRATE_DIM];
-#ifdef RT_TRANSFER
-  frt_real rBuffer[rt_num_frequencies];
-  frt_real rRadField0[2];
-  frt_real rf[1+2*rt_num_frequencies];
-#else
-  frt_real *rBuffer = 0, *rRadField0 = 0;
-  frt_real *rf = 0;
-#endif
-  frt_real *rRadField1 = rBuffer;
-  frt_intg iTab[2];
+  int i;
+  DEFINE_FRT_INTEFACE(var,rawrf);
+  frt_real frate[FRT_RATE_DIM];
 
   if(cell < 0)
     {
@@ -903,108 +851,70 @@ void rtGetPhotoRates(int cell, float rate[])
 	}
       else
 	{
-	  frtCall(getbackgroundphotorates)(pRate);
-	  for(i=0; i<frtRATE_DIM; i++) rate[i] = pRate[i];
+	  frtCall(getbackgroundphotorates)(frate);
+	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = frate[i];
 	}
     }
   else
     {
-      level = cell_level(cell);
-      rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
-
-      /*
-      //  Call Fortran workers
-      */
-#ifdef RT_TRANSFER
-      frtCall(transferpackradiationfield)(rPar,rVar,rRadField0,rRadField1,rf);
-#endif
+      rtPackCellData(cell_level(cell),cell,var,&rawrf);
 
       if(sizeof(frt_real) == sizeof(float))
 	{
-	  frtCall(getphotorates)(rPar,rf,iTab,rVar,(frt_real *)rate);
+	  frtCall(getphotorates)(var,rawrf,(frt_real *)rate);
 	}
       else
 	{
-	  frtCall(getphotorates)(rPar,rf,iTab,rVar,pRate);
-	  for(i=0; i<frtRATE_DIM; i++) rate[i] = pRate[i];
+	  frtCall(getphotorates)(var,rawrf,frate);
+	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = frate[i];
 	}
     }
 }
 
 
-void rtGetBinIds(int n, const float wlen[], int idxi[])
+void rtGetRadiationField(int cell, int n, const float *wlen, float *ngxi)
 {
   int i;
-  frt_real w;
+  DEFINE_FRT_INTEFACE(var,rawrf);
+  frt_real *fwlen, *fngxi;
+  frt_intg nout = n;
 
-  for(i=0; i<n; i++)
-    {
-      w = wlen[i];
-      idxi[i] = frtCall(getbinid)(&w);
-    }
-}
-
-
-void rtGetBinWavelengths(int n, const int idxi[], float wlen[])
-{
-  int i;
-  frt_intg lr; 
-
-  for(i=0; i<n; i++)
-    {
-      lr = idxi[i];
-      wlen[i] = frtCall(getbinwavelength)(&lr);
-    }
-}
-
-
-void rtGetRadiationField(int cell, int n, const int idxi[], float ngxi[])
-{
-  int i, level;
-
-  /* 
-  //  Specify types for the Fortran interface
-  */
-  frt_real rVar[frtVAR_DIM], rPar[frtPAR_DIM];
-#ifdef RT_TRANSFER
-  frt_real rBuffer[rt_num_frequencies];
-  frt_real rRadField0[2];
-  frt_real rf[1+2*rt_num_frequencies];
-#else
-  frt_real *rBuffer = 0, *rRadField0 = 0;
-  frt_real *rf = 0;
-#endif
-  frt_real *rRadField1 = rBuffer;
-  frt_intg lr;
+  cart_assert(n > 0);
 
   if(cell < 0)
     {
-      for(i=0; i<n; i++)
+      if(sizeof(frt_real) == sizeof(float))
 	{
-	  lr = idxi[i];
-	  ngxi[i] = frtCall(getbackgroundradiationfield)(&lr);
+	  frtCall(getbackgroundradiationfield)(&nout,(frt_real *)wlen,(frt_real*)ngxi);
+	}
+      else
+	{
+	  fwlen = cart_alloc(frt_real,n);
+	  fngxi = cart_alloc(frt_real,n);
+	  for(i=0; i<n; i++) fwlen[i] = wlen[i];
+	  frtCall(getbackgroundradiationfield)(&nout,fwlen,fngxi);
+	  for(i=0; i<n; i++) ngxi[i] = fngxi[i];
+	  cart_free(fwlen);
+	  cart_free(fngxi);
 	}
     }
   else
     {
-      level = cell_level(cell);
-#ifdef RT_TRANSFER
-      frtCall(transferpackradiationfield)(rPar,rVar,rRadField0,rRadField1,rf);
-#endif
+      rtPackCellData(cell_level(cell),cell,var,&rawrf);
 
-      rtPackCellData(level,cell,rVar,rPar,rRadField0,&rRadField1);
-
-      /*
-      //  Call Fortran workers
-      */
-#ifdef RT_TRANSFER
-      frtCall(transferpackradiationfield)(rPar,rVar,rRadField0,rRadField1,rf);
-#endif
-
-      for(i=0; i<n; i++)
+      if(sizeof(frt_real) == sizeof(float))
 	{
-	  lr = idxi[i];
-	  ngxi[i] = frtCall(getradiationfield)(&lr,rf);
+	  frtCall(getradiationfield)(var,rawrf,&nout,(frt_real *)wlen,(frt_real*)ngxi);
+	}
+      else
+	{
+	  fwlen = cart_alloc(frt_real,n);
+	  fngxi = cart_alloc(frt_real,n);
+	  for(i=0; i<n; i++) fwlen[i] = wlen[i];
+	  frtCall(getradiationfield)(var,rawrf,&nout,fwlen,fngxi);
+	  for(i=0; i<n; i++) ngxi[i] = fngxi[i];
+	  cart_free(fwlen);
+	  cart_free(fngxi);
 	}
     }
 }

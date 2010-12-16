@@ -163,18 +163,18 @@ C
       
       write(str,'(f4.2)') z
       is = index(str,' ') - 1
-      open(unit=81, file='test-bkg-'//str(1:is)//'.res')
+      open(unit=IOUNIT, file='test-bkg-'//str(1:is)//'.res')
       do lr=1,NRAD
-         write(81,*) 911.75*exp(-xig(lr)), angAvg(lr)*uJnu
+         write(IOUNIT,*) 911.75*exp(-xig(lr)), angAvg(lr)*uJnu
       enddo
-      close(81)
+      close(IOUNIT)
 
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
-      open(unit=81, file='test-bkgLW-'//str(1:is)//'.res')
+      open(unit=IOUNIT, file='test-bkgLW-'//str(1:is)//'.res')
       do lr=1,NRLW
-         write(81,*) 911.75*exp(-xigLW(lr)), angLW(lr)*uJnu
+         write(IOUNIT,*) 911.75*exp(-xigLW(lr)), angLW(lr)*uJnu
       enddo
-      close(81)
+      close(IOUNIT)
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
 
       return

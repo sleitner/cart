@@ -6,7 +6,7 @@
 #include "auxiliary.h"
 #include "rt_global.h"
 #include "timing.h"
-#include "tree.h"
+//#include "tree.h"
 
 
 void rtGlobalValueInit(struct rtGlobalValue *v, float val)
@@ -59,10 +59,8 @@ void rtGlobalValueUpdate(struct rtGlobalValue *v, int level1, int level2, MPI_Op
 	v->Value = 0.0;
 	for(l=0; l<=max_level-min_level; l++)
 	  {
-	    v->Value += v->gb[l]*cell_volume[l+min_level];
+	    v->Value += v->gb[l];
 	  }
-	v->Value /= num_root_cells;
-	
 	break;
       }
     case MPI_MAX:
@@ -72,7 +70,6 @@ void rtGlobalValueUpdate(struct rtGlobalValue *v, int level1, int level2, MPI_Op
 	  {
 	    v->Value = max(v->Value,v->gb[l]);
 	  }
-	
 	break;
       }
     default:

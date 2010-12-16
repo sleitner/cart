@@ -17,7 +17,6 @@
 
 #include "halo_finder.h"
 #include "ifrit.h"
-#include "utils.h"
 
 
 float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar, int *varid);
@@ -28,7 +27,7 @@ extern double sf_min_stellar_particle_mass;
 #endif
 
 
-int ifritOutputMesh(const char *filename, int level, int nbinIn[], double pcenIn[], int nvars, int *varid)
+int ifritOutputMesh(const char *filename, int level, int nbinIn[], const double pcenIn[], int nvars, int *varid)
 {
   int i, ntemp, nbin[3];
   double pcen[3];
@@ -48,6 +47,20 @@ int ifritOutputMesh(const char *filename, int level, int nbinIn[], double pcenIn
     {
       nbin[i] = 1;
       pcen[i] = 0.5;
+    }
+
+
+  if(level < 0)
+    {
+      level = min_level;
+      ntemp = num_grid;
+      while(ntemp < nbin[0])
+	{
+	  ntemp *= 2;
+	  level++;
+	}
+
+      cart_debug("Level selected for IFrIT::OutputMesh: %d",level);
     }
 
   vars = ifritUniformGrid_Sample(level,nbin,pcen,nvars,varid);
@@ -338,26 +351,12 @@ void ifritOutputParticles(const char *fileroot, double *bb)
 #endif /* PARTICLES */
 
 
-void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const halo *h, int nvars, int *varid)
+void ifritOutputBox(const char *fileroot, int floor_level, int nbin[], const double pos[3], int nvars, int *varid)
 {
   int j;
-  double bb[6], pos[3], dx;
-  float dmax;
+  double bb[6], dx;
   char str[999];
 
-  if(h == NULL)
-    {
-#ifdef HYDRO
-      extFindMaxVar(HVAR_GAS_DENSITY,&dmax,pos,-1.0);
-#else
-      extFindMaxVar(VAR_DENSITY,&dmax,pos,-1.0);
-#endif
-    }
-  else
-    {
-      for(j=0; j<nDim; j++) pos[j] = h->pos[j];
-    }
-  
   dx = pow(0.5,(double)floor_level);
 
   bb[0] = pos[0] - 0.5*dx*nbin[0];
@@ -379,6 +378,20 @@ void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const ha
 #ifdef PARTICLES
   ifritOutputParticles(fileroot,bb);
 #endif /* PARTICLES */
+}
+
+
+void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const halo *h, int nvars, int *varid)
+{
+  if(h == NULL)
+    {
+      cart_debug("No halo file is loaded. Skipping ifritOutputHalo.");
+      return;
+    }
+  else
+    {
+      ifritOutputBox(fileroot,floor_level,nbin,h->pos,nvars,varid);
+    }
 }
 
 
@@ -620,5 +633,5 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar
   return vars;
 }
 
-const struct IFRIT_NAMESPACE ifrit = { ifritOutputMesh, ifritOutputHalo };
+const struct IFRIT_NAMESPACE ifrit = { ifritOutputMesh, ifritOutputHalo, ifritOutputBox };
 

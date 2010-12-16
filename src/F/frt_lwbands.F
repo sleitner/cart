@@ -90,21 +90,22 @@ C
       parameter (n_lines_file=399)
       parameter (pi=3.14159265e0)
       dimension JLWH2(0:NRH2), tempJ(0:n_lines_file)
-      integer jl, ii, i
+      integer jl, ii, i, IOUNIT
+      parameter(IOUNIT = 99)
 
       XISH2=(lnu_b-lnu_a)/NRH2
       clight=3.e10   ![cm s-1]
       Atocm=1.e-8
       
-      open(unit=81, file='drt_lwbands.dat', status='old')
+      open(unit=IOUNIT, file='drt_lwbands.dat', status='old')
       do i=1,n_lines_file
-         read(81,*) lambd,ttpop3 ![erg s-1 A-1] 
+         read(IOUNIT,*) lambd,ttpop3 ![erg s-1 A-1] 
          nu=clight/lambd/Atocm
          if (i.eq.1) lamin=lambd
          if (i.eq.n_lines_file) lamax=lambd
          tempJ(i-1)=ttpop3*lambd/nu/4./pi   !*1.e30 [erg s-1 Hz-1 sr-1]
       end do
-      close(81)
+      close(IOUNIT)
       tempJdla=(lamax-lamin)/(n_lines_file-1)
 
       

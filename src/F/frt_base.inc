@@ -16,47 +16,53 @@ C
 	parameter (TAUMAX = 23.0)
 	parameter (XVLOW = 1.0e-10)
 C
-C  Equation indecies
+C  Variable indecies
 C
-        parameter(ieqEin = 1)
-        parameter(ieqXH1 = 2)
-        parameter(ieqXH2 = 3)
-        parameter(ieqXG1 = 4)
-        parameter(ieqXG2 = 5)
-        parameter(ieqXG3 = 6)
-        parameter(ieqXMH = 7)
-        parameter(ieqXHp = 8)
-        parameter(ieqXHm = 9)
-        parameter(ieqDim = 9)
+        parameter(ivarEin  =  1)
+        parameter(ivarXH1  =  2)
+        parameter(ivarXH2  =  3)
+        parameter(ivarXG1  =  4)
+        parameter(ivarXG2  =  5)
+        parameter(ivarXG3  =  6)
+        parameter(ivarXMH  =  7)
+        parameter(ivarXHp  =  8)
+        parameter(ivarXHm  =  9)
+        parameter(ivarRho  = 10)
+        parameter(ivarZsol = 11)
+        parameter(ivarSobL = 12)
+        parameter(ivarNumF = 13)
+        parameter(ivarRF0l = 14)
+        parameter(ivarRF0g = 15)
+        parameter(ivarDelV = 16)
+        parameter(ivarDelX = 17)
+        parameter(ivarBias = 18)
+        parameter(ivarCSup = 19)
+        parameter(ivarDTex = 20)
+        parameter(ivarLTE  = 21)
+        parameter(ivarDeb  = 22)
 C
-C  Parameter indecies
-C  (yes, iparZsol = iparDGas)
-C  (yes, iparCool = iparSDp1)
-C  (yes, iparHeat = iparSDp2)
+C  Diagnostic variables
+C  (returned on exit, overwrite internals)
 C
-        parameter(iparRhoB =  1)
-        parameter(iparZsol =  2)
-        parameter(iparDGas =  2)
-        parameter(iparDTsh =  3)
-        parameter(iparDTad =  4)
-        parameter(iparBias =  5)
-        parameter(iparDFac =  6)
-        parameter(iparSobL =  7)
-        parameter(iparNumF =  8)
-        parameter(iparCell =  9)
-        parameter(iparVolB = 10)
-        parameter(iparRecB = 11)
-        parameter(iparSDp1 = 12)
-        parameter(iparCool = 12)
-        parameter(iparSDp2 = 13)
-        parameter(iparHeat = 13)
-        parameter(iparSDp3 = 14)
-        parameter(iparCFH1 = 15)
-        parameter(iparCFG1 = 16)
-        parameter(iparCFG2 = 17)
-        parameter(iparDelN = 18)
-        parameter(iparDeb  = 19)
-        parameter(iparDim  = 19)
+        parameter(ivarOut  = ivarDeb+1)
+        parameter(ivarDGas = ivarOut+0)
+        parameter(ivarGam  = ivarOut+1)
+        parameter(ivarCool = ivarOut+2)
+        parameter(ivarHeat = ivarOut+3)
+C
+C  Internal variables
+C
+        parameter(ivarInt  = ivarDeb+1)
+*       parameter(ivarDGas = ivarInt+0)  !! already defined
+        parameter(ivarRecB = ivarInt+1)
+        parameter(ivarSDp1 = ivarInt+2)
+        parameter(ivarSDp2 = ivarInt+3)
+        parameter(ivarSDp3 = ivarInt+4)
+        parameter(ivarCFH1 = ivarInt+5)
+        parameter(ivarCFG1 = ivarInt+6)
+        parameter(ivarCFG2 = ivarInt+7)
+        parameter(ivarDelN = ivarInt+8)
+        parameter(ivarDim  = ivarInt+8)
 C
 C  Globally-averaged quantities
 C
@@ -92,7 +98,7 @@ C
         common/RT_BASE_B/ uRate, uColumn, TemCMB
         common/RT_BASE_C/ facPhot, facCC, facH2CMB, facCool,
      .                    facLX, facLya, facRecB
-        common/RT_BASE_D/ yLimit(ieqDim), ySmall(ieqDim)
+        common/RT_BASE_D/ varMin(ivarDim), varLow(ivarDim)
 	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, dtStep
 C
 	logical ioNode

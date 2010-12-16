@@ -1,23 +1,28 @@
 #include "../config.h"
 #ifdef RADIATIVE_TRANSFER
 C
-C  Return cooling & heating rates of one resolution element
+C  Initialize the variables array
 C
-      subroutine frtCoolingRate(par,rawRF0,rawRF1,y0,rateCool,rateHeat)
+      subroutine frtInitVar(var)
       include 'frt_base.inc'
-      dimension par(*), rawRF0(*), rawRF1(*), y0(*)
-
-      call frtCoolOff(par,rawRF0,rawRF1,0.0,y0,info)
-
-      rateCool = 1.381e-16*par(iparCool)/uTime
-      rateHeat = 1.381e-16*par(iparHeat)/uTime
+      dimension var(*)
+ 
+      do j=1,ivarDeb
+         var(j) = 0.0
+      enddo
+C
+C  Sub-cell bias factor & cooling suppressing factor: 
+C  by default set them both to 1
+C
+      var(ivarBias) = 1.0
+      var(ivarCSup) = 1.0
 
       return
       end
 C
 C  Follow cooling evolution of one resolution element
 C
-      subroutine frtCoolOff(par,rawRF0,rawRF1,tFin,y0,info)
+      subroutine frtCoolOff(var,rawrf,tFin,info)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
@@ -27,15 +32,15 @@ C
       include 'frt_transfer3.inc'
 #endif
 #endif
-      dimension par(*), rawRF0(*), rawRF1(*), y0(*)
+      dimension var(*), rawrf(*)
 C
 C  This function solves the equation
 C   
-C  dEin/dt = fEinSh*delta(t) + fEinAd + fEinHeat - fEinCool from t=0 to t=tFin
+C  dEin/dt = fEinExt + fEinHeat - fEinCool from t=0 to t=tFin
 C
       parameter(errlim = 1.0e-2)
 #ifdef RT_8SPECIES
-      parameter(nEqs = ieqDim)
+      parameter(nEqs = 9)
 #else
 #ifdef RT_CHEMISTRY
       parameter(nEqs = 7)
@@ -44,8 +49,8 @@ C
 #endif
 #endif
 C
-      dimension yf(ieqDim), rs(ieqDim)
-      dimension w0(ieqDim), a0(ieqDim)
+      dimension y0(nEqs), rs(nEqs)
+      dimension w0(nEqs), a0(nEqs)
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       dimension avg(iavgDim), avg0(iavgMax1), avg1(iavgMax1)
 #else
@@ -62,91 +67,94 @@ C
 #else
       dimension rf(1)
 #endif
-C
+
 #if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
-      y0save = y0(ieqEin)
+      EinSave = var(ivarEin)
 #endif
 
-      y0(ieqEin) = y0(ieqEin) + par(iparDTsh)*tFin
+C
+C  Metallicity-dependent cooling: parameters are saved in var(*) array.
+C  var(ivarSDp[1-3]) - parameters for the Sutherland & Dopita 93, ApJS,
+C                  88, 253 cooling function as parametrized by Gnedin 
+C  var(ivarDGas) - dust-to-gas ratio. We assume it is proportional to 
+C                  metallicity in solar units (more precisely, it is 
+C                  10*SMC value is SMC metallicity is 0.1 solar).
+C
+      var(ivarSDp1) = var(ivarZsol)
+      var(ivarSDp2) = 2.7*exp(-(var(ivarZsol)/0.316)**3)
+      var(ivarSDp3) = 0.04*var(ivarZsol)**2
+#ifdef RT_CUSTOM_DUST_TO_GAS
+      var(ivarDGas) = max(D2Gmin,frtDustToGas(var))
+#else
+#ifdef RT_FIXED_ISM
+      var(ivarDGas) = D2Gmin
+#else
+      var(ivarDGas) = max(D2Gmin,var(ivarZsol))
+#endif
+#endif
+      var(ivarRecB) = facRecB*var(ivarRho)
+
+#ifdef RT_CHEMISTRY
+      var(ivarSobL) = uColumn*var(ivarRho)*var(ivarSobL)
+#endif
+
+#ifdef RT_TRANSFER
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      var(ivarDelN) = uColumn*var(ivarRho)*var(ivarDelX)
+#endif
+      call frtTransferPackRadiationField(var,rawrf,rf)
+#endif
+
+      itab(1) = 0
+      itab(2) = 0
+
+#ifndef RT_VARIABLE_RF
+      call frtPhotoRates(var,rf,itab,pRate)
+#endif
+C
+C  Query mode
+C
+      if(tFin .lt. 0.0) then
+         call frtRates(var,rf,itab,w0,a0,avg0,pRate)
+         var(ivarCool) = a0(ivarEin)*var(ivarEin)
+         var(ivarHeat) = w0(ivarEin)
+         return
+      endif
 
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       do j=1,iavgMax1
          avg(j) = 0.0
       enddo
 #endif
-C
-C  Sub-cell bias factor & cooling suppressing factor:
-C  if not set, set them both to 1
-C
-      if(par(iparBias) .lt. 2.0e-38) par(iparBias) = 1.0
-      if(par(iparDFac) .lt. 2.0e-38) par(iparDFac) = 1.0
-C
-C  Metallicity-dependent cooling: parameters are saved in par(*) array.
-C  par(iparSDp[1-3]) - parameters for the Sutherland & Dopita 93, ApJS,
-C                  88, 253 cooling function as parametrized by Gnedin 
-C  par(iparDGas) - dust-to-gas ratio. We assume it is proportional to 
-C                  metallicity in solar units (more precisely, it is 
-C                  10*SMC value is SMC metallicity is 0.1 solar).
-C  Assignment order matters here, since par(iparDGas) is aliased.
-C
-      par(iparSDp1) = par(iparZsol)
-      par(iparSDp2) = 2.7*exp(-(par(iparZsol)/0.316)**3)
-      par(iparSDp3) = 0.04*par(iparZsol)**2
-      par(iparDGas) = max(D2Gmin,frtDustToGas(par(iparZsol)))
-
-      par(iparRecB) = facRecB*par(iparRhoB)
-
-      itab(1) = 0
-      itab(2) = 0
 
 #ifdef RT_CHEMISTRY
-      par(iparSobL) = uColumn*par(iparRhoB)*par(iparSobL)
 C
 C  Correct for numerical diffusion, if needed
 C
-      if(par(iparNumF) .gt. 1.0e-10) then
-         XH1ll = max(yLimit(ieqXH1),min(XH,y0(ieqXH1)))
-         XMHll = max(yLimit(ieqXMH),min(0.5*XH,y0(ieqXMH)))
-         cdDUl = par(iparDGas)*(XH1ll+2*XMHll)*par(iparSobL)
+      if(var(ivarNumF) .gt. 1.0e-10) then
+         XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
+         XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
+         cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
          sFact1 = exp(-0.3*d_sDUST*cdDUl)
-         fac = (1.0-sFact1)*par(iparNumF)
-         y0(ieqEin) = y0(ieqEin)/(1+fac*y0(ieqEin)/30.0)
-         y0(ieqXH1) = y0(ieqXH1)/(1+fac/max(1.0e-6,y0(ieqXH1)/XH))
-         y0(ieqXH2) = y0(ieqXH2)/(1+fac/max(1.0e-6,y0(ieqXH2)/XH))
+         fac = (1.0-sFact1)*var(ivarNumF)
+         var(ivarEin) = var(ivarEin)/(1+fac*var(ivarEin)/30.0)
+         var(ivarXH1) = var(ivarXH1)/(1+fac/max(1.0e-6,var(ivarXH1)/XH))
+         var(ivarXH2) = var(ivarXH2)/(1+fac/max(1.0e-6,var(ivarXH2)/XH))
       endif
 #endif
 
-      call frtAdjust(y0,nEqs)
+      call frtAdjust(nEqs,var)
 
 #ifdef RT_DEBUG
-      ideb1 = nint(par(iparDeb))/10
-      ideb2 = mod(nint(par(iparDeb)),10)
+      ideb1 = nint(var(ivarDeb))/10
+      ideb2 = mod(nint(var(ivarDeb)),10)
       if(ideb1 .eq. 1) then
-         open(unit=81, file='rt-debug.log', access='append')
-         write(81,*) 'In cell-level debug: ', uDen*par(iparRhoB)
-         write(6,*) 'In cell-level debug: ', uDen*par(iparRhoB)
+         open(unit=IOUNIT, file='rt-debug.log', access='append')
+         write(IOUNIT,*) 'In cell-level debug: ', uDen*var(ivarRho)
+         write(6,*) 'In cell-level debug: ', uDen*var(ivarRho)
       endif
 #endif
 
-#ifdef RT_TRANSFER
-#ifdef RT_TRANSFER_FLUX_CONSERVING
-      par(iparDelN) = uColumn*par(iparRhoB)*par(iparCell)
-#endif
-      call frtTransferPackRadiationField(par,y0,rawRF0,rawRF1,rf)
-#endif
-
-#ifndef RT_VARIABLE_PRATES
-      call frtGetPhotoRates(par,rf,itab,y0,pRate)
-#endif
-C
-C  Cooling rate mode
-C
-      if(tFin .lt. 1.0e-30) then
-         call frtGetRates(par,rf,itab,y0,w0,a0,avg0,pRate)
-         par(iparCool) = a0(ieqEin)*y0(ieqEin)
-         par(iparHeat) = w0(ieqEin)
-         return
-      endif
 C
 C  Evolution mode
 C
@@ -159,23 +167,26 @@ C
 
 #ifdef RT_DEBUG
       if(ideb1 .eq. 1) then
-#ifdef RT_VARIABLE_PRATES
-         call frtGetPhotoRates(par,rf,itab,y0,pRate)
+#ifdef RT_VARIABLE_RF
+         call frtPhotoRates(var,rf,itab,pRate)
 #endif
-         write(81,*) 'Photo rates: ', 
+         write(IOUNIT,*) 'Photo rates: ', 
      .        pRate(iptabPiH1), pRate(iptabPiG1), pRate(iptabPiG2),
      .        pRate(iptabPhH1), pRate(iptabPhG1), pRate(iptabPhG2)
 #ifdef RT_CHEMISTRY
-         write(81,*) 'Chemistry rates:',
+         write(IOUNIT,*) 'Chemistry rates:',
      .        (pRate(j),j=iptabCi27,iptabCiLW)
 #endif
-         call frtDebugPrint1(81,nStep,t,dt,tFin,y0,1) 
+         call frtDebugPrint1(IOUNIT,nStep,t,dt,tFin,var,1) 
       endif
 #endif
 
  10   nStep = nStep + 1
 
-      call frtGetRates(par,rf,itab,y0,w0,a0,avg0,pRate)
+      call frtRates(var,rf,itab,w0,a0,avg0,pRate)
+      do j=1,nEqs
+         y0(j) = var(j)
+      enddo
 C
 C  ODE Solver
 C
@@ -184,20 +195,20 @@ C
  20   continue
 
       if(nStep .lt. 300) then
-         call frtCoolOffStepQS1(nEqs,dt,par,rf,itab,
-     .        y0,w0,a0,yf,rs,d1,avg1,pRate)
+         call frtCoolOffStepQS1(nEqs,dt,var,rf,itab,
+     .        w0,a0,rs,d1,avg1,pRate)
       else
-         call frtCoolOffStepQSN(nEqs,dt,par,rf,itab,
-     .        y0,w0,a0,yf,rs,d1,avg1,pRate)
+         call frtCoolOffStepQSN(nEqs,dt,var,rf,itab,
+     .        w0,a0,rs,d1,avg1,pRate)
       endif
 
-      ieqmax = 1
-      errmax = abs(rs(1))/max(yf(1),ySmall(1))
+      ivarmax = 1
+      errmax = abs(rs(1))/max(var(1),varLow(1))
       do j=2,nEqs
-         err = abs(rs(j))/max(yf(j),ySmall(j))
+         err = abs(rs(j))/max(var(j),varLow(j))
          if(err .gt. errmax) then
             errmax = err
-            ieqmax = j
+            ivarmax = j
          endif
       enddo
       errmax = errmax/errlim
@@ -210,6 +221,9 @@ C
             info = -1
          else
             dt = 0.9*dt/(2+errmax)**0.5
+            do j=1,nEqs
+               var(j) = y0(j)
+            enddo
             goto 20
          endif
 
@@ -232,14 +246,11 @@ C
 C
 C  In general, schemes are not conserving
 C
-         call frtAdjust(yf,nEqs)
-         do j=1,nEqs
-            y0(j) = yf(j)
-         enddo
+         call frtAdjust(nEqs,var)
 
 #ifdef RT_DEBUG
          if(ideb1 .eq. 1) then
-            call frtDebugPrint1(81,nStep,t,dt,tFin,yf,ieqmax) 
+            call frtDebugPrint1(IOUNIT,nStep,t,dt,tFin,var,ivarmax) 
          endif
 #endif
 
@@ -253,35 +264,32 @@ C
 
 #ifdef RT_DEBUG
       if(ideb1 .eq. 1) then
-         close(81)
+         close(IOUNIT)
          if(ideb2 .gt. 0) call frtAbort
       endif
 #endif
 
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
-      avg(iavgBrem) = avg(iavgBrem)*par(iparRhoB)
+      avg(iavgBrem) = avg(iavgBrem)*var(ivarRho)
 
       do j=1,iavgMax1
-         avg(j) = avg(j)*par(iparRhoB)
+         avg(j) = avg(j)*var(ivarRho)
       enddo
 
       avg(iavgNorm) = tFin
+      avg(iavgTemp) = frtTem(var)
 
-#if defined(RT_EXACT_EOS) && defined(RT_HIGH_DENSITY)
-      avg(iavgTemp) = frtTem(y0(ieqEin),y0,0)
-#else
-      avg(iavgTemp) = frtTem(y0(ieqEin),y0)
+      call frtIncrementGlobalFields(avg,var(ivarDelV),itab,info)
 #endif
 
-      call frtIncrementGlobalFields(avg,par(iparVolB),itab,info)
-#endif
+      var(ivarGam) = frtGamma(var)
 
-#if defined(RT_TRANSFER) && defined(RT_VARIABLE_RFIELD)
-      call frtTransferUnPackRadiationField(y0,rawRF0,rawRF1,rf)
+#if defined(RT_TRANSFER) && defined(RT_VARIABLE_RF)
+      call frtTransferUnPackRadiationField(var,rawrf,rf)
 #endif
 
 #if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
-      y0(ieqEin) = y0save
+      var(ivarEin) = EinSave
 #endif
 
       return
@@ -293,35 +301,31 @@ C  Internal routines of the cooling block
 C
 C ---------------------------------------------
 C
-      subroutine frtAdjust(y,nEqs)
+      subroutine frtAdjust(nEqs,var)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-      dimension y(*)
+      dimension var(*)
 
       do i=1,nEqs
-         y(i) = max(y(i),yLimit(i))
+         var(i) = max(var(i),varMin(i))
       enddo
 
 #ifdef RT_CHEMISTRY
-      fact = XH/(y(ieqXH1)+y(ieqXH2)+2*y(ieqXMH))
-      y(ieqXMH) = fact*y(ieqXMH)
+      fact = XH/(var(ivarXH1)+var(ivarXH2)+2*var(ivarXMH))
+      var(ivarXMH) = fact*var(ivarXMH)
 #else
-      fact = XH/(y(ieqXH1)+y(ieqXH2))
+      fact = XH/(var(ivarXH1)+var(ivarXH2))
 #endif
-      y(ieqXH1) = fact*y(ieqXH1)
-      y(ieqXH2) = fact*y(ieqXH2)
+      var(ivarXH1) = fact*var(ivarXH1)
+      var(ivarXH2) = fact*var(ivarXH2)
 
-      fact = XG/(y(ieqXG1)+y(ieqXG2)+y(ieqXG3))
-      y(ieqXG1) = fact*y(ieqXG1)
-      y(ieqXG2) = fact*y(ieqXG2)
-      y(ieqXG3) = fact*y(ieqXG3)
+      fact = XG/(var(ivarXG1)+var(ivarXG2)+var(ivarXG3))
+      var(ivarXG1) = fact*var(ivarXG1)
+      var(ivarXG2) = fact*var(ivarXG2)
+      var(ivarXG3) = fact*var(ivarXG3)
 
-      if(Tmin.gt.0.0 .and. y(ieqEin).lt.10*Tmin) then
-#if defined(RT_EXACT_EOS) && defined(RT_HIGH_DENSITY)
-         y(ieqEin) = max(y(ieqEin),frtEin(Tmin,y,0))
-#else
-         y(ieqEin) = max(y(ieqEin),frtEin(Tmin,y))
-#endif
+      if(Tmin.gt.0.0 .and. var(ivarEin).lt.10*Tmin) then
+         var(ivarEin) = max(var(ivarEin),frtEin(Tmin,var))
       endif
 
       return
@@ -329,12 +333,11 @@ C
 C
 C
 C
-      subroutine frtGetRates(par,rf,itab,
-     .     y,w,a,avg,pRate)
+      subroutine frtRates(var,rf,itab,w,a,avg,pRate)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-      dimension par(*), rf(*), itab(*)
-      dimension y(*), w(*), a(*)
+      dimension var(*), rf(*), itab(*)
+      dimension w(*), a(*)
       dimension avg(*), pRate(*)
 C
       dimension aRate(irateAtomN)
@@ -346,31 +349,26 @@ C
 #endif
       double precision BH1, BG1, BG2, AH2, AG2, AG3, dfac
 C      
-      den = uDen*par(iparRhoB)
+      den = uDen*var(ivarRho)
 
-      Einll = max(yLimit(ieqEin),y(ieqEin))
-      XH1ll = max(yLimit(ieqXH1),min(XH,y(ieqXH1)))
-      XH2ll = max(yLimit(ieqXH2),min(XH,y(ieqXH2)))
-      XG1ll = max(yLimit(ieqXG1),min(XG,y(ieqXG1)))
-      XG2ll = max(yLimit(ieqXG2),min(XG,y(ieqXG2)))
-      XG3ll = max(yLimit(ieqXG3),min(XG,y(ieqXG3)))
+      Einll = max(varMin(ivarEin),var(ivarEin))
+      XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
+      XH2ll = max(varMin(ivarXH2),min(XH,var(ivarXH2)))
+      XG1ll = max(varMin(ivarXG1),min(XG,var(ivarXG1)))
+      XG2ll = max(varMin(ivarXG2),min(XG,var(ivarXG2)))
+      XG3ll = max(varMin(ivarXG3),min(XG,var(ivarXG3)))
 #ifdef RT_CHEMISTRY
-      XMHll = max(yLimit(ieqXMH),min(0.5*XH,y(ieqXMH)))
+      XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
 #ifdef RT_8SPECIES
-      XHpll = max(yLimit(ieqXHp),min(0.5*XH,y(ieqXHp)))
-      XHmll = max(yLimit(ieqXHm),min(0.5*XH,y(ieqXHm)))
+      XHpll = max(varMin(ivarXHp),min(0.5*XH,var(ivarXHp)))
+      XHmll = max(varMin(ivarXHm),min(0.5*XH,var(ivarXHm)))
 #endif
 #endif
 
       Xfell = XH2ll + XG2ll + 2*XG3ll  !! ignore contributions of H2+ and H-
 
       de = Xfell*den
-#if defined(RT_EXACT_EOS) && defined(RT_HIGH_DENSITY)
-      iLTE = 0
-      tem = max(1.0e-3,Tmin,frtTem(Einll,y,iLTE))
-#else
-      tem = max(1.0e-3,Tmin,frtTem(Einll,y))
-#endif
+      tem = max(1.0e-3,Tmin,frtTem(var))
       altem = log(max(acTmin,tem))
       il = int((altem-acLTmin)/acLTstp*0.99999) + 1
       if(il .lt.    1) il = 1
@@ -383,17 +381,17 @@ C
          aRate(j) = ql*RateAtom(j,il) + qu*RateAtom(j,iu)
       enddo
 
-#ifdef RT_VARIABLE_PRATES
-      call frtGetPhotoRates(par,rf,itab,y,pRate)
+#ifdef RT_VARIABLE_RF
+      call frtPhotoRates(var,rf,itab,pRate)
 #endif
 C
 #ifdef RT_CHEMISTRY
 C
 C  H2 dust-shielding model
 C
-      Xdust = par(iparDGas)*(XH1ll+2*XMHll)*ClumpH2
-*      Xdust = par(iparDGas)*(XH1ll+2*XMHll*ClumpH2)
-      cdDUl = par(iparDGas)*(XH1ll+2*XMHll)*par(iparSobL)
+      Xdust = var(ivarDGas)*(XH1ll+2*XMHll)*ClumpH2
+*      Xdust = var(ivarDGas)*(XH1ll+2*XMHll*ClumpH2)
+      cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
       sFact1 = exp(-d_sDUST*cdDUl)
 #ifdef RT_UV
       sFactI = exp(-d_sDUST*cdDUl)
@@ -413,6 +411,7 @@ C
 #else  /* RT_CHEMISTRY */
       sFact1 = 1.0
       sFact2 = 1.0
+      sFactI = 1.0
 #endif /* RT_CHEMISTRY */
 
 C
@@ -462,7 +461,7 @@ C
          avg(iavgRBG3) = uRate*XG3ll*de*aRate(irateRBiG3)
 #endif
       else
-         call frtGetRecCaseH2(XH1ll,par(iparRecB),wa,wb)
+         call frtRecCaseH2(XH1ll,var(ivarRecB),wa,wb)
          RiH2l = wa*aRate(irateRAiH2) + wb*aRate(irateRBiH2)
          RcH2l = wa*aRate(irateRAcH2) + wb*aRate(irateRBcH2)
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
@@ -470,7 +469,7 @@ C
          avg(iavgRBH2) = uRate*XH2ll*de*wb*aRate(irateRBiH2)
 #endif
 
-         call frtGetRecCaseG2(XG1ll,par(iparRecB),wa,wb)
+         call frtRecCaseG2(XG1ll,var(ivarRecB),wa,wb)
          RiG2l = wa*aRate(irateRAiG2) + wb*aRate(irateRBiG2)
          RcG2l = wa*aRate(irateRAcG2) + wb*aRate(irateRBcG2)
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
@@ -478,7 +477,7 @@ C
          avg(iavgRBG2) = uRate*XG2ll*de*wb*aRate(irateRBiG2)
 #endif
 
-         call frtGetRecCaseG3(XG2ll,par(iparRecB),wa,wb)
+         call frtRecCaseG3(XG2ll,var(ivarRecB),wa,wb)
          RiG3l = wa*aRate(irateRAiG3) + wb*aRate(irateRBiG3)
          RcG3l = wa*aRate(irateRAcG3) + wb*aRate(irateRBcG3)
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
@@ -501,22 +500,22 @@ C
 C
 C  Hydrogen rates can be modified by H2 reactions below
 C
-      a(ieqXH1) = uTime*BH1
-      w(ieqXH1) = uTime*XH2ll*AH2
+      a(ivarXH1) = uTime*BH1
+      w(ivarXH1) = uTime*XH2ll*AH2
 
-      a(ieqXH2) = uTime*AH2
-      w(ieqXH2) = uTime*XH1ll*BH1
+      a(ivarXH2) = uTime*AH2
+      w(ivarXH2) = uTime*XH1ll*BH1
 C
 C  Helium rates are final, we do not include He moleculae
 C
-      a(ieqXG1) = uTime*BG1
-      w(ieqXG1) = uTime*XG2ll*AG2
+      a(ivarXG1) = uTime*BG1
+      w(ivarXG1) = uTime*XG2ll*AG2
 
-      a(ieqXG2) = uTime*(AG2+BG2)
-      w(ieqXG2) = uTime*(XG1ll*BG1+XG3ll*AG3)
+      a(ivarXG2) = uTime*(AG2+BG2)
+      w(ivarXG2) = uTime*(XG1ll*BG1+XG3ll*AG3)
 
-      a(ieqXG3) = uTime*AG3
-      w(ieqXG3) = uTime*XG2ll*BG2
+      a(ivarXG3) = uTime*AG3
+      w(ivarXG3) = uTime*XG2ll*BG2
 C
 C  Cooling rates
 C
@@ -532,13 +531,13 @@ C
 C  Return parameters
 C
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
-      avg(iavgCXH1) = par(iparCFH1)*XH1ll
-      avg(iavgCXG1) = par(iparCFG1)*XG1ll
-      avg(iavgCXG2) = par(iparCFG2)*XG2ll
+      avg(iavgCXH1) = var(ivarCFH1)*XH1ll
+      avg(iavgCXG1) = var(ivarCFG1)*XG1ll
+      avg(iavgCXG2) = var(ivarCFG2)*XG2ll
       avg(iavgBrem) = facCool*CF_FFl
 #endif
 
-      aEinll = facCool*par(iparRhoB)*(CF_PPl+CF_FFl) !! Atomic cooling and Bremstrahlung
+      aEinll = facCool*var(ivarRho)*(CF_PPl+CF_FFl) !! Atomic cooling and Bremstrahlung
       wEinll = uTime*sFact1*(XH1ll*(facLya+pRate(iptabPhH1))+  !! PhotoHeating
      .     XG1ll*pRate(iptabPhG1)+XG2ll*pRate(iptabPhG2))
 
@@ -585,13 +584,13 @@ C
 C     
 C  H-minus non-equilibrium rates
 C
-      a(ieqXHm) = uTime*aXHml
-      w(ieqXHm) = uTime*wXHml
+      a(ivarXHm) = uTime*aXHml
+      w(ivarXHm) = uTime*wXHml
 #else
 C
 C  H-minus equilibrium
 C
-      XHmll = min(0.5*XH1ll,max(yLimit(ieqXHm),
+      XHmll = min(0.5*XH1ll,max(varMin(ivarXHm),
      .     wXHml/(1.0e-35+aXHml)))
 #endif
 C
@@ -612,24 +611,19 @@ C
 C
 C  H2-plus non-equilibrium rates
 C
-      a(ieqXHp) = uTime*aXHpl
-      w(ieqXHp) = uTime*wXHpl
+      a(ivarXHp) = uTime*aXHpl
+      w(ivarXHp) = uTime*wXHpl
 #else
 C
 C  H2-plus equilibrium
 C
-      XHpll = min(0.5*XH1ll,max(yLimit(ieqXHp),
-     .     wXHpl/(1.0e-35+aXHpl)))
+      XHpll = min(0.5*XH1ll,max(varMin(ivarXHp),wXHpl/(1.0e-35+aXHpl)))
 #endif
 C
 C  H2 ortho-to-para ratio
 C
 #ifdef RT_EXACT_EOS
-#ifdef RT_HIGH_DENSITY
-      rOP = frtH2_op(tem,iLTE)
-#else
-      rOP = frtH2_op(tem)
-#endif /* RT_HIGH_DENSITY */
+      rOP = frtH2_op(tem,var)
 #else
       rOP = 3.0
 #endif /* RT_EXACT_EOS */
@@ -645,8 +639,8 @@ C
 C
 C  RT-TEST +++++++++++++++++
 C
-      a(ieqXMH) = 0.0
-      w(ieqXMH) = 0.0
+      a(ivarXMH) = 0.0
+      w(ivarXMH) = 0.0
 C
 C  RT-TEST -----------------
 C
@@ -678,11 +672,11 @@ C
 
       wXMHl = 0.5*aXH1l*XH1ll
 
-      a(ieqXH1) = a(ieqXH1) + uTime*aXH1l
-      w(ieqXH1) = w(ieqXH1) + uTime*wXH1l
+      a(ivarXH1) = a(ivarXH1) + uTime*aXH1l
+      w(ivarXH1) = w(ivarXH1) + uTime*wXH1l
 
-      a(ieqXMH) = uTime*aXMHl
-      w(ieqXMH) = uTime*wXMHl
+      a(ivarXMH) = uTime*aXMHl
+      w(ivarXMH) = uTime*wXMHl
 
 #else
 C
@@ -732,20 +726,20 @@ C
       wXMHl = XH1ll*(cRate(irateMHi02)*XHmll+cRate(irateMHi04)*XHpll+ 
      .     cRate3B+cRate(irateMHiDU)*Xdust)
 
-      a(ieqXH1) = a(ieqXH1) + uTime*aXH1l
-      w(ieqXH1) = w(ieqXH1) + uTime*wXH1l
+      a(ivarXH1) = a(ivarXH1) + uTime*aXH1l
+      w(ivarXH1) = w(ivarXH1) + uTime*wXH1l
 
-      a(ieqXH2) = a(ieqXH2) + uTime*aXH2l
-      w(ieqXH2) = w(ieqXH2) + uTime*wXH2l
+      a(ivarXH2) = a(ivarXH2) + uTime*aXH2l
+      w(ivarXH2) = w(ivarXH2) + uTime*wXH2l
 
-      a(ieqXG1) = a(ieqXG1) + uTime*aXG1l
-      w(ieqXG1) = w(ieqXG1) + uTime*wXG1l
+      a(ivarXG1) = a(ivarXG1) + uTime*aXG1l
+      w(ivarXG1) = w(ivarXG1) + uTime*wXG1l
 
-      a(ieqXG2) = a(ieqXG2) + uTime*aXG2l
-      w(ieqXG2) = w(ieqXG2) + uTime*wXG2l
+      a(ivarXG2) = a(ivarXG2) + uTime*aXG2l
+      w(ivarXG2) = w(ivarXG2) + uTime*wXG2l
 
-      a(ieqXMH) = uTime*aXMHl
-      w(ieqXMH) = uTime*wXMHl
+      a(ivarXMH) = uTime*aXMHl
+      w(ivarXMH) = uTime*wXMHl
 #endif /* RT_CHEMISTRY_MINIMAL_MODEL */
 #endif /* RT_TEST */
 C
@@ -792,8 +786,8 @@ C
 C  1. High temperature part (SD93 fit)
 C
       if(tem .gt. temZLT) then
-         cfzHT = par(iparSDp1)*(cRate(irateZHcTA)+par(iparSDp2)*
-     .        cRate(irateZHcTB))/(1.0+par(iparSDp3)*cRate(irateZHcTC))*
+         cfzHT = var(ivarSDp1)*(cRate(irateZHcTA)+var(ivarSDp2)*
+     .        cRate(irateZHcTB))/(1.0+var(ivarSDp3)*cRate(irateZHcTC))*
      .        Xfell*(XH2ll+XG2ll+XG3ll)
       else
          cfzHT = 0.0
@@ -801,7 +795,7 @@ C
 C
 C  2. Low temperature part (Preston, Dalgarno&McCray)
 C
-      cfzLT = par(iparSDp1)*XH1ll*(XH1ll*cRate(irateZLcTA)+
+      cfzLT = var(ivarSDp1)*XH1ll*(XH1ll*cRate(irateZLcTA)+
      .     Xfell*cRate(irateZLcTX))
 
       CF_HEl = cfzLT + cfzHT
@@ -819,16 +813,16 @@ C
       eps = 4.9e-2/(1+4.0e-3*psi**0.73) + 
      .     3.7e-2*(1.0e-4*tem)**0.7/(1+2.0e-4*psi)
       
-      pRatePAHh = par(iparSDp1)*285*eps*exp(-d_sPAH*cdDUl)*
+      pRatePAHh = var(ivarSDp1)*285*eps*exp(-d_sPAH*cdDUl)*
      .     pRate(iptabCiLW)
 C
 C  5. Cosmic rays heating and ionizations
 C
-      pRateCRi = 1.0e-17*par(iparDGas)*den
+      pRateCRi = 1.0e-17*var(ivarDGas)*den
       pRateCRh = pRateCRi*232080  !! 232080 = 20eV in K
 
-      a(ieqXH1) = a(ieqXH1) + uTime*pRateCRi
-      w(ieqXH2) = w(ieqXH2) + uTime*XH1ll*pRateCRi
+      a(ivarXH1) = a(ivarXH1) + uTime*pRateCRi
+      w(ivarXH2) = w(ivarXH2) + uTime*XH1ll*pRateCRi
 
       wEinll = wEinll + uTime*((XH1ll+2*XMHll)*pRatePAHh+
      .     XH1ll*pRateCRh)
@@ -836,16 +830,16 @@ C
 C
 C  Final aseembly
 C
-      aEinll = aEinll + facCool*par(iparRhoB)*(CF_MHl+CF_HEl)
+      aEinll = aEinll + facCool*var(ivarRho)*(CF_MHl+CF_HEl)
 
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
-      avg(iavgDust) = par(iparDGas)*(XH1ll+2*XMHll)
+      avg(iavgDust) = var(ivarDGas)*(XH1ll+2*XMHll)
 #endif
 
 #else  /* RT_CHEMISTRY */
 
-      a(ieqXMH) = 0.0
-      w(ieqXMH) = 0.0
+      a(ivarXMH) = 0.0
+      w(ivarXMH) = 0.0
 
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       avg(iavgDust) = 0.0
@@ -857,15 +851,16 @@ C  Turn cooling into heating below CMB (induced emission)
 C
 #if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
 
-      a(ieqEin) = 0.0
-      w(ieqEin) = 0.0
+      a(ivarEin) = 0.0
+      w(ivarEin) = 0.0
 
 #else
 
       fac = 1.0/(tem+TemCMB)*(1.0-Tmin/tem)
 
-      a(ieqEin) = (fac*aEinll*tem+aEinl2*par(iparDFac))/Einll
-      w(ieqEin) = max(0.0,wEinll+wEinl2+fac*aEinll*TemCMB+par(iparDTad))
+      a(ivarEin) = (fac*aEinll*tem+aEinl2*var(ivarCSup))/Einll
+      w(ivarEin) = max(0.0,wEinll+wEinl2+fac*aEinll*TemCMB) +
+     .     var(ivarDTex)
 
 #endif
 
@@ -874,21 +869,7 @@ C
 C
 C
 C
-      function frtDustToGas(Zsol)
-      include 'frt_base.inc'
-
-#ifdef RT_FIXED_ISM
-      frtDustToGas = D2Gmin
-#else
-      frtDustToGas = Zsol
-#endif /* RT_FIXED_ISM */
-
-      return
-      end
-C
-C
-C
-      subroutine frtGetRecCaseH2(XH1ll,cdRecB,wa,wb)
+      subroutine frtRecCaseH2(XH1ll,cdRecB,wa,wb)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 
@@ -901,7 +882,7 @@ C
 C
 C
 C
-      subroutine frtGetRecCaseG2(XG1ll,cdRecB,wa,wb)
+      subroutine frtRecCaseG2(XG1ll,cdRecB,wa,wb)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 
@@ -914,7 +895,7 @@ C
 C
 C
 C
-      subroutine frtGetRecCaseG3(XG2ll,cdRecB,wa,wb)
+      subroutine frtRecCaseG3(XG2ll,cdRecB,wa,wb)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 
@@ -927,7 +908,7 @@ C
 C
 C
 C     
-      subroutine frtGetPhotoRates(par,rf,itab,y,pRate)
+      subroutine frtPhotoRates(var,rf,itab,pRate)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
@@ -940,9 +921,9 @@ C
 #ifdef RT_FIXED_ISM
       include 'frt_spectrum.inc'
 #endif /* RT_FIXED_ISM */
-      dimension par(*), rf(*)
+      dimension var(*), rf(*)
       dimension itab(*)
-      dimension y(*), pRate(*)
+      dimension pRate(*)
 #if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
       parameter (wFront = 0.5)
       parameter (TAUMIN = 1.0e-2)
@@ -954,16 +935,16 @@ C
 C
 C  Single zone plug-in
 C
-      call frtPhotoRates1Zone(par,rf,itab,y,pRate)
+      call frtPhotoRates1Zone(var,rf,itab,pRate)
 #else
 
 #if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
 C
 C  Flux-conserving correction
 C
-      drf(1) = rf(irfH1wf) + y(ieqXH1)*rf(irfH1wv)
-      drf(2) = rf(irfG1wf) + y(ieqXG1)*rf(irfG1wv)
-      drf(3) = rf(irfG2wf) + y(ieqXG2)*rf(irfG2wv)
+      drf(1) = rf(irfH1wf) + var(ivarXH1)*rf(irfH1wv)
+      drf(2) = rf(irfG1wf) + var(ivarXG1)*rf(irfG1wv)
+      drf(3) = rf(irfG2wf) + var(ivarXG2)*rf(irfG2wv)
 
       if(max(drf(1),drf(2),drf(3)) .gt. TAUMIN) then
 
@@ -975,7 +956,7 @@ C
                rfBack(irfOlf+j) = -1.0
             else
                rfFrnt(irfOlf+j) = max(0.0,rf(irfOlf+j)+
-     .              y(1+j)*rf(irfOlv+j)-wFront*drf(j))
+     .              var(1+j)*rf(irfOlv+j)-wFront*drf(j))
                rfBack(irfOlf+j) = rfFrnt(irfOlf+j) + drf(j)
             endif
             if(rf(irfOgf+j) .lt. 0.0) then
@@ -983,13 +964,13 @@ C
                rfBack(irfOgf+j) = -1.0
             else
                rfFrnt(irfOgf+j) = max(0.0,rf(irfOgf+j)+
-     .              y(1+j)*rf(irfOgv+j)-wFront*drf(j))
+     .              var(1+j)*rf(irfOgv+j)-wFront*drf(j))
                rfBack(irfOgf+j) = rfFrnt(irfOgf+j) + drf(j)
             endif
          enddo
 
-         call frtPhotoRatesTable(par,rfFrnt,itab,y,pRate,iptabMax)
-         call frtPhotoRatesTable(par,rfBack,itab,y,pRateBack,iptabIon)
+         call frtPhotoRatesTable(var,rfFrnt,itab,pRate,iptabMax)
+         call frtPhotoRatesTable(var,rfBack,itab,pRateBack,iptabIon)
       
          if(drf(1) .gt. TAUMIN) then
             pRate(iptabPhH1) = max(0.0,pRate(iptabPhH1)-
@@ -1015,7 +996,7 @@ C
 C
 C  Generic rates
 C
-         call frtPhotoRatesTable(par,rf,itab,y,pRate,iptabMax)
+         call frtPhotoRatesTable(var,rf,itab,pRate,iptabMax)
 
 #if defined(RT_TRANSFER) && defined(RT_TRANSFER_FLUX_CONSERVING)
       endif
@@ -1024,10 +1005,9 @@ C
 #endif
 
 #ifdef RT_FIXED_ISM
-      umw = EPSG_UV/5.0e-6
       urf = pRate(iptabCiLW)*1.05e10
-      if(urf .gt. 0) then
-         q = umw/urf
+      if(urf .gt. 0.0) then
+         q = fGal/urf
          do j=1,iptabDim
             pRate(j) = pRate(j)*q
          enddo
@@ -1043,45 +1023,53 @@ C  Thermodynamic functions
 C
 C  -------------------------
 C
+      function frtEin(tem,var)
+      include 'frt_base.inc'
+      dimension var(*)
+
 #ifdef RT_EXACT_EOS
 C
 C  Exacts (non-monoatomic) EOS
 C
-#ifdef RT_HIGH_DENSITY
-      function frtEin(tem,y,iLTE)
-#else
-      function frtEin(tem,y)
-#endif
-      include 'frt_base.inc'
-      dimension y(*)
+      Xtot = var(ivarXH1) + var(ivarXMH) + 2*var(ivarXH2) +
+     .     var(ivarXG1) + 2*var(ivarXG2) + 3*var(ivarXG3)
 
-      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
+      frtEin = tem*(1.5*Xtot+var(ivarXMH)*frtH2_Ce(tem,var))
 
-#ifdef RT_HIGH_DENSITY
-      frtEin = tem*(1.5*Xtot+y(ieqXMH)*frtH2_Ce(tem,iLTE))
+#else  /* RT_EXACT_EOS */
+C
+C  EOS for monoatomic gas
+C
+#ifdef RT_CHEMISTRY
+      Xtot = var(ivarXH1) + var(ivarXMH) + 2*var(ivarXH2) +
+     .     var(ivarXG1) + 2*var(ivarXG2) + 3*var(ivarXG3)
 #else
-      frtEin = tem*(1.5*Xtot+y(ieqXMH)*frtH2_Ce(tem))
+      Xtot = var(ivarXH1) + 2*var(ivarXH2) +
+     .     var(ivarXG1) + 2*var(ivarXG2) + 3*var(ivarXG3)
 #endif
+
+      frtEin = tem*1.5*Xtot
+
+#endif /* RT_EXACT_EOS */
 
       return
       end
 C
 C
 C
-#ifdef RT_HIGH_DENSITY
-      function frtTem(Ein,y,iLTE)
-#else
-      function frtTem(Ein,y)
-#endif
+      function frtTem(var)
       include 'frt_base.inc'
-      dimension y(*)
+      dimension var(*)
+
+#ifdef RT_EXACT_EOS
 C
-C Use bi-section to insure convergence
+C  Exacts (non-monoatomic) EOS
+C  Use bi-section to insure convergence
 C      
-      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-      fH2 = y(ieqXMH)/Xtot
+      Xtot = var(ivarXH1) + var(ivarXMH) + 2*var(ivarXH2) +
+     .     var(ivarXG1) + 2*var(ivarXG2) + 3*var(ivarXG3)
+      fH2 = var(ivarXMH)/Xtot
+      Ein = var(ivarEin)
 
       if(Ein.lt.15.0 .or. fH2.lt.1.0e-3) then
          frtTem = Ein/(1.5*Xtot)
@@ -1100,11 +1088,7 @@ C
 
       tem2 = 0.5*(tem1+tem3)
 C
-#ifdef RT_HIGH_DENSITY
-      Ein2 = Xtot*tem2*(1.5+fH2*frtH2_Ce(tem2,iLTE))
-#else
-      Ein2 = Xtot*tem2*(1.5+fH2*frtH2_Ce(tem2))
-#endif
+      Ein2 = Xtot*tem2*(1.5+fH2*frtH2_Ce(tem2,var))
 
       if(Ein2 .ge. Ein) then
          tem1 = tem2
@@ -1121,50 +1105,73 @@ C
 
       frtTem = 0.5*(tem1+tem3)
 
+#else  /* RT_EXACT_EOS */
+C
+C  EOS for monoatomic gas
+C
+#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
+      Xtot = XH
+#else
+#ifdef RT_CHEMISTRY
+      Xtot = var(ivarXH1) + var(ivarXMH) + 2*var(ivarXH2) +
+     .     var(ivarXG1) + 2*var(ivarXG2) + 3*var(ivarXG3)
+#else
+      Xtot = var(ivarXH1) + 2*var(ivarXH2) +
+     .     var(ivarXG1) + 2*var(ivarXG2) + 3*var(ivarXG3)
+#endif
+#endif
+
+      frtTem = var(ivarEin)/(1.5*Xtot)
+
+#endif /* RT_EXACT_EOS */
+
       return
       end
 C
 C
 C
-#ifdef RT_HIGH_DENSITY
-      function frtGamma(Ein,y,iLTE)
-#else
-      function frtGamma(Ein,y)
-#endif
+      function frtGamma(var)
       include 'frt_base.inc'
-      dimension y(*)
+      dimension var(*)
 
-      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-      fH2 = y(ieqXMH)/Xtot
+#ifdef RT_EXACT_EOS
+C
+C  Exacts (non-monoatomic) EOS
+C      
+      Xtot = var(ivarXH1) + var(ivarXMH) + 2*var(ivarXH2) +
+     .     var(ivarXG1) + 2*var(ivarXG2) + 3*var(ivarXG3)
+      fH2 = var(ivarXMH)/Xtot
 
       if(fH2 .lt. 1.0e-3) then
          cv = 1.5
       else
-#ifdef RT_HIGH_DENSITY
-         cv = 1.5 + fH2*frtH2_Cv(frtTem(Ein,y,iLTE),iLTE)
-#else
-         cv = 1.5 + fH2*frtH2_Cv(frtTem(Ein,y))
-#endif
+         cv = 1.5 + fH2*frtH2_Cv(frtTem(var),var)
       endif
 
       frtGamma = (cv+1)/cv
 
+#else  /* RT_EXACT_EOS */
+C
+C  EOS for monoatomic gas
+C
+      frtGamma = 5.0/3.0
+
+#endif /* RT_EXACT_EOS */
+
       return
       end
+#ifdef RT_EXACT_EOS
 C
+C  Exacts (non-monoatomic) EOS
 C
-C
-#ifdef RT_HIGH_DENSITY
-      function frtH2_Cv(tem,iLTE)
-#else
-      function frtH2_Cv(tem)
-#endif
+      function frtH2_Cv(tem,var)
+      include 'frt_base.inc'
+      dimension var(*)
 
       if(tem .gt. 10.0) then
          x = tem/85.4
 #ifdef RT_HIGH_DENSITY
-         o2p = frtH2_op(tem,iLTE)
+         o2p = frtH2_op(tem,var)
          if(o2p .lt. 0.0) then
 #endif
 C
@@ -1199,16 +1206,14 @@ C
 C
 C
 C
-#ifdef RT_HIGH_DENSITY
-      function frtH2_Ce(tem,iLTE)
-#else
-      function frtH2_Ce(tem)
-#endif
+      function frtH2_Ce(tem,var)
+      include 'frt_base.inc'
+      dimension var(*)
 
       if(tem .gt. 10.0) then
          x = tem/85.4
 #ifdef RT_HIGH_DENSITY
-         o2p = frtH2_op(tem,iLTE)
+         o2p = frtH2_op(tem,var)
          if(o2p .lt. 0.0) then
 #endif
 C
@@ -1243,18 +1248,16 @@ C
 C
 C
 C
-#ifdef RT_HIGH_DENSITY
-      function frtH2_op(tem,iLTE)
-#else
-      function frtH2_op(tem)
-#endif
+      function frtH2_op(tem,var)
+      include 'frt_base.inc'
+      dimension var(*)
 
 #ifdef RT_HIGH_DENSITY
 C
 C  Is H2 formation on dust slower than ortho-para proton 
 C  exchange reaction?
 C
-      if(iLTE .eq. 1) then
+      if(var(ivarLTE) .gt. 0.0) then
 C
 C  Assume LTE
 C
@@ -1276,76 +1279,18 @@ C
 
       return
       end
-#else  /* RT_EXACT_EOS */
-C
-C  EOS for monoatomic gas
-C
-      function frtEin(tem,y)
-      include 'frt_base.inc'
-      dimension y(*)
-      
-#ifdef RT_CHEMISTRY
-      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#else
-      Xtot = y(ieqXH1) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#endif
-
-      frtEin = tem*1.5*Xtot
-
-      return
-      end
-C
-C
-C
-      function frtTem(Ein,y)
-      include 'frt_base.inc'
-      dimension y(*)
-
-#if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
-
-      Xtot = XH
-
-#else
-
-#ifdef RT_CHEMISTRY
-      Xtot = y(ieqXH1) + y(ieqXMH) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#else
-      Xtot = y(ieqXH1) + 2*y(ieqXH2) +
-     .     y(ieqXG1) + 2*y(ieqXG2) + 3*y(ieqXG3)
-#endif
-
-#endif
-
-      frtTem = Ein/(1.5*Xtot)
-
-      return
-      end
-C
-C
-C
-      function frtGamma(Ein,y)
-      include 'frt_base.inc'
-      dimension y(*)
-
-      frtGamma = 5.0/3.0
-
-      return
-      end
 #endif /* RT_EXACT_EOS */
 #ifdef RT_DEBUG
 C
 C  Debug helpers
 C
-      subroutine frtDebugPrint1(io,nStep,t,dt,tFin,y,ieqmax)
+      subroutine frtDebugPrint1(io,nStep,t,dt,tFin,var,ivarmax)
       include 'frt_base.inc'
-      dimension y(*)
+      dimension var(*)
 
-      write(io,9) nStep, t, dt, tFin, frtTem(y(ieqEin),y),
-     .     y(ieqXH1)/XH, y(ieqXH2)/XH, y(ieqXMH)/(0.5*XH), 
-     .     y(ieqmax), ieqmax
+      write(io,9) nStep, t, dt, tFin, frtTem(var),
+     .     var(ivarXH1)/XH, var(ivarXH2)/XH, var(ivarXMH)/(0.5*XH), 
+     .     var(ivarmax), ivarmax
 
  9    format(i4,1p,8(1x,e11.3),1x,i1)
 

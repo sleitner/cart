@@ -88,7 +88,18 @@ void interpolate_potential( int level ) {
 	start_time( GRAVITY_TIMER );
 	start_time( WORK_TIMER );
 
-	dtdt2 = 0.5 * dtl[level]/dtl_old[level];
+	/*
+	//  NG: dtl_old may not be set in the first time-step, but then
+	//  cell_potential = cell_potential_hydro
+	*/
+	if(dtl_old[level] > 0.1*dtl[level])
+	  {
+	    dtdt2 = 0.5 * dtl[level]/dtl_old[level];
+	  }
+	else
+	  {
+	    dtdt2 = 0;
+	  }
 
 	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,dtdt2)

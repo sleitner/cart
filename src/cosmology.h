@@ -65,6 +65,16 @@ void cosmology_copy(const struct CosmologyParameters *c);
 */
 int cosmology_is_set();
 
+
+/*
+//  Freeze the cosmology and forbid any further changes to it.
+//  In codes that include user-customizable segments (like plugins),
+//  this function van be used for insuring that a user does not
+//  change the cosmology in mid-run.
+*/
+void cosmology_set_fixed();
+
+
 /*
 //  Manual initialization. This does not need to be called, 
 //  the initialization is done automatically on the first call

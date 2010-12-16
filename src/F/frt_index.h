@@ -3,50 +3,46 @@
 #define __FRT_INDEX_H__
 
 
-#ifndef frtOFFSET
+#ifndef __FRT_OFFSET
 #error "Incorrect usage of include frt_index.h"
 #endif
 
 
-#define frtVAR_Ein		 (0+frtOFFSET)
-#define frtVAR_XHI		 (1+frtOFFSET)
-#define frtVAR_XHII		 (2+frtOFFSET)
-#define frtVAR_XHeI		 (3+frtOFFSET)
-#define frtVAR_XHeII		 (4+frtOFFSET)
-#define frtVAR_XHeIII		 (5+frtOFFSET)
-#define frtVAR_XH2		 (6+frtOFFSET)
+#define FRT_Ein					(0+__FRT_OFFSET)
+#define FRT_XHI					(1+__FRT_OFFSET)
+#define FRT_XHII				(2+__FRT_OFFSET)
+#define FRT_XHeI				(3+__FRT_OFFSET)
+#define FRT_XHeII				(4+__FRT_OFFSET)
+#define FRT_XHeIII				(5+__FRT_OFFSET)
+#define FRT_XH2					(6+__FRT_OFFSET)
+#define FRT_XH2p				(7+__FRT_OFFSET)
+#define FRT_XHm					(8+__FRT_OFFSET)
 
-#ifdef RT_8SPECIES
-#define frtVAR_DIM		 (9+frtOFFSET)
-#define frtVAR_XH2p		 (7+frtOFFSET)
-#define frtVAR_XHm		 (8+frtOFFSET)
-#else
-#define frtVAR_DIM		 (7+frtOFFSET)
-#endif
+#define FRT_Density				(9+__FRT_OFFSET)
+#define FRT_Metallicity				(10+__FRT_OFFSET)
+#define FRT_SobolevLength			(11+__FRT_OFFSET)
+#define FRT_NumericalDiffusionFactor		(12+__FRT_OFFSET)
+#define FRT_OTRadiationFieldLocal		(13+__FRT_OFFSET)
+#define FRT_OTRadiationFieldGlobal		(14+__FRT_OFFSET)
+#define FRT_ResolutionElementVolume		(15+__FRT_OFFSET)
+#define FRT_ResolutionElementSize		(16+__FRT_OFFSET)
+#define FRT_SourceBias				(17+__FRT_OFFSET)
+#define FRT_CoolingSuppressionFactor		(18+__FRT_OFFSET)
+#define FRT_ExternalHeatingRate			(19+__FRT_OFFSET)
+#define FRT_LTEFlag				(20+__FRT_OFFSET)
+#define FRT_Debug				(21+__FRT_OFFSET)
+#define FRT_DustToGasRatio			(22+__FRT_OFFSET)
+#define FRT_Gamma				(23+__FRT_OFFSET)
+#define FRT_DIM					(31)
 
-
-#define frtPAR_RHO		 (0+frtOFFSET)
-#define frtPAR_ZSOL		 (1+frtOFFSET)
-#define frtPAR_DTSH		 (2+frtOFFSET)
-#define frtPAR_DTAD		 (3+frtOFFSET)
-#define frtPAR_BIAS		 (4+frtOFFSET)
-#define frtPAR_DFAC		 (5+frtOFFSET)
-#define frtPAR_SOBL		 (6+frtOFFSET)
-#define frtPAR_NUMF		 (7+frtOFFSET)
-#define frtPAR_CELL		 (8+frtOFFSET)
-#define frtPAR_VOL		 (9+frtOFFSET)
-#define frtPAR_DEB		(18+frtOFFSET)
-#define frtPAR_DIM		(19+frtOFFSET)
-
-
-#define frtRATE_PhG2             (0+frtOFFSET)
-#define frtRATE_PiG2             (1+frtOFFSET)
-#define frtRATE_PhG1             (2+frtOFFSET)
-#define frtRATE_PiG1             (3+frtOFFSET)
-#define frtRATE_PhH1             (4+frtOFFSET)
-#define frtRATE_PiH1             (5+frtOFFSET)
-#define frtRATE_CiLW            (12+frtOFFSET)
-#define frtRATE_DIM		(13+frtOFFSET)
+#define FRT_RATE_HeatingHeII			(0+__FRT_OFFSET)
+#define FRT_RATE_IonizationHeII			(1+__FRT_OFFSET)
+#define FRT_RATE_HeatingHeI			(2+__FRT_OFFSET)
+#define FRT_RATE_IonizationHeI			(3+__FRT_OFFSET)
+#define FRT_RATE_HeatingHI			(4+__FRT_OFFSET)
+#define FRT_RATE_IonizationHI			(5+__FRT_OFFSET)
+#define FRT_RATE_DissociationLW			(12+__FRT_OFFSET)
+#define FRT_RATE_DIM				(13)
 
 
 #endif

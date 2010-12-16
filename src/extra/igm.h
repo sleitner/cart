@@ -23,14 +23,14 @@ void extDumpRadiationBackground(const char *filename);
 //  mesh variables from rt_disk_offset to rt_disk_offset+nbins-1.
 //  Radiation field must be initialized before this is called.
 */
-void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf);
+void extExtractRadiationField(int nout, const float *wlen, float *mean_rf);
 
 /*
-//  Extract photo rates field given by lbins (as set in F/frt_index.h) and 
+//  Extract photo rates field given by idx (as set in F/frt_index.h) and 
 //  put them into mesh variables from rt_disk_offset to rt_disk_offset+nbins-1.
 //  Radiation field must be initialized before this is called.
 */
-void extExtractPhotoRates(int nbins, const int lbins[], float mean_rate[]);
+void extExtractPhotoRates(int nout, const int *idx, float *mean_rate);
 
 /*
 //  Measure proximity zones around halos for LW band radiation and ionizing

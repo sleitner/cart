@@ -57,12 +57,11 @@ void rtAfterAssignDensity2(int level, int num_level_cells, int *level_cells);
 //  Usefull wrappers; they are slow, so should only be used for output
 */
 float rtTem(int cell);
-float rtDustToGas(int cell);
+float rtDmw(int cell);
+float rtUmw(int cell);
 void rtGetCoolingRate(int cell, float *cooling_rate, float *heating_rate);
-void rtGetPhotoRates(int cell, float rate[]);
-void rtGetRadiationField(int cell, int n, const int idxi[], float ngxi[]);
-void rtGetBinIds(int n, const float wlen[], int idxi[]);
-void rtGetBinWavelengths(int n, const int idxi[], float wlen[]);
+void rtGetPhotoRates(int cell, float *rate);
+void rtGetRadiationField(int cell, int n, const float *wlen, float *ngxi);
 
 void rtModifyTimeStep(double *dt);
 

@@ -1667,7 +1667,7 @@ C$OMP+ itloc2,pTab3,qTab3,pUV,qUV,wpTab,facPhot,facLX,iptabMax)
 C
 C
 C     
-      subroutine frtPhotoRatesTable(par,rf,itab,y,pRate,jmax1)
+      subroutine frtPhotoRatesTable(var,rf,itab,pRate,jmax1)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
@@ -1677,9 +1677,9 @@ C
       include 'frt_transfer3.inc'
 #endif
 #endif
-      dimension par(*), rf(*)
+      dimension var(*), rf(*)
       dimension itab(*)
-      dimension y(*), pRate(*)
+      dimension pRate(*)
 C
       dimension qRate(iptabDim)
 #ifdef RT_XRAYS
@@ -1850,17 +1850,17 @@ C
 
 #ifdef RT_XRAYS
 
-      call frtGetPhotoRatesSE(par,rf,itab,y,pRateSE,qRateSE)
+      call frtPhotoRatesSE(var,rf,itab,pRateSE,qRateSE)
 
 #ifdef RT_EXTERNAL_BACKGROUND
       pRate(iptabPiH1) = pRate(iptabPiH1) + 
-     .     y(ieqXH1)*pRateSE(istabPiH1H1w1) +
-     .     y(ieqXG1)*pRateSE(istabPiH1G1w1) +
-     .     y(ieqXG2)*pRateSE(istabPiH1G2w1)
+     .     var(ivarXH1)*pRateSE(istabPiH1H1w1) +
+     .     var(ivarXG1)*pRateSE(istabPiH1G1w1) +
+     .     var(ivarXG2)*pRateSE(istabPiH1G2w1)
       pRate(iptabPiG1) = pRate(iptabPiG1) +
-     .     y(ieqXH1)*pRateSE(istabPiG1H1w1) +
-     .     y(ieqXG2)*pRateSE(istabPiG1G1w1) +
-     .     y(ieqXG2)*pRateSE(istabPiG1G2w1)
+     .     var(ivarXH1)*pRateSE(istabPiG1H1w1) +
+     .     var(ivarXG2)*pRateSE(istabPiG1G1w1) +
+     .     var(ivarXG2)*pRateSE(istabPiG1G2w1)
       pRate(iptabPhH1) = max(0.0,
      .     pRate(iptabPhH1)-pRateSE(istabPhH1w1))
       pRate(iptabPhG1) = max(0.0,
@@ -1869,13 +1869,13 @@ C
 
 #ifdef RT_TRANSFER
       qRate(iptabPiH1) = qRate(iptabPiH1) + 
-     .     y(ieqXH1)*qRateSE(istabPiH1H1w1) +
-     .     y(ieqXG1)*qRateSE(istabPiH1G1w1) +
-     .     y(ieqXG2)*qRateSE(istabPiH1G2w1)
+     .     var(ivarXH1)*qRateSE(istabPiH1H1w1) +
+     .     var(ivarXG1)*qRateSE(istabPiH1G1w1) +
+     .     var(ivarXG2)*qRateSE(istabPiH1G2w1)
       qRate(iptabPiG1) = pRate(iptabPiG1) +
-     .     y(ieqXH1)*qRateSE(istabPiG1H1w1) +
-     .     y(ieqXG2)*qRateSE(istabPiG1G1w1) +
-     .     y(ieqXG2)*qRateSE(istabPiG1G2w1)
+     .     var(ivarXH1)*qRateSE(istabPiG1H1w1) +
+     .     var(ivarXG2)*qRateSE(istabPiG1G1w1) +
+     .     var(ivarXG2)*qRateSE(istabPiG1G2w1)
       qRate(iptabPhH1) = max(0.0,qRate(iptabPhH1) -
      .     qRateSE(istabPhH1w1))
       qRate(iptabPhG1) = max(0.0,qRate(iptabPhG1) -
@@ -1884,22 +1884,22 @@ C
 
 #endif /* RT_XRAYS */
 
-      par(iparCFH1) = 1.0
-      par(iparCFG1) = 1.0
-      par(iparCFG2) = 1.0
+      var(ivarCFH1) = 1.0
+      var(ivarCFG1) = 1.0
+      var(ivarCFG2) = 1.0
 
 #if (RT_CFI == 1)
 #ifdef RT_EXTERNAL_BACKGROUND
-      ch = CHeat(par(iparRhoB),y)
-      pRate(iptabPhH1) = pRate(iptabPhH1)*ch*par(iparBias)
-      pRate(iptabPhG1) = pRate(iptabPhG1)*ch*par(iparBias)
-      pRate(iptabPhG2) = pRate(iptabPhG2)*ch*par(iparBias)
-      par(iparCFH1) = CIonH1(par(iparRhoB),y)
-      par(iparCFG1) = CIonG1(par(iparRhoB),y)
-      par(iparCFG2) = CIonG2(par(iparRhoB),y)
-      pRate(iptabPiH1) = pRate(iptabPiH1)*par(iparCFH1)*par(iparBias)
-      pRate(iptabPiG1) = pRate(iptabPiG1)*par(iparCFG1)*par(iparBias)
-      pRate(iptabPiG2) = pRate(iptabPiG2)*par(iparCFG2)*par(iparBias)
+      ch = CHeat(var)
+      pRate(iptabPhH1) = pRate(iptabPhH1)*ch*var(ivarBias)
+      pRate(iptabPhG1) = pRate(iptabPhG1)*ch*var(ivarBias)
+      pRate(iptabPhG2) = pRate(iptabPhG2)*ch*var(ivarBias)
+      var(ivarCFH1) = CIonH1(var)
+      var(ivarCFG1) = CIonG1(var)
+      var(ivarCFG2) = CIonG2(var)
+      pRate(iptabPiH1) = pRate(iptabPiH1)*var(ivarCFH1)*var(ivarBias)
+      pRate(iptabPiG1) = pRate(iptabPiG1)*var(ivarCFG1)*var(ivarBias)
+      pRate(iptabPiG2) = pRate(iptabPiG2)*var(ivarCFG2)*var(ivarBias)
 #endif
 #endif
 
@@ -1914,16 +1914,16 @@ C
 #endif /* RT_TRANSFER */
 
 #if (RT_CFI == 2)
-      ch = CHeat(par(iparRhoB),y)
-      pRate(iptabPhH1) = pRate(iptabPhH1)*ch*par(iparBias)
-      pRate(iptabPhG1) = pRate(iptabPhG1)*ch*par(iparBias)
-      pRate(iptabPhG2) = pRate(iptabPhG2)*ch*par(iparBias)
-      par(iparCFH1) = CIonH1(par(iparRhoB),y)
-      par(iparCFG1) = CIonG1(par(iparRhoB),y)
-      par(iparCFG2) = CIonG2(par(iparRhoB),y)
-      pRate(iptabPiH1) = pRate(iptabPiH1)*par(iparCFH1)*par(iparBias)
-      pRate(iptabPiG1) = pRate(iptabPiG1)*par(iparCFG1)*par(iparBias)
-      pRate(iptabPiG2) = pRate(iptabPig2)*par(iparCFG2)*par(iparBias)
+      ch = CHeat(var)
+      pRate(iptabPhH1) = pRate(iptabPhH1)*ch*var(ivarBias)
+      pRate(iptabPhG1) = pRate(iptabPhG1)*ch*var(ivarBias)
+      pRate(iptabPhG2) = pRate(iptabPhG2)*ch*var(ivarBias)
+      var(ivarCFH1) = CIonH1(var)
+      var(ivarCFG1) = CIonG1(var)
+      var(ivarCFG2) = CIonG2(var)
+      pRate(iptabPiH1) = pRate(iptabPiH1)*var(ivarCFH1)*var(ivarBias)
+      pRate(iptabPiG1) = pRate(iptabPiG1)*var(ivarCFG1)*var(ivarBias)
+      pRate(iptabPiG2) = pRate(iptabPig2)*var(ivarCFG2)*var(ivarBias)
 #endif
 
       return

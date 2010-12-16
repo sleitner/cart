@@ -38,6 +38,13 @@ C
       read(iunit,err=20) (angLW(j),j=1,NRLW)
 #endif
 
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(j),
+C$OMP+SHARED(angUni,angLoc,angAvg)
+      do j=1,NRAD
+         angAvg(j) = angUni(j) + angLoc(j)
+      enddo
+
       return
 
  10   write(6,*) 'Error reading radiation field from a file.'
@@ -111,6 +118,14 @@ C
             angLW(j) = data(2*NRAD+j)
          enddo
 #endif
+
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(j),
+C$OMP+SHARED(angUni,angLoc,angAvg)
+         do j=1,NRAD
+            angAvg(j) = angUni(j) + angLoc(j)
+         enddo
+
       endif
 
       return

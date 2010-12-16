@@ -59,22 +59,22 @@ C  Load the data on the first call
 C
          inited = .true.
 
-         open(unit=81, file='drt_bkg_HM.dat', status='old')
-         read(81,*) np1, nw1, nz1
+         open(unit=IOUNIT, file='drt_bkg_HM.dat', status='old')
+         read(IOUNIT,*) np1, nw1, nz1
          if(np1.ne.NHMP .or. nw1.ne.NHMW .or. nz1.ne.NHMZ) then
             write(0,*) 'RT_Background: fatal error, ',
      .           'corrupted drt_bkg_HM.dat file:'
             write(0,*) 'NP= in file: ', np1, ' in code: ', NHMP
             write(0,*) 'NW= in file: ', nw1, ' in code: ', NHMW
             write(0,*) 'NZ= in file: ', nz1, ' in code: ', NHMZ
-            close(81)
+            close(IOUNIT)
             call frtAbort
          endif
 
          do k=1,NHMZ
             do j=1,NHMW
 
-               read(81,*) z1, w1, (q(i),i=1,NHMP)
+               read(IOUNIT,*) z1, w1, (q(i),i=1,NHMP)
 
                if(j .eq. 1) then
                   z(k) = z1
@@ -84,7 +84,7 @@ C
                      write(0,*) 'RT_Background: fatal error, ',
      .                    'corrupted drt_bkg_HM.dat file:'
                      write(0,*) 'Wrong z: ', k, j, z1, z(k)
-                     close(81)
+                     close(IOUNIT)
                      call frtAbort
                   endif
                endif
@@ -97,7 +97,7 @@ C
                      write(0,*) 'RT_Background: fatal error, ',
      .                    'corrupted drt_bkg_HM.dat file:'
                      write(0,*) 'Wrong w: ', k, j, w1, w(NHMW+1-j)
-                     close(81)
+                     close(IOUNIT)
                      call frtAbort
                   endif
                endif
@@ -131,7 +131,7 @@ C
 
          enddo
 
-         close(81)
+         close(IOUNIT)
 
       endif
 C

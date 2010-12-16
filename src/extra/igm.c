@@ -22,6 +22,11 @@
 #include "ism.h"
 
 
+#ifndef ISM_BUFFER_SIZE
+#define ISM_BUFFER_SIZE 100
+#endif
+
+
 #ifdef RADIATIVE_TRANSFER
 
 #include "rt_solver.h"
@@ -30,9 +35,9 @@
 
 void extDumpRadiationBackground(const char *filename)
 {
-  int i;
+  int i, n;
   FILE *f;
-  float w, nxi, uJnu = 1.5808e-17/pow(auni[min_level],3.0);
+  float *wlen, *ngxi, uJnu = 1.5808e-17/pow(auni[min_level],3.0);
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -40,62 +45,51 @@ void extDumpRadiationBackground(const char *filename)
       cart_assert(f != NULL);
 
       fprintf(f,"# wlen[A]  jnu[cgs] at a=%lf\n",auni[min_level]);
-      i = 0;
-      do
-	{
-	  i++;
-	  rtGetBinWavelengths(1,&i,&w);
-	  rtGetRadiationField(-1,1,&i,&nxi);
-	  if(w > 0.0) fprintf(f,"%9.3e %9.3e\n",w,uJnu*nxi);
-	}
-      while(w > 0.0);
+
+      n = 501;
+      wlen = cart_alloc(float,n);
+      ngxi = cart_alloc(float,n);
+      
+      for(i=0; i<n; i++) wlen[i] = 10*912/pow(10.0,0.01*i);
+
+      rtGetRadiationField(-1,n,wlen,ngxi);
+
+      for(i=0; i<n; i++) fprintf(f,"%9.3e %9.3e\n",wlen[i],uJnu*ngxi[i]);
+
+      cart_free(wlen);
+      cart_free(ngxi);
 
       fclose(f);
     }
 }
 
 
-void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf)
+void extExtractRadiationField(int n, const float *wlen, float *mean_rf)
 {
   int i;
-  int lbins[rt_num_frequencies], vars[rt_num_frequencies];
-  float nxi[rt_num_frequencies];
+  int vars[rt_num_vars];
+  float ngxi[rt_num_vars];
   MESH_RUN_DECLARE(level,cell);
   float uJnu = 1.5808e-17/pow(auni[min_level],3.0);
 
-  cart_assert(nbins>0 && nbins<=rt_num_frequencies);
-
-  /*
-  //  Find the frequency bin indecies
-  */
-  rtGetBinIds(nbins,wbins,lbins);
+  cart_assert(n>0 && n<=rt_num_vars);
   
   /*
   //  Find the mean field
   */
   if(mean_rf != NULL)
     {
-      rtGetRadiationField(-1,nbins,lbins,mean_rf);
+      rtGetRadiationField(-1,n,wlen,mean_rf);
       if(local_proc_id == MASTER_NODE)
 	{
-	  for(i=0; i<nbins; i++)
+	  for(i=0; i<n; i++)
 	    {
-	      cart_debug("Selecting bin %d for wavelength %f; BG = %e [cgs] = %e [CU]",lbins[i],wbins[i],uJnu*mean_rf[i],mean_rf[i]);
-	    }
-	}
-    }
-  else
-    {
-      if(local_proc_id == MASTER_NODE)
-	{
-	  for(i=0; i<nbins; i++)
-	    {
-	      cart_debug("Selecting bin %d for wavelength %f ",lbins[i],wbins[i]);
+	      cart_debug("Radiation background[%e] = %e [cgs] = %e [CU]",wlen[i],uJnu*mean_rf[i],mean_rf[i]);
 	    }
 	}
     }
 
-  for(i=0; i<nbins; i++)
+  for(i=0; i<n; i++)
     {
       vars[i] = rt_disk_offset + i;
     }
@@ -108,52 +102,55 @@ void extExtractRadiationField(int nbins, const float wbins[], float *mean_rf)
     {
       cart_debug("Extracting radiation field on level %d...",level);
     }
-#pragma omp parallel for default(none), private(_Index,cell,i,nxi), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,vars,nbins,lbins)
+#pragma omp parallel for default(none), private(_Index,cell,i,ngxi), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,vars,n,wlen)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   if(cell_is_leaf(cell))
     {
-      rtGetRadiationField(cell,nbins,lbins,nxi);
-      for(i=0; i<nbins; i++)
+      rtGetRadiationField(cell,n,wlen,ngxi);
+      for(i=0; i<n; i++)
 	{
-	  cell_var(cell,vars[i]) = nxi[i];
+	  cell_var(cell,vars[i]) = ngxi[i];
 	}
 
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
   
-  update_buffer_level(level,vars,nbins);
+  update_buffer_level(level,vars,n);
 
   MESH_RUN_OVER_LEVELS_END;
 }  
 
 
-void extExtractPhotoRates(int nbins, const int lbins[], float mean_rate[])
+void extExtractPhotoRates(int n, const int *idx, float *mean_rate)
 {
   int i;
-  int vars[rt_num_frequencies];
-  float rate[frtRATE_DIM], rate0[frtRATE_DIM];
+  int vars[rt_num_vars];
+  float rate[FRT_RATE_DIM], rate0[FRT_RATE_DIM];
   MESH_RUN_DECLARE(level,cell);
 
-  cart_assert(nbins>0 && nbins<=rt_num_frequencies);
+  cart_assert(n>0 && n<=rt_num_vars);
 
   /*
   //  Find the mean rates
   */
-  rtGetPhotoRates(-1,rate0);
-  for(i=0; i<nbins; i++)
+  if(mean_rate != NULL)
     {
-      mean_rate[i] = rate0[lbins[i]];
-    }
-
-  if(local_proc_id == MASTER_NODE)
-    {
-      for(i=0; i<nbins; i++)
+      rtGetPhotoRates(-1,rate0);
+      for(i=0; i<n; i++)
 	{
-	  cart_debug("Mean rate[%d] = %e [cgs]",i,mean_rate[i]);
+	  mean_rate[i] = rate0[idx[i]];
+	}
+
+      if(local_proc_id == MASTER_NODE)
+	{
+	  for(i=0; i<n; i++)
+	    {
+	      cart_debug("Mean rate[%d] = %e [cgs]",i,mean_rate[i]);
+	    }
 	}
     }
 
-  for(i=0; i<nbins; i++)
+  for(i=0; i<n; i++)
     {
       vars[i] = rt_disk_offset + i;
     }
@@ -166,19 +163,19 @@ void extExtractPhotoRates(int nbins, const int lbins[], float mean_rate[])
     {
       cart_debug("Extracting photo rates on level %d...",level);
     }
-#pragma omp parallel for default(none), private(_Index,cell,i,rate), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,vars,nbins,lbins)
+#pragma omp parallel for default(none), private(_Index,cell,i,rate), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,vars,n,idx)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   if(cell_is_leaf(cell))
     {
       rtGetPhotoRates(cell,rate);
-      for(i=0; i<nbins; i++)
+      for(i=0; i<n; i++)
 	{
-	  cell_var(cell,vars[i]) = rate[lbins[i]];
+	  cell_var(cell,vars[i]) = rate[idx[i]];
 	}
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
   
-  update_buffer_level(level,vars,nbins);
+  update_buffer_level(level,vars,n);
 
   MESH_RUN_OVER_LEVELS_END;
 }  

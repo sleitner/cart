@@ -23,28 +23,34 @@
 */
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
 
+#define rt_num_fields_per_freq      2
+
 #ifdef RT_UV
-#define rt_num_frequencies      8
+#define rt_num_freqs      4
 #else
-#define rt_num_frequencies      6
+#define rt_num_freqs      3
 #endif
 
 #define rt_num_et_vars          (nDim*(nDim+1)/2)
-#define rt_num_vars             (2+rt_num_et_vars+rt_num_frequencies)
+#define rt_num_extra_vars       (2+rt_num_et_vars)
+
 #define RT_VAR_OT_FIELD 	(rt_grav_vars_offset+1)
 #define rt_et_offset            (rt_grav_vars_offset+2)
-#define rt_freq_offset          (rt_grav_vars_offset+2+rt_num_et_vars)
+#define rt_field_offset         (rt_grav_vars_offset+2+rt_num_et_vars)
+#define rt_abs_field_offset     (rt_field_offset+rt_num_freqs)
 
 #endif /* RT_TRANSFER_METHOD == RT_METHOD_OTVET */
 
 
-#if !defined(rt_num_frequencies) || !defined(rt_freq_offset)
+#if !defined(rt_num_fields_per_freq) || !defined(rt_num_freqs) || !defined(rt_num_extra_vars) || !defined(rt_field_offset) || !defined(rt_abs_field_offset)
 #error "A radiative transfer method must be specified.\n Please set RT_TRANSFER_METHOD to one of the supported methods (listed in rt_config.h)."
 #endif
 
 
-#define rt_num_disk_vars        rt_num_frequencies
-#define rt_disk_offset          rt_freq_offset
+#define rt_num_fields           (rt_num_fields_per_freq*rt_num_freqs)
+#define rt_num_vars             (rt_num_extra_vars+rt_num_fields)
+#define rt_num_disk_vars        rt_num_fields
+#define rt_disk_offset          rt_field_offset
 
 #else  /* RT_TRANSFER */
 

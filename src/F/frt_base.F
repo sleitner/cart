@@ -4,7 +4,7 @@ C
 C
 C
       subroutine frtInitRun2(Ypl,Tminl,D2Gminl,ClumpH2l,CohLenH2l,
-     .     fGall,fQSOl,IPOPl,IRECl)
+     .     fGall,fQSOl,IPOPl,IRECl,IOUNITl)
       include 'frt_f77.inc'
 C
       Yp = Ypl
@@ -16,6 +16,7 @@ C
       fQSO = fQSOl
       IPOP = IPOPl
       IREC = IRECl
+      IOUNIT = IOUNITl
 C
       call frtInitRun
 C
@@ -37,7 +38,7 @@ C
       data Yp/0.24/, Tmin/10.0/, D2Gmin/1.0e-3/
       data ClumpH2/30.0/, CohLenH2/0.3/
       data fGal /1.0/, fQSO/1.0/
-      data IPOP /2/, IREC/0/
+      data IPOP /2/, IREC/0/, IOUNIT/81/
 C
       if(Yp.lt.1.0e-10 .or. Yp.gt.0.99) then
          write(0,*) 'RT_Base: fatal error, ',
@@ -45,21 +46,24 @@ C
          call frtAbort
       endif
 C
+      call frtInterfaceCheck
+C
 #ifdef RT_OUTPUT
       call frtSetIONode(ioNode)
       if(ioNode) then
-         open(unit=81, file='rt-run.log')
-         write(81,*) 'Run:'
-         write(81,*) 'Yp:       ', Yp
-         write(81,*) 'Tmin:     ', Tmin
-         write(81,*) 'D2Gmin:   ', D2Gmin
-         write(81,*) 'ClumpH2:  ', ClumpH2
-         write(81,*) 'CohLenH2: ', CohLenH2
-         write(81,*) 'fGal:     ', fGal
-         write(81,*) 'fQSO:     ', fQSO
-         write(81,*) 'IPOP:     ', IPOP
-         write(81,*) 'IREC:     ', IREC
-         close(81)
+         open(unit=IOUNIT, file='rt-run.log')
+         write(IOUNIT,*) 'Run:'
+         write(IOUNIT,*) 'Yp:       ', Yp
+         write(IOUNIT,*) 'Tmin:     ', Tmin
+         write(IOUNIT,*) 'D2Gmin:   ', D2Gmin
+         write(IOUNIT,*) 'ClumpH2:  ', ClumpH2
+         write(IOUNIT,*) 'CohLenH2: ', CohLenH2
+         write(IOUNIT,*) 'fGal:     ', fGal
+         write(IOUNIT,*) 'fQSO:     ', fQSO
+         write(IOUNIT,*) 'IPOP:     ', IPOP
+         write(IOUNIT,*) 'IREC:     ', IREC
+         write(IOUNIT,*) 'IOUNIT:   ', IOUNIT
+         close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */
 C
@@ -120,15 +124,15 @@ C
 C
 #ifdef RT_OUTPUT
       if(ioNode) then
-         open(unit=81, file='rt-run.log', access='append')
-         write(81,*) 'Step:'
-         write(81,*) '   uDen:   ', uDen
-         write(81,*) '   uLen:   ', uLen
-         write(81,*) '   uTime:  ', uTime
-         write(81,*) '   aExp:   ', aExp
-         write(81,*) '   Hubble: ', Hubble
-         write(81,*) '   dtStep: ', dtStep
-         close(81)
+         open(unit=IOUNIT, file='rt-run.log', access='append')
+         write(IOUNIT,*) 'Step:'
+         write(IOUNIT,*) '   uDen:   ', uDen
+         write(IOUNIT,*) '   uLen:   ', uLen
+         write(IOUNIT,*) '   uTime:  ', uTime
+         write(IOUNIT,*) '   aExp:   ', aExp
+         write(IOUNIT,*) '   Hubble: ', Hubble
+         write(IOUNIT,*) '   dtStep: ', dtStep
+         close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */
 
@@ -247,25 +251,25 @@ C$OMP+SHARED(csLWMH,csLWHI)
 C
 C  Lower limit and pivot points for cooling ODE solvers
 C
-      yLimit(ieqEin) = 1.0e-2*TemCMB
-      yLimit(ieqXMH) = 1.0e-20*XH
-      yLimit(ieqXH1) = 1.0e-15*XH
-      yLimit(ieqXH2) = 1.0e-15*XH
-      yLimit(ieqXG1) = 1.0e-15*XG
-      yLimit(ieqXG2) = 1.0e-15*XG
-      yLimit(ieqXG3) = 1.0e-15*XG
-      yLimit(ieqXHp) = 1.0e-25*XH
-      yLimit(ieqXHm) = 1.0e-25*XH
+      varMin(ivarEin) = 1.0e-2*TemCMB
+      varMin(ivarXMH) = 1.0e-20*XH
+      varMin(ivarXH1) = 1.0e-15*XH
+      varMin(ivarXH2) = 1.0e-15*XH
+      varMin(ivarXG1) = 1.0e-15*XG
+      varMin(ivarXG2) = 1.0e-15*XG
+      varMin(ivarXG3) = 1.0e-15*XG
+      varMin(ivarXHp) = 1.0e-25*XH
+      varMin(ivarXHm) = 1.0e-25*XH
 
-      ySmall(ieqEin) = TemCMB
-      ySmall(ieqXMH) = 1.0e-8*XH
-      ySmall(ieqXH1) = 1.0e-6*XH
-      ySmall(ieqXH2) = 1.0e-6*XH
-      ySmall(ieqXG1) = 1.0e-6*XG
-      ySmall(ieqXG2) = 1.0e-6*XG
-      ySmall(ieqXG3) = 1.0e-6*XG
-      ySmall(ieqXHp) = 1.0e-8*XH
-      ySmall(ieqXHm) = 1.0e-8*XH
+      varLow(ivarEin) = TemCMB
+      varLow(ivarXMH) = 1.0e-8*XH
+      varLow(ivarXH1) = 1.0e-6*XH
+      varLow(ivarXH2) = 1.0e-6*XH
+      varLow(ivarXG1) = 1.0e-6*XG
+      varLow(ivarXG2) = 1.0e-6*XG
+      varLow(ivarXG3) = 1.0e-6*XG
+      varLow(ivarXHp) = 1.0e-8*XH
+      varLow(ivarXHm) = 1.0e-8*XH
 C
 C  Reset global field counters
 C
@@ -312,15 +316,15 @@ C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
 
 #ifdef RT_OUTPUT
       if(ioNode) then
-         open(unit=81, file='rt-run.log', access='append')
-         write(81,*) 'RT: properties of global radiation fields:'
-         write(81,*) '  nu_H1: ', angUni(lrH1tr), angAvg(lrH1tr), 
+         open(unit=IOUNIT, file='rt-run.log', access='append')
+         write(IOUNIT,*) 'RT: properties of global radiation fields:'
+         write(IOUNIT,*) '  nu_H1: ', angUni(lrH1tr), angAvg(lrH1tr), 
      .        angEff(lrH1tr), facLX*guvEff(lrH1tr)
-         write(81,*) '  nu_G1: ', angUni(lrG1tr), angAvg(lrG1tr), 
+         write(IOUNIT,*) '  nu_G1: ', angUni(lrG1tr), angAvg(lrG1tr), 
      .        angEff(lrG1tr), facLX*guvEff(lrG1tr)
-         write(81,*) '  nu_G2: ', angUni(lrG2tr), angAvg(lrG2tr), 
+         write(IOUNIT,*) '  nu_G2: ', angUni(lrG2tr), angAvg(lrG2tr), 
      .        angEff(lrG2tr), facLX*guvEff(lrG2tr)
-         close(81)
+         close(IOUNIT)
       endif
 #endif
 
@@ -372,26 +376,26 @@ C
          ftabFill = 2.0*NOPT**3
 #endif
          
-         open(unit=81, file='rt-run.log', access='append')
+         open(unit=IOUNIT, file='rt-run.log', access='append')
 
          if(ftabHit .gt. 0.5) then
-            write(81,*) 'RT_Tables: miss/hit ', 
+            write(IOUNIT,*) 'RT_Tables: miss/hit ', 
      .           ftabMiss/ftabHit, ', fill/hit ', ftabFill/ftabHit
          endif
 
          if(gInfo(infoCall) .gt. gInfo(infoFail)) then
-            write(81,*) 'RT_Cooling: avg # of steps ', 
+            write(IOUNIT,*) 'RT_Cooling: avg # of steps ', 
      .           gInfo(infoNAvg)/(gInfo(infoCall)-gInfo(infoFail))
-            write(81,*) 'RT_Cooling: max # of steps ', 
+            write(IOUNIT,*) 'RT_Cooling: max # of steps ', 
      .           gInfo(infoNMax)
          endif
 
          if(gInfo(infoFail) .gt. 0.0d0) then
-            write(81,*) 'RT_Coolin: fail/call ', 
+            write(IOUNIT,*) 'RT_Coolin: fail/call ', 
      .           gInfo(infoFail)/gInfo(infoCall)
          endif
 
-         close(81)
+         close(IOUNIT)
 
       endif
 #endif
@@ -655,6 +659,15 @@ C$OMP+SHARED(lshift,ang,anb,xib,xig)
             ang(lr) = ((xib(lr)-xibl)*anbr+(xibr-xib(lr))*anbl)/XISTEP
          endif
       enddo
+
+#ifdef RT_DEBUG
+      if(ioNode) then
+         lr = lrH1tr
+         write(6,*) 'RT: Advance Background:', lr, ang(lr), axi(lr),
+     .        axi(lr)*dtStep, sxi(lr)
+      endif
+#endif
+
 C
 C  This is just in case...
 C
@@ -668,19 +681,51 @@ C$OMP+SHARED(ang)
       return
       end
 C
+C  Return cooling & heating rates of one resolution element
+C
+      subroutine frtGetCoolingRate(var,rawrf,rateCool,rateHeat)
+      include 'frt_base.inc'
+      dimension var(*), rawrf(*)
+
+      call frtCoolOff(var,rawrf,-1.0,info)
+
+      rateCool = 1.381e-16*var(ivarCool)/uTime
+      rateHeat = 1.381e-16*var(ivarHeat)/uTime
+
+      return
+      end
 C
 C
-      function frtLogWithUnits(val,iDen,iLen,iTime)
+C     
+      subroutine frtGetPhotoRates(var,rawrf,pRate)
       include 'frt_base.inc'
       include 'frt_tables.inc'
+      dimension var(*), rawrf(*)
+      dimension pRate(*)
+#ifdef RT_TRANSFER
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      dimension rf(irfDim)
+#else
+      dimension rf(irfMax)
+#endif
+#else
+      dimension rf(1)
+#endif
+      dimension itab(2)
 
-      if(uDen.gt.0.0 .and. uLen.gt.0.0 .and. uTime.gt.0.0 .and.
-     .     val.gt.0.0) then
-         frtLogWithUnits = log10(val) + iDen*log10(uDen) + 
-     .        iLen*log10(uLen) + iTime*log10(uTime)
-      else
-         frtLogWithUnits = -1000
-      endif
+#ifdef RT_TRANSFER
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      var(ivarDelN) = uColumn*var(ivarRho)*var(ivarDelX)
+#endif
+      call frtTransferPackRadiationField(var,rawrf,rf)
+#endif
+
+      call frtPhotoRates(var,rf,itab,pRate)
 
       return
       end
@@ -700,14 +745,169 @@ C
       end
 C
 C
-C
-      function frtGetBinId(wlen)
+C     
+      subroutine frtGetRadiationField(var,rawrf,nout,wlen,anxi)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-      integer frtGetBinId
+      dimension var(*), rawrf(*)
+      dimension wlen(nout), anxi(nout)
+#ifdef RT_TRANSFER
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      dimension rf(irfDim)
+#else
+      dimension rf(irfMax)
+#endif
+#else
+      dimension rf(1)
+#endif
+      dimension itab(2)
+      include 'frt_inline.inc'
+
+#ifdef RT_TRANSFER
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      var(ivarDelN) = uColumn*var(ivarRho)*var(ivarDelX)
+#endif
+      call frtTransferPackRadiationField(var,rawrf,rf)
+#endif
+
+      do iout=1,nout
+
+         lr = frtBinId(wlen(iout))
+
+         if(lr.ge.1 .and. lr.le.NRAD) then
+
+#ifdef RT_EXTERNAL_BACKGROUND
+#ifdef RT_TRANSFER
+            tauH1l = rf(irfH1gf)
+            tauG1l = rf(irfG1gf)
+            tauG2l = rf(irfG2gf)
+#ifdef RT_UV
+            tauUVl = rf(irfUVgf)
+#endif
+#else
+            tauH1l = 0.0
+            tauG1l = 0.0
+            tauG2l = 0.0
+#ifdef RT_UV
+            tauUVl = 0.0
+#endif
+#endif
+
+#ifdef RT_UV
+            taul = csUVn(lr)*tauUVl
+#else
+            taul = 0.0
+#endif
+            if(tauH1l .gt. 0.0) then
+               taul = taul + csH1n(lr)*tauH1l
+            endif
+            if(tauG1l .gt. 0.0) then
+               taul = taul + csG1n(lr)*tauG1l
+            endif
+            if(tauG2l .gt. 0.0) then
+               taul = taul + csG2n(lr)*tauG2l
+            endif
+
+            if(
+#ifdef RT_UV
+     .           (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+#endif
+     .           (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
+     .           .or.
+     .           (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
+     .           .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+               anxi(iout) = 0.0
+            else
+               anxi(iout) = angEff(lr)*QFuni(taul)
+            endif
+#else
+            anxi(iout) = 0.0
+#endif
+
+#ifdef RT_TRANSFER
+            tauH1l = rf(irfH1lf)
+            tauG1l = rf(irfG1lf)
+            tauG2l = rf(irfG2lf)
+#ifdef RT_UV
+            tauUVl = rf(irfUVlf)
+#endif
+
+#ifdef RT_UV
+            taul = csUVn(lr)*tauUVl
+#else
+            taul = 0.0
+#endif
+            if(tauH1l .gt. 0.0) then
+               taul = taul + csH1n(lr)*tauH1l
+            endif
+            if(tauG1l .gt. 0.0) then
+               taul = taul + csG1n(lr)*tauG1l
+            endif
+            if(tauG2l .gt. 0.0) then
+               taul = taul + csG2n(lr)*tauG2l
+            endif
+
+            if(
+#ifdef RT_UV
+     .           (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+#endif
+     .           (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
+     .           .or.
+     .           (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
+     .           .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+            else
+               anxi(iout) = anxi(iout) + 
+     .              facLX*rf(irfNorm)*guvEff(lr)*QFloc(taul)
+            endif
+#endif
+
+         else
+
+            anxi(iout) = 0.0
+
+         endif
+
+      enddo
+
+      return
+      end
+C
+C
+C
+      subroutine frtGetBackgroundRadiationField(nout,wlen,anxi)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      dimension wlen(nout), anxi(nout)
+
+      do iout=1,nout
+
+         lr = frtBinId(wlen(iout))
+
+         if(lr.ge.1 .and. lr.le.NRAD) then
+            anxi(iout) = angAvg(lr)
+         else
+            anxi(iout) = 0.0
+         endif
+
+      enddo
+
+      return
+      end
+C
+C
+C
+      function frtBinId(wlen)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      integer frtBinId
 
       if(wlen .lt. 1.0e-35) then
-         frtGetBinId = 0
+         frtBinId = 0
          return
       endif
 
@@ -720,159 +920,50 @@ C
          if(lr .gt. NRAD) lr = NRAD
       endif
 
-      frtGetBinId = lr
+      frtBinId = lr
 
       return
       end
 C
 C
 C
-      function frtGetBinWavelength(lr)
+#include "frt_f77.h"
+#define CHECK(v1,v2) if(v1 .ne. v2) ierr = v1
+      subroutine frtInterfaceCheck
       include 'frt_base.inc'
-      include 'frt_tables.inc'
 
-      if(lr.ge.1 .and. lr.le.NRAD) then
+      ierr = 0
 
-         wlen = 911.75*exp(-xig(lr))
+      CHECK(ivarEin,FRT_Ein)
+      CHECK(ivarXH1,FRT_XHI)
+      CHECK(ivarXH2,FRT_XHII)
+      CHECK(ivarXG1,FRT_XHeI)
+      CHECK(ivarXG2,FRT_XHeII)
+      CHECK(ivarXG3,FRT_XHeIII)
+      CHECK(ivarXMH,FRT_XH2)
+      CHECK(ivarXHp,FRT_XH2p)
+      CHECK(ivarXHm,FRT_XHm)
+      CHECK(ivarRho,FRT_Density)
+      CHECK(ivarZsol,FRT_Metallicity)
+      CHECK(ivarSobL,FRT_SobolevLength)
+      CHECK(ivarNumF,FRT_NumericalDiffusionFactor)
+      CHECK(ivarRF0l,FRT_OTRadiationFieldLocal)
+      CHECK(ivarRF0g,FRT_OTRadiationFieldGlobal)
+      CHECK(ivarDTex,FRT_ExternalHeatingRate)
+      CHECK(ivarBias,FRT_SourceBias)
+      CHECK(ivarCSup,FRT_CoolingSuppressionFactor)
+      CHECK(ivarDelX,FRT_ResolutionElementSize)
+      CHECK(ivarDelV,FRT_ResolutionElementVolume)
+      CHECK(ivarLTE,FRT_LTEFlag)
+      CHECK(ivarDeb,FRT_Debug)
+      CHECK(ivarGam,FRT_Gamma)
+      CHECK(ivarDGas,FRT_DustToGasRatio)
+      CHECK(ivarDim,FRT_DIM)
 
-      else
-
-         wlen = 0.0
-
+      if(ierr .ne. 0) then
+         write(0,*) 'RT: Bug (interface error) ', ierr
+         stop
       endif
-
-      frtGetBinWavelength = wlen
-
-      return
-      end
-C
-C
-C
-      function frtGetBackgroundRadiationField(lr)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-
-      if(lr.ge.1 .and. lr.le.NRAD) then
-
-         anxi = angAvg(lr)
-
-      else
-
-         anxi = 0.0
-
-      endif
-
-      frtGetBackgroundRadiationField = anxi
-
-      return
-      end
-C
-C
-C     
-      function frtGetRadiationField(lr,rf)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-#ifdef RT_TRANSFER
-#ifdef RT_UV
-      include 'frt_transfer4.inc'
-#else
-      include 'frt_transfer3.inc'
-#endif
-#endif
-      dimension rf(*)
-      include 'frt_inline.inc'
-
-      if(lr.ge.1 .and. lr.le.NRAD) then
-
-#ifdef RT_EXTERNAL_BACKGROUND
-#ifdef RT_TRANSFER
-         tauH1l = rf(irfH1gf)
-         tauG1l = rf(irfG1gf)
-         tauG2l = rf(irfG2gf)
-#ifdef RT_UV
-         tauUVl = rf(irfUVgf)
-#endif
-#else
-         tauH1l = 0.0
-         tauG1l = 0.0
-         tauG2l = 0.0
-#ifdef RT_UV
-         tauUVl = 0.0
-#endif
-#endif
-
-#ifdef RT_UV
-         taul = csUVn(lr)*tauUVl
-#else
-         taul = 0.0
-#endif
-         if(tauH1l .gt. 0.0) then
-            taul = taul + csH1n(lr)*tauH1l
-         endif
-         if(tauG1l .gt. 0.0) then
-            taul = taul + csG1n(lr)*tauG1l
-         endif
-         if(tauG2l .gt. 0.0) then
-            taul = taul + csG2n(lr)*tauG2l
-         endif
-
-         if(
-#ifdef RT_UV
-     .        (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
-#endif
-     .        (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr) .or.
-     .        (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr) .or.
-     .        (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
-            anxi = 0.0
-         else
-            anxi = angEff(lr)*QFuni(taul)
-         endif
-#else
-         anxi = 0.0
-#endif
-
-#ifdef RT_TRANSFER
-         tauH1l = rf(irfH1lf)
-         tauG1l = rf(irfG1lf)
-         tauG2l = rf(irfG2lf)
-#ifdef RT_UV
-         tauUVl = rf(irfUVlf)
-#endif
-
-#ifdef RT_UV
-         taul = csUVn(lr)*tauUVl
-#else
-         taul = 0.0
-#endif
-         if(tauH1l .gt. 0.0) then
-            taul = taul + csH1n(lr)*tauH1l
-         endif
-         if(tauG1l .gt. 0.0) then
-            taul = taul + csG1n(lr)*tauG1l
-         endif
-         if(tauG2l .gt. 0.0) then
-            taul = taul + csG2n(lr)*tauG2l
-         endif
-
-         if(
-#ifdef RT_UV
-     .        (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
-#endif
-     .        (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr) .or.
-     .        (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr) .or.
-     .        (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
-         else
-            anxi = anxi + facLX*rf(irfNorm)*guvEff(lr)*QFloc(taul)
-         endif
-#endif
-
-      else
-
-         anxi = 0.0
-
-      endif
-
-      frtGetRadiationField = anxi
 
       return
       end

@@ -13,6 +13,7 @@
 #include "load_balance.h"
 #include "parallel.h"
 #include "particle.h"
+#include "plugin.h"
 #include "rt_solver.h"
 #include "system.h"
 #include "timestep.h"
@@ -126,7 +127,7 @@ void ngInitDensity()
 
 #ifdef RADIATIVE_TRANSFER
 const char *ngDumpHeader[] = {
-  "baryon number density (cm^{-3}",
+  "baryon number density (cm^{-3})",
   "temperature (K)",
   "baryon column density (cm^{-2})",
   "gas metallicity (solar units)",
@@ -182,11 +183,6 @@ const int ngDumpWeight[] = {
 void ngDumpWorker(int level, int cell, int num, float *ptr)
 {
   float s, soblen, sobvel, cr, hr;
-#ifdef RADIATIVE_TRANSFER
-  float rate[frtRATE_DIM];
-#else
-  float rate;
-#endif
   int i, nb[num_neighbors];
 
 #ifdef RADIATIVE_TRANSFER
@@ -213,12 +209,11 @@ void ngDumpWorker(int level, int cell, int num, float *ptr)
 #endif /* ENRICH */
 
 #ifdef RADIATIVE_TRANSFER
-  rtGetPhotoRates(cell,rate);
   ptr[4] = cell_HI_fraction(cell);
   ptr[5] = cell_HII_fraction(cell);
   ptr[6] = cell_H2_fraction(cell);
-  ptr[7] = rate[frtRATE_CiLW]*1.05e10;  /* UV field at 12.0eV in units of Draine field (1.0e6 phot/cm^2/s/ster/eV) */
-  ptr[8] = rtDustToGas(cell);
+  ptr[7] = rtUmw(cell);
+  ptr[8] = rtDmw(cell);
 
   cell_all_neighbors(cell,nb);
   /*
@@ -312,7 +307,7 @@ void ngDumpProfiles(const char *filename, int resolution_level, float rmin, floa
 #ifdef COSMOLOGY
   ngInitRT();
   ngInitDensity();
-  extDumpProfiles(ngOutputFile(filename),ngDumpSize,ngDumpWorker,ngDumpHeader,ngDumpWeight,resolution_level,rmin,rmax,25,ngHalos);
+  extDumpHaloProfiles(ngOutputFile(filename),ngDumpSize,ngDumpWorker,ngDumpHeader,ngDumpWeight,rmin,rmax,25,ngHalos,resolution_level,1.0);
   ngIsDirty[VAR_ACCEL] = 1;
 #else
   cart_debug("COSMOLOGY is not set. Skipping ngDumpProfiles.");
@@ -332,7 +327,7 @@ void ngGasFractions(const char *filename)
 }
 
 
-void ngRegion2IFrIT(const char *filename, int nbin1, int floor_level, double pos[], const ng_var_list_t *list)
+void ngRegion2IFrIT(const char *filename, int nbin1, int floor_level, const double pos[], const ng_var_list_t *list)
 {
   int i, nbin[] = { nbin1, nbin1, nbin1 };
 
@@ -342,7 +337,7 @@ void ngRegion2IFrIT(const char *filename, int nbin1, int floor_level, double pos
       ngInitDensity();
     }
 
-  ifrit.OutputMesh(ngOutputFile(filename),floor_level,nbin,pos,list->Num,list->Ids);
+  ifrit.OutputBox(ngOutputFile(filename),floor_level,nbin,pos,list->Num,list->Ids);
 }
 
 
@@ -449,12 +444,25 @@ void run_output()
 }
 
 
+#ifdef USER_PLUGIN
+plugin_t ngPlugin = { NULL };
+const plugin_t* add_plugin(int id)
+{
+  if(id == 0)
+    {
+      ngPlugin.RunBegin = run_output;
+      return &ngPlugin;
+    }
+  else return NULL;
+}
+#endif
+
+
 void init_run()
 {
   int i, ret, level;
   double aexp;
   char str[999];
-  const char *tmp;
 
   if(local_proc_id == MASTER_NODE)
     {

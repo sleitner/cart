@@ -2,6 +2,6 @@ C
 C  Configuration parameters
 C
       real Yp, Tmin, D2Gmin, ClumpH2, CohLenH2, fGal, fQSO
-      integer IPOP, IREC
+      integer IPOP, IREC, ioUnit
       common/frtSetRun/ Yp, Tmin, D2Gmin, ClumpH2, CohLenH2, 
-     .     fGal, fQSO, IPOP, IREC
+     .     fGal, fQSO, IPOP, IREC, IOUNIT

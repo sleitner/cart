@@ -192,7 +192,7 @@ C
 C
 C
 C     
-      subroutine frtGetPhotoRatesSE(par,rf,itab,y,pRate,qRate)
+      subroutine frtPhotoRatesSE(var,rf,itab,pRate,qRate)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_TRANSFER
@@ -203,9 +203,9 @@ C
 #endif
 #endif
       include 'frt_xrays.inc'
-      dimension par(*), rf(*)
+      dimension var(*), rf(*)
       dimension itab(*)
-      dimension y(*), pRate(*), qRate(*)
+      dimension pRate(*), qRate(*)
       dimension pRate1(istabDim), qRate1(istabDim)
 C
       include 'frt_xrays_fun.inc'
@@ -332,7 +332,8 @@ C
 
 #endif /* RT_TRANSFER */
 
-      x = max(0.0,min(1.0,1.0-(y(ieqXH1)+y(ieqXG2)+2*y(ieqXG1))/XFEMAX))
+      x = max(0.0,min(1.0,1.0-(var(ivarXH1)+var(ivarXG2)+
+     .     2*var(ivarXG1))/XFEMAX))
       fh1 = se1fun(x,SE1H1A,SE1H1B,SE1H1C)
       fh2 = se2fun(x,SE2H1A,SE2H1B,SE2H1C)
       fg1 = se1fun(x,SE1G1A,SE1G1B,SE1G1C)

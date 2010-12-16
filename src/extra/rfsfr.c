@@ -17,10 +17,6 @@
 
 #include "extra/halo_finder.h"
 
-#ifdef RADIATIVE_TRANSFER
-#include "F/frt_c.h"
-#endif
-
 
 #if defined (HYDRO) && defined(STARFORM) && defined(RADIATIVE_TRANSFER)
 /*
@@ -31,7 +27,7 @@ void extRFvsSFR1(const char *froot, int top_level, float *var, const halo *h)
   const char *fext[] = { "sfr", "den", "dmw", "fh2" };
   const int nfiles = sizeof(fext)/sizeof(char*);
   MESH_RUN_DECLARE(level,cell);
-  float rate[frtRATE_DIM], uLen;
+  float uLen;
   int i, j, l, parent, size, rank, save;
   double dx, pos[nDim], r = 0.0;
   FILE *f[nfiles];
@@ -119,13 +115,12 @@ void extRFvsSFR1(const char *froot, int top_level, float *var, const halo *h)
 
 		  if(save)
 		    {
-		      rtGetPhotoRates(cell,rate);
-		      for(j=0; j<nfiles; j++) fprintf(f[j],"%9.3e",rate[frtRATE_CiLW]*1.05e10);
+		      for(j=0; j<nfiles; j++) fprintf(f[j],"%9.3e",rtUmw(cell));
 		      for(parent=cell,l=level; l>=min_level; l--)
 			{
 			  if(nfiles > 0) fprintf(f[0]," %9.3e",var[parent]);
 			  if(nfiles > 1) fprintf(f[1]," %9.3e",units->number_density*cell_gas_density(parent));
-			  if(nfiles > 2) fprintf(f[2]," %9.3e",rtDustToGas(parent));
+			  if(nfiles > 2) fprintf(f[2]," %9.3e",rtDmw(parent));
 			  if(nfiles > 3) fprintf(f[3]," %9.3e",cell_H2_fraction(parent));
 			  parent = cell_parent_cell(parent);
 			}
