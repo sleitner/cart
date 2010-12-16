@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "auxiliary.h"
+#include "cell_buffer.h"
 #include "cosmology.h"
 #include "hydro.h"
 #include "io.h"
@@ -67,7 +68,7 @@ void cosmics_init()
     {
       if(num_options < 1)
 	{
-          cart_error("An option -dir=<name> is required, where <name> is the directory name for a set of COSMICS input files.\n");
+          cart_error("An option --dir=<name> is required, where <name> is the directory name for a set of COSMICS input files.\n");
         }
     }
 
@@ -76,7 +77,7 @@ void cosmics_init()
       /*
       //  Root name for data files
       */
-      tmp = check_option1(options[i],"dir",NULL);
+      tmp = check_option1(options[i],"-dir",NULL);
       if(tmp != NULL)
 	{
 	  dir = tmp;

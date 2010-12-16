@@ -83,6 +83,12 @@
 
 
 /*
+//  Enable custom dust-to-gas ratio as a function of gas metallicity
+*/
+?#define RT_CUSTOM_DUST_TO_GAS
+
+
+/*
 //  Model the fixed ISM. If this model is set, the dust-to-gas ratio is 
 //  assumed to be costant everywhere and is set by the config parameter 
 //  <rt_dust_to_gas_floor>, and the radiation field is constant everywhere
