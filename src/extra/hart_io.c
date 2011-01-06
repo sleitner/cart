@@ -21,6 +21,7 @@
 #include "timestep.h"
 #include "tree.h"
 #include "units.h"
+#include "refinement.h"
 
 
 #ifdef HYDRO
