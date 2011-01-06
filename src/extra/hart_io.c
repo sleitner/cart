@@ -86,6 +86,10 @@ void read_hart_grid_binary( char *filename ) {
 	}
 
 	fread(&job, sizeof(char), 256, input );
+	if ( !control_parameter_is_set("jobname") ) {
+	  cart_debug("setting jobname to header value");
+	  strcpy( jobname, job );
+	}
 	fread(&size, sizeof(int), 1, input );
 
 	/* istep, t, dt, adum, ainit */
@@ -218,6 +222,16 @@ void read_hart_grid_binary( char *filename ) {
 			reorder( (char *)&level_sweep_dir[i], sizeof(int) );
 		}
 	}
+	
+	for(i=0;i<nDim;i++){
+	  star_formation_volume_min[i] = 0;
+	  star_formation_volume_max[i] = num_grid;
+	  refinement_volume_min[i] = 0;
+	  refinement_volume_max[i] = num_grid;
+	  /* warning: hart format does not retain star_formation_volume or refinement_volume arrays */
+	  /*  this will lead to a 48byte difference between reverted files */
+	}
+
 
 	/* ncell0 */
 	fread( &size, sizeof(int), 1, input );
@@ -245,6 +259,7 @@ void read_hart_grid_binary( char *filename ) {
 	fread( &size, sizeof(int), 1, input );
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+	  cart_debug("0-level: 0-coord %d hash",coords[0]); 
 		fread( cellrefined_buffer, sizeof(int), num_grid*num_grid, input );
 
 		if ( endian ) {
@@ -293,6 +308,7 @@ void read_hart_grid_binary( char *filename ) {
 	vars_buffer = cart_alloc( float, num_grid*num_grid*num_hydro_vars_file );
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+	  cart_debug("0-level: 0-coord %d ",coords[0]);
 		fread( vars_buffer, sizeof(float), num_hydro_vars_file*num_grid*num_grid, input );
 
 		if ( endian ) {
@@ -372,7 +388,7 @@ void read_hart_grid_binary( char *filename ) {
 				cell_potential(icell) = vars_buffer[i++];
 				cell_potential_hydro(icell) = vars_buffer[i++];
 #ifdef RADIATIVE_TRANSFER
-#error "This section of this code was not yet ported to the RT part."
+				cart_error("This section of this code was not yet ported to the RT part.");
 #endif
 				idx++;
                         }
@@ -623,6 +639,7 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite( &nextras, sizeof(int), 1, output );
 	fwrite( &size, sizeof(int), 1, output );
 
+
 	/* extra */
 	size = nextras * sizeof(float);
 
@@ -645,29 +662,29 @@ void write_hart_grid_binary( char *filename ) {
 	size = (maxlevel-minlevel+1) * sizeof(double);
 	/* tl */
 	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &tl, sizeof(double), maxlevel-minlevel+1, output);
+	fwrite( tl, sizeof(double), maxlevel-minlevel+1, output);
 	fwrite( &size, sizeof(int), 1, output );
 
 	/* dtl */
 	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &dtl, sizeof(double), maxlevel-minlevel+1, output);
+	fwrite( dtl, sizeof(double), maxlevel-minlevel+1, output);
 	fwrite( &size, sizeof(int), 1, output );
 
         /* tl_old */
         fwrite( &size, sizeof(int), 1, output );
-        fwrite( &tl_old, sizeof(double), maxlevel-minlevel+1, output);
+        fwrite( tl_old, sizeof(double), maxlevel-minlevel+1, output);
         fwrite( &size, sizeof(int), 1, output );
 
 	/* dtl_old */
 	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &dtl_old, sizeof(double), maxlevel-minlevel+1, output);
+	fwrite( dtl_old, sizeof(double), maxlevel-minlevel+1, output);
 	fwrite( &size, sizeof(int), 1, output );
 
 	/* iSO */
 	size = (maxlevel-minlevel+1) * sizeof(int);
 
 	fwrite( &size, sizeof(int), 1, output );
-	fwrite( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, output);
+	fwrite( level_sweep_dir, sizeof(int), maxlevel-minlevel+1, output);
 	fwrite( &size, sizeof(int), 1, output );
 
 	/* ncell0 */
@@ -704,7 +721,6 @@ void write_hart_grid_binary( char *filename ) {
 	/* now write pages of root level hydro variables */
 	size = num_hydro_vars * ncell0 * sizeof(float);
 	fwrite( &size, sizeof(int), 1, output );
-
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
 		i = 0;
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
@@ -734,6 +750,10 @@ void write_hart_grid_binary( char *filename ) {
 
 	fwrite( &size, sizeof(int), 1, output );
 
+#ifdef RADIATIVE_TRANSFER
+	//				#error "This section of this code was not yet ported to the RT part."
+	//				cart_error("This section of this code was not yet ported to the RT part.");
+#endif
 #ifdef GRAVITY
 	/* finally write potential variables */
 	size = 2 * ncell0 * sizeof(float);
