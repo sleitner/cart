@@ -687,8 +687,8 @@ void set_timestepping_scheme()
 #ifdef HYDRO 
   hydro_cfl_condition(min_level,&courant_cell,&velocity);
 
-  cart_debug("cfl cell: velocity = %e, cell = %u, pressure = %e, density = %e, momentum = %e %e %e",
-	     velocity, courant_cell, cell_gas_pressure(courant_cell),
+  cart_debug("cfl cell: velocity = %e, cell = %u, level = %u, pressure = %e, density = %e, momentum = %e %e %e",
+	     velocity, courant_cell, 0, cell_gas_pressure(courant_cell),
 	     cell_gas_density(courant_cell), cell_momentum(courant_cell,0),
 	     cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) );
 
@@ -817,7 +817,12 @@ void set_timestepping_scheme()
 
       if(velocity > 0.0)
 	{
-	  dtl_local[level] = min(dtl_local[level],cfl_run*cell_size[level]/velocity);
+	  dt_new = cfl_run*cell_size[level]/velocity;
+	  if(dt_new < dtl_local[level])
+	    {
+	      dtl_local[level] = dt_new;
+	      cart_debug("new cfl cell: velocity = %e, cell = %u, level = %u, pressure = %e, density = %e, momentum = %e %e %e", velocity, courant_cell, level, cell_gas_pressure(courant_cell), cell_gas_density(courant_cell), cell_momentum(courant_cell,0), cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) );
+	    }
 	}
     }
 #endif /* HYDRO */
