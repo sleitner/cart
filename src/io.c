@@ -4140,6 +4140,10 @@ void read_grid_binary( char *filename ) {
 		}
 
 		fread(job, sizeof(char), 256, input );
+		if ( !control_parameter_is_set("jobname") ) {
+		  cart_debug("setting jobname to header value");
+		  strcpy( jobname, job );
+		}
 		fread(&size, sizeof(int), 1, input );
 
 		/* istep, t, dt, adum, ainit */
@@ -4150,7 +4154,7 @@ void read_grid_binary( char *filename ) {
 		fread( &adum, sizeof(float), 1, input );
 		fread( &ainit, sizeof(float), 1, input );
 		fread( &size, sizeof(int), 1, input );
-
+		
 		if ( endian ) {
 			reorder( (char *)&step, sizeof(int) );
 			reorder( (char *)&ainit, sizeof(float) );
@@ -4344,7 +4348,7 @@ void read_grid_binary( char *filename ) {
 			}
 		}
 #endif /* STARFORM */
-
+		
 		/* ncell0 */
 		fread( &size, sizeof(int), 1, input );
 		fread( &ncell0, sizeof(int), 1, input);
