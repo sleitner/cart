@@ -581,6 +581,8 @@ void write_hart_grid_binary( char *filename ) {
 	int first_oct;
 
 	int HART_num_hydro_vars ;
+	int HART_nvarMax; 
+	int ivar,jvar;
 	int const HART_rt_num_chem_species = 8;
 	int const HART_num_enrichment_species = 2;
 
@@ -595,19 +597,22 @@ void write_hart_grid_binary( char *filename ) {
 	
 	/* assign cellhvars to the right HART size */
 	HART_num_hydro_vars = num_hydro_vars ;
-	HART_num_hydro_vars += HART_num_enrichment_species - num_enrichment_species;
+	HART_num_hydro_vars += HART_num_enrichment_species - num_enrichment_species; //snl1snl1
 #ifdef RADIATIVE_TRANSFER
 	HART_num_hydro_vars += HART_rt_num_chem_species - rt_num_chem_species;
 	cart_debug("Note ART wrote rt_num_chem_species=8 instead of CART's 6." );
 	cart_debug("Adding two zeroed float fields for ART ivarHp ivarHm");
 #endif
+	cart_debug("HART_num_hydro_vars = %d ; num_hydro_vars = %d",HART_num_hydro_vars,num_hydro_vars);
 	cellhvars = cart_alloc( float, HART_num_hydro_vars*page_size );
 
 	/* assign nvars to the right HART size */
 	HART_nvarMax = 2 ; //potential vars
 #ifdef RADIATIVE_TRANSFER
+	int n_rt_sets = 4;
 	HART_nvarMax += (6+1+2*n_rt_sets); //snl1snl1
 #endif
+	cart_debug("HART_nvarMax = %d ; nvarMax = %d",HART_nvarMax,2);
 	cellvars = cart_alloc( float, HART_nvarMax*page_size );
 
 	minlevel = min_level;
@@ -772,7 +777,7 @@ void write_hart_grid_binary( char *filename ) {
 #else
 				cellhvars[i++] = 0;
 #endif /*  ENRICH */             
-#ifdef RADIATIVE TRANSFER
+#ifdef RADIATIVE_TRANSFER
 				cellhvars[i++] = cell_HI_fraction[icell];
 				cellhvars[i++] = cell_HII_fraction[icell];
 				cellhvars[i++] = cell_HeI_fraction[icell];
@@ -796,7 +801,7 @@ void write_hart_grid_binary( char *filename ) {
 
 #ifdef GRAVITY
 	/* write variables */
-	size = hart_nvarMax * ncell0 * sizeof(float);
+	size = HART_nvarMax * ncell0 * sizeof(float);
 	fwrite( &size, sizeof(int), 1, output );
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
@@ -844,7 +849,7 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite ( &size, sizeof(int), 1, output );
 #endif /* GRAVITY */
 
-	size = hart_nvarMax * ncell0 * sizeof(float);
+	size = HART_nvarMax * ncell0 * sizeof(float);
 
 	fwrite( &size, sizeof(int), 1, output );
 
@@ -979,7 +984,7 @@ void write_hart_grid_binary( char *filename ) {
 #else
 				cellhvars[ivar++] = 0;
 #endif /*  ENRICH */             
-#ifdef RADIATIVE TRANSFER
+#ifdef RADIATIVE_TRANSFER
 				cellhvars[ivar++] = cell_HI_fraction[icell];
 				cellhvars[ivar++] = cell_HII_fraction[icell];
 				cellhvars[ivar++] = cell_HeI_fraction[icell];
