@@ -27,8 +27,21 @@
 #ifdef HYDRO
 
 #ifndef GRAVITY
-#error  warning: without GRAVITY define, io may be wrong
+#error  warning: without GRAVITY define, io will be wrong 
 #endif
+
+#define HART_rt_num_chem_species  8
+#define HART_num_enrichment_species  2
+#ifdef RADIATIVE_TRANSFER
+//#define HART_nvarMax  (2 + (6+1+2*4))
+#define HART_nvarMax  (2 + (rt_num_et_vars+1+rt_num_disk_vars))
+#else
+#define HART_nvarMax  2  //potential vars
+#endif
+#define HART_num_hydro_vars  (num_hydro_vars + HART_num_enrichment_species - num_enrichment_species + HART_rt_num_chem_species - rt_num_chem_species)
+
+
+
 
 typedef struct {
 	int cell;
@@ -38,7 +51,7 @@ typedef struct {
 
 void read_hart_grid_binary( char *filename ) {
   int i, j, k, m, idx;
-	int size;
+  int size,size2;
 	FILE *input;
 	char job[256];
 	int minlevel, maxlevel;
@@ -292,28 +305,27 @@ void read_hart_grid_binary( char *filename ) {
 			}
 		}
 	}
-	fread( &size, sizeof(int), 1, input );
+	fread( &size2, sizeof(int), 1, input ); 
 
 	cart_free( cellrefined_buffer );
 
 #ifdef HYDRO
 	fread( &size, sizeof(int), 1, input );
-#ifdef DEBUG
 	if ( endian ) {
 	  reorder( (char *)&size, sizeof(int) );
 	}
 	cart_debug("Record size: %d",size);
-#endif
 
 	int num_hydro_vars_file = size/num_grid/num_grid/num_grid/sizeof(float);
 
 	cart_debug("num_chem_species_code: %d",num_chem_species);
 	cart_debug("num_hydro_vars_file: %d",num_hydro_vars_file);
+	cart_assert(num_hydro_vars_file == HART_num_hydro_vars)
 
 	vars_buffer = cart_alloc( float, num_grid*num_grid*num_hydro_vars_file );
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-	  cart_debug("0-level: 0-coord %d ",coords[0]);
+	  cart_debug("0-level: 0-coord %d",coords[0]);
 		fread( vars_buffer, sizeof(float), num_hydro_vars_file*num_grid*num_grid, input );
 
 		if ( endian ) {
@@ -338,12 +350,33 @@ void read_hart_grid_binary( char *filename ) {
 				cell_gas_pressure(icell) = vars_buffer[i++];
 				cell_gas_gamma(icell) = vars_buffer[i++];
 				cell_gas_internal_energy(icell) = vars_buffer[i++];
-
-#ifdef ADVECT_SPECIES
-				for ( m = 0; m < num_chem_species; m++ ) {
-					cell_advected_variable(icell,m) = vars_buffer[i++];
+#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(NONTRADITIONAL_ART_FILE)
+				cell_electron_internal_energy(icell) = vars_buffer[i++]; /* not used in ART */
+#endif 
+#ifdef ENRICH
+				cell_gas_metal_density_II(icell) = vars_buffer[i++];
+#ifdef ENRICH_SNIa              
+				cell_gas_metal_density_Ia(icell) = vars_buffer[i++];
+#else 
+				i++; //skip -- ART always writes enrich
+#endif /*  ENRICH_SNIa  */             
+#else
+				i++; //skip -- ART always writes enrich
+#endif /*  ENRICH */             
+#ifdef RADIATIVE_TRANSFER
+				cell_HI_density(icell) = vars_buffer[i++];
+				cell_HII_density(icell) = vars_buffer[i++];
+				cell_HeI_density(icell) = vars_buffer[i++];
+				cell_HeII_density(icell) = vars_buffer[i++];
+				cell_HeIII_density(icell) = vars_buffer[i++];
+				cell_H2_density(icell) = vars_buffer[i++];
+				for(m=0; m<HART_rt_num_chem_species - rt_num_chem_species; m++){ 
+				  i++; //skip -- ART always writes H2+ and H- density
 				}
-#endif /* ADVECT_SPECIES */
+#endif /* RADIATIVE TRANSFER */
+#if defined(BLASTWAVE) && defined(NONTRADITIONAL_ART_FILE)
+				  cell_blastwave_time(icell) = vars_buffer[i++]; /* not used in ART */
+#endif 
 				idx++;
 
 			}
@@ -360,7 +393,7 @@ void read_hart_grid_binary( char *filename ) {
 	cart_free( vars_buffer );
 #endif /* HYDRO */
 
-#ifdef GRAVITY 
+#if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
 	fread( &size, sizeof(int), 1, input );
 #ifdef DEBUG
 	if ( endian ) {
@@ -368,17 +401,16 @@ void read_hart_grid_binary( char *filename ) {
 	}
 	cart_debug("Record size: %d",size);
 #endif
-	int num_grav_vars_file = size/num_grid/num_grid/num_grid/sizeof(float);
+	int nvar_file = size/num_grid/num_grid/num_grid/sizeof(float); 
+	cart_assert(HART_nvarMax == nvar_file); 
 
-	cart_debug("num_grav_vars_file: %d",num_grav_vars_file);
-
-	vars_buffer = cart_alloc( float, num_grav_vars_file*num_grid*num_grid );
+	vars_buffer = cart_alloc( float, nvar_file*num_grid*num_grid ); 
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-		fread( vars_buffer, sizeof(float), num_grav_vars_file*num_grid*num_grid, input );
+		fread( vars_buffer, sizeof(float), nvar_file*num_grid*num_grid, input );
 
 		if ( endian ) {
-			for ( i = 0; i < num_grav_vars_file*num_grid*num_grid; i++ ) {
+			for ( i = 0; i < nvar_file*num_grid*num_grid; i++ ) {
 				reorder( (char *)&vars_buffer[i], sizeof(float) );
 			}
 		}
@@ -389,11 +421,17 @@ void read_hart_grid_binary( char *filename ) {
 				index = sfc_index( coords );
 				icell = root_cell_location( index );
 
-				i = idx*num_grav_vars_file;
+				i = idx*nvar_file;
 				cell_potential(icell) = vars_buffer[i++];
 				cell_potential_hydro(icell) = vars_buffer[i++];
 #ifdef RADIATIVE_TRANSFER
-				cart_error("This section of this code was not yet ported to the RT part.");
+				for(j=0; j<rt_num_disk_vars; j++) {
+				   cell_vars[icell][j+rt_disk_offset] = vars_buffer[i++];
+				}
+				for(j=0; j<rt_num_et_vars; j++) {
+				  cell_vars[icell][j+rt_et_offset] = vars_buffer[i++];
+				}
+				cell_rt_source(icell) = vars_buffer[i++];
 #endif
 				idx++;
                         }
@@ -422,7 +460,7 @@ void read_hart_grid_binary( char *filename ) {
 	}
 
 	child_cells = cart_alloc( cell_file_struct, num_children );
-	for(i=0; i<num_children; i++) child_cells[i].vars = cart_alloc(float, num_hydro_vars_file+num_grav_vars_file);
+	for(i=0; i<num_children; i++) child_cells[i].vars = cart_alloc(float, num_hydro_vars_file+nvar_file);
 
 	for ( level = 1; level <= maxlevel; level++ ) {
 		fread( &size, sizeof(int), 1, input );
@@ -486,7 +524,7 @@ void read_hart_grid_binary( char *filename ) {
 			fread( &size, sizeof(int), 1, input );
 			fread( &child_cells[j].cell, sizeof(int), 1, input );
 			fread( &child_cells[j].refined, sizeof(int), 1, input );
-			fread( child_cells[j].vars, sizeof(float), num_hydro_vars_file+num_grav_vars_file, input );
+			fread( child_cells[j].vars, sizeof(float), num_hydro_vars_file+nvar_file, input );
 			fread( &size, sizeof(int), 1, input );
 		  }
 
@@ -509,7 +547,7 @@ void read_hart_grid_binary( char *filename ) {
 				}
 
 				if ( endian ) {
-					for ( k = 0; k < num_hydro_vars_file+num_grav_vars_file; k++ ) {
+					for ( k = 0; k < num_hydro_vars_file+nvar_file; k++ ) {
 						reorder( (char *)&child_cells[j].vars[k], sizeof(float) );
 					}
 				}
@@ -523,15 +561,49 @@ void read_hart_grid_binary( char *filename ) {
                                 cell_gas_pressure(icell) = child_cells[j].vars[k++];
                                 cell_gas_gamma(icell) = child_cells[j].vars[k++];
                                 cell_gas_internal_energy(icell) = child_cells[j].vars[k++];
-
-#ifdef ADVECT_SPECIES
-                                for ( m = 0; m < num_chem_species; m++ ) {
-                                        cell_advected_variable(icell,m) = child_cells[j].vars[k++];
-                                }
-#endif /* ADVECT_SPECIES */
-				k = num_hydro_vars_file;
+#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(NONTRADITIONAL_ART_FILE)
+				cell_electron_internal_energy(icell) = child_cells[j].vars[k++]; /* not used in ART */
+#endif 
+#ifdef ENRICH
+				cell_gas_metal_density_II(icell) = child_cells[j].vars[k++];
+#ifdef ENRICH_SNIa              
+				cell_gas_metal_density_Ia(icell) = child_cells[j].vars[k++];
+#else 
+				k++; //skip -- ART always writes enrich
+#endif /*  ENRICH_SNIa  */             
+#else
+				k++; //skip -- ART always writes enrich
+#endif /*  ENRICH */             
+#ifdef RADIATIVE_TRANSFER
+				cell_HI_density(icell) = child_cells[j].vars[k++];
+				cell_HII_density(icell) = child_cells[j].vars[k++];
+				cell_HeI_density(icell) = child_cells[j].vars[k++];
+				cell_HeII_density(icell) = child_cells[j].vars[k++];
+				cell_HeIII_density(icell) = child_cells[j].vars[k++];
+				cell_H2_density(icell) = child_cells[j].vars[k++];
+				for(m=0; m<HART_rt_num_chem_species - rt_num_chem_species; m++){ 
+				  k++; //skip -- ART always writes H2+ and H- density
+				}
+#endif /* RADIATIVE TRANSFER */
+#if defined(BLASTWAVE) && defined(NONTRADITIONAL_ART_FILE)
+				cell_blastwave_time(icell) = child_cells[j].vars[k++]; /* not used in ART */
+#endif 
+				cart_assert(k == num_hydro_vars_file);
+#ifdef GRAVITY
 				cell_potential(icell) = child_cells[j].vars[k++];
 				cell_potential_hydro(icell) = child_cells[j].vars[k++];
+#endif /* GRAVITY */
+
+#ifdef RADIATIVE_TRANSFER
+				for(m=0; m<rt_num_disk_vars; m++) {
+				  cell_vars[icell][m+rt_disk_offset] = child_cells[j].vars[k++];
+				}
+				for(m=0; m<rt_num_et_vars; m++) {
+				  cell_vars[icell][m+rt_et_offset] = child_cells[j].vars[k++];
+				}
+				cell_rt_source(icell) = child_cells[j].vars[k++];
+				cart_assert(k == num_hydro_vars_file+nvar_file);
+#endif
 			}
 		}
 
@@ -555,7 +627,7 @@ void read_hart_grid_binary( char *filename ) {
 }
 
 void write_hart_grid_binary( char *filename ) {
-	int i, j, m;
+        int i, j, k, m;
 	int size;
 	FILE *output;
 	float adum, ainit;
@@ -580,12 +652,6 @@ void write_hart_grid_binary( char *filename ) {
 	int iOctCh;
 	int first_oct;
 
-	int HART_num_hydro_vars ;
-	int HART_nvarMax; 
-	int ivar,jvar;
-	int const HART_rt_num_chem_species = 8;
-	int const HART_num_enrichment_species = 2;
-
 	/* this is a single-processor only function */
 	cart_assert( num_procs == 1 );
 
@@ -596,10 +662,7 @@ void write_hart_grid_binary( char *filename ) {
         cellrefined = cart_alloc( int, page_size );
 	
 	/* assign cellhvars to the right HART size */
-	HART_num_hydro_vars = num_hydro_vars ;
-	HART_num_hydro_vars += HART_num_enrichment_species - num_enrichment_species; //snl1snl1
 #ifdef RADIATIVE_TRANSFER
-	HART_num_hydro_vars += HART_rt_num_chem_species - rt_num_chem_species;
 	cart_debug("Note ART wrote rt_num_chem_species=8 instead of CART's 6." );
 	cart_debug("Adding two zeroed float fields for ART ivarHp ivarHm");
 #endif
@@ -607,12 +670,7 @@ void write_hart_grid_binary( char *filename ) {
 	cellhvars = cart_alloc( float, HART_num_hydro_vars*page_size );
 
 	/* assign nvars to the right HART size */
-	HART_nvarMax = 2 ; //potential vars
-#ifdef RADIATIVE_TRANSFER
-	int n_rt_sets = 4;
-	HART_nvarMax += (6+1+2*n_rt_sets); //snl1snl1
-#endif
-	cart_debug("HART_nvarMax = %d ; nvarMax = %d",HART_nvarMax,2);
+	cart_debug("HART_nvarMax = %d ; #potential vars= %d",HART_nvarMax,2);
 	cellvars = cart_alloc( float, HART_nvarMax*page_size );
 
 	minlevel = min_level;
@@ -770,7 +828,7 @@ void write_hart_grid_binary( char *filename ) {
 #ifdef ENRICH
 				cellhvars[i++] = cell_gas_metal_density_II(icell);
 #ifdef ENRICH_SNIa              
-				cellhvars[i++] = cell_gas_metal_density_II(icell);
+				cellhvars[i++] = cell_gas_metal_density_Ia(icell);
 #else 
 				cellhvars[i++] = 0;
 #endif /*  ENRICH_SNIa  */             
@@ -778,46 +836,45 @@ void write_hart_grid_binary( char *filename ) {
 				cellhvars[i++] = 0;
 #endif /*  ENRICH */             
 #ifdef RADIATIVE_TRANSFER
-				cellhvars[i++] = cell_HI_fraction[icell];
-				cellhvars[i++] = cell_HII_fraction[icell];
-				cellhvars[i++] = cell_HeI_fraction[icell];
-				cellhvars[i++] = cell_HeII_fraction[icell];
-				cellhvars[i++] = cell_HeIII_fraction[icell];
-				cellhvars[i++] = cell_H2_fraction[icell];
+				cellhvars[i++] = cell_HI_density(icell);
+				cellhvars[i++] = cell_HII_density(icell);
+				cellhvars[i++] = cell_HeI_density(icell);
+				cellhvars[i++] = cell_HeII_density(icell);
+				cellhvars[i++] = cell_HeIII_density(icell);
+				cellhvars[i++] = cell_H2_density(icell);
 				for(j=0; j<HART_rt_num_chem_species - rt_num_chem_species; j++){
-				  cellhvars[i++] = 0; // H2+ fraction H- fraction
+				  cellhvars[i++] = 0; // H2+ density H- density
 				}
 #endif /* RADIATIVE TRANSFER */
 #if defined(BLASTWAVE) && defined(NONTRADITIONAL_ART_FILE)
-				  cellhvars[i++] = cell_blastwave_time[icell]; /* not used in ART */
+				cellhvars[i++] = cell_blastwave_time(icell); /* not used in ART */
 #endif 
 			}
 		}
 		
-		fwrite( cellhvars, sizeof(float), num_hydro_vars*page_size, output );
+		fwrite( cellhvars, sizeof(float), HART_num_hydro_vars*page_size, output );
 	}
-		
 	fwrite( &size, sizeof(int), 1, output );
 
-#ifdef GRAVITY
-	/* write variables */
+	/* write grav and RT variables */
+	cart_debug("write grav and RT variables");
 	size = HART_nvarMax * ncell0 * sizeof(float);
 	fwrite( &size, sizeof(int), 1, output );
 
+	i = size/sizeof(float)/num_grid;
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+	        cart_assert(i == size/sizeof(float)/num_grid);
 		i = 0;
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
 			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
 				icell = sfc_index( coords );
-
+#ifdef GRAVITY
 				cellvars[i++] = cell_potential(icell);
 				cellvars[i++] = cell_potential_hydro(icell);
+#endif /* GRAVITY */
 #ifdef RADIATIVE_TRANSFER
-				cart_assert(rt_num_fields_per_freq = 4); /* not set for variation here */
-				cart_assert(rt_num_freqs = 2);
-				cart_assert(rt_num_fields == 8 );
-				for(j=0; j<rt_num_disk_vars; j++) {
-				  cellvars[i++] = cell_var[icell][j+rt_disk_offset];
+				for(m=0; m<rt_num_disk_vars; m++) {
+				  cellvars[i++] = cell_vars[icell][m+rt_disk_offset];
 /* 				  parameter ( ifrOTf   = 3 + 1 ) //Far RF at 0 */
 /* 				  parameter ( ifrH1f   = 3 + 2 ) //Far RF at HI */
 /* 				  parameter ( ifrG1f   = 3 + 3 ) //Far RF at HeI */
@@ -827,9 +884,8 @@ void write_hart_grid_binary( char *filename ) {
 /* 				  parameter ( ifrG1n   = 3 + 7 ) // */
 /* 				  parameter ( ifrG2n   = 3 + 8 ) // */
 				}
-				cart_assert(rt_num_et_vars == 6)
-				for(j=0; j<rt_num_et_vars; j++) {
-				  cellvars[i++] = cell_var[icell][j+rt_et_offset];
+				for(m=0; m<rt_num_et_vars; m++) {
+				  cellvars[i++] = cell_vars[icell][m+rt_et_offset];
 /* 				  parameter ( irtET1   = 11 + 1) //Eddington Tensor 11 */
 /* 				  parameter ( irtET2   = 11 + 2) //Eddington Tensor 12 */
 /* 				  parameter ( irtET3   = 11 + 3) //Eddington Tensor 13 */
@@ -838,19 +894,17 @@ void write_hart_grid_binary( char *filename ) {
 /* 				  parameter ( irtET6   = 11 + 6) //Eddington Tensor 33 */
 				}
 				cellvars[i++] = cell_rt_source(icell);
-/*				parameter ( irtSor   = 11 + 7) //dont know */
-#endif
+/*				parameter ( irtSor   = 11 + 7) // */
+#endif /* RADIATIVE_TRANSFER */
 			}
 		}
 
-		fwrite( cellvars, sizeof(float), 2*page_size, output );
+		fwrite( cellvars, sizeof(float), HART_nvarMax*page_size, output );
 	}
-
 	fwrite ( &size, sizeof(int), 1, output );
-#endif /* GRAVITY */
+	cart_debug("done writing RT+grav");
 
-	size = HART_nvarMax * ncell0 * sizeof(float);
-
+	size = HART_nvarMax * sizeof(int);
 	fwrite( &size, sizeof(int), 1, output );
 
 	nOct = 0;
@@ -970,54 +1024,48 @@ void write_hart_grid_binary( char *filename ) {
 				cellhvars[5] = cell_gas_pressure(icell);
 				cellhvars[6] = cell_gas_gamma(icell);
 				cellhvars[7] = cell_gas_internal_energy(icell);
-				ivar=8;
+				k=8;
 #if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
-				cellhvars[ivar++] = cell_electron_internal_energy(icell); /* not used in ART */
+				cellhvars[k++] = cell_electron_internal_energy(icell); /* not used in ART */
 #endif 
 #ifdef ENRICH
-				cellhvars[ivar++] = cell_gas_metal_density_II(icell);
+				cellhvars[k++] = cell_gas_metal_density_II(icell);
 #ifdef ENRICH_SNIa              
-				cellhvars[ivar++] = cell_gas_metal_density_II(icell);
+				cellhvars[k++] = cell_gas_metal_density_Ia(icell);
 #else 
-				cellhvars[ivar++] = 0;
+				cellhvars[k++] = 0;
 #endif /*  ENRICH_SNIa  */             
 #else
-				cellhvars[ivar++] = 0;
+				cellhvars[k++] = 0;
 #endif /*  ENRICH */             
 #ifdef RADIATIVE_TRANSFER
-				cellhvars[ivar++] = cell_HI_fraction[icell];
-				cellhvars[ivar++] = cell_HII_fraction[icell];
-				cellhvars[ivar++] = cell_HeI_fraction[icell];
-				cellhvars[ivar++] = cell_HeII_fraction[icell];
-				cellhvars[ivar++] = cell_HeIII_fraction[icell];
-				cellhvars[ivar++] = cell_H2_fraction[icell];
-				for(j=0; j<HART_rt_num_chem_species - rt_num_chem_species; j++){
-				  cellhvars[ivar++] = 0; // H2+ fraction H- fraction
+				cellhvars[k++] = cell_HI_density(icell);
+				cellhvars[k++] = cell_HII_density(icell);
+				cellhvars[k++] = cell_HeI_density(icell);
+				cellhvars[k++] = cell_HeII_density(icell);
+				cellhvars[k++] = cell_HeIII_density(icell);
+				cellhvars[k++] = cell_H2_density(icell);
+				for(m=0; m<HART_rt_num_chem_species - rt_num_chem_species; m++){
+				  cellhvars[k++] = 0; // H2+ density H- density
 				}
 #endif /* RADIATIVE TRANSFER */
 #if defined(BLASTWAVE) && defined(CONVERT_FOR_IFRIT)
-				cellhvars[ivar++] = cell_blastwave_time[icell]; /* not used in ART */
+				cellhvars[k++] = cell_blastwave_time(icell); /* not used in ART */
 #endif 
 
-				ivar = 0; //snl1snl1 check that j is not in several loops?!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+				k = 0; 
 #ifdef GRAVITY
-				cellvars[ivar++] = cell_potential(icell);
-				cellvars[ivar++] = cell_potential_hydro(icell);
+				cellvars[k++] = cell_potential(icell);
+				cellvars[k++] = cell_potential_hydro(icell);
 #endif /* GRAVITY */
-
 #ifdef RADIATIVE_TRANSFER
-				cart_assert(rt_num_fields_per_freq == 4); /* not set for variation here */
-				cart_assert(rt_num_freqs == 2);
-				cart_assert(rt_num_fields == 8 );
-				for(jvar=0; jvar<rt_num_disk_vars; jvar++) {
-				  cellvars[ivar++] = cell_var[icell][jvar+rt_disk_offset];
+				for(m=0; m<rt_num_disk_vars; m++) {
+				  cellvars[k++] = cell_vars[icell][m+rt_disk_offset];
 				}
-				cart_assert(rt_num_et_vars == 6)
-				for(jvar=0; jvar<rt_num_et_vars; jvar++) {
-				  cellvars[ivar++] = cell_var[icell][jvar+rt_et_offset];
+				for(m=0; m<rt_num_et_vars; m++) {
+				  cellvars[k++] = cell_vars[icell][m+rt_et_offset];
 				}
-				cellvars[ivar++] = cell_rt_source(icell);
-/*				parameter ( irtSor   = 11 + 7) //dont know */
+				cellvars[k++] = cell_rt_source(icell);
 #endif
 
 				fwrite( &size, sizeof(int), 1, output );
