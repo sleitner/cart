@@ -84,7 +84,7 @@
 
 
 #ifdef RADIATIVE_TRANSFER
-  #define rt_grav_vars_offset     (num_grav_vars)
+  #define rt_grav_vars_offset       (num_grav_vars)
   #if (rt_num_vars > 0)
     #define RT_VAR_SOURCE           (rt_grav_vars_offset)
     #define cell_rt_source(c)       (cell_vars[c][RT_VAR_SOURCE])
@@ -92,21 +92,46 @@
 #endif /* RADIATIVE_TRANSFER */
 
 
+
 #ifdef HYDRO
+
+  #define HVAR_GAS_DENSITY			(num_grav_vars+rt_num_vars)
+  #define HVAR_GAS_ENERGY			(num_grav_vars+rt_num_vars+1)
+  #define HVAR_PRESSURE				(num_grav_vars+rt_num_vars+2)
+  #define HVAR_GAMMA				(num_grav_vars+rt_num_vars+3)
+  #define HVAR_INTERNAL_ENERGY			(num_grav_vars+rt_num_vars+4)
+  #define HVAR_MOMENTUM				(num_grav_vars+rt_num_vars+5)
+
+  #define cell_hydro_variable(c,v)		(cell_vars[c][num_grav_vars+rt_num_vars+v])
+  #define cell_gas_density(c)			(cell_vars[c][HVAR_GAS_DENSITY])
+  #define cell_gas_energy(c)			(cell_vars[c][HVAR_GAS_ENERGY])
+  #define cell_gas_pressure(c)			(cell_vars[c][HVAR_PRESSURE])
+  #define cell_gas_gamma(c)			(cell_vars[c][HVAR_GAMMA])
+  #define cell_gas_internal_energy(c)		(cell_vars[c][HVAR_INTERNAL_ENERGY])
+  #define cell_momentum(c,d)			(cell_vars[c][HVAR_MOMENTUM+d])
+  float cell_gas_kinetic_energy(int cell);
+  float cell_gas_temperature(int cell);
+
+  #define num_basic_hydro_vars      (5+nDim)
+
+  #ifdef ELECTRON_ION_NONEQUILIBRIUM
+    #define num_extra_hydro_vars   1
+    #define HVAR_ELECTRON_INTERNAL_ENERGY	(num_grav_vars+rt_num_vars+num_basic_hydro_vars)
+    #define cell_electron_internal_energy(c)	(cell_vars[c][HVAR_ELECTRON_INTERNAL_ENERGY])
+  #else
+    #define num_extra_hydro_vars   0
+  #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
 
   #ifdef ADVECT_SPECIES
 
-    #ifdef ELECTRON_ION_NONEQUILIBRIUM
-      #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+6+nDim)
-    #else
-      #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+5+nDim)
-    #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+    #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
+    #define cell_advected_variable(c,v)		(cell_vars[c][HVAR_ADVECTED_VARIABLES+v])
+
 
     #ifdef RADIATIVE_TRANSFER /* radiative transfer block */
-
       #define rt_num_chem_species		6
       #define RT_HVAR_OFFSET			(HVAR_ADVECTED_VARIABLES)
-
       #define cell_HI_density(c)		(cell_vars[c][RT_HVAR_OFFSET+0])
       #define cell_HII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+1])
       #define cell_HeI_density(c)		(cell_vars[c][RT_HVAR_OFFSET+2])
@@ -119,35 +144,39 @@
       #define cell_HeII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+3]/cell_gas_density(c)/constants->XHe)
       #define cell_HeIII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+4]/cell_gas_density(c)/constants->XHe)
       #define cell_H2_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+5]/cell_gas_density(c)/(0.5*constants->XH))
-
     #else
-
       #define rt_num_chem_species		0
-
     #endif /* RADIATIVE_TRANSFER */
 
     #ifdef ENRICH /* turn on enrichment by stars */
-
       #define HVAR_METAL_DENSITY_II		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species)
       #define cell_gas_metal_density_II(c)	(cell_vars[c][HVAR_METAL_DENSITY_II])
 
       #ifdef ENRICH_SNIa
-        #define	num_chem_species	        (2+rt_num_chem_species)
+	#define	num_enrichment_species          2
         #define HVAR_METAL_DENSITY_Ia		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
         #define cell_gas_metal_density_Ia(c)    (cell_vars[c][HVAR_METAL_DENSITY_Ia])
         #define cell_gas_metal_density(c)	(cell_gas_metal_density_II(c)+cell_gas_metal_density_Ia(c))
       #else
-        #define num_chem_species	        (1+rt_num_chem_species)
+	#define num_enrichment_species          1
         #define cell_gas_metal_density(c)	cell_gas_metal_density_II(c)
       #endif /* ENRICH_SNIa */
 
     #else
 
-      #define num_chem_species		 	(rt_num_chem_species)
+      #define num_enrichment_species		0
 
     #endif /* ENRICH */
 
-    #define cell_advected_variable(c,v)		(cell_vars[c][HVAR_ADVECTED_VARIABLES+v])
+    #ifdef BLASTWAVE_FEEDBACK
+        #define HVAR_BLASTWAVE_TIME		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+num_enrichment_species)
+        #define cell_blastwave_time(c)          (cell_vars[c][HVAR_BLASTWAVE_TIME])
+        #define num_feedback_species	        1
+    #else
+        #define num_feedback_species            0
+    #endif /* BLASTWAVE_FEEDBACK*/
+
+    #define num_chem_species		 	(rt_num_chem_species+num_enrichment_species+num_feedback_species) 
 
   #else  /* ADVECT_SPECIES */
 
@@ -159,37 +188,15 @@
       #error "RADIATIVE_TRANSFER specified without ADVECT_SPECIES set!"
     #endif /* RADIATIVE_TRANSFER */
 
+    #ifdef BLASTWAVE_FEEDBACK 
+      #error "BLASTWAVE_FEEDBACK specified without ADVECT_SPECIES set!"
+    #endif  /* BLASTWAVE_FEEDBACK*/
+
     #define num_chem_species			0
 
   #endif /* ADVECT_SPECIES */
 
-  #define HVAR_GAS_DENSITY			(num_grav_vars+rt_num_vars)
-  #define HVAR_GAS_ENERGY			(num_grav_vars+rt_num_vars+1)
-  #define HVAR_PRESSURE				(num_grav_vars+rt_num_vars+2)
-  #define HVAR_GAMMA				(num_grav_vars+rt_num_vars+3)
-  #define HVAR_INTERNAL_ENERGY			(num_grav_vars+rt_num_vars+4)
-  #define HVAR_MOMENTUM				(num_grav_vars+rt_num_vars+5)
-
-  #define cell_gas_density(c)			(cell_vars[c][HVAR_GAS_DENSITY])
-  #define cell_gas_energy(c)			(cell_vars[c][HVAR_GAS_ENERGY])
-  #define cell_gas_pressure(c)			(cell_vars[c][HVAR_PRESSURE])
-  #define cell_gas_gamma(c)			(cell_vars[c][HVAR_GAMMA])
-  #define cell_gas_internal_energy(c)		(cell_vars[c][HVAR_INTERNAL_ENERGY])
-
-  float cell_gas_kinetic_energy(int cell);
-  float cell_gas_temperature(int cell);
-
-  #ifdef ELECTRON_ION_NONEQUILIBRIUM
-    #define HVAR_ELECTRON_INTERNAL_ENERGY	(num_grav_vars+rt_num_vars+5+nDim)
-    #define cell_electron_internal_energy(c)	(cell_vars[c][HVAR_ELECTRON_INTERNAL_ENERGY])
-    #define num_hydro_vars			(6+nDim+num_chem_species)
-  #else
-    #define num_hydro_vars			(5+nDim+num_chem_species)
-  #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-
-  #define cell_momentum(c,d)			(cell_vars[c][HVAR_MOMENTUM+d])
-  
-  #define cell_hydro_variable(c,v)		(cell_vars[c][num_grav_vars+rt_num_vars+v])
+  #define num_hydro_vars			(num_basic_hydro_vars+num_extra_hydro_vars+num_chem_species)
 
 #else
 
@@ -205,7 +212,7 @@
   #define refinement_indicator(c,x)		(cell_vars[c][VAR_ACCEL+x])
 #else
   #define num_refinement_vars			2
-  #define	VAR_REFINEMENT_INDICATOR	(num_grav_vars+rt_num_vars+num_hydro_vars)
+  #define VAR_REFINEMENT_INDICATOR	        (num_grav_vars+rt_num_vars+num_hydro_vars)
   #define VAR_REFINEMENT_DIFFUSION		(num_grav_vars+rt_num_vars+num_hydro_vars+1)
   #define refinement_indicator(c,x)		(cell_vars[c][num_grav_vars+rt_num_vars+num_hydro_vars+x])
 #endif /* GRAVITY */
