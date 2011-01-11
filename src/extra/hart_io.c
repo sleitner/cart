@@ -24,23 +24,31 @@
 #include "refinement.h"
 
 
+
 #ifdef HYDRO
 
 #ifndef GRAVITY
 #error  warning: without GRAVITY define, io will be wrong 
 #endif
 
+/*#define HART_NVAR_L6N*/
+/*#define DEBUG*/
+
+
 #define HART_rt_num_chem_species  8
 #define HART_num_enrichment_species  2
+
 #ifdef RADIATIVE_TRANSFER
-//#define HART_nvarMax  (2 + (6+1+2*4))
+#ifndef HART_NVAR_L6N 
 #define HART_nvarMax  (2 + (rt_num_et_vars+1+rt_num_disk_vars))
 #else
+#define HART_nvarMax  (2 + (rt_num_et_vars+rt_num_disk_vars))
+#endif /* HART_NVAR_L6N */
+#else
 #define HART_nvarMax  2  //potential vars
-#endif
+#endif /* RADIATIVE_TRANSFER */
+
 #define HART_num_hydro_vars  (num_hydro_vars + HART_num_enrichment_species - num_enrichment_species + HART_rt_num_chem_species - rt_num_chem_species)
-
-
 
 
 typedef struct {
@@ -277,7 +285,7 @@ void read_hart_grid_binary( char *filename ) {
 	fread( &size, sizeof(int), 1, input );
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-	  cart_debug("0-level: 0-coord %d hash",coords[0]); 
+	  cart_debug("0-level: %d/%d hash",coords[0],num_grid);
 		fread( cellrefined_buffer, sizeof(int), num_grid*num_grid, input );
 
 		if ( endian ) {
@@ -314,7 +322,9 @@ void read_hart_grid_binary( char *filename ) {
 	if ( endian ) {
 	  reorder( (char *)&size, sizeof(int) );
 	}
+#ifdef DEBUG
 	cart_debug("Record size: %d",size);
+#endif
 
 	int num_hydro_vars_file = size/num_grid/num_grid/num_grid/sizeof(float);
 
@@ -325,7 +335,7 @@ void read_hart_grid_binary( char *filename ) {
 	vars_buffer = cart_alloc( float, num_grid*num_grid*num_hydro_vars_file );
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-	  cart_debug("0-level: 0-coord %d",coords[0]);
+	  cart_debug("0-level: %d/%d",coords[0],num_grid);
 		fread( vars_buffer, sizeof(float), num_hydro_vars_file*num_grid*num_grid, input );
 
 		if ( endian ) {
@@ -394,15 +404,26 @@ void read_hart_grid_binary( char *filename ) {
 #endif /* HYDRO */
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER) 
+
 	fread( &size, sizeof(int), 1, input );
-#ifdef DEBUG
 	if ( endian ) {
 	  reorder( (char *)&size, sizeof(int) );
 	}
+#ifdef DEBUG
 	cart_debug("Record size: %d",size);
 #endif
 	int nvar_file = size/num_grid/num_grid/num_grid/sizeof(float); 
-	cart_assert(HART_nvarMax == nvar_file); 
+
+	if(HART_nvarMax != nvar_file){
+#ifdef RADIATIVE_TRANSFER
+	  cart_debug("HART_nvarMax = (2 + (rt_num_et_vars=%d + 1 + rt_num_fields_per_freq=%d * rt_num_freqs=%d ))", rt_num_et_vars,rt_num_fields_per_freq,rt_num_freqs);
+	  cart_debug("def RT_UV ? rt_num_freqs=4 : 3 ", rt_num_et_vars,rt_num_fields_per_freq,rt_num_freqs);
+#else
+	  cart_debug("HART_nvarMax = 2");
+#endif /* RADIATIVE_TRANSFER */
+	  cart_debug("you may need to alter the rt defs, define HART_NVAR_L6N, or play with HART_nvarMax manually");
+	  cart_error("nvar_file=%d != HART_nvarMax=%d",nvar_file,HART_nvarMax);
+	}
 
 	vars_buffer = cart_alloc( float, nvar_file*num_grid*num_grid ); 
 
@@ -422,8 +443,10 @@ void read_hart_grid_binary( char *filename ) {
 				icell = root_cell_location( index );
 
 				i = idx*nvar_file;
+#ifdef GRAVITY
 				cell_potential(icell) = vars_buffer[i++];
 				cell_potential_hydro(icell) = vars_buffer[i++];
+#endif
 #ifdef RADIATIVE_TRANSFER
 				for(j=0; j<rt_num_disk_vars; j++) {
 				   cell_vars[icell][j+rt_disk_offset] = vars_buffer[i++];
@@ -431,7 +454,9 @@ void read_hart_grid_binary( char *filename ) {
 				for(j=0; j<rt_num_et_vars; j++) {
 				  cell_vars[icell][j+rt_et_offset] = vars_buffer[i++];
 				}
+#ifndef HART_NVAR_L6N 
 				cell_rt_source(icell) = vars_buffer[i++];
+#endif
 #endif
 				idx++;
                         }
@@ -601,7 +626,9 @@ void read_hart_grid_binary( char *filename ) {
 				for(m=0; m<rt_num_et_vars; m++) {
 				  cell_vars[icell][m+rt_et_offset] = child_cells[j].vars[k++];
 				}
+#ifndef HART_NVAR_L6N 
 				cell_rt_source(icell) = child_cells[j].vars[k++];
+#endif
 				cart_assert(k == num_hydro_vars_file+nvar_file);
 #endif
 			}
@@ -809,6 +836,7 @@ void write_hart_grid_binary( char *filename ) {
 	size = HART_num_hydro_vars * ncell0 * sizeof(float);
 	fwrite( &size, sizeof(int), 1, output );
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+	  cart_debug("0-level: %d/%d",coords[0],num_grid);
 		i = 0;
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
 			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
@@ -893,8 +921,10 @@ void write_hart_grid_binary( char *filename ) {
 /* 				  parameter ( irtET5   = 11 + 5) //Eddington Tensor 23 */
 /* 				  parameter ( irtET6   = 11 + 6) //Eddington Tensor 33 */
 				}
+#ifndef HART_NVAR_L6N 
 				cellvars[i++] = cell_rt_source(icell);
 /*				parameter ( irtSor   = 11 + 7) // */
+#endif
 #endif /* RADIATIVE_TRANSFER */
 			}
 		}
@@ -1065,7 +1095,9 @@ void write_hart_grid_binary( char *filename ) {
 				for(m=0; m<rt_num_et_vars; m++) {
 				  cellvars[k++] = cell_vars[icell][m+rt_et_offset];
 				}
+#ifndef HART_NVAR_L6N 
 				cellvars[k++] = cell_rt_source(icell);
+#endif
 #endif
 
 				fwrite( &size, sizeof(int), 1, output );
