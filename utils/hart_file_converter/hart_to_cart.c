@@ -13,11 +13,12 @@
 #include "defs.h"
 #include "io.h"
 #include "tree.h"
-#include "particle.h"
-#include "timing.h"
 #include "sfc.h"
 #include "parallel.h"
 #include "cell_buffer.h"
+#include "timing.h"
+#include "units.h"
+#include "logging.h"
 #include "auxiliary.h"
 #include "cosmology.h"
 #include "timestep.h"
@@ -55,6 +56,8 @@ int main ( int argc, char *argv[]) {
 
 	cart_debug("abox = %e", abox[min_level] );
 	cart_debug("done reading data...");
+	cart_debug("tl = %e", tl[min_level] );
+
 	write_grid_binary( argv[2] );
 	
 	MPI_Finalize();
