@@ -853,6 +853,8 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 	float *star_page[MAX_PROCS];
 #endif /* STARFORM */
 
+	if(particle_file_mode > 0) particle_file_mode = 0; /* Auto-reset */
+
 	num_parts_per_page = num_row*num_row;
 	num_parts_per_proc_page = num_parts_per_page/num_procs;
 	num_pages = (num_particles_total-1) / num_parts_per_page + 1;
@@ -2512,7 +2514,6 @@ void read_particles( char *header_filename, char *data_filename,
 	cart_error("Invalid particle_file_mode=%d",particle_file_mode);
       }
     }
-  if(particle_file_mode > 0) particle_file_mode = 0; /* Auto-reset */
 }
 #endif /* PARTICLES */
 
@@ -3399,6 +3400,8 @@ void write_grid_binary( char *filename ) {
 	int num_other_vars = 0;
 	int *other_vars = 0;
 
+	if(grid_file_mode > 0) grid_file_mode = 0; /* Auto-reset */
+
 #ifdef HYDRO
 	/*
 	// Maintain the same order as in a previous version
@@ -4090,7 +4093,6 @@ void read_grid_binary( char *filename ) {
 	      cart_error("Invalid grid_file_mode=%d in a call to  read_grid_binary",grid_file_mode);
 	    }
 	  }
-	if(grid_file_mode > 0) grid_file_mode = 0; /* Auto-reset */
 
 	cart_assert( num_output_files >= 1 && num_output_files <= num_procs );
 

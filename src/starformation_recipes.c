@@ -181,8 +181,7 @@ double sf_recipe2_rate(int cell)
 #ifdef ENRICH
   zSol_cell = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
-  cart_error("ERROR: Need enrichment for SF Recipe #2");
-  zSol_cell = 0.0;
+#error "ERROR: Need enrichment for SF Recipe #2"
 #endif /* ENRICH */
 
   zSol_cell = max(1.0e-3,zSol_cell);
