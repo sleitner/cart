@@ -236,7 +236,6 @@ void gicBalanceLoad(const char *rootname, char *type)
 	}
       else
 	{
-
 	  mask = cart_alloc(GIC_INTEGER,fileHeader.Nrec);
 	  num_pages = (num_root_cells+fileHeader.Nrec-1)/fileHeader.Nrec;
 
@@ -273,9 +272,9 @@ void gicBalanceLoad(const char *rootname, char *type)
 		    }
 		}
 	    }
+	  cart_free(mask);
 	}
 
-      cart_free(mask);
       fclose(input.File);
 
       cart_debug("load balancing before i/o");
@@ -382,7 +381,10 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
   num_pages = (ntot+fileHeader->Nrec-1)/fileHeader->Nrec;
 
   xFac = 1.0/units->length_in_chimps;
-  vFac = constants->kms/units->velocity;
+  /*
+  //  GIC velocities are for auni, not abox
+  */
+  vFac = constants->kms*auni[min_level]/(units->velocity*abox[min_level]);
 
   /*
   // Skip to the appropriate record
@@ -827,7 +829,10 @@ void gicReadGasData(const char *rootname, char *type)
   vy = buffer[2];
   vz = buffer[3];
 
-  vFac = constants->kms/units->velocity;
+  /*
+  //  GIC velocities are for auni, not abox
+  */
+  vFac = constants->kms*auni[min_level]/(units->velocity*abox[min_level]);
 
   dMin =  1.0e35;
   dMax = -1.0e35;
@@ -1097,7 +1102,7 @@ void gicReadGasData(const char *rootname, char *type)
 	  if(cell_gas_gamma(cell) < 1.0e-10)
 	    {
 	      cart_debug("Error in cell %d#%d",cell,cell_level(cell));
-	      cell_position_double(cell,pos);
+	      cell_center_position(cell,pos);
 	      cart_debug("Position: %lf %lf %lf",pos[0],pos[1],pos[2]);
 	      for(i=0; i<num_vars; i++)
 		{
@@ -1121,7 +1126,7 @@ void gicReadGasData(const char *rootname, char *type)
 		  if(fabs(cell_var(cell,all_hydro_vars[j])-q)/(1.0e-35+fabs(cell_var(cell,all_hydro_vars[j]))+fabs(q)) > 1.0e-4)
 		    {
 		      cart_debug("Error in cell %d#%d",cell,cell_level(cell));
-		      cell_position_double(cell,pos);
+		      cell_center_position(cell,pos);
 		      cart_debug("Position: %lf %lf %lf",pos[0],pos[1],pos[2]);
 		      for(l=0; l<num_children; l++)
 			{
