@@ -4875,14 +4875,20 @@ void read_grid_binary( char *filename ) {
 extern double blastwave_time_floor;
 extern double blastwave_time_cut;
 extern double blastwave_time_code_max;
+#endif /* BLASTWAVE_FEEDBACK */
+
 float set_skipped_var(int jskip){
+#ifdef BLASTWAVE_FEEDBACK
   if(jskip == HVAR_BLASTWAVE_TIME - HVAR_GAS_DENSITY){ 
     return (float)1.1*blastwave_time_floor;
   }else{
     cart_error("skipped variables %d not set",jskip);
   }
-}
+#else
+  cart_error("skipped variables %d not set",jskip);
+  return -1;
 #endif /* BLASTWAVE_FEEDBACK */
+}
 
 void read_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, 
 		int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, 

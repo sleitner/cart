@@ -606,8 +606,11 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 #endif
 
 	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/1.0e4;
-
+#ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
+#else
+#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
+#endif /* BLASTWAVE_FEEDBACK*/ 
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		if ( cell_is_leaf(icell) ) {
