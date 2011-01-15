@@ -78,6 +78,14 @@
 #error "The STELLARMASSLOSS define is now obsolete; stellar mass loss is on by default, set the <ml:loss-rate> control parameter to zero to disable the stellar mass loss."
 #endif
 
+#ifdef OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION
+#error "The OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION define is now obsolete; -pfm=1: read files with double positions but single times;-pfm=2: single-precision both. "
+#endif
+
+#ifdef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
+#error "The OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID define is now obsolete."
+#endif
+
 /*
 //  Maximum number of processors
 */

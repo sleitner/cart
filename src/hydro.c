@@ -37,6 +37,11 @@ int smooth_density_gradients = 1;         /* NG: that used to be DENSGRADSMOOTH 
 float gas_density_floor = 1e-6;
 float gas_temperature_floor = 3.0;        /* NG: that used to be T_min define */
 
+#ifdef BLASTWAVE_FEEDBACK
+double blastwave_time_floor = 1.0e-30; 
+double blastwave_time_cut = 1.0e-20;
+#endif /* BLASTWAVE_FEEDBACK */
+
 float backup_hvars[num_cells][num_hydro_vars-2];
 float ref[num_cells];
 
@@ -99,6 +104,14 @@ void config_verify_hydro()
   cart_assert(pressure_floor_min_level>=-1 && pressure_floor_min_level<=max_level);
 
   cart_assert(pressure_floor_factor > 0.0);
+
+#ifdef BLASTWAVE_FEEDBACK
+
+  cart_assert(blastwave_time_floor > 0.0);
+
+  cart_assert(blastwave_time_cut > 0.0 && blastwave_time_cut > blastwave_time_floor);
+
+#endif /* BLASTWAVE_FEEDBACK */
 }
 
 
@@ -124,6 +137,7 @@ void hydro_step( int level ) {
 
 	for ( dir = 0; dir < nDim; dir++ ) {
 		/* H_Old_to_New( Level, 2 ) in Fortran ver */
+
 		hydro_copy_vars( level, COPY, COPY_NO_SPLIT_NEIGHBORS );
 
 		start_time( WORK_TIMER );
@@ -151,12 +165,12 @@ void hydro_step( int level ) {
 		if ( dir == nDim - 1 ) {
 			hydro_copy_vars( level, RESTORE, COPY_ALL_LEAFS );
 		} else {
-			hydro_copy_vars( level, RESTORE, 
-					COPY_NO_SPLIT_NEIGHBORS );
 
+			hydro_copy_vars( level, RESTORE, COPY_NO_SPLIT_NEIGHBORS );
+					
 			hydro_magic( level );
 			hydro_eos( level );
-
+			
 			start_time( HYDRO_UPDATE_TIMER );
 			update_buffer_level( level, all_hydro_vars, num_hydro_vars );
 			end_time( HYDRO_UPDATE_TIMER );
@@ -172,7 +186,7 @@ void hydro_step( int level ) {
 	start_time( HYDRO_UPDATE_TIMER );
 	update_buffer_level( level, all_hydro_vars, num_hydro_vars );
 	end_time( HYDRO_UPDATE_TIMER );
-
+	
 	/* update sweep direction */
 	level_sweep_dir[level] = (level_sweep_dir[level]+1)%2;
 
@@ -447,7 +461,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	int icell;
 	double t_begin, t_end;
 	double Zlog, Hdum;
-	double Tfac, Tfac_cell, Emin_cell;
+	double Tfac, Tfac_cell, Emin_cell, blastwave_time;
 	double rhog2, nHlog;
 	double e_curr;
 	double unit_cl = units->time*pow(constants->XH*units->number_density,2.0)/units->energy_density;
@@ -466,7 +480,11 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 
 	Tfac = units->temperature*constants->wmu*( constants->gamma-1 )/1.0e4;
 
+#ifdef BLASTWAVE_FEEDBACK
+#pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
+#else
 #pragma omp parallel default(none), shared(num_level_cells,level_cells,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys)
+#endif /* BLASTWAVE_FEEDBACK*/
 	{
 	  sys = qss_alloc( 1, &qss_getcooling, &adjust_internalenergy );
 
@@ -474,7 +492,11 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	  for ( i = 0; i < num_level_cells; i++ ) {
 		  icell = level_cells[i];
 		  if ( cell_is_leaf(icell) ) {
-		    
+#ifdef BLASTWAVE_FEEDBACK
+		    blastwave_time = cell_blastwave_time(icell) / cell_gas_density(icell);
+		    if(blastwave_time <= blastwave_time_cut){ 
+#endif /* BLASTWAVE_FEEDBACK */
+
 		    cell_gas_gamma(icell) = constants->gamma;
 		    rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 		    /* take code density -> log10(n_H [cm^-3]) */
@@ -504,6 +526,15 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 
 		    cell_gas_internal_energy(icell) = max(Emin_cell,e_curr);
 		    cell_gas_energy(icell) = cell_gas_kinetic_energy(icell) + cell_gas_internal_energy(icell);
+#ifdef BLASTWAVE_FEEDBACK
+		  }else { 
+		    blastwave_time -= dtl[level]*units->time/constants->yr; 
+		    if(blastwave_time < blastwave_time_cut ){
+		      blastwave_time = blastwave_time_floor;
+		    }
+		    cell_blastwave_time(icell) = cell_gas_density(icell) * blastwave_time;
+		  }
+#endif /* BLASTWAVE_FEEDBACK */
 		  }
 		}
 
@@ -539,7 +570,6 @@ void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, d
 
 		dE = unit_cl*cooling_rate( nHlog, T_gas, Zlog );
 		dE *= -rhog2 * f_curr * dt_e;
-
 		/* adjust cell energies */
 		cell_gas_internal_energy(icell) += dE;
 		cell_gas_energy(icell) += dE;
@@ -577,10 +607,14 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 
 	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/1.0e4;
 
-#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
+#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		if ( cell_is_leaf(icell) ) {
+#ifdef BLASTWAVE_FEEDBACK
+		  blastwave_time = cell_blastwave_time(icell) / cell_gas_density(icell);
+		  if(blastwave_time <= blastwave_time_cut){
+#endif /* BLASTWAVE_FEEDBACK */
 		
 			cell_gas_gamma(icell) = constants->gamma;
 			rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
@@ -597,6 +631,16 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 			Emin_cell = units->Emin*cell_gas_density(icell);
 
 			hydro_cool_one_cell(icell,t_begin,t_end,Hdum,Zlog,nHlog,rhog2,Tfac_cell,Emin_cell,unit_cl);
+			
+#ifdef BLASTWAVE_FEEDBACK
+		  }else { 
+		    blastwave_time -= dtl[level]*units->time/constants->yr; 
+		    if(blastwave_time < blastwave_time_cut ){
+		      blastwave_time = blastwave_time_floor;
+		    }
+		    cell_blastwave_time(icell) = cell_gas_density(icell) * blastwave_time;
+		  }
+#endif /* BLASTWAVE_FEEDBACK */
 		}
 	}
 }
@@ -746,7 +790,7 @@ void hydro_advance_internalenergy( int level ) {
 	start_time(COOLING_TIMER);
 	hydro_apply_electron_heating(level,num_level_cells,level_cells); 
 	end_time(COOLING_TIMER);
-#endif
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 #endif /* COOLING */
 
 	cart_free( level_cells );
@@ -958,7 +1002,7 @@ void hydro_copy_vars( int level, int direction, int copy_cells ) {
 		icell = level_cells[i];
 
 		if ( cell_is_leaf(icell) ) {
-			do_copy = 1;
+		  do_copy = 1;
 
 			if ( copy_cells != COPY_ALL_LEAFS ) {
 				cell_all_neighbors( icell, neighbors );

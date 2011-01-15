@@ -23,6 +23,7 @@
 #include "refinement.h"
 #include "rt_solver.h"
 #include "starformation.h"
+#include "starformation_feedback.h"
 #include "timestep.h"
 #include "timing.h"
 #include "tree.h"
@@ -502,6 +503,12 @@ int timestep( int level, MPI_Comm level_com )
 	end_time( WORK_TIMER );
 
 #ifdef HYDRO
+
+#ifdef BLASTWAVE_FEEDBACK
+	/* check time precision ... */
+	check_bwtime_precision(level);
+#endif /* BLASTWAVE_FEEDBACK */
+
 	/* test if timestep is still valid */
 	start_time( WORK_TIMER );
 	hydro_cfl_condition( level, &courant_cell, &velocity );

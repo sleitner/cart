@@ -187,9 +187,9 @@ int main ( int argc, char *argv[]) {
 		    if(tmp == NULL) tmp = check_option1(options[0],"gfm",NULL);
 		    if(tmp != NULL)
 		      {
-			if(sscanf(tmp,"%d",&mode)==0 || mode<0 || mode>2)
+			if(sscanf(tmp,"%d",&mode)==0 || mode<0 || mode>3)
 			  {
-			    cart_error("-gfm=<mode> requires an integer <mode> between 0 and 2 as an argument.");
+			    cart_error("-gfm=<mode> requires an integer <mode> between 0 and 3 as an argument.");
 			  }
 			set_grid_file_mode(mode);
 			options++;

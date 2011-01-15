@@ -270,24 +270,30 @@ void rtConfigVerify()
 }
 
 
+#ifdef BLASTWAVE_FEEDBACK
+extern double blastwave_time_floor;
+extern double blastwave_time_cut;
+extern double blastwave_time_code_max;
+#endif
 /*
 //  Applies cooling to all cells of a given level
 */
 void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 {
   int i, cell, nchunk;
-
+  double blastwave_time;
   /* 
   //  Specify types for the Fortran interface
   */
   DEFINE_FRT_INTEFACE(var,rawrf);
-  frt_real time;
+  frt_real time,timeyr;
   frt_intg info;
 
   /*
   //  The following may be a waste of time if the types are consistent, but compiler should take care of that 
   */
   time = dtl[level];
+  timeyr = time*units->time/constants->yr;
 
   /* 
   //  OpenMP chunk size 
@@ -298,9 +304,17 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
   /*
   //  Main loop
   */
+#ifdef BLASTWAVE_FEEDBACK
+#pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info,blastwave_time), shared(cell_vars,num_level_cells,level,cell_child_oct,level_cells,level,time,timeyr,cell_size,rt_debug,nchunk,blastwave_time_floor,blastwave_time_cut,blastwave_time_code_max), schedule(dynamic,nchunk)
+#else      
 #pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,time,cell_size,rt_debug,nchunk), schedule(dynamic,nchunk)
+#endif /* BLASTWAVE_FEEDBACK */
   for(i=0; i<num_level_cells; i++) if(cell_is_leaf((cell = level_cells[i])) && cell_gas_density(cell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
     {
+#ifdef BLASTWAVE_FEEDBACK
+      blastwave_time = cell_blastwave_time(cell) / cell_gas_density(cell) ; 
+      if(blastwave_time <= blastwave_time_cut){ 
+#endif /* BLASTWAVE_FEEDBACK */
       
       rtPackCellData(level,cell,var,&rawrf);
 
@@ -322,6 +336,16 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
       frtCall(cooloff)(var,rawrf,&time,&info);
 
       rtUnPackCellData(level,cell,var,rawrf);
+
+#ifdef BLASTWAVE_FEEDBACK
+      }else {
+	blastwave_time -= timeyr;
+	if(blastwave_time < blastwave_time_cut){
+	  blastwave_time = blastwave_time_floor;
+	}
+	cell_blastwave_time(cell) = cell_gas_density(cell) * blastwave_time;
+      }
+#endif /* BLASTWAVE_FEEDBACK */
     }
 }
 

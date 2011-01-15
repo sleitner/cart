@@ -119,9 +119,15 @@ void control_parameter_set_t0ml(const char *value, void *ptr, int ind)
   if(ind == 2) ml.time_interval *= 1.0e6;
 }
 
-
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
 
+#ifdef BLASTWAVE_FEEDBACK
+struct
+{
+  double blast_time;
+}
+  bw = { 50.0e6 };
+#endif /* BLASTWAVE_FEEDBACK */
 
 void config_init_star_formation_feedback()
 {
@@ -171,12 +177,16 @@ void config_init_star_formation_feedback()
   */
   control_parameter_add3(control_parameter_double,&ml.loss_rate,"ml:loss-rate","ml.loss_rate","c0_ml","rate of stellar mass ejected back into the ISM by stellar mass loss. Set this to zero to disable the stellar mass loss.");
 
-  control_parameter_add3(control_parameter_t0ml,&ml.time_interval,"ml:time-interval","ml.time_interval","t0_ml","time interval (in yrs) over which the stellar mass loss occurs.");
+  control_parameter_add3(control_parameter_t0ml,&ml.time_interval,"ml:time-interval","ml.time_interval","t0_ml","characteristic time (in yrs) over which the stellar mass loss occurs.");
 
   /*
   //  other
   */
   control_parameter_add3(control_parameter_double,&feedback_temperature_ceiling,"fb:temperature-ceiling","feedback_temperature_ceiling","T_max_feedback","maximum gas temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
+
+#ifdef BLASTWAVE_FEEDBACK 
+  control_parameter_add2(control_parameter_double,&bw.blast_time,"bw:blast_time","bw.blast_time","time before cells can cool in blastwave feedback subgrid model.");
+#endif /* BLASTWAVE_FEEDBACK */
 }
 
 
@@ -230,6 +240,11 @@ void config_verify_star_formation_feedback()
   //  other
   */
   cart_assert(feedback_temperature_ceiling > 1.0e6);
+
+#ifdef BLASTWAVE_FEEDBACK 
+  cart_assert(bw.blast_time > 1.0e6);
+#endif /* BLASTWAVE_FEEDBACK */
+
 }
 
 
@@ -243,6 +258,11 @@ fb_pars;
 
 fb_pars fbp_snII_phys, fbp_snII_code;
 fb_pars fbp_snIa_phys, fbp_snIa_code;
+#ifdef BLASTWAVE_FEEDBACK
+fb_pars fbp_bw_phys, fbp_bw_code;
+#endif/* BLASTWAVE_FEEDBACK */
+
+
 
 
 double f_IMF_Salpeter( double m )
@@ -333,6 +353,11 @@ void init_star_formation_feedback()
   fbp_snIa_phys.metals = snIa.mass_in_metals_per_supernova*number_SNIa/total_mass;
 #endif /* ENRICH_SNIa */
 
+#ifdef BLASTWAVE_FEEDBACK 
+  /* snl: other params are not set yet, but could be useful for improved subgrid feedback */
+  fbp_bw_phys.dt = bw.blast_time;
+#endif /* BLASTWAVE_FEEDBACK */
+
   /*
   // The rest is for diagnostic only
   */
@@ -351,15 +376,30 @@ void init_star_formation_feedback()
 #ifdef ENRICH_SNIa 
 	cart_debug("SNIa metal fraction : %le",fbp_snIa_phys.metals);
 #endif /* ENRICH_SNIa */
+
+#ifdef BLASTWAVE_FEEDBACK 
+	cart_debug("Blast wave feedback cooling delay : %le",bw.blast_time);
+#endif /* BLASTWAVE_FEEDBACK */
     }
 }
 
 
 #if defined(HYDRO) && defined(PARTICLES)
 
+#ifdef BLASTWAVE_FEEDBACK
+void init_blastwave(int icell)
+{
+  cell_blastwave_time(icell) =  cell_gas_density(icell) * fbp_bw_phys.dt;
+}
+void check_bwtime_precision(int level)
+{
+  /* unlikely but tl and dtl are double */
+  cart_assert( (dtl[level]*units->time/constants->yr) / fbp_bw_phys.dt > 1e-6 ); 
+}
+#endif /* BLASTWAVE_FEEDBACK */
+
 double dUfact;  /* must be here to simplify OpenMP directives */
 double dt_ml_code;   /* used to be called T0_ml_code */
-
 
 void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_next, double vx, double vy, double vz)
 {
@@ -469,6 +509,13 @@ void setup_star_formation_feedback(int level)
   fbp_snIa_code.metals = fbp_snIa_phys.metals*cell_volume_inverse[level]; 
 
   dt_ml_code = ml.time_interval*constants->yr/units->time;
+  
+/* #ifdef BLASTWAVE_FEEDBACK */
+/*   fbp_bw_code.dt = fbp_bw_phys.dt*constants->yr/units->time;   */
+/*   fbp_bw_code.energy = fbp_bw_phys.energy*units->mass/units->energy*cell_volume_inverse[level];  /\* not set *\/ */
+/*   fbp_bw_code.metals = fbp_bw_phys.metals*cell_volume_inverse[level];  /\* not set *\/ */
+/* #endif /\* BLASTWAVE_FEEDBACK *\/ */
+
 }
 
 #endif /* HYDRO && PARTICLES */

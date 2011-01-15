@@ -766,7 +766,7 @@ void save_check() {
 
 void set_grid_file_mode(int mode)
 {
-  if(mode>=-2 && mode<=2) grid_file_mode = mode;
+  if(mode>=-3 && mode<=3) grid_file_mode = mode;
 }
 
 
@@ -3955,8 +3955,8 @@ void write_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *ou
 
 
 /* two helpers */
-void read_grid_binary_top_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, long *proc_cell_index, int *file_sfc_index);
-void read_grid_binary_lower_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level);
+void read_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, long *proc_cell_index, int *file_sfc_index);
+void read_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level);
 
 
 void read_grid_binary( char *filename ) {
@@ -4011,6 +4011,8 @@ void read_grid_binary( char *filename ) {
 	struct CosmologyParameters temp_cosmo;
 #endif /* COSMOLOGY */
 
+	int skip_hvar = -1;
+	int skip_ovar = -1;
 	int hydro_vars[num_hydro_vars+1];
 	int num_other_vars = 0;
 	int *other_vars = 0;
@@ -4088,6 +4090,16 @@ void read_grid_binary( char *filename ) {
 	      num_in_other_vars = num_other_vars + 8;
 	      break;
 	    }
+#ifdef BLASTWAVE_FEEDBACK
+	  case  3:
+	  case -3:
+	    {
+	      num_in_hydro_vars = num_hydro_vars - 1;
+	      num_in_other_vars = num_other_vars ;
+	      skip_hvar = HVAR_BLASTWAVE_TIME - HVAR_GAS_DENSITY; //fundhydrovars
+	      break;
+	    }
+#endif /* BLASTWAVE_FEEDBACK */
 	  default:
 	    {
 	      cart_error("Invalid grid_file_mode=%d in a call to  read_grid_binary",grid_file_mode);
@@ -4549,11 +4561,11 @@ void read_grid_binary( char *filename ) {
 	cart_assert( next_level_count <= num_cells_per_level[min_level] );
 
 	cart_free( cellrefined[local_proc_id] );
-
-	read_grid_binary_top_level_vars(num_in_hydro_vars,num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
+	//snl1
+	read_grid_binary_top_level_vars(num_in_hydro_vars,skip_hvar,num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-	read_grid_binary_top_level_vars(num_in_other_vars,num_other_vars,other_vars,input,endian,file_parent,file_index,
+	read_grid_binary_top_level_vars(num_in_other_vars,skip_ovar,num_other_vars,other_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
@@ -4832,12 +4844,12 @@ void read_grid_binary( char *filename ) {
 
 		cart_assert( count == next_level_count );
 
-		read_grid_binary_lower_level_vars(num_in_hydro_vars,num_hydro_vars,hydro_vars,input,endian,file_parent,
+		read_grid_binary_lower_level_vars(num_in_hydro_vars,skip_hvar,num_hydro_vars,hydro_vars,input,endian,file_parent,
 					file_index,total_cells,page_size,proc_num_cells,level,first_page_count,
 					proc_first_index,proc_cell_index,current_level);
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-		read_grid_binary_lower_level_vars(num_in_other_vars,num_other_vars,other_vars,input,endian,file_parent,file_index,
+		read_grid_binary_lower_level_vars(num_in_other_vars,skip_ovar,num_other_vars,other_vars,input,endian,file_parent,file_index,
 					total_cells,page_size,proc_num_cells,level,first_page_count,proc_first_index,
 					proc_cell_index,current_level);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
@@ -4859,11 +4871,23 @@ void read_grid_binary( char *filename ) {
 #endif
 }
 
+#ifdef BLASTWAVE_FEEDBACK
+extern double blastwave_time_floor;
+extern double blastwave_time_cut;
+extern double blastwave_time_code_max;
+float set_skipped_var(int jskip){
+  if(jskip == HVAR_BLASTWAVE_TIME - HVAR_GAS_DENSITY){ 
+    return (float)1.1*blastwave_time_floor;
+  }else{
+    cart_error("skipped variables %d not set",jskip);
+  }
+}
+#endif /* BLASTWAVE_FEEDBACK */
 
-void read_grid_binary_top_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, 
+void read_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, 
 		int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, 
 		long *proc_cell_index, int *file_sfc_index) {
-	int i, j, m;
+        int i, j, m, jout;
 	int size;
 	float *cellvars[MAX_PROCS], *cellvars_buffer, *cellvars_read_buffer;
 	int num_requests, num_send_requests;
@@ -4880,7 +4904,7 @@ void read_grid_binary_top_level_vars(int num_in_vars, int num_out_vars, int *out
 	MPI_Request send_requests[MAX_PROCS];
 
 	if(num_out_vars < 1) return;
-	cart_assert(num_in_vars >= num_out_vars);
+	cart_assert( num_in_vars >= num_out_vars || (jskip >= 0 && (num_in_vars >= num_out_vars-1)) );
 
 	if ( local_proc_id == file_parent ) {
 		fread( &size, sizeof(int), 1, input );
@@ -4928,9 +4952,14 @@ void read_grid_binary_top_level_vars(int num_in_vars, int num_out_vars, int *out
 
 			for(i=0; i<page_count; i++)
 			  {
-			    for(j=0; j<num_out_vars; j++)
+			    jout = 0; for(j=0; j<max(num_in_vars,num_out_vars); j++)
 			      {
-				cellvars_buffer[num_out_vars*i+j] = cellvars_read_buffer[num_in_vars*i+j];
+				while( jout == jskip ){
+				  cellvars_buffer[num_out_vars*i+jskip] = set_skipped_var(jskip);
+				  jout++;
+				}
+				if( jout < num_out_vars ) {cellvars_buffer[num_out_vars*i+jout] = cellvars_read_buffer[num_in_vars*i+j];}
+				jout++;
 			      }
 			  }
 
@@ -5054,9 +5083,9 @@ void read_grid_binary_top_level_vars(int num_in_vars, int num_out_vars, int *out
 }
 
 
-void read_grid_binary_lower_level_vars(int num_in_vars, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level)
+void read_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level)
 {
-  int i, j, m;
+  int i, j, m, jout;
   int size;
   float *cellvars[MAX_PROCS], *cellvars_buffer, *cellvars_read_buffer;
   int num_requests, num_send_requests;
@@ -5074,7 +5103,7 @@ void read_grid_binary_lower_level_vars(int num_in_vars, int num_out_vars, int *o
 
 
   if(num_out_vars < 1) return;
-  cart_assert(num_in_vars >= num_out_vars);
+  cart_assert( num_in_vars >= num_out_vars || (jskip >= 0 && (num_in_vars >= num_out_vars-1)) );
 
   if ( local_proc_id == file_parent )
     {
@@ -5126,9 +5155,14 @@ void read_grid_binary_lower_level_vars(int num_in_vars, int num_out_vars, int *o
 	
 	  for(i=0; i<page_count; i++)
 	    {
-	      for(j=0; j<num_out_vars; j++)
+	      jout=0; for(j=0; j<max(num_in_vars,num_out_vars); j++)
 		{
-		  cellvars_buffer[num_out_vars*i+j] = cellvars_read_buffer[num_in_vars*i+j];
+		  while( jout == jskip ){
+		    cellvars_buffer[num_out_vars*i+jskip] = set_skipped_var(jskip);
+		    jout++;
+		  }
+		  if( jout < num_out_vars ) {cellvars_buffer[num_out_vars*i+jout] = cellvars_read_buffer[num_in_vars*i+j];}
+		  jout++;
 		}
 	    }
 

@@ -212,6 +212,10 @@ void star_formation( int level, int time_multiplier )
 	  log_star_creation( icell, dm_star, FILE_RECORD);
 #endif
 	  create_star_particle( icell, dm_star );
+
+#ifdef BLASTWAVE_FEEDBACK
+	  init_blastwave(icell);
+#endif /* BLASTWAVE_FEEDBACK */
 	}
     }
 
