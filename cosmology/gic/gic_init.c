@@ -381,10 +381,7 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
   num_pages = (ntot+fileHeader->Nrec-1)/fileHeader->Nrec;
 
   xFac = 1.0/units->length_in_chimps;
-  /*
-  //  GIC velocities are for auni, not abox
-  */
-  vFac = constants->kms*auni[min_level]/(units->velocity*abox[min_level]);
+  vFac = constants->kms/units->velocity;
 
   /*
   // Skip to the appropriate record
@@ -575,9 +572,9 @@ void gicReadParticleData(const char *rootname, char *type, int dc_off)
 
   box_size = manifest->dx*num_grid;
 
-  auni[min_level] = fileHeader->aBegin;
-  tl[min_level] = tcode_from_auni(auni[min_level]);
-  abox[min_level] = abox_from_auni(auni[min_level]);
+  abox[min_level] = fileHeader->aBegin;
+  tl[min_level] = tcode_from_abox(abox[min_level]);
+  auni[min_level] = auni_from_abox(abox[min_level]);
 
   units_reset();
   units_update(min_level);
@@ -777,8 +774,8 @@ void gicReadGasData(const char *rootname, char *type)
   */
   fracB = cosmology->OmegaB/cosmology->OmegaM;
   fracHII = 1.2e-5*sqrt(cosmology->Omh2)/cosmology->Obh2;
-  q = auni[min_level]*137.0*pow(cosmology->Obh2/0.022,0.4);
-  temIn = 2.728/auni[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
+  q = abox[min_level]*137.0*pow(cosmology->Obh2/0.022,0.4);
+  temIn = 2.728/abox[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -829,10 +826,7 @@ void gicReadGasData(const char *rootname, char *type)
   vy = buffer[2];
   vz = buffer[3];
 
-  /*
-  //  GIC velocities are for auni, not abox
-  */
-  vFac = constants->kms*auni[min_level]/(units->velocity*abox[min_level]);
+  vFac = constants->kms/units->velocity;
 
   dMin =  1.0e35;
   dMax = -1.0e35;
