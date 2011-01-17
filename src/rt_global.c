@@ -52,30 +52,25 @@ void rtGlobalValueUpdate(struct rtGlobalValue *v, int level1, int level2, MPI_Op
   */
   start_time(WORK_TIMER);
 
-  switch(op)
+  if(op == MPI_SUM)
     {
-    case MPI_SUM:
-      {
-	v->Value = 0.0;
-	for(l=0; l<=max_level-min_level; l++)
-	  {
-	    v->Value += v->gb[l];
-	  }
-	break;
-      }
-    case MPI_MAX:
-      {
-	v->Value = v->gb[0];
-	for(l=1; l<=max_level-min_level; l++)
-	  {
-	    v->Value = max(v->Value,v->gb[l]);
-	  }
-	break;
-      }
-    default:
-      {
-	cart_error("Bug in rt_global.c");
-      }
+      v->Value = 0.0;
+      for(l=0; l<=max_level-min_level; l++)
+	{
+	  v->Value += v->gb[l];
+	}
+    }
+  else if(op == MPI_MAX)
+    {
+      v->Value = v->gb[0];
+      for(l=1; l<=max_level-min_level; l++)
+	{
+	  v->Value = max(v->Value,v->gb[l]);
+	}
+    }
+  else
+    {
+      cart_error("Bug in rt_global.c");
     }
 
   end_time(WORK_TIMER);
