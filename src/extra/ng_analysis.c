@@ -258,7 +258,7 @@ void ngLoadHalos(const char *dirname)
   else
     {
       sprintf(str,"%s/hlist_%6.4f.dat",dirname,auni[min_level]);
-      ngHalos = load_halo_finder_catalog(str,100,0.0,0.0,0.0);
+      ngHalos = load_halo_finder_catalog(str,50,0.0,0.0,0.0);
       if(ngHalos == NULL)
 	{
 	  cart_error("Failed to read in the halo list from file %s",str);

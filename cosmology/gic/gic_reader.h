@@ -10,8 +10,8 @@
 #define GIC_INTEGER     int
 #define GIC_RECORD      int          /* ignore non-std g77 for now */
 
-#define GIC_MANIFEST_SIZE   (256+9*sizeof(GIC_REAL))
-#define GIC_FILEHEADER_SIZE   (8+2*sizeof(GIC_REAL)+6*sizeof(GIC_INTEGER))
+#define GIC_MANIFEST_SIZE   (256+1*sizeof(GIC_INTEGER))
+#define GIC_FILEHEADER_SIZE   (8+112*sizeof(GIC_REAL)+8*sizeof(GIC_INTEGER))
 #define GIC_LEVELHEADER_SIZE   (8+1*sizeof(GIC_REAL)+3*sizeof(GIC_INTEGER))
 
 
@@ -25,33 +25,37 @@ struct gicFile
   int Nrec;
 };
 
-/*
-//  The different order here is for 32-bit/64-bit alignment.
-*/
+
 struct gicManifest
 {
   char name[256];
+  int id;
+};
+
+
+/*
+//  The different order here is for 32-bit/64-bit alignment.
+*/
+struct gicFileHeader
+{
+  long Ntot;
   float OmegaB;
   float OmegaX;
   float OmegaL;
   float OmegaN;
   float h100;
-  float dx;
   float ns;
   float s8;
   float kp;
-};
-
-
-struct gicFileHeader
-{
-  long Ntot;
   float aBegin;
+  float dx;
   float DeltaDC;
+  float rmsDC;
   int dims[3];
-  int seed;
+  int seed[2];
   int Nrec;
   int Lmax;
+  int flag;
 };
 
 

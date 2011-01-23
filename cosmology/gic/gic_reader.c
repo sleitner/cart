@@ -97,15 +97,7 @@ int gicReadManifest(struct gicFile *f, struct gicManifest *manifest)
 
   buffer += 256;
 
-  SET(GIC_REAL,manifest->OmegaB);
-  SET(GIC_REAL,manifest->OmegaX);
-  SET(GIC_REAL,manifest->OmegaL);
-  SET(GIC_REAL,manifest->OmegaN);
-  SET(GIC_REAL,manifest->h100);
-  SET(GIC_REAL,manifest->dx);
-  SET(GIC_REAL,manifest->ns);
-  SET(GIC_REAL,manifest->s8);
-  SET(GIC_REAL,manifest->kp);
+  SET(GIC_INTG,manifest->id);
 
   return 0;
 }
@@ -123,15 +115,27 @@ int gicReadFileHeader(struct gicFile *f, struct gicFileHeader *header)
   if(f->WrongOrder != wrong_order) ret = -3;
   if(ret != 0) return ret;
 
+  SET(GIC_REAL,header->OmegaB);
+  SET(GIC_REAL,header->OmegaX);
+  SET(GIC_REAL,header->OmegaL);
+  SET(GIC_REAL,header->OmegaN);
+  SET(GIC_REAL,header->h100);
+  SET(GIC_REAL,header->ns);
+  SET(GIC_REAL,header->s8);
+  SET(GIC_REAL,header->kp);
   SET(GIC_REAL,header->aBegin);
+  SET(GIC_REAL,header->dx);
   SET(GIC_REAL,header->DeltaDC);
+  SET(GIC_REAL,header->rmsDC);
   SET(GIC_INTG,header->dims[0]);
   SET(GIC_INTG,header->dims[1]);
   SET(GIC_INTG,header->dims[2]);
-  SET(GIC_INTG,header->seed);
+  SET(GIC_INTG,header->seed[0]);
+  SET(GIC_INTG,header->seed[1]);
   SET(GIC_INTG,header->Nrec);
   SET(GIC_INT8,header->Ntot);
   SET(GIC_INTG,header->Lmax);
+  SET(GIC_INTG,header->flag);
 
   f->Nrec = header->Nrec;
 

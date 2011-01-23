@@ -132,6 +132,7 @@ float rt_coherence_length = 0.3;
 int rt_limit_signal_speed_to_c = 1;
 
 
+void rtSetGlobalParameters(frt_real parAvg[3]);
 void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf);
 void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf);
 
@@ -213,7 +214,7 @@ float rtSource(int ipart)
       return exp(-x1)*(1.0-exp(-rt_src_rate*particle_dt[ipart]))/particle_dt[ipart];
     }
 #else
-  if(x1 < 1.0e3)
+  if(x1 < 1.0e4)
     {
       /*
       //  This is a rough fit to Starburst99 evolving spectra
@@ -402,20 +403,21 @@ void rtUpdateTables(int top_level, MPI_Comm level_com)
 {
 #ifdef RT_TRANSFER
   int i;
-  frt_real rfAvg[rt_num_fields];
+  frt_real rfAvg[rt_num_fields], otAvg;
 
   rtGlobalUpdateTransfer(top_level,level_com);
 
   for(i=0; i<rt_num_fields; i++) rfAvg[i] = rtAvgRF[i].Value;
+  otAvg = rtAvgOTField.Value;
 #else
-  frt_real *rfAvg = NULL;
+  frt_real *rfAvg = NULL, otAvg = 0.0;
 #endif
 
   start_time(RT_TABLES_TIMER);
   start_time(WORK_TIMER);
 
   /* Fill in the tables */
-  frtCall(updatetables)(rfAvg);
+  frtCall(updatetables)(rfAvg,&otAvg);
 
   end_time(WORK_TIMER);
   end_time(RT_TABLES_TIMER);
@@ -424,6 +426,7 @@ void rtUpdateTables(int top_level, MPI_Comm level_com)
 
 void rtStepBegin()
 {
+  frt_real parAvg[3];
   frt_real uDen = units->number_density;
   frt_real uLen = units->length;
   frt_real uTime = units->time;
@@ -437,9 +440,11 @@ void rtStepBegin()
   frt_real Hubble = 0.0;
 #endif
 
+  rtSetGlobalParameters(parAvg);
+
   start_time(WORK_TIMER);
 
-  frtCall(stepbegin)(&uDen,&uLen,&uTime,&dtStep,&aExp,&Hubble);
+  frtCall(stepbegin)(&uDen,&uLen,&uTime,&dtStep,&aExp,&Hubble,parAvg);
 
   end_time(WORK_TIMER);
 
@@ -483,13 +488,8 @@ void rtStepBegin()
 
 void rtStepEnd()
 {
-  int i;
   frt_real vol = num_root_cells;
   frt_real parAvg[3];
-  struct rtGlobalValue tmp[4];
-
-  MESH_RUN_DECLARE(level,cell);
-  double sumSrc, sumRho, sumRhoHI, sumRhoH2;
 
   /*
   //  End step in the reverse order of its beginning
@@ -497,6 +497,43 @@ void rtStepEnd()
 #ifdef RT_TRANSFER
   rtStepEndTransfer();
 #endif /* RT_TRANSFER */
+
+  rtSetGlobalParameters(parAvg);
+
+  start_time(WORK_TIMER);
+  frtCall(stepend)(&vol,parAvg);
+  end_time(WORK_TIMER);
+
+#ifdef RT_DEBUG
+  switch(rt_debug.Mode)
+    {
+    case 1:
+      {
+	int i, cell;
+	cell = cell_find_position(rt_debug.Pos);
+	cart_debug("In cell-level debug for cell %d/%d",cell,cell_level(cell));
+	for(i=0; i<num_vars; i++)
+	  {
+	    cart_debug("Var[%d] = %g",i,cell_var(cell,i));
+	  }
+	break;
+      }
+    }
+  if(rt_debug.Mode>0 && rt_debug.Stop)
+    {
+      cart_error("Aborting on request...");
+    }
+#endif
+}
+
+
+void rtSetGlobalParameters(frt_real parAvg[3])
+{
+  int i;
+  struct rtGlobalValue tmp[4];
+
+  MESH_RUN_DECLARE(level,cell);
+  double sumSrc, sumRho, sumRhoHI, sumRhoH2;
 
   start_time(WORK_TIMER);
 
@@ -545,29 +582,7 @@ void rtStepEnd()
   parAvg[1] = parAvg[2] = 0.0;
 #endif
 
-  frtCall(stepend)(&vol,parAvg);
-
   end_time(WORK_TIMER);
-
-#ifdef RT_DEBUG
-  switch(rt_debug.Mode)
-    {
-    case 1:
-      {
-	cell = cell_find_position(rt_debug.Pos);
-	cart_debug("In cell-level debug for cell %d/%d",cell,cell_level(cell));
-	for(i=0; i<num_vars; i++)
-	  {
-	    cart_debug("Var[%d] = %g",i,cell_var(cell,i));
-	  }
-	break;
-      }
-    }
-  if(rt_debug.Mode>0 && rt_debug.Stop)
-    {
-      cart_error("Aborting on request...");
-    }
-#endif
 }
 
 
@@ -805,7 +820,7 @@ float rtTem(int cell)
   frt_real var[FRT_DIM];
 
   rtPackCellData(cell_level(cell),cell,var,NULL);
-  return frtCall(tem)(var);
+  return frtCall(tem)(var)/units->temperature;
 }
 
 
@@ -833,7 +848,7 @@ void rtGetPhotoRates(int cell, float *rate);
 float rtUmw(int cell)
 {
   float rate[FRT_RATE_DIM];
-  
+
   rtGetPhotoRates(cell,rate);
 
   return rate[FRT_RATE_DissociationLW]*1.05e10;
@@ -871,10 +886,12 @@ void rtGetPhotoRates(int cell, float *rate)
     {
       if(sizeof(frt_real) == sizeof(float))
 	{
+	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = 0.0;
 	  frtCall(getbackgroundphotorates)((frt_real *)rate);
 	}
       else
 	{
+	  for(i=0; i<FRT_RATE_DIM; i++) frate[i] = 0.0;
 	  frtCall(getbackgroundphotorates)(frate);
 	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = frate[i];
 	}
@@ -885,10 +902,12 @@ void rtGetPhotoRates(int cell, float *rate)
 
       if(sizeof(frt_real) == sizeof(float))
 	{
+	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = 0.0;
 	  frtCall(getphotorates)(var,rawrf,(frt_real *)rate);
 	}
       else
 	{
+	  for(i=0; i<FRT_RATE_DIM; i++) frate[i] = 0.0;
 	  frtCall(getphotorates)(var,rawrf,frate);
 	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = frate[i];
 	}

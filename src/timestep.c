@@ -45,6 +45,7 @@ DEFINE_LEVEL_ARRAY(int,time_refinement_factor_old);
 */
 int min_time_refinement_factor = 2;
 int max_time_refinement_factor = 2;
+int time_refinement_level = min_level;
 
 /*
 //  The variable dt_global is the chosen global time-step without any 
@@ -220,6 +221,7 @@ void config_init_timestep()
 
   control_parameter_add2(control_parameter_int,&min_time_refinement_factor,"time-refinement-factor:min","min_time_refinement_factor","minimum allowed refinement factor between the time-steps on two successive levels.");
   control_parameter_add2(control_parameter_int,&max_time_refinement_factor,"time-refinement-factor:max","max_time_refinement_factor","maximum allowed refinement factor between the time-steps on two successive levels. If <time-refinement-factor:min> = <time-refinement-factor:max>, then time refinement is done by a constant factor; <time-refinement-factor:min> = <time-refinement-factor:max> = 2 recovers the old factor-of-two scheme.");
+  control_parameter_add2(control_parameter_int,&time_refinement_level,"time-refinement-level","time_refinement_level","lowest level at which time refinement is allowed; all higher levels take the same time-steps as this level (a-la FLASH).");
 }
 
 
@@ -257,6 +259,7 @@ void config_verify_timestep()
 
   cart_assert(min_time_refinement_factor > 0);
   cart_assert(max_time_refinement_factor >= min_time_refinement_factor);
+  cart_assert(time_refinement_level >= min_level);
 
 #ifndef HYDRO
   if(min_time_refinement_factor==1 && max_time_refinement_factor>1 && particle_cfl==0.0)
@@ -664,7 +667,7 @@ int timestep( int level, MPI_Comm level_com )
 
 void set_timestepping_scheme()
 {
-  int level, i, j, lowest_level;
+  int level, i, j, lowest_level, synch_level;
   int courant_cell, done;
   double velocity;
   double dt_local, dt_new, dda, work;
@@ -796,7 +799,6 @@ void set_timestepping_scheme()
   start_time( WORK_TIMER );
 
   dtl[min_level] = dt_new;
-  time_refinement_factor[min_level] = 1;
 
   /*
   //  Ensure consistency of time variables 
@@ -861,19 +863,33 @@ void set_timestepping_scheme()
 
   start_time( WORK_TIMER );
 
-  for(level=min_level+1; level<=lowest_level; level++)
+  /*
+  // Synch time-steps on all levels above time_refinement_level or lowest_level.
+  */
+  synch_level = min(time_refinement_level,lowest_level);
+  time_refinement_factor[synch_level] = 1;
+  for(level=min_level; level<synch_level; level++)
+    {
+      time_refinement_factor[level] = 1;
+      dtl[level] = dtl[synch_level];
+    }
+
+  /*
+  // Satisfy min_time_refinement_factor limit on all levels below synch_level.
+  */
+  for(level=synch_level+1; level<=lowest_level; level++)
     {
       time_refinement_factor[level] = max(min_time_refinement_factor,(int)(0.999+dtl[level-1]/dtl[level]));
       dtl[level] = dtl[level-1]/time_refinement_factor[level];
     }
 
   /*
-  // The time-stepping scheme is now done, but we are not guaranteed to satisfy max_time_refinement_factor limit.
+  // Satisfy max_time_refinement_factor limit on all levels below synch_level.
   */
   do
     {
       done = 1;
-      for(level=min_level+1; level<=lowest_level; level++)
+      for(level=synch_level+1; level<=lowest_level; level++)
 	{
 	  if(time_refinement_factor[level] > max_time_refinement_factor)
 	    {

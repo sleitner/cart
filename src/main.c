@@ -42,6 +42,7 @@ void config_init();
 void config_read_file(const char *filename);
 void config_create_file(const char *filename);
 void config_print_to_file(const char *filename, int append);
+void config_append_units_to_file(const char *filename);
 
 
 void init_run();
@@ -325,6 +326,7 @@ int main ( int argc, char *argv[]) {
 	check_map();
 #endif
 
+	config_append_units_to_file("config.log");
 	config_print_to_file("history.log",1);
 
 	end_time( INIT_TIMER );

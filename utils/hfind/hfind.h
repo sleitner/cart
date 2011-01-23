@@ -14,8 +14,8 @@ c     ----------------------------------------------------------------
 
       parameter ( nil    = 0         )           ! integer zero 
       parameter ( zero   = 0.0       )           ! real zero
-      parameter ( nrow   = 512       )            ! # of particles  in 1D
-      parameter ( npmax  = 3000000  )            !
+      parameter ( nrow   = 128       )            ! # of particles  in 1D
+      parameter ( npmax  = 18000000  )            !
       parameter ( ncold  = nrow**3   )           !
       parameter ( npage  = nrow**2   )           !
       parameter ( nrecl  = npage * 6 )           !

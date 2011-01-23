@@ -53,7 +53,7 @@ C
 C
 C
 C
-      subroutine frtSetGlobalRadiationFieldsTransfer(rfAvg)
+      subroutine frtSetGlobalRadiationFieldsTransfer(rfAvg,otAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_UV
@@ -69,16 +69,15 @@ C
          lr = LRSETS(L)
 
          aqbar = facLX*guvEff(lr)
-         ajbar = angAvg(lr)
+         ajbar = angLoc(lr)
 
-         q = ajbar - aqbar*rfAvg(L)
-         if(q .lt. 0.0) q = 0.0
-         p = ajbar*rfAvg(NSETS+L)
-         if(p .gt. 1.0e-35) then
-            w(L) = q/p
+         if(ajbar .gt. 0.0) then
+            q = 1.0 - aqbar*rfAvg(L)/ajbar
          else
-            w(L) = 0.0
+            q = 0.0
          endif
+
+         w(L) = max(0.0,q)
 
       enddo
 
@@ -87,16 +86,27 @@ C
          tauLoc(lr) = tauH1*csH1n(lr)
       enddo
 
-      tauG1 = QIuni(w(2)) - tauH1*csH1n(lrG1tr)
+      tauG1 = max(0.0,QIuni(w(2))-tauH1*csH1n(lrG1tr))
       do lr=lrG1tr,NRAD
          tauLoc(lr) = tauLoc(lr) + tauG1*csG1n(lr)
       enddo
 
-      tauG2 = QIuni(w(3)) - tauG1*csG1n(lrG2tr) - 
-     .     tauH1*csH1n(lrG2tr)
+      tauG2 = max(0.0,QIuni(w(3))-tauG1*csG1n(lrG2tr)- 
+     .     tauH1*csH1n(lrG2tr))
       do lr=lrG2tr,NRAD
          tauLoc(lr) = tauLoc(lr) + tauG2*csG2n(lr)
       enddo
+
+#ifdef RT_OUTPUT
+      if(ioNode) then
+         open(unit=IOUNIT, file='rt-run.log', access='append')
+         write(IOUNIT,*) '  Photon balance:'
+         write(IOUNIT,*) '    nu_H1: ', w(1), tauH1, tauLoc(lrH1tr)
+         write(IOUNIT,*) '    nu_G1: ', w(2), tauG1, tauLoc(lrG1tr)
+         write(IOUNIT,*) '    nu_G2: ', w(3), tauG2, tauLoc(lrG2tr)
+         close(IOUNIT)
+      endif
+#endif /* RT_OUTPUT */
 
 #ifdef RT_UV
 C

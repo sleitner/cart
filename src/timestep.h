@@ -8,6 +8,7 @@
 
 extern int max_steps;
 extern double timelimit;
+extern int max_mpi_sync_level;
 
 void config_init_timestep();
 void config_verify_timestep();

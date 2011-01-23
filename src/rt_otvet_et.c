@@ -10,7 +10,6 @@
 #include "rt_solver.h"
 #include "rt_transfer.h"
 #include "rt_utilities.h"
-#include "sfc.h"
 #include "timing.h"
 #include "top_level_fft.h"
 #include "tree.h"
@@ -27,20 +26,20 @@
 
 fftw_complex *rtGreenET[] = { 0, 0, 0, 0, 0, 0 };
 
-extern int NumVars;
-extern int Vars[];
+extern int rtNumOtvetETVars;
+extern int rtOtvetETVars[];
 
 
 void rtOtvetTopLevelEddingtonTensor(int id, fftw_complex *fft_source, fftw_complex *fft_output);
 void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *level_cells);
-void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos);
+void rtOtvetSingleSourceEddingtonTensor(int level);
 
 
 void rtOtvetEddingtonTensor(int level, int num_level_cells, int *level_cells)
 {
 #ifdef RT_SINGLE_SOURCE
 
-  rtOtvetSingleSourceEddingtonTensor(level,rtSingleSourceVal,rtSingleSourcePos);
+  rtOtvetSingleSourceEddingtonTensor(level);
 
 #else
 
@@ -65,7 +64,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
 
   if(level == min_level)
     {
-      top_level_fft(RT_VAR_SOURCE,NumVars-1,Vars+1,rtOtvetTopLevelEddingtonTensor);  /* hidden synchronous communication - only used for the top level */
+      top_level_fft(RT_VAR_SOURCE,rtNumOtvetETVars-1,rtOtvetETVars+1,rtOtvetTopLevelEddingtonTensor);  /* hidden synchronous communication - only used for the top level */
 
       start_time(WORK_TIMER);
 
@@ -223,7 +222,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
     }
  
   start_time(RT_TREE_EMULATOR_UPDATE_TIMER);
-  update_buffer_level(level,Vars,NumVars);
+  update_buffer_level(level,rtOtvetETVars,rtNumOtvetETVars);
   end_time(RT_TREE_EMULATOR_UPDATE_TIMER);
 
   /*
@@ -274,7 +273,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
       end_time(WORK_TIMER);
 
       start_time(RT_TREE_EMULATOR_UPDATE_TIMER);
-      update_buffer_level(level,Vars+1,NumVars-1);
+      update_buffer_level(level,rtOtvetETVars+1,rtNumOtvetETVars-1);
       end_time(RT_TREE_EMULATOR_UPDATE_TIMER);
     }
 
@@ -406,45 +405,22 @@ void rtOtvetTopLevelEddingtonTensor(int id, fftw_complex *fft_source, fftw_compl
 }
 
 
-void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
+#ifdef RT_SINGLE_SOURCE
+
+void rtOtvetSingleSourceEddingtonTensor(int level)
 {
-  int i, j, l, index, cell, srcLevel;
+  int i, j, l, index, cell;
   int num_level_cells, *level_cells;
   double eps1, eps2, dr2, pos[nDim];
-  int proc, coord[nDim];
 
   start_time(WORK_TIMER);
 
-  for(j=0; j<nDim; j++) coord[j] = (int)srcPos[j];
-  index = sfc_index(coord);
-  proc = processor_owner(index);
-  
-  cell = cell_find_position(srcPos);
-  if(cell>-1 && cell_is_local(cell))
-    {
-      srcLevel = cell_level(cell);
-      cart_assert(proc == local_proc_id);
-    }
-  else
-    {
-      srcLevel = -1;
-      cart_assert(proc != local_proc_id);
-    }
-
-  end_time(WORK_TIMER);
- 
-  start_time(COMMUNICATION_TIMER);
-  MPI_Bcast(&srcLevel,1,MPI_INT,proc,MPI_COMM_WORLD);
-  end_time(COMMUNICATION_TIMER);
-
-  start_time(WORK_TIMER);
-
-  eps1 = 0.01*cell_size[srcLevel]*cell_size[srcLevel];
-  eps2 = 9*cell_size[srcLevel]*cell_size[srcLevel];
+  eps1 = 0.01*cell_size[rtSingleSourceLevel]*cell_size[rtSingleSourceLevel];
+  eps2 = 9*cell_size[rtSingleSourceLevel]*cell_size[rtSingleSourceLevel];
 
   select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
 
-#pragma omp parallel for default(none), private(index,cell,pos,dr2,i,j,l), shared(level,num_level_cells,level_cells,srcVal,srcPos,eps1,eps2,cell_vars)
+#pragma omp parallel for default(none), private(index,cell,pos,dr2,i,j,l), shared(level,num_level_cells,level_cells,rtSingleSourceValue,rtSingleSourcePos,eps1,eps2,cell_vars)
   for(index=0; index<num_level_cells; index++)
     {
       cell = level_cells[index];
@@ -453,13 +429,13 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
       dr2 = eps1;
       for(i=0; i<nDim; i++)
 	{
-	  pos[i] -= srcPos[i];
+	  pos[i] -= rtSingleSourcePos[i];
 	  if(pos[i] >  0.5*num_grid) pos[i] -= num_grid;
 	  if(pos[i] < -0.5*num_grid) pos[i] += num_grid;
 	  dr2 += pos[i]*pos[i];
 	}
 
-      cell_var(cell,RT_VAR_OT_FIELD) = srcVal/(4*M_PI*dr2);
+      cell_var(cell,RT_VAR_OT_FIELD) = rtSingleSourceValue/(4*M_PI*dr2);
       
       dr2 += nDim*eps2;
       for(l=j=0; j<nDim; j++)
@@ -477,8 +453,10 @@ void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos)
   end_time(WORK_TIMER);
 
   start_time(RT_SINGLE_SOURCE_UPDATE_TIMER);
-  update_buffer_level(level,Vars,NumVars);
+  update_buffer_level(level,rtOtvetETVars,rtNumOtvetETVars);
   end_time(RT_SINGLE_SOURCE_UPDATE_TIMER);
 }
+
+#endif /* RT_SINGLE_SOURCE */
 
 #endif /* RADIATIVE_TRANSFER && RT_TRANSFER && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */

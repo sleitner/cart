@@ -266,7 +266,7 @@ void units_reset()
   legacy_units_internal.M0 = legacy_units_internal.rho0 * pow(box_size/cosmology->h,3.0) / (double)num_root_cells;
 #endif /* CHECK_LEGACY_UNITS */
 
-  config_append_units_to_file("config.log");
+  config_append_units_to_file("history.log");
 }
 
 

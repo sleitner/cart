@@ -1211,7 +1211,8 @@ void build_mesh() {
 
 	/* Doug (11/29/2009): necessary to properly set particle timestep 
 	 * (not certain abox and auni are required here) */
-	set_timestepping_scheme();
+	/* NG: can NOT be used here, hydro vars may not have been read yet! */
+	//set_timestepping_scheme();
 
 #ifdef REFINEMENT
 	for ( i = 0; i < nDim; i++ ) {

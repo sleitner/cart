@@ -15,6 +15,7 @@
 #include "rt_global.h"
 #include "rt_transfer.h"
 #include "rt_utilities.h"
+#include "sfc.h"
 #include "starformation.h"
 #include "timestep.h"
 #include "timing.h"
@@ -45,7 +46,8 @@ void rtTransferUpdateUniformSource(struct rtGlobalValue *avg, MPI_Comm com);
 
 
 #ifdef RT_SINGLE_SOURCE
-float rtSingleSourceVal;
+int rtSingleSourceLevel;
+float rtSingleSourceValue;
 double rtSingleSourcePos[nDim];
 
 #ifdef RT_VAR_SOURCE
@@ -65,14 +67,14 @@ int rtIsThereWork()
   return 1;
 #endif
 
+#ifdef RT_SINGLE_SOURCE
+  return (rtSingleSourceValue > 0.0);
+#endif
+
 #if defined(PARTICLES) && defined(STARFORM)
-
   return 1;
-
 #else
-
   return 0;
-
 #endif /* PARTICLES && STARFORM */
 }
 
@@ -92,7 +94,8 @@ void rtInitRunTransfer()
   end_time(WORK_TIMER);
 
 #ifdef RT_SINGLE_SOURCE
-  rtSingleSourceVal = 0.0;
+  rtSingleSourceLevel = min_level;
+  rtSingleSourceValue = 0.0;
   for(i=0; i<nDim; i++) rtSingleSourcePos[i] = 0.5*num_grid;
 #endif
 
@@ -267,6 +270,30 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 #ifdef RT_VAR_OT_FIELD
   rtGlobalValueUpdate(&rtAvgOTField,top_level,max_level,MPI_SUM,level_com);
 #endif /* RT_VAR_OT_FIELD */
+
+#ifdef RT_SINGLE_SOURCE
+
+  start_time(WORK_TIMER);
+  
+  cell = cell_find_position(rtSingleSourcePos);
+  if(cell>-1 && cell_is_local(cell))
+    {
+      level = cell_level(cell);
+    }
+  else
+    {
+      level = -1;
+    }
+  end_time(WORK_TIMER);
+ 
+  start_time(COMMUNICATION_TIMER);
+  /*
+  //  NG: I don't know why, but Bcast blocks here, hence using Allreduce
+  */
+  MPI_Allreduce(&level,&rtSingleSourceLevel,1,MPI_INT,MPI_MAX,level_com);
+  end_time(COMMUNICATION_TIMER);
+
+#endif /* RT_SINGLE_SOURCE */
 }
 
 
@@ -604,8 +631,8 @@ void rtTransferAssignSingleSourceDensity(int level)
   dy0 = 1.0 - dy1;
   dz0 = 1.0 - dz1;
 
-  dx0 *= rtSingleSourceVal*cell_volume_inverse[level];
-  dx1 *= rtSingleSourceVal*cell_volume_inverse[level];
+  dx0 *= rtSingleSourceValue*cell_volume_inverse[level];
+  dx1 *= rtSingleSourceValue*cell_volume_inverse[level];
 
   d00 = dx0*dy0;
   d01 = dx0*dy1;

@@ -21,6 +21,8 @@ struct HALO;
 #define I_GAS_METAL_DENSITY   2004
 #define I_GAS_METALLICITY     2005
 #define I_GAS_TOVERMU         2006
+#define I_GAS_OVERDENSITY     2007
+#define I_HI_FRACTION         2008
 
 #define I_FLAG_STARS          1
 #define I_FLAG_SPLIT_STARS    2
@@ -31,7 +33,7 @@ struct IFRIT_NAMESPACE
 {
   int  (*OutputMesh)(const char *filename, int floor_level, int nbin[], const double pcen[], int nvars, int *varid);
   void (*OutputHalo)(const char *filename, int floor_level, int nbin[], const struct HALO *h, int nvars, int *varid);
-  void (*OutputBox)(const char *fileroot, int floor_level, int nbin[], const double pos[], int nvars, int *varid)
+  void (*OutputBox)(const char *fileroot, int floor_level, int nbin[], const double pos[], int nvars, int *varid);
 };
 
 extern const struct IFRIT_NAMESPACE ifrit;

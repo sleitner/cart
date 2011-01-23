@@ -49,6 +49,11 @@ void gicStartFile(char *filename, struct gicFile *input, struct gicManifest *man
       cart_error("Unable to read GIC manifest of file %s, error code: %d",filename,ret);
     }
 
+  if(manifest->id != 100)
+    {
+      cart_error("This set of GIC files is either corrupted or from an unsupported versionof GIC");
+    }
+
   ret = gicReadFileHeader(input,fileHeader);
   if(ret != 0)
     {
@@ -79,6 +84,7 @@ long gicSkipToLevel(int Level, int lMax, struct gicFile *input, struct gicFileHe
   offset += (2*sizeof(GIC_RECORD)+GIC_FILEHEADER_SIZE);
   if(fileHeader->Lmax > 0)  /* Skip mask (if needed) */
     {
+      offset += (2*sizeof(GIC_RECORD)+3*sizeof(GIC_INTEGER));
       num_pages = (num_root_cells+fileHeader->Nrec-1)/fileHeader->Nrec;
       offset += num_pages*(2*sizeof(GIC_RECORD)+fileHeader->Nrec*sizeof(GIC_INTEGER));
     }
@@ -554,23 +560,22 @@ void gicReadParticleData(const char *rootname, char *type, int dc_off)
       cart_debug("Number of data elements to load: %ld",fileHeader->Ntot);
     }
 
-  MPI_Bcast(manifest,sizeof(struct gicManifest),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
   MPI_Bcast(fileHeader,sizeof(struct gicFileHeader),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
 
   /*
   //  Set units
   */
-  cosmology_set(OmegaM,manifest->OmegaX+manifest->OmegaB);
-  cosmology_set(OmegaB,manifest->OmegaB);
-  cosmology_set(OmegaL,manifest->OmegaL);
-  cosmology_set(h,manifest->h100);
+  cosmology_set(OmegaM,fileHeader->OmegaX+fileHeader->OmegaB);
+  cosmology_set(OmegaB,fileHeader->OmegaB);
+  cosmology_set(OmegaL,fileHeader->OmegaL);
+  cosmology_set(h,fileHeader->h100);
 
   if(dc_off)
     cosmology_set(DeltaDC,0.0);
   else
     cosmology_set(DeltaDC,fileHeader->DeltaDC);
 
-  box_size = manifest->dx*num_grid;
+  box_size = fileHeader->dx*num_grid;
 
   abox[min_level] = fileHeader->aBegin;
   tl[min_level] = tcode_from_abox(abox[min_level]);
@@ -757,7 +762,6 @@ void gicReadGasData(const char *rootname, char *type)
 	}
     }
 
-  MPI_Bcast(manifest,sizeof(struct gicManifest),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
   MPI_Bcast(fileHeader,sizeof(struct gicFileHeader),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
 
   if(min_level+fileHeader->Lmax < max_level)

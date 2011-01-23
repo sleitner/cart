@@ -105,13 +105,16 @@ C
 C
 C
 C
-      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel)
+      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel,
+     .     parAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
-      dimension guv(NRAD)
+      dimension parAvg(*), guv(NRAD)
+C
+      common /RT_Base_Save1/ parBeg(3)
 C
       include 'frt_inline.inc'
 C
@@ -126,15 +129,19 @@ C
       if(ioNode) then
          open(unit=IOUNIT, file='rt-run.log', access='append')
          write(IOUNIT,*) 'Step:'
-         write(IOUNIT,*) '   uDen:   ', uDen
-         write(IOUNIT,*) '   uLen:   ', uLen
-         write(IOUNIT,*) '   uTime:  ', uTime
-         write(IOUNIT,*) '   aExp:   ', aExp
-         write(IOUNIT,*) '   Hubble: ', Hubble
-         write(IOUNIT,*) '   dtStep: ', dtStep
+         write(IOUNIT,*) '  aExp:   ', aExp
+         write(IOUNIT,*) '  uDen:   ', uDen
+         write(IOUNIT,*) '  uLen:   ', uLen
+         write(IOUNIT,*) '  uTime:  ', uTime
+         write(IOUNIT,*) '  Hubble: ', Hubble
+         write(IOUNIT,*) '  dtStep: ', dtStep
          close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */
+
+      do i=1,3
+         parBeg(i) = parAvg(i)
+      enddo
 
 #ifdef RT_TEST
       call frtTestStepBegin
@@ -295,7 +302,7 @@ C$OMP+SHARED(angLoc)
 C
 C
 C
-      subroutine frtSetGlobalRadiationFields(rfAvg)
+      subroutine frtSetGlobalRadiationFields(rfAvg,otAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension rfAvg(*)
@@ -303,7 +310,7 @@ C
       include 'frt_inline.inc'
 C
 #ifdef RT_TRANSFER
-      call frtSetGlobalRadiationFieldsTransfer(rfAvg)
+      call frtSetGlobalRadiationFieldsTransfer(rfAvg,otAvg)
 #endif
 
 C$OMP PARALLEL DO DEFAULT(NONE),
@@ -317,12 +324,12 @@ C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
 #ifdef RT_OUTPUT
       if(ioNode) then
          open(unit=IOUNIT, file='rt-run.log', access='append')
-         write(IOUNIT,*) 'RT: properties of global radiation fields:'
-         write(IOUNIT,*) '  nu_H1: ', angUni(lrH1tr), angAvg(lrH1tr), 
+         write(IOUNIT,*) '  Properties of global radiation fields:'
+         write(IOUNIT,*) '    nu_H1: ', angUni(lrH1tr), angAvg(lrH1tr),
      .        angEff(lrH1tr), facLX*guvEff(lrH1tr)
-         write(IOUNIT,*) '  nu_G1: ', angUni(lrG1tr), angAvg(lrG1tr), 
+         write(IOUNIT,*) '    nu_G1: ', angUni(lrG1tr), angAvg(lrG1tr),
      .        angEff(lrG1tr), facLX*guvEff(lrG1tr)
-         write(IOUNIT,*) '  nu_G2: ', angUni(lrG2tr), angAvg(lrG2tr), 
+         write(IOUNIT,*) '    nu_G2: ', angUni(lrG2tr), angAvg(lrG2tr),
      .        angEff(lrG2tr), facLX*guvEff(lrG2tr)
          close(IOUNIT)
       endif
@@ -333,12 +340,12 @@ C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
 C
 C
 C
-      subroutine frtUpdateTables(rfAvg)
+      subroutine frtUpdateTables(rfAvg,otAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension rfAvg(*)
 
-      call frtSetGlobalRadiationFields(rfAvg)
+      call frtSetGlobalRadiationFields(rfAvg,otAvg)
       call frtFillRadiationTables
 
       return
@@ -360,6 +367,8 @@ C
       dimension axiLW(NRLW), sxiLW(NRLW), xibLW(NRLW), anbLW(NRLW)
 #endif
 C
+      common /RT_Base_Save1/ parBeg(3)
+C
       common/RT_RT_UV/ duvin, axiH1tr, angH1tr
 C
 C  Diagnostics
@@ -379,19 +388,19 @@ C
          open(unit=IOUNIT, file='rt-run.log', access='append')
 
          if(ftabHit .gt. 0.5) then
-            write(IOUNIT,*) 'RT_Tables: miss/hit ', 
+            write(IOUNIT,*) '  Tables: miss/hit ', 
      .           ftabMiss/ftabHit, ', fill/hit ', ftabFill/ftabHit
          endif
 
          if(gInfo(infoCall) .gt. gInfo(infoFail)) then
-            write(IOUNIT,*) 'RT_Cooling: avg # of steps ', 
+            write(IOUNIT,*) '  Cooling: avg # of steps ', 
      .           gInfo(infoNAvg)/(gInfo(infoCall)-gInfo(infoFail))
-            write(IOUNIT,*) 'RT_Cooling: max # of steps ', 
+            write(IOUNIT,*) '  Cooling: max # of steps ', 
      .           gInfo(infoNMax)
          endif
 
          if(gInfo(infoFail) .gt. 0.0d0) then
-            write(IOUNIT,*) 'RT_Coolin: fail/call ', 
+            write(IOUNIT,*) '  Cooling: fail/call ', 
      .           gInfo(infoFail)/gInfo(infoCall)
          endif
 
@@ -405,11 +414,14 @@ C
 C
 C  Unpack global quantities
 C
-      duvin = parAvg(1)
 #ifdef RT_CHEMISTRY
-      XH1_va = parAvg(2)
-      XMH_va = parAvg(3)
+      XH1_va = 0.5*(parBeg(2)+parAvg(2))
+      XMH_va = 0.5*(parBeg(3)+parAvg(3))
 #endif
+C
+C  This must be so for photon number conservation
+C
+      duvin = 1*parBeg(1) + 0*parAvg(1)
 
       call frtFinalizeGlobalFields(vol)
 C

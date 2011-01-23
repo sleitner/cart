@@ -149,8 +149,8 @@ C
 
       if(ioNode) then
          open(unit=IOUNIT, file='rt-run.log', access='append')
-         write(IOUNIT,*) 'RT_Spectrum: <E>_G = ', EAvg_G
-         write(IOUNIT,*) 'RT_Spectrum: <E>_Q = ', EAvg_Q
+         write(IOUNIT,*) 'Spectrum: <E>_G = ', EAvg_G
+         write(IOUNIT,*) 'Spectrum: <E>_Q = ', EAvg_Q
          close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */

@@ -26,7 +26,8 @@ int rtWriteRFHelper(FILE *f, frt_intg n, frt_real *data, int fortran_style)
 #ifdef RT_SINGLE_SOURCE
   size = sizeof(float) + nDim*sizeof(double);
   if(fortran_style && fwrite(&size,sizeof(int),1,f)!=1) return 1;
-  if(fwrite(&rtSingleSourceVal,sizeof(float),1,f) != 1) return 1;
+  if(fwrite(&rtSingleSourceLevel,sizeof(int),1,f) != 1) return 1;
+  if(fwrite(&rtSingleSourceValue,sizeof(float),1,f) != 1) return 1;
   if(fwrite(rtSingleSourcePos,sizeof(double),nDim,f) != nDim) return 1;
   if(fortran_style && fwrite(&size,sizeof(int),1,f)!=1) return 1;
 #endif
@@ -47,7 +48,8 @@ int rtReadRFHelper(FILE *f, frt_intg n, frt_real *data, int fortran_style)
 #ifdef RT_SINGLE_SOURCE
   size = sizeof(float) + nDim*sizeof(double);
   if(fortran_style && fread(&size,sizeof(int),1,f)!=1) return 1;
-  if(fread(&rtSingleSourceVal,sizeof(float),1,f) != 1) return 1;
+  if(fread(&rtSingleSourceLevel,sizeof(int),1,f) != 1) return 1;
+  if(fread(&rtSingleSourceValue,sizeof(float),1,f) != 1) return 1;
   if(fread(rtSingleSourcePos,sizeof(double),nDim,f) != nDim) return 1;
   if(fortran_style && fread(&size,sizeof(int),1,f)!=1) return 1;
 #endif
@@ -73,7 +75,7 @@ void rtWriteRadiationFieldData(const char *fileroot, int fortran_style)
 	  cart_error("Unable to pack Radiation Field data.");
 	}
 
-      filename = cart_alloc(char, (strlen(fileroot)+2) );
+      filename = cart_alloc(char,(strlen(fileroot)+3));
       strcpy(filename,fileroot);
       strcat(filename,"rf");
 
@@ -117,7 +119,7 @@ void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
 
   if(local_proc_id == MASTER_NODE)
     {
-      filename = cart_alloc(char, (strlen(fileroot)+2) );
+      filename = cart_alloc(char,(strlen(fileroot)+3));
       strcpy(filename,fileroot);
       strcat(filename,"rf");
 
@@ -152,7 +154,8 @@ void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
     }
 
 #ifdef RT_SINGLE_SOURCE
-  MPI_Bcast(&rtSingleSourceVal,1,MPI_FLOAT,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(&rtSingleSourceLevel,1,MPI_INT,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(&rtSingleSourceValue,1,MPI_FLOAT,MASTER_NODE,MPI_COMM_WORLD);
   MPI_Bcast(rtSingleSourcePos,nDim,MPI_DOUBLE,MASTER_NODE,MPI_COMM_WORLD);
 #endif
 }

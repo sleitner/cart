@@ -510,7 +510,7 @@ int cell_contains_position( int cell, double position[nDim] ) {
 	return 1;
 }
 
-double compute_distance_periodic( double pos1[nDim], double pos2[nDim] ) {
+double compute_distance_periodic( const double *pos1, const double *pos2 ) {
 	int d;
 	double dx, r = 0.0;
 	

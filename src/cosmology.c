@@ -10,6 +10,7 @@
 /* ------------------------------------ */
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 
@@ -79,12 +80,20 @@ void cosmology_copy(const struct CosmologyParameters *ptr)
 }
 
 
+void cosmology_fail_on_reset(const char *name, double old_value, double new_value)
+{
+  char str[150];
+  sprintf(str,"Trying to change %s from %lg to %lg...\nCosmology has been fixed and cannot be changed.\n",name,old_value,new_value);
+  ERROR(str);
+}
+
+
 void cosmology_set_OmegaM(double v)
 {
   if(v < 1.0e-3) v = 1.0e-3;
   if(fabs(c.OmegaM-v) > 1.0e-5)
     {
-      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
+      if(d.set) cosmology_fail_on_reset("OmegaM",c.OmegaM,v);
       c.OmegaM = v;
       c.flat = (fabs(c.OmegaM+c.OmegaL-1.0) > 1.0e-5) ? 0 : 1;
       cosmology_clear_table();
@@ -96,7 +105,7 @@ void cosmology_set_OmegaL(double v)
 {
   if(fabs(c.OmegaL-v) > 1.0e-5)
     {
-      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
+      if(d.set) cosmology_fail_on_reset("OmegaL",c.OmegaL,v);
       c.OmegaL = v;
       c.flat = (fabs(c.OmegaM+c.OmegaL-1.0) > 1.0e-5) ? 0 : 1;
       cosmology_clear_table();
@@ -109,7 +118,7 @@ void cosmology_set_OmegaB(double v)
   if(v < 0.0) v = 0.0;
   if(fabs(c.OmegaB-v) > 1.0e-5)
     {
-      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
+      if(d.set) cosmology_fail_on_reset("OmegaB",c.OmegaB,v);
       c.OmegaB = v;
       cosmology_clear_table();
     }
@@ -120,7 +129,7 @@ void cosmology_set_h(double v)
 {
   if(fabs(c.h-v) > 1.0e-5)
     {
-      if(d.set) ERROR("Cosmology has been fixed and cannot be changed.");
+      if(d.set) cosmology_fail_on_reset("h",c.h,v);
       c.h = v;
       cosmology_clear_table();
     }
@@ -129,10 +138,9 @@ void cosmology_set_h(double v)
 
 void cosmology_set_DeltaDC(double v)
 {
-  if(fabs(v) < 1.0e-3) v = 0.0;
   if(fabs(c.DeltaDC-v) > 1.0e-3)
     {
-      if(d.set) ERROR("Cosmology has been set fixed and cannot be changed.");
+      if(d.set) cosmology_fail_on_reset("DeltaDC",c.DeltaDC,v);
       c.DeltaDC = v;
       cosmology_clear_table();
     }

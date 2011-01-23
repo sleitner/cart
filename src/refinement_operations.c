@@ -36,21 +36,8 @@ int join( int cell ) {
 }
 
 #ifdef HYDRO
-double cell_kinetic_energy( int icell ) {
-	int i;
-	double kinetic = 0.0;
-	
-	for ( i = 0; i < nDim; i++ ) {
-		kinetic += cell_momentum(icell,i)*cell_momentum(icell,i);
-	}
-
-	kinetic *= 0.5 / cell_gas_density(icell);
-
-	return kinetic;
-}
-
 double cell_internal_energy( int icell ) {
-	return cell_gas_energy(icell) - cell_kinetic_energy(icell);
+	return cell_gas_energy(icell) - cell_gas_kinetic_energy(icell);
 }
 #endif /* HYDRO */
 
@@ -129,7 +116,7 @@ int split ( int cell ) {
 			/*
 			  ASK DOUG WHY WE DO IT THAT WAY
 			*/
-			cell_gas_energy(child_cell) = cell_kinetic_energy(child_cell) + cell_gas_internal_energy(child_cell);
+			cell_gas_energy(child_cell) = cell_gas_kinetic_energy(child_cell) + cell_gas_internal_energy(child_cell);
 			//				cell_interpolate_function_with_neighbors( cell, cell_internal_energy, neighbors );
 			weights[4] += cell_gas_energy(child_cell);
 
@@ -219,7 +206,7 @@ int split ( int cell ) {
 			mass += cell_gas_density(child_cell) * cell_volume[ cell_level(child_cell) ];
 		}
 
-		if ( fabs( mass - cell_gas_density(cell)*cell_volume[cell_level(cell)] )/mass > 1e-6 ) {
+		if ( mass>0.0 && fabs( mass - cell_gas_density(cell)*cell_volume[cell_level(cell)] )/mass > 1e-6 ) {
 			cart_error("Error in mass conservation in split_cell: %e %e\n", mass,
 				cell_gas_density(cell)*cell_volume[cell_level(cell)] );
 		}

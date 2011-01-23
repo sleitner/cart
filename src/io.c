@@ -641,6 +641,37 @@ void read_restart( const char *label ) {
 	}
 #endif /* COSMOLOGY */
 
+	/*
+	//  If we started from a labeled file and succeeded, write
+	//  a restart file - just in case we encounter a CFL violation
+	//  in the first step.
+	*/
+	if ( label != NULL && local_proc_id == MASTER_NODE ) {
+		/* write out restart file */
+		sprintf( filename, "%s/restart.dat", output_directory );
+		restart = fopen( filename, "w" );
+		cart_assert(restart != NULL);
+
+		fprintf( restart, "%s\n", filename_gas );
+
+#ifdef HYDRO
+#ifdef HYDRO_TRACERS
+		fprintf( restart, "%s\n", filename_tracers );
+#endif /* HYDRO_TRACERS */
+#endif /* HYDRO */
+
+#ifdef PARTICLES
+		fprintf( restart, "%s\n", filename1 );
+		fprintf( restart, "%s\n", filename2 );
+		fprintf( restart, "%s\n", filename3 );
+#ifdef STARFORM
+		fprintf( restart, "%s\n", filename4 );
+#endif /* STARFORM */
+#endif /* PARTICLES */
+	
+		fclose(restart);
+	}
+
 	end_time( IO_TIMER );
 }
 
@@ -4209,8 +4240,9 @@ void read_grid_binary( char *filename ) {
 		//  include particles. And if it even does, then 
 		//  there is no sense whatsoever to set 
 		//  a non-trivial DC mode.
+		//
+		//  cosmology_set(DeltaDC,0.0);
 		 */
-		cosmology_set(DeltaDC,0.0);
 
 		temp_cosmo = *cosmology;
 

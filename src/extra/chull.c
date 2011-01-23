@@ -389,6 +389,7 @@ void	ConstructHull( void )
       vnext = v->next;
       if ( !v->mark ) {
          v->mark = PROCESSED;
+	 AddOne( v );
 	 CleanUp( &vnext ); /* Pass down vnext in case it gets deleted. */
 
 	 if ( check ) {
@@ -1122,12 +1123,86 @@ void    EdgeOrderOnFaces ( void ) {
 /*
 //  The code below is part of ART
 */
+#include "config.h"
+
+#include "auxiliary.h"
+#include "tree.h"
+
+
+int NumVerts(tVertex verts)
+{
+  int nv = 0;
+  tVertex v;
+
+  if(verts == NULL) return 0;
+
+  v = verts;
+  do 
+    {
+      nv++;
+      v = v->next;
+    } 
+  while(v != verts);
+
+  return nv;
+}
+
+
+void DumpVerts2IFrIT(const char *filename, tVertex verts)
+{
+  int j, ntemp, ntot;
+  float w;
+  tVertex v;
+  FILE *F;
+
+  if(verts == NULL) return;
+
+  ntot = NumVerts(verts);
+
+  F = fopen(filename,"w");
+  if(F == NULL)
+    {
+      cart_error("Unable to open file %s for writing.\n",filename);
+    }
+  
+  ntemp = sizeof(int);     fwrite(&ntemp,sizeof(int),1,F);
+  ntemp = ntot;            fwrite(&ntemp,sizeof(int),1,F);
+  ntemp = sizeof(int);     fwrite(&ntemp,sizeof(int),1,F);
+
+  ntemp = 6*sizeof(float); fwrite(&ntemp,sizeof(int),1,F);
+  w = 0.0;                 fwrite(&w,sizeof(float),1,F);
+  w = 0.0;                 fwrite(&w,sizeof(float),1,F);
+  w = 0.0;                 fwrite(&w,sizeof(float),1,F);
+  w = num_grid;            fwrite(&w,sizeof(float),1,F);
+  w = num_grid;            fwrite(&w,sizeof(float),1,F);
+  w = num_grid;            fwrite(&w,sizeof(float),1,F);
+  ntemp = 6*sizeof(float); fwrite(&ntemp,sizeof(int),1,F);
+
+  for(j=0; j<3; j++)
+    {
+      ntemp = ntot*sizeof(float); 
+      fwrite(&ntemp,sizeof(int),1,F);
+      v = verts;
+      do 
+	{
+	  w = v->v[j] + 0.5;
+	  fwrite(&w,sizeof(float),1,F);
+	  v = v->next;
+	} 
+      while(v != verts);
+      fwrite(&ntemp,sizeof(int),1,F);
+    }
+
+  fclose(F);
+}
+
+
 void chAddPoints(int n, const int *pos)
 {
   tVertex v;
   int i, vnum;
 
-  if(vertices == NULL) vnum = 0; else vnum = vertices->vnum;
+  if(vertices == NULL) vnum = 0; else vnum = vertices->prev->vnum;
 
   for(i=0; i<n; i++)
     {
@@ -1162,7 +1237,7 @@ void chReset()
 }
 
 
-void chConstruct()
+void chMakeFullHull()
 {
   DoubleTriangle();
   ConstructHull();
@@ -1170,25 +1245,31 @@ void chConstruct()
 }
 
 
-void chGetLimits(int min[], int max[])
+void MakeOneSubHull(tVertex vexc, tVertex fverts, tEdge fedges, tFace ffaces)
 {
-  int j;
-  tVertex v;
+  int vnum = 0;
+  tVertex v, v1;
 
-  if(faces == NULL) return;
+  vertices = NULL;
+  edges = NULL;
+  faces = NULL;
 
-  v = vertices;
-  for(j=0; j<3; j++) min[j] = max[j] = v->v[j];
+  v1 = fverts;
   do 
     {
-      for(j=0; j<3; j++)
+      if(v1 != vexc)
 	{
-	  if(min[j] > v->v[j]) min[j] = v->v[j];
-	  if(max[j] < v->v[j]) max[j] = v->v[j];
+	  v = MakeNullVertex();
+	  v->v[X] = v1->v[X];
+	  v->v[Y] = v1->v[Y];
+	  v->v[Z] = v1->v[Z];
+	  v->vnum = vnum++;
 	}
-      v = v->next;
+      v1 = v1->next;
     } 
-  while(v != vertices);
+  while(v1 != fverts);
+
+  chMakeFullHull();
 }
 
 
@@ -1213,6 +1294,253 @@ int chIsPointInside(int pos[])
   while(s==1 && f!=faces);
 
   return s;
+}
+
+
+float chHullVolume()
+{
+  int j, nv, cen[3];
+  tsVertex p, *v;
+  tFace f;
+  float w, vol;
+
+  if(vertices == NULL) return 0.0;
+  if(faces == NULL) return 0.0;
+
+  for(j=0; j<3; j++) cen[j] = 0;
+  nv = 0;
+
+  v = vertices;
+  do 
+    {
+      nv++;
+      for(j=0; j<3; j++) cen[j] += v->v[j];
+      v = v->next;
+    } 
+  while(v != vertices);
+
+  for(j=0; j<3; j++) p.v[j] = cen[j]/nv;
+
+  vol = 0.0;
+  f = faces;
+  do 
+    {
+      w = Volumei(f,&p);
+      if(w < 0.0) 
+	{
+	  cart_debug("Negative volume in chHullVolume()!");
+	  return 0.0;
+	}
+      vol += w;
+      f  = f ->next;
+    } 
+  while(f != faces);
+
+  return vol;
+}
+
+
+void chMakeHull(float tolnum, float tolvol, int numits, int loud)
+{
+  int i, j, n, it;
+  tVertex fverts, v, v0, vmin;
+  tEdge fedges;
+  tFace ffaces;
+  int *pts, npts, nout;
+  float w, w0, wmin;
+
+  if(tolnum<0.0 || tolnum>=1.0)
+    {
+      cart_error("<tolnum> parameter in chMakeSubHull must be non-negative and strictly less than 1.");
+    }
+
+  if(tolvol<=0.0 || tolvol>=1.0)
+    {
+      cart_error("<tolvol> parameter in chMakeSubHull must be positive and strictly less than 1.");
+    }
+
+  if(numits < 1)
+    {
+      cart_error("<numits> parameter in chMakeSubHull must be positive.");
+    }
+
+  /*
+  //  Number of points we are allowed to miss.
+  */
+  npts = NumVerts(vertices);
+  nout = tolnum*npts;
+  if(nout < 1)
+    {
+      /*
+      //  Tolerance is too small
+      */
+      chMakeFullHull();
+      return;
+    }
+
+  if(loud > 1) DumpVerts2IFrIT("tmp1.bin",vertices);
+
+  /*
+  //  Save the original points.
+  */
+  pts = (int *)malloc(npts*sizeof(int)*3);
+  if(pts == NULL)
+    {
+      cart_error("Unable to allocate %d bytes of memory in chMakeSubHull.",npts*sizeof(int)*3);
+    }
+
+  i = 0;
+  v = vertices;
+  do 
+    {
+      for(j=0; j<3; j++) pts[3*i+j] = v->v[j];
+      i++;
+      v = v->next;
+    } 
+  while(v != vertices);
+
+  /*
+  //  Make the full hull and save it.
+  */
+  if(loud) cart_debug("Creating the full hull...");
+
+  chMakeFullHull();
+  fverts = vertices;
+  fedges = edges;
+  ffaces = faces;
+
+  if(loud > 1) DumpVerts2IFrIT("tmp2.bin",vertices);
+
+  /*
+  //  Loop while the stopping criterion is not met.
+  */
+  for(it=0; it<numits; it++)
+    {
+      /*
+      //  For each vertex of the full hull remove it, redo the hull, and 
+      //  check its volume; keep the hull that reduces the volume most.
+      */
+      w0 = chHullVolume();
+      if(loud) cart_debug("Hull volume: %g %d",w0,NumVerts(vertices));
+
+      wmin = w0;
+      vmin = NULL;
+      v0 = fverts;
+      do 
+	{
+
+	  MakeOneSubHull(v0,fverts,fedges,ffaces);
+	  w = chHullVolume();
+
+	  if(w < wmin)
+	    {
+	      if(loud) cart_debug("Found sub-hull with volume: %g",w);
+	      wmin = w;
+	      vmin = v0;
+	    }
+
+	  /*
+	  //  Remove that hull.
+	  */
+	  chReset();
+
+	  v0 = v0->next;
+	} 
+      while(v0 != fverts);
+
+      if(0)
+	{
+	  /*
+	  //  Redo the best hull
+	  */
+	  MakeOneSubHull(vmin,fverts,fedges,ffaces);
+	  n = 0;
+	}
+      else
+	{
+	  /*
+	  //  Redo the full hull, but without one point
+	  */
+	  for(i=0; i<npts; i++)
+	    {
+	      if(pts[3*i+0]==vmin->v[0] && pts[3*i+1]==vmin->v[1] && pts[3*i+2]==vmin->v[2]) break;
+	    }
+	  for(; i<npts-1; i++)
+	    {
+	      for(j=0; j<3; j++) pts[3*i+j] = pts[3*(i+1)+j];
+	    }
+	  npts--;
+
+	  chAddPoints(npts,pts);
+  
+	  chMakeFullHull();
+	  wmin = chHullVolume();
+	  n = 1;
+	}
+
+      if(loud) cart_debug("New hull volume: %g %d",wmin,NumVerts(vertices));
+
+      /*
+      //  Count the points outside.
+      */
+      for(i=0; i<npts; i++) 
+	{
+	  if(chIsPointInside(pts+3*i) == 0) n++;
+	}
+
+      if(loud) cart_debug("Missing points: %d (allowed %d), volume reduction %f",n,nout,wmin/w0);  
+
+      /*
+      //  Is reduction worth the effort?
+      //  Do we miss too many points?
+      */
+      if(wmin>(1-tolvol)*w0 || n>nout) break;
+
+      if(loud) cart_debug("chMakeSubHull: squeezing the hull...");
+
+      while(fverts != NULL) DELETE(fverts,fverts);
+      while(fedges != NULL) DELETE(fedges,fedges);
+      while(ffaces != NULL) DELETE(ffaces,ffaces);
+
+      fverts = vertices;
+      fedges = edges;
+      ffaces = faces;
+
+      nout -= n;
+    }
+
+  /*
+  //  Restore data structures
+  */
+  vertices = fverts;
+  edges = fedges;
+  faces = ffaces;
+
+  free(pts);
+
+  if(loud > 1) DumpVerts2IFrIT("tmp3.bin",vertices);
+}
+
+
+void chGetLimits(int min[], int max[])
+{
+  int j;
+  tVertex v;
+
+  if(vertices == NULL) return;
+
+  v = vertices;
+  for(j=0; j<3; j++) min[j] = max[j] = v->v[j];
+  do 
+    {
+      for(j=0; j<3; j++)
+	{
+	  if(min[j] > v->v[j]) min[j] = v->v[j];
+	  if(max[j] < v->v[j]) max[j] = v->v[j];
+	}
+      v = v->next;
+    } 
+  while(v != vertices);
 }
 
 

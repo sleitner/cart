@@ -28,14 +28,14 @@ extern struct rtGlobalValue rtAvgOTField;
 extern int rt_limit_signal_speed_to_c;
 
 
-int NumVars = 1 + rt_num_et_vars;
-int Vars[] = { RT_VAR_OT_FIELD,
-	       rt_et_offset + 0,
-	       rt_et_offset + 1,
-	       rt_et_offset + 2,
-	       rt_et_offset + 3,
-	       rt_et_offset + 4,
-	       rt_et_offset + 5 };
+int rtNumOtvetETVars = 1 + rt_num_et_vars;
+int rtOtvetETVars[] = { RT_VAR_OT_FIELD,
+			rt_et_offset + 0,
+			rt_et_offset + 1,
+			rt_et_offset + 2,
+			rt_et_offset + 3,
+			rt_et_offset + 4,
+			rt_et_offset + 5 };
 
 DEFINE_LEVEL_ARRAY(float,BufferFactor);
 

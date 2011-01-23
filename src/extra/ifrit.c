@@ -471,10 +471,22 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 #endif /* HYDRO */
 		      else switch(varid[var])
 			{
+#ifdef RADIATIVE_TRANSFER
+			case I_HI_FRACTION:
+			  {
+			    buf[var][l] = cell_HI_fraction(cell);
+			    break;
+			  }
+#endif
 #ifdef HYDRO
 			case I_GAS_NUMBER_DENSITY:
 			  {
 			    buf[var][l] = units->number_density*cell_gas_density(cell);
+			    break;
+			  }
+			case I_GAS_OVERDENSITY:
+			  {
+			    buf[var][l] = cell_gas_density(cell)*cosmology->OmegaM/cosmology->OmegaB;
 			    break;
 			  }
 			case I_GAS_TEMPERATURE:

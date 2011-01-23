@@ -29,7 +29,8 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com);
 void rtComputeAbsLevel(int level, int ncells, int *cells, int ifreq, float **abc);
 
 #ifdef RT_SINGLE_SOURCE
-extern float rtSingleSourceVal;
+extern int rtSingleSourceLevel;
+extern float rtSingleSourceValue;
 extern double rtSingleSourcePos[nDim];
 #endif
 
