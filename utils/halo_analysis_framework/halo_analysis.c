@@ -101,7 +101,8 @@ int main ( int argc, char *argv[]) {
 	subhalos->num_halos = 0;
 
 #ifdef EXCLUDE_SUBHALOS
-	load_baryon_catalog( filename, subhalos );
+	load_halo_finder_catalog(filename, subhalos);
+	cart_debug("loaded %u subhalos", subhalos->num_halos );
 #endif
 	
 	/* compute halo properties */
