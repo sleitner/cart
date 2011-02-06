@@ -40,6 +40,8 @@ void hydro_magic(int level);
 void hydro_advance_internalenergy(int level);
 void hydro_split_update( int level );
 
-#endif
+float cell_gas_kinetic_energy(int cell);
+float cell_gas_temperature(int cell);
 
-#endif
+#endif /* HYDRO */
+#endif /* __HYDRO_H__ */

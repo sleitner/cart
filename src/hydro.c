@@ -253,17 +253,13 @@ void hydro_sweep_1d( int level ) {
 				compute_hydro_fluxes( cell_list[j], f[j] );
 			}
 
-			/* apply fluxes to left cells */
+ 			/* apply fluxes to left cells */
 #pragma omp parallel for default(none), private(j,icell), shared(cell_list,count,level,f,dxi,dxi2)
 			for ( j = 0; j < count; j++ ) {
 				icell = cell_list[j][1];
 
-				if ( cell_is_local(icell) ) {
-					if ( cell_level(icell) < level ) {
-						apply_hydro_fluxes( icell, -0.125, dxi2, f[j] );
-					} else {
-						apply_hydro_fluxes( icell, -1.0, dxi, f[j] );
-					}
+				if ( cell_is_local(icell) && cell_level(icell) == level ) {
+					apply_hydro_fluxes( icell, -1.0, dxi, f[j] );
 				}
 			}
 
@@ -271,12 +267,23 @@ void hydro_sweep_1d( int level ) {
 			for ( j = 0; j < count; j++ ) {
 				icell = cell_list[j][2];
 
-				if ( cell_is_local(icell) ) {
-					if ( cell_level(icell) < level ) {
-						apply_hydro_fluxes( icell, 0.125, dxi2, f[j] );
-					} else {
-						apply_hydro_fluxes( icell, 1.0, dxi, f[j] );
-					}
+				if ( cell_is_local(icell) && cell_level(icell) == level ) {
+					apply_hydro_fluxes( icell, 1.0, dxi, f[j] );
+				}
+			}
+
+			/* Apply fluxes to higher level cells on both left and right interfaces 
+			 * MUST execute serially since lower level cells will appear multiple times! */
+			for ( j = 0; j < count; j++ ) {
+				icell = cell_list[j][1];
+
+				if ( cell_is_local(icell) && cell_level(icell) < level ) {
+					apply_hydro_fluxes( icell, -0.125, dxi2, f[j] );
+				}
+
+				icell = cell_list[j][2];
+				if ( cell_is_local(icell) && cell_level(icell) < level ) {
+					apply_hydro_fluxes( icell, 0.125, dxi2, f[j] );
 				}
 			}
 
@@ -1076,6 +1083,31 @@ void hydro_copy_vars( int level, int direction, int copy_cells ) {
 	cart_free( level_cells );
 
 	end_time( WORK_TIMER );
+}
+
+float cell_gas_kinetic_energy(int cell) {
+	int j;
+	double ke = 0.0;
+
+	if(cell_gas_density(cell) > 0.0) {
+		for(j=0; j<nDim; j++) ke += (double)cell_momentum(cell,j)*(double)cell_momentum(cell,j);
+		return (float)(0.5*ke/cell_gas_density(cell));
+	}
+	else return 0.0;
+}
+
+#ifdef RADIATIVE_TRANSFER
+float rtTem(int cell);
+#endif /* RADIATIVE_TRANSFER */
+
+float cell_gas_temperature(int cell) {
+	if(cell_gas_density(cell) > 0.0) {                                                                                                                                                            
+#ifdef RADIATIVE_TRANSFER
+		return rtTem(cell);
+#else
+		return (cell_gas_gamma(cell)-1)*constants->wmu*cell_gas_internal_energy(cell)/cell_gas_density(cell);
+#endif
+	} else return 0.0;
 }
 
 #endif /*HYDRO*/

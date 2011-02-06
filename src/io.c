@@ -4247,14 +4247,7 @@ void read_grid_binary( char *filename ) {
 		temp_cosmo = *cosmology;
 
 #else
-		if(h100 > 0.0) /* legacy units */
-		{
-			units_set_art(OmM0,h100,box_size);
-		}
-		else
-		{
-			units_set(OmM0,OmB0,OmL0);
-		}
+		/* do nothing, units now set for all procs together */ 
 #endif /* COSMOLOGY */
 
 		/* nextra (no evidence extras are used...) extra lextra */
@@ -4420,6 +4413,19 @@ void read_grid_binary( char *filename ) {
 	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
 	cosmology_copy(&temp_cosmo);
+#else
+	MPI_Bcast( &h100, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &OmM0, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+
+	/* h100 == 0 specifies user-defined units, > 0 implies ART standard */
+	if(h100 > 0.0) {
+		units_set_art(OmM0,h100,box_size);                                                                      
+	} else {
+		MPI_Bcast( &OmB0, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &OmL0, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+
+		units_set(OmM0,OmB0,OmL0);
+	}
 #endif /* COSMOLOGY */
 
 	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );

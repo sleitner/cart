@@ -109,8 +109,6 @@
   #define cell_gas_gamma(c)			(cell_vars[c][HVAR_GAMMA])
   #define cell_gas_internal_energy(c)		(cell_vars[c][HVAR_INTERNAL_ENERGY])
   #define cell_momentum(c,d)			(cell_vars[c][HVAR_MOMENTUM+d])
-  float cell_gas_kinetic_energy(int cell);
-  float cell_gas_temperature(int cell);
 
   #define num_basic_hydro_vars      (5+nDim)
 

@@ -289,6 +289,11 @@ int main ( int argc, char *argv[]) {
 #endif /* HYDRO */
 #endif /* GRAVITY */
 
+#ifndef USER_PLUGIN
+		start_time( OUTPUT_TIMER );
+		run_output();
+		end_time( OUTPUT_TIMER );
+#endif
 	} else {
 		read_restart(restart_label);
 		load_balance(); 
@@ -337,10 +342,6 @@ int main ( int argc, char *argv[]) {
 #ifdef USER_PLUGIN
 	config_plugins();
 	PLUGIN_POINT(RunBegin)();
-#else
-	start_time( OUTPUT_TIMER );
-	run_output();
-	end_time( OUTPUT_TIMER );
 #endif
 
 	while ( 1 ) {

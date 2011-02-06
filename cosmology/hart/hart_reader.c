@@ -101,10 +101,10 @@ void read_hart_gas_ic( char *filename ) {
 		}
 
 		input_page = cart_alloc(float, num_grid*num_grid );
-                for ( proc = 1; proc < num_procs; proc++ ) {
+		for ( proc = 1; proc < num_procs; proc++ ) {
 			page[proc] = cart_alloc(float, num_grid*num_grid );
 			page_indices[proc] = cart_alloc(int, num_grid*num_grid );
-                }
+		}
 
 		for ( var = 0; var < num_gas_vars; var++ ) {
 			for ( proc = 1; proc < num_procs; proc++ ) {
@@ -160,8 +160,8 @@ void read_hart_gas_ic( char *filename ) {
 				MPI_Send( page_indices[proc], count[proc], MPI_INT, proc, 0, MPI_COMM_WORLD );
 			}
 		}
-	
-        	fclose(input);
+
+		fclose(input);
 
 		cart_free( input_page );
 		for ( proc = 1; proc < num_procs; proc++ ) {
@@ -200,6 +200,15 @@ void read_hart_gas_ic( char *filename ) {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 		cell_electron_internal_energy(i) = cell_gas_internal_energy(i)*constants->wmu/constants->wmu_e;
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
+#ifdef ENRICH
+		cell_gas_metal_density_II(i) = 1e-30;
+
+#ifdef ENRICH_SNIa
+		cell_gas_metal_density_Ia(i) = 1e-30;
+#endif /* ENRICH_SNIa */
+#endif /* ENRICH */
+
 	}
 }
 

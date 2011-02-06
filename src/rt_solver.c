@@ -5,6 +5,7 @@
 
 #include "auxiliary.h"
 #include "tree.h"
+#include "hydro.h"
 
 
 /*

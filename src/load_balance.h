@@ -8,7 +8,12 @@
 
 extern float cost_per_cell;
 extern float cost_per_particle;
-extern float est_buffer_fraction;
+
+extern float reserve_cell_fraction;
+#ifdef PARTICLES
+extern float reserve_particle_fraction;
+#endif /* PARTICLES */
+
 extern int load_balance_frequency;
 
 #ifdef PARTICLES
