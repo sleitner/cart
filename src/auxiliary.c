@@ -194,7 +194,7 @@ void cart_error( const char *fmt, ... ) {
 
 	sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
 	f = fopen(filename,"a");
-	if (f != 0) {
+	if (f != NULL) {
 		fprintf(f,"ERROR: %s\n",message);
 		fclose(f);
 	}
@@ -207,9 +207,8 @@ void cart_debug( const char *fmt, ... ) {
 	int i;
 	char message[256], prompt[256];
 	va_list args;
-	static int first_time = 1;
 	char filename[256];
-	FILE *f;
+	static FILE *f = NULL;
 
 	/* prompt */
 	if(current_step_level > -1)
@@ -230,18 +229,17 @@ void cart_debug( const char *fmt, ... ) {
 	fprintf( stdout, "%u: %s%s\n", local_proc_id, prompt, message );
 	va_end(args);
 
-	sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
-	if(first_time)
-	  {
-	    first_time = 0;
-	    f = fopen(filename,"w");
-	  }
-	else f = fopen(filename,"a");
-	if(f != 0)
-	  {
-	    fprintf(f,"%s%s\n",prompt,message);
-	    fclose(f);
-	  }
+	if ( f == NULL ) {
+		sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+		f = fopen(filename,"w");
+
+		if ( f == NULL ) {
+			cart_error("Unable to open stdout file %s for writing!", filename );
+		}	
+	} 
+	
+	fprintf(f,"%s%s\n",prompt,message);
+	fflush(f);
 }
 #endif
 
@@ -304,10 +302,10 @@ void qs1_step( qss_system *sys, double t, double dt, double yf[], void *params )
 
 
 void qsn_step( qss_system *sys, double t, double dt, double yf[], void *params ) {
-        int i;
+	int i;
 	int nIter, nCor;
 	double rCor;
-        double tau, alp, pbar;
+	double tau, alp, pbar;
 
 	for ( i = 0; i < sys->num_eqn; i++ ) {
 		tau = dt*sys->a0[i];
@@ -351,7 +349,7 @@ void qsn_step( qss_system *sys, double t, double dt, double yf[], void *params )
 
 	for ( i = 0; i < sys->num_eqn; i++ ) {
 		sys->rs[i] = yf[i] - sys->rs[i];
-        }
+	}
 }
 
 void qss_solve( qss_system *sys, double t_begin, double t_end, double y[], const double err[], void *params ) {
