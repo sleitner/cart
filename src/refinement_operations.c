@@ -8,6 +8,7 @@
 
 #include "auxiliary.h"
 #include "tree.h"
+#include "hydro.h"
 
 
 int join( int cell ) {
