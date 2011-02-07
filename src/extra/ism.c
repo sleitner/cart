@@ -8,6 +8,7 @@
 
 #include "auxiliary.h"
 #include "cosmology.h"
+#include "hydro.h"
 #include "iterators.h"
 #include "parallel.h"
 #include "particle.h"
