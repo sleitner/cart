@@ -340,22 +340,16 @@ void init_star_formation_feedback()
   number_SNII = integrate( f_IMF, imf.min_SNII_mass, imf.max_mass, 1e-6, 1e-9 );
   cart_assert(number_SNII > 0.0);
 
-#ifdef ENRICH 
+  fbp_snII_phys.dt = snII.time_delay;
+  fbp_snII_phys.energy = 1e51*erg*snII.energy_per_explosion*number_SNII/(constants->Msun*total_mass);
   fbp_snII_phys.metals = snII.yield_factor*integrate( fej_IMF, imf.min_SNII_mass, imf.max_mass, 1e-6, 1e-9 )/total_mass;
-#endif /* ENRICH */
 
   number_SNIa = snIa.exploding_fraction*integrate( f_IMF, imf.min_SNIa_mass, imf.max_SNIa_mass, 1e-6, 1e-9 );
   cart_assert(number_SNIa > 0.0);
 
-  fbp_snII_phys.dt = snII.time_delay;
-  fbp_snII_phys.energy = 1e51*erg*snII.energy_per_explosion*number_SNII/(constants->Msun*total_mass);
-
   fbp_snIa_phys.dt = snIa.time_delay;
   fbp_snIa_phys.energy = 1e51*erg*snIa.energy_per_explosion*number_SNIa/(constants->Msun*total_mass);
-
-#ifdef ENRICH_SNIa 
   fbp_snIa_phys.metals = snIa.mass_in_metals_per_supernova*number_SNIa/total_mass;
-#endif /* ENRICH_SNIa */
 
 #ifdef BLASTWAVE_FEEDBACK 
   /* snl: other params are not set yet, but could be useful for improved subgrid feedback */
@@ -449,7 +443,7 @@ void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_n
   int i;
 
   /* do feedback, enrichment, etc */
-  if(snII.energy_per_explosion > 0.0)
+  if(fbp_snII_phys.energy>0.0 || fbp_snII_phys.metals>0.0)
     {
       dteff = particle_t[ipart] - (double)star_tbirth[ipart];
       if(dteff < fbp_snII_code.dt)
@@ -472,7 +466,7 @@ void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_n
 	}
     }
 
-  if(snIa.energy_per_explosion > 0.0)
+  if(fbp_snIa_phys.energy>0.0 || fbp_snIa_phys.metals>0.0)
     {
       dteff = t_next - (double)star_tbirth[ipart];
       if(dteff > 0.1*fbp_snIa_code.dt)

@@ -9,6 +9,7 @@
 #include "cell_buffer.h"
 #include "cosmology.h"
 #include "density.h"
+#include "hydro.h"
 #include "io.h"
 #include "load_balance.h"
 #include "parallel.h"
