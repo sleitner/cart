@@ -288,14 +288,9 @@ void create_star_particle( int icell, float mass ) {
 	cell_momentum(icell,1) *= density_fraction;
 	cell_momentum(icell,2) *= density_fraction;
 		
-#ifdef ENRICH
-	cell_gas_metal_density_II(icell) = max( 1e-17,
-		cell_gas_metal_density_II(icell) - star_metallicity_II[ipart]*mass*cell_volume_inverse[level] );
-#ifdef ENRICH_SNIa
-	cell_gas_metal_density_Ia(icell) = max( 1e-17,
-		cell_gas_metal_density_Ia(icell) - star_metallicity_Ia[ipart]*mass*cell_volume_inverse[level] );
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+	for ( i = 0; i < num_chem_species; i++ ) {
+		cell_advected_variable(icell,i) *= density_fraction;
+	}
 }
 
 #endif /* HYDRO */

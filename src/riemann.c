@@ -345,7 +345,6 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 	/* compute fluxes of advected species */
-#ifdef ADVECT_SPECIES
 	for ( j = num_hydro_vars-num_chem_species-1; j < num_hydro_vars - 1; j++ ) {
 		dv0 = v[j][1] - v[j][0];
 		dv1 = v[j][2] - v[j][1];
@@ -362,7 +361,6 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 		/* advected variables in v[j] must be in dimensionless units (var/density) */
 		f[j] = fmass * ( fl * xup_l + fr * xup_r );
 	}
-#endif /* ADVECT_SPECIES */
 }
 
 void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, int j5, 
@@ -427,12 +425,9 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, 
 	f[7] += diff * ( cell_electron_internal_energy(L1) - cell_electron_internal_energy(R1) );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 	for ( j = 0; j < num_chem_species; j++ ) {
 		f[j+num_hydro_vars-num_chem_species-1] += diff * ( cell_advected_variable(L1,j) - cell_advected_variable(R1,j) );
 	}
-#endif /* ADVECT_SPECIES */
-
 }
 
 #endif /* HYDRO */

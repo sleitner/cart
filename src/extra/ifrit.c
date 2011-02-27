@@ -6,6 +6,7 @@
 
 #include "auxiliary.h"
 #include "cosmology.h"
+#include "hydro.h"
 #include "parallel.h"
 #include "particle.h"
 #include "starformation.h"

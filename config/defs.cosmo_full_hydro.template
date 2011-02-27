@@ -6,7 +6,6 @@
 #define COSMOLOGY
 #define PARTICLES
 #define REFINEMENT
-#define ADVECT_SPECIES
 #define RADIATIVE_TRANSFER
 
 #define ENRICH

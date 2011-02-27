@@ -126,13 +126,10 @@ int split ( int cell ) {
 			weights[5] += cell_electron_internal_energy(child_cell);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cell_advected_variable(child_cell,j) = cell_interpolate_with_neighbors( cell, HVAR_ADVECTED_VARIABLES+j, neighbors );
 				weights[num_hydro_vars-num_chem_species-nDim+j] += cell_advected_variable(child_cell,j);
 			}
-#endif /* ADVECT_SPECIES */
-
 #endif /* HYDRO */
 
 #ifdef GRAVITY
@@ -170,14 +167,12 @@ int split ( int cell ) {
 		weights[5] = (weights[5] == 0.0) ? 0.0: (double)num_children * (double)cell_electron_internal_energy(cell) / weights[5];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 		for ( j = 0; j < num_chem_species; j++ ) {
 			weights[num_hydro_vars-num_chem_species-nDim+j] = 
 				(weights[num_hydro_vars-num_chem_species-nDim+j] == 0.0) ? 0.0: 
 					(double)num_children * (double)cell_advected_variable(cell,j) / 
 					weights[num_hydro_vars-num_chem_species-nDim+j];
 		}
-#endif /* ADVECT_SPECIES */
 	
 		/* enforce conservation laws in children */
 		mass = 0.0;
@@ -198,11 +193,9 @@ int split ( int cell ) {
 			cell_electron_internal_energy(child_cell) *= weights[5];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cell_advected_variable(child_cell,j) *= weights[num_hydro_vars-num_chem_species-nDim+j];
 			}
-#endif /* ADVECT_SPECIES */
 
 			mass += cell_gas_density(child_cell) * cell_volume[ cell_level(child_cell) ];
 		}

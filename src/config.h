@@ -45,6 +45,11 @@
 #endif /* RADIATIVE_TRANSFER */
 
 
+#ifdef ADVECT_SPECIES
+#error "The ADVECT_SPECIES define is now obsolete; it is extraneous and is not needed at all."
+#endif
+
+
 #ifdef LAPIDUS
 #error "The LAPIDUS define is now obsolete; use <apply-lapidus-viscosity> control parameter in the .cfg file."
 #endif
@@ -80,10 +85,6 @@
 
 #ifdef OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION
 #error "The OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION define is now obsolete; -pfm=1: read files with double positions but single times;-pfm=2: single-precision both. "
-#endif
-
-#ifdef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
-#error "The OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID define is now obsolete."
 #endif
 
 /*

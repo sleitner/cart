@@ -373,7 +373,6 @@ void hydro_magic( int level ) {
 			cell_electron_internal_energy(icell) = max( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 			for ( j = 0; j < num_chem_species; j++ ) {
 			  /* 
 			     1e-15 may be too large a number for ionic species;
@@ -385,7 +384,6 @@ void hydro_magic( int level ) {
 				cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
 				*/
 			}
-#endif /* ADVECT_SPECIES */
 		}
 	}
 	cart_free( level_cells );
@@ -860,11 +858,9 @@ void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[n
 	backup_hvars[icell][6] += factor*f[7];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 	for ( j = num_hydro_vars-num_chem_species-2; j < num_hydro_vars-2; j++ ) {
 		backup_hvars[icell][j] += factor*f[j+1];
 	}
-#endif /* ADVECT_SPECIES */
 }
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
@@ -896,11 +892,9 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	v[7][0] = cell_electron_internal_energy(L2);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 	for ( j = 0; j < num_chem_species; j++ ) {
 		v[num_hydro_vars-num_chem_species-1+j][0] = cell_advected_variable(L2,j)/cell_gas_density(L2);
 	}
-#endif /* ADVECT_SPECIES */
 	
 	/* L1 vars */
 	v[0][1] = cell_gas_density(L1);
@@ -915,11 +909,9 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	v[7][1] = cell_electron_internal_energy(L1);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 	for ( j = 0; j < num_chem_species; j++ ) {
 		v[num_hydro_vars-num_chem_species-1+j][1] = cell_advected_variable(L1,j)/cell_gas_density(L1);
 	}
-#endif /* ADVECT_SPECIES */
 	
 	/* R1 vars */
 	v[0][2] = cell_gas_density(R1);
@@ -934,11 +926,9 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	v[7][2] = cell_electron_internal_energy(R1);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 	for ( j = 0; j < num_chem_species; j++ ) {
 		v[num_hydro_vars-num_chem_species-1+j][2] = cell_advected_variable(R1,j)/cell_gas_density(R1);
 	}
-#endif /* ADVECT_SPECIES */
 	
 	/* R2 vars */
 	v[0][3] = cell_gas_density(R2);
@@ -953,11 +943,9 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	v[7][3] = cell_electron_internal_energy(R2);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 	for ( j = 0; j < num_chem_species; j++ ) {
 		v[num_hydro_vars-num_chem_species-1+j][3] = cell_advected_variable(R2,j)/cell_gas_density(R2);
 	}
-#endif /* ADVECT_SPECIES */
 
 	if ( cell_level(R1) > cell_level(L1) ) {
 		c[0] = 1.0/1.5;
@@ -1048,11 +1036,9 @@ void hydro_copy_vars( int level, int direction, int copy_cells ) {
 					backup_hvars[icell][6] = cell_electron_internal_energy(icell);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 					for ( j = 0; j < num_chem_species; j++ ) {
 						backup_hvars[icell][num_hydro_vars-num_chem_species-2+j] = cell_advected_variable(icell,j);
 					}
-#endif /* ADVECT_SPECIES */
 		
 					if ( direction == COPY_ZERO_REF ) {
 						ref[icell] = 0.0;
@@ -1069,12 +1055,10 @@ void hydro_copy_vars( int level, int direction, int copy_cells ) {
 					cell_electron_internal_energy(icell) = backup_hvars[icell][6];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 					for ( j = 0; j < num_chem_species; j++ ) {
 						cell_advected_variable(icell,j) = max( 1.0e-30, 
 											backup_hvars[icell][num_hydro_vars-num_chem_species-2+j] );
 					}
-#endif /* ADVECT_SPECIES */
 				}
 			}
 		}

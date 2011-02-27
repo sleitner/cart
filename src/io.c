@@ -3450,12 +3450,10 @@ void write_grid_binary( char *filename ) {
 	hydro_vars[8] = HVAR_ELECTRON_INTERNAL_ENERGY;
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-#ifdef ADVECT_SPECIES
 	for(j=0; j<num_chem_species; j++)
 	  {
 	    hydro_vars[num_hydro_vars-num_chem_species+j] = HVAR_ADVECTED_VARIABLES+j;
 	  }
-#endif /* ADVECT_SPECIES */
 #endif /* HYDRO */
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
@@ -4067,11 +4065,9 @@ void read_grid_binary( char *filename ) {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 	hydro_vars[8] = HVAR_ELECTRON_INTERNAL_ENERGY;
 #endif
-#ifdef ADVECT_SPECIES
 	for(j=0; j<num_chem_species; j++) {
         hydro_vars[num_hydro_vars-num_chem_species+j] = HVAR_ADVECTED_VARIABLES+j;
 	}
-#endif /* ADVECT_SPECIES */
 #endif /* HYDRO */
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)

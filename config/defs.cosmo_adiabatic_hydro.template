@@ -5,8 +5,6 @@
 #define PARTICLES
 #define REFINEMENT
 
-#define ADVECT_SPECIES
-
 #define num_root_grid_refinements	<set value here>
 #define num_refinement_levels		<set value here>
 #define num_octs			<set value here>

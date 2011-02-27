@@ -16,6 +16,9 @@
 #include "units.h"
 
 
+float star_returned_advected_species[num_chem_species+1];
+
+
 typedef double(*fimf)(double);
 
 double f_IMF_Salpeter(double m);
@@ -323,6 +326,7 @@ double fej_IMF( double amstar )
 
 void init_star_formation_feedback()
 {
+  int i;
   const double erg = cgs->g*pow(cgs->cm/cgs->s,2.0);
   double total_mass;
   double number_SNII, number_SNIa;
@@ -357,6 +361,43 @@ void init_star_formation_feedback()
   /* snl: other params are not set yet, but could be useful for improved subgrid feedback */
   fbp_bw_phys.dt = bw.blast_time;
 #endif /* BLASTWAVE_FEEDBACK */
+
+
+  /*
+  //  Decide what values of advected species stars return.
+  //  Introduce a check to make sure none are forgotten.
+  */
+  for(i=0; i<num_chem_species; i++) star_returned_advected_species[i] = -1.1e35;
+
+#ifdef RADIATIVE_TRANSFER
+  star_returned_advected_species[(RT_HVAR_OFFSET-HVAR_ADVECTED_VARIABLES)+0] = 0.0;
+  star_returned_advected_species[(RT_HVAR_OFFSET-HVAR_ADVECTED_VARIABLES)+1] = constants->XH;  /* Returned gas is ionized */
+  star_returned_advected_species[(RT_HVAR_OFFSET-HVAR_ADVECTED_VARIABLES)+2] = 0.0;
+  star_returned_advected_species[(RT_HVAR_OFFSET-HVAR_ADVECTED_VARIABLES)+3] = 0.0;
+  star_returned_advected_species[(RT_HVAR_OFFSET-HVAR_ADVECTED_VARIABLES)+4] = constants->XHe;  /* He is doubly ionized, see Draine 2011 */
+  star_returned_advected_species[(RT_HVAR_OFFSET-HVAR_ADVECTED_VARIABLES)+5] = 0.0;
+#endif /* RADIATIVE_TRANSFER */
+
+  /* Metals are returned separately, so set these to zero so as not to double count */
+#ifdef ENRICH
+  star_returned_advected_species[HVAR_METAL_DENSITY_II-HVAR_ADVECTED_VARIABLES] = 0.0;
+#ifdef ENRICH_SNIa
+  star_returned_advected_species[HVAR_METAL_DENSITY_Ia-HVAR_ADVECTED_VARIABLES] = 0.0;
+#endif /* ENRICH_SNIa */
+#endif /* ENRICH */
+
+  /* Blaswave time is set separately */
+#ifdef BLASTWAVE_FEEDBACK
+  star_returned_advected_species[HVAR_BLASTWAVE_TIME] = 0.0;
+#endif /* BLASTWAVE_FEEDBACK*/
+
+  /*
+  //  Check that all are accounted for.
+  */
+  for(i=0; i<num_chem_species; i++) if(star_returned_advected_species[i] < -1.0e35)
+    {
+      cart_error("Advected species #%d is not accounted for in star_returned_advected_species[] array.",i);
+    }
 
   /*
   // The rest is for diagnostic only
@@ -405,6 +446,7 @@ void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_n
 {
   double dteff, phi, dU;
   double dmloss, rhor, e_old, rhofact;
+  int i;
 
   /* do feedback, enrichment, etc */
   if(snII.energy_per_explosion > 0.0)
@@ -492,6 +534,10 @@ void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_n
       cell_gas_metal_density_Ia(cell) += dmloss*star_metallicity_Ia[ipart];
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
+      for(i=0; i<num_chem_species; i++)
+	{
+	  cell_advected_variable(cell,i) += dmloss*star_returned_advected_species[i];
+	}
     }
 }
 

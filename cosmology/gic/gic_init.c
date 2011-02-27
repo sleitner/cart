@@ -180,7 +180,6 @@ void gicBalanceLoad(const char *rootname, char *type)
   struct gicFileHeader fileHeader;
   char filename[257];   /* GIC filenames are limited to 256 bytes */
   GIC_INTEGER *mask;
-
 	
   if(num_procs == 1)
     {
@@ -244,6 +243,15 @@ void gicBalanceLoad(const char *rootname, char *type)
 	{
 	  mask = cart_alloc(GIC_INTEGER,fileHeader.Nrec);
 	  num_pages = (num_root_cells+fileHeader.Nrec-1)/fileHeader.Nrec;
+
+	  /*
+	  //  Skip shifts
+	  */
+	  j = fseek(input.File,2*sizeof(GIC_RECORD)+3*sizeof(GIC_INTEGER),SEEK_CUR);
+	  if(j != 0)
+	    {
+	      cart_error("Error in reading grid shifts, fseek error %d",j);
+	    }
 
 	  coords[0] = coords[1] = coords[2] = 0;
 	  for(page=0; page<num_pages; page++)
@@ -800,6 +808,18 @@ void gicReadGasData(const char *rootname, char *type)
     {
       if(fileHeader->Lmax > 0)
 	{
+	  /*
+	  //  Skip shifts
+	  */
+	  for(l=0; l<lMax; l++)
+	    {
+	      ret = fseek(input[l].File,2*sizeof(GIC_RECORD)+3*sizeof(GIC_INTEGER),SEEK_CUR);
+	      if(ret != 0)
+		{
+		  cart_error("Error in reading grid shifts for stream %d, fseek error %d",l,ret);
+		}
+	    }
+  
 	  num_pages = (num_root_cells+fileHeader->Nrec-1)/fileHeader->Nrec;
 	  for(page=0; page<num_pages; page++)
 	    {

@@ -6,13 +6,13 @@
 ?#define COSMOLOGY
 ?#define PARTICLES
 ?#define REFINEMENT
-?#define ADVECT_SPECIES
 ?#define RADIATIVE_TRANSFER
 ?#define ELECTRON_ION_NONEQUILIBRIUM
 
 ?#define ENRICH
 ?#define ENRICH_SNIa
 ?#define LOG_STAR_CREATION
+?#define BLASTWAVE_FEEDBACK
 
 ?#define UNIQUE_RAND
 ?#define HYDRO_TRACERS 

@@ -142,15 +142,10 @@ double sf_recipe1_rate(int cell)
   double nH = constants->XH*units->number_density*cell_gas_density(cell);
 
 #ifdef RADIATIVE_TRANSFER
-
   fH2_cell = cell_H2_fraction(cell);
-
 #else /* RADIATIVE_TRANSFER */
-
   cart_error("SF Recipe #1: only works with RADIATIVE_TRANSFER activated.");
-
   fH2_cell = 0.0;
-
 #endif /* RADIATIVE_TRANSFER */
 
   if(nH > sf_recipe1.very_high_density) fH2_cell = 1.0;
@@ -181,7 +176,8 @@ double sf_recipe2_rate(int cell)
 #ifdef ENRICH
   zSol_cell = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
-#error "ERROR: Need enrichment for SF Recipe #2"
+  cart_error("SF Recipe #2: only works with ENRICH activated.");
+  zSol_cell = 0.0;
 #endif /* ENRICH */
 
   zSol_cell = max(1.0e-3,zSol_cell);

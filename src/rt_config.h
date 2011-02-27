@@ -161,15 +161,10 @@
 
 
 /*
-//  RT needs both COOLING and ADVECT_SPECIES to be set 
+//  RT needs COOLING to be set 
 */
 #ifndef COOLING
 #define COOLING
 #endif
-
-#ifndef ADVECT_SPECIES
-#define ADVECT_SPECIES
-#endif
-
 
 #endif /* __RT_CONFIG_H__ */

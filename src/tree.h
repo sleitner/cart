@@ -120,80 +120,54 @@
     #define num_extra_hydro_vars   0
   #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
+  #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
+  #define cell_advected_variable(c,v)		(cell_vars[c][HVAR_ADVECTED_VARIABLES+v])
 
-  #ifdef ADVECT_SPECIES
+  #ifdef RADIATIVE_TRANSFER /* radiative transfer block */
+    #define rt_num_chem_species		6
+    #define RT_HVAR_OFFSET			(HVAR_ADVECTED_VARIABLES)
+    #define cell_HI_density(c)			(cell_vars[c][RT_HVAR_OFFSET+0])
+    #define cell_HII_density(c)			(cell_vars[c][RT_HVAR_OFFSET+1])
+    #define cell_HeI_density(c)			(cell_vars[c][RT_HVAR_OFFSET+2])
+    #define cell_HeII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+3])
+    #define cell_HeIII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+4])
+    #define cell_H2_density(c)			(cell_vars[c][RT_HVAR_OFFSET+5])
+    #define cell_HI_fraction(c)			(cell_vars[c][RT_HVAR_OFFSET+0]/cell_gas_density(c)/constants->XH)
+    #define cell_HII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+1]/cell_gas_density(c)/constants->XH)
+    #define cell_HeI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+2]/cell_gas_density(c)/constants->XHe)
+    #define cell_HeII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+3]/cell_gas_density(c)/constants->XHe)
+    #define cell_HeIII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+4]/cell_gas_density(c)/constants->XHe)
+    #define cell_H2_fraction(c)			(cell_vars[c][RT_HVAR_OFFSET+5]/cell_gas_density(c)/(0.5*constants->XH))
+  #else
+    #define rt_num_chem_species			0
+  #endif /* RADIATIVE_TRANSFER */
 
-    #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
-    #define cell_advected_variable(c,v)		(cell_vars[c][HVAR_ADVECTED_VARIABLES+v])
+  #ifdef ENRICH /* turn on enrichment by stars */
+    #define HVAR_METAL_DENSITY_II		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species)
+    #define cell_gas_metal_density_II(c)	(cell_vars[c][HVAR_METAL_DENSITY_II])
 
-
-    #ifdef RADIATIVE_TRANSFER /* radiative transfer block */
-      #define rt_num_chem_species		6
-      #define RT_HVAR_OFFSET			(HVAR_ADVECTED_VARIABLES)
-      #define cell_HI_density(c)		(cell_vars[c][RT_HVAR_OFFSET+0])
-      #define cell_HII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+1])
-      #define cell_HeI_density(c)		(cell_vars[c][RT_HVAR_OFFSET+2])
-      #define cell_HeII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+3])
-      #define cell_HeIII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+4])
-      #define cell_H2_density(c)		(cell_vars[c][RT_HVAR_OFFSET+5])
-      #define cell_HI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+0]/cell_gas_density(c)/constants->XH)
-      #define cell_HII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+1]/cell_gas_density(c)/constants->XH)
-      #define cell_HeI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+2]/cell_gas_density(c)/constants->XHe)
-      #define cell_HeII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+3]/cell_gas_density(c)/constants->XHe)
-      #define cell_HeIII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+4]/cell_gas_density(c)/constants->XHe)
-      #define cell_H2_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+5]/cell_gas_density(c)/(0.5*constants->XH))
+    #ifdef ENRICH_SNIa
+      #define num_enrichment_species		2
+      #define HVAR_METAL_DENSITY_Ia		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
+      #define cell_gas_metal_density_Ia(c)	(cell_vars[c][HVAR_METAL_DENSITY_Ia])
+      #define cell_gas_metal_density(c)		(cell_gas_metal_density_II(c)+cell_gas_metal_density_Ia(c))
     #else
-      #define rt_num_chem_species		0
-    #endif /* RADIATIVE_TRANSFER */
+      #define num_enrichment_species		1
+      #define cell_gas_metal_density(c)		cell_gas_metal_density_II(c)
+    #endif /* ENRICH_SNIa */
+  #else
+    #define num_enrichment_species		0
+  #endif /* ENRICH */
 
-    #ifdef ENRICH /* turn on enrichment by stars */
-      #define HVAR_METAL_DENSITY_II		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species)
-      #define cell_gas_metal_density_II(c)	(cell_vars[c][HVAR_METAL_DENSITY_II])
+  #ifdef BLASTWAVE_FEEDBACK
+    #define HVAR_BLASTWAVE_TIME			(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+num_enrichment_species)
+    #define cell_blastwave_time(c)		(cell_vars[c][HVAR_BLASTWAVE_TIME])
+    #define num_feedback_species	        1
+  #else
+    #define num_feedback_species		0
+  #endif /* BLASTWAVE_FEEDBACK*/
 
-      #ifdef ENRICH_SNIa
-	#define	num_enrichment_species          2
-        #define HVAR_METAL_DENSITY_Ia		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
-        #define cell_gas_metal_density_Ia(c)    (cell_vars[c][HVAR_METAL_DENSITY_Ia])
-        #define cell_gas_metal_density(c)	(cell_gas_metal_density_II(c)+cell_gas_metal_density_Ia(c))
-      #else
-	#define num_enrichment_species          1
-        #define cell_gas_metal_density(c)	cell_gas_metal_density_II(c)
-      #endif /* ENRICH_SNIa */
-
-    #else
-
-      #define num_enrichment_species		0
-
-    #endif /* ENRICH */
-
-    #ifdef BLASTWAVE_FEEDBACK
-        #define HVAR_BLASTWAVE_TIME		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+num_enrichment_species)
-        #define cell_blastwave_time(c)          (cell_vars[c][HVAR_BLASTWAVE_TIME])
-        #define num_feedback_species	        1
-    #else
-        #define num_feedback_species            0
-    #endif /* BLASTWAVE_FEEDBACK*/
-
-    #define num_chem_species		 	(rt_num_chem_species+num_enrichment_species+num_feedback_species) 
-
-  #else  /* ADVECT_SPECIES */
-
-    #ifdef ENRICH
-      #error "ENRICH specified without ADVECT_SPECIES set!"
-    #endif /* ENRICH */
-
-    #ifdef RADIATIVE_TRANSFER /* radiative transfer block */
-      #error "RADIATIVE_TRANSFER specified without ADVECT_SPECIES set!"
-    #endif /* RADIATIVE_TRANSFER */
-
-    #ifdef BLASTWAVE_FEEDBACK 
-      #error "BLASTWAVE_FEEDBACK specified without ADVECT_SPECIES set!"
-    #endif  /* BLASTWAVE_FEEDBACK*/
-
-    #define num_chem_species			0
-
-  #endif /* ADVECT_SPECIES */
-
+  #define num_chem_species		 	(rt_num_chem_species+num_enrichment_species+num_feedback_species) 
   #define num_hydro_vars			(num_basic_hydro_vars+num_extra_hydro_vars+num_chem_species)
 
 #else
