@@ -37,4 +37,4 @@ analysis: .obj $(DEFS) $(OBJS) $(EXT_OBJS) analysis.c
 	which mpirun
 
 clean:
-	rm -rf .obj *.il core start.o gic_init.o gic_reader.o art analysis
+	rm -rf .obj *.il core start.o gic_init.o gic_reader.o art analysis list_defines.h

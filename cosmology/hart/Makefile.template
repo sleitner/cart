@@ -29,7 +29,7 @@ hart_reader.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_reader.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -c $(TOP_DIR)/cosmology/hart/hart_reader.c
 
 art: .obj $(DEFS) $(OBJS) hart_init.o hart_reader.o start.c
-	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/hart -I$(SRC_DIR) $(INCLUDES) $(OBJS) hart_init.o hart_reader.o start.c -o cart $(LIBS) $(EXTRALIBS)
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/hart -I$(SRC_DIR) $(INCLUDES) $(OBJS) hart_init.o hart_reader.o start.c -o art $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf .obj *.il core* start.o hart_init.o hart_reader.o art
+	rm -rf .obj *.il core* start.o hart_init.o hart_reader.o art list_defines.h
