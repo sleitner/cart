@@ -11,4 +11,4 @@ sod: .obj $(OBJS) defs.h start_sod.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_sod.c -o sod $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf .obj *.il core start_sod.o sod list_defines.h
+	rm -rf .obj *.il core start_sod.o sod

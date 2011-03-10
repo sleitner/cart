@@ -23,4 +23,4 @@ ICs:
 prep: DAT logs ICs 
 	
 clean:
-	rm -rf $(OBJS) .obj *.il core start_cosmology.o cart list_defines.h
+	rm -rf $(OBJS) .obj *.il core start_cosmology.o cart

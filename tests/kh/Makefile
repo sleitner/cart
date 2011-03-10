@@ -18,4 +18,4 @@ kh: .obj $(OBJS) defs.h start_kh.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_kh.c -o kh $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf .obj *.il core start_kh.o kh list_defines.h
+	rm -rf .obj *.il core start_kh.o kh
