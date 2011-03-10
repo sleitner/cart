@@ -55,18 +55,18 @@ const int HART_num_hydro_vars = (num_hydro_vars + HART_num_enrichment_species - 
 typedef struct {
 	int cell;
 	int refined;
-        float *vars;
+	float *vars;
 } cell_file_struct;
 
 void read_hart_grid_binary( char *filename ) {
-  int i, j, k, m, idx;
-  int size,size2;
+	int i, j, k, m, idx;
+	int size,size2;
 	FILE *input;
 	char job[256];
 	int minlevel, maxlevel;
 	double t, dt;
 	float adum, ainit;
-        float boxh, Om0, Oml0, Omb0, h;
+	float boxh, Om0, Oml0, Omb0, h;
 	int nextras;
 	float extra[10];
 	char lextra[10][256];
@@ -135,7 +135,7 @@ void read_hart_grid_binary( char *filename ) {
 	}
 
 	auni[min_level] = adum;
-        auni_init = ainit; 
+	auni_init = ainit; 
 
 	/* boxh, Om0, Oml0, Omb0, hubble */
 	fread( &size, sizeof(int), 1, input );
@@ -251,8 +251,10 @@ void read_hart_grid_binary( char *filename ) {
 	}
 	
 	for(i=0;i<nDim;i++){
+#ifdef STARFORM
 	  star_formation_volume_min[i] = 0;
 	  star_formation_volume_max[i] = num_grid;
+#endif
 	  refinement_volume_min[i] = 0;
 	  refinement_volume_max[i] = num_grid;
 	  /* warning: hart format does not retain star_formation_volume or refinement_volume arrays */
