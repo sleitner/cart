@@ -32,4 +32,4 @@ art: .obj $(DEFS) $(OBJS) hart_init.o hart_reader.o start.c
 	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/hart -I$(SRC_DIR) $(INCLUDES) $(OBJS) hart_init.o hart_reader.o start.c -o art $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf .obj *.il core* start.o hart_init.o hart_reader.o art list_defines.h
+	rm -rf .obj *.il core* start.o hart_init.o hart_reader.o art 

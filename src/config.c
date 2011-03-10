@@ -200,7 +200,7 @@ void config_print_to_file(const char *filename, int append)
   fprintf(f,"   GLOBAL SETTINGS\n");
   fprintf(f,title_sep);
 
-#include "list_defines.h"
+#include "../config/list_defines.h"
 
   fprintf(f,"Primary settings:\n");
   PRINT(HYDRO);
