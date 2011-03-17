@@ -394,7 +394,12 @@ int main ( int argc, char *argv[]) {
 			init_hydro_tracers();
 #endif /* HYDRO_TRACERS */
 
-			read_restart(0);
+			/*
+			//  If we started from a labeled file and encountered
+			//  a CFL violation in the first step, we need to 
+			//  restart from the same label.
+			*/
+			read_restart(restart_label);
 			load_balance(); 
 			end_time( RESTART_TIMER );
 
@@ -423,6 +428,13 @@ int main ( int argc, char *argv[]) {
 			}
 #endif
 			save_check();
+			/*
+			//  If we started from a labeled file and wrote the 
+			//  the restart file, then we need to erase the 
+			//  restart_label, so that we start from a written
+			//  restart file.
+			*/
+			if(last_restart_step == step) restart_label = NULL;
 		
 			if ( load_balance_frequency > 0 && step % load_balance_frequency == 0 ) {
 				load_balance();
