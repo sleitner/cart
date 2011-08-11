@@ -46,6 +46,7 @@ int tracer_output_frequency = 0;
 int grid_output_frequency = 0;
 
 int num_output_files = 1;
+int num_input_files = 1;
 
 int num_outputs = 0;
 int outputs_size = 0;
@@ -188,6 +189,7 @@ void config_init_io()
   control_parameter_add2(control_parameter_string,requeue_command,"requeue-command","requeue_command","a command for re-queueing the batch job after the completion of the current one.");
 
   control_parameter_add2(control_parameter_int,&num_output_files,"num-output-files","num_output_files","Number of parallel output files.");
+  control_parameter_add2(control_parameter_int,&num_input_files,"num-input-files","num_input_files","Number of parallel input files.");
 
 #ifdef COSMOLOGY
   control_parameter_add2(control_parameter_outputs,outputs,"snapshot-epochs","outputs","values for the cosmic scale factor at which to produce the full snalshots from the simulation. Values can be listed either one by one, separated by white space, or in a form '(a1,a2,da)' which expand into a loop from a=a1 to a=a2, with the step da. For example, '(0.1,0.5,0.1)' is equivalent to '0.1 0.2 0.3 0.4 0.5'. An arbitrary number of entries is allowed, so the loop entry does not have to be just one, several of them can be combined together; for example, '(0.1,0.3,0.1) (0.4,1.0,0.2)' will expand to '0.1 0.2 0.3 0.4 0.6 0.8 1.0'. Entries are sorted and repeated entries are automatically deleted, so the user does not need to care about the order of entries or the existence of duplicates.");
@@ -223,6 +225,7 @@ void config_verify_io()
   else closedir(d);
 
   cart_assert(num_output_files > 0);
+  cart_assert(num_input_files > 0);
 
 #ifdef COSMOLOGY
   for(i=1; i<num_outputs; i++) if(!(outputs[i-1] < outputs[i]))
@@ -492,6 +495,7 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	save_auxiliary();
 
 	last_restart_step = step;
+	num_input_files = num_output_files;
 
 	end_time ( IO_TIMER );
 }
@@ -848,8 +852,8 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 
 		if ( grid_filename != NULL ) {
 			index = 0;
-			for ( i = 0; i < num_output_files; i++ ) {
-				if ( num_output_files == 1 ) {
+			for ( i = 0; i < num_input_files; i++ ) {
+				if ( num_input_files == 1 ) {
 					sprintf( filename, "%s", grid_filename );
 				} else {
 					sprintf( filename, "%s.%03u", grid_filename, i );
@@ -4234,26 +4238,26 @@ void read_grid_binary( char *filename ) {
 	    }
 	  }
 
-	cart_assert( num_output_files >= 1 && num_output_files <= num_procs );
+	cart_assert( num_input_files >= 1 && num_input_files <= num_procs );
 
 	page_size = num_grid*num_grid;
 
 	/* set up global file information */
 	proc = 0;	
-	for ( i = 0; i < num_output_files; i++ ) {
-		while ( proc*num_output_files / num_procs != i ) {
+	for ( i = 0; i < num_input_files; i++ ) {
+		while ( proc*num_input_files / num_procs != i ) {
 			proc++;
 		}
 		file_parent_proc[i] = proc;
 	}
 
 	/* determine parallel output options */
-	file_index = local_proc_id * num_output_files / num_procs;
+	file_index = local_proc_id * num_input_files / num_procs;
 	file_parent = file_parent_proc[file_index];
 
 	/* open file handle if parent of parallel file */
 	if ( local_proc_id == file_parent ) {
-		if ( num_output_files == 1 ) {
+		if ( num_input_files == 1 ) {
 			input = fopen(filename,"r");
 		} else {
 			sprintf( parallel_filename, "%s.%03u", filename, file_index );
@@ -4569,7 +4573,7 @@ void read_grid_binary( char *filename ) {
 			cell_counts = local_file_root_cells;
 
 			file_sfc_index[0] = 0;
-			for ( i = 1; i < num_output_files; i++ ) {
+			for ( i = 1; i < num_input_files; i++ ) {
 				/* need to know how many root cells are in each file */
 				/* receive cellrefined */
 				file_sfc_index[i] = cell_counts;
@@ -4577,7 +4581,7 @@ void read_grid_binary( char *filename ) {
 					0, MPI_COMM_WORLD, &status );	
 				cell_counts += file_sfc_index[i+1];
 			}
-			file_sfc_index[num_output_files] = cell_counts;
+			file_sfc_index[num_input_files] = cell_counts;
 
 			cart_assert( cell_counts == num_root_cells );
 		} else {
@@ -4587,14 +4591,14 @@ void read_grid_binary( char *filename ) {
 	}
 
 	/* send block information */
-	MPI_Bcast( file_sfc_index, num_output_files+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( file_sfc_index, num_input_files+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
 
 	/* determine how many cells to expect from each processor */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		proc_num_cells[proc] = 0;
 	}
 
-	for ( i = 0; i < num_output_files; i++ ) {
+	for ( i = 0; i < num_input_files; i++ ) {
 		if ( proc_sfc_index[local_proc_id] < file_sfc_index[i+1] &&
 				proc_sfc_index[local_proc_id+1] >= file_sfc_index[i] ) {
 			proc_num_cells[ file_parent_proc[i] ] = 
@@ -5062,7 +5066,7 @@ void read_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_var
 			/* set up receive */
 			proc_page_count[proc] = min( proc_num_cells[proc], 
 					page_size - ( proc_cell_index[proc] - 
-					file_sfc_index[(int)((proc * num_output_files)/ num_procs)]) % page_size);
+					file_sfc_index[(int)((proc * num_input_files)/ num_procs)]) % page_size);
 			cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
 			MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
 					MPI_COMM_WORLD, &requests[proc] );

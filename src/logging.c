@@ -448,9 +448,9 @@ void init_logging( int restart ) {
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
-			fprintf(star_log, "# step t dt a t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
+			fprintf(star_log, "# step t dt a N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
 #else
-			fprintf(star_log, "# step t dt t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
+			fprintf(star_log, "# step t dt N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
 #endif /* COSMOLOGY */
 		}
 #endif /* STARFORM */
