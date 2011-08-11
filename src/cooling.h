@@ -22,7 +22,8 @@ typedef struct COOLING_TYPE
 cooling_t;
 #endif
 
-cooling_t cooling_rate( double rhogl, double T_g, double Z_met );
+cooling_t cooling_rate( double nHlog, double T_g, double Zlog );
+double cooling_fion( double rhogl, double T_g, double Zlog );
 
 #endif /* COOLING */
 

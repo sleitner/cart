@@ -27,7 +27,7 @@
 #define num_power_mesh		(power_mesh_size*power_mesh_size*power_mesh_size)
 
 
-int bin_from_d(float d) {
+int bin_from_d(double d) {
 	/* NG: old Doug's binning */
 	// return (int)(d-.5);
 	/* NG: logarithmically spaced binning */
@@ -44,8 +44,8 @@ int mesh_index( int ix, int iy, int iz ) {
 void compute_power_spectrum( char *filename, int power_type ) {
 	int i, j, k, m;
 	FILE *output;
-        fftwnd_plan forward;
-        fftw_complex *density_fft;
+	fftwnd_plan forward;
+	fftw_complex *density_fft;
 	int num_level_cells;
 	int *level_cells;
 	float *local_mesh, *global_mesh;
@@ -65,10 +65,10 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	float mesh_offset;
 	float mesh_cell_size, mesh_cell_volume;
 	int num_modes[power_mesh_size];
-	float power[power_mesh_size];
-	float avg_k[power_mesh_size];
-	float di, dj, dk;
-	float d, Pq, Pk, wk;
+	double power[power_mesh_size];
+	double avg_k[power_mesh_size];
+	double di, dj, dk;
+	double d, Pq, Pk, wk;
 	float mass_factor, fb;
 	double stellar_mass, total_stellar_mass;
 	int bin, index;
@@ -316,19 +316,13 @@ void compute_power_spectrum( char *filename, int power_type ) {
 						Pq = (density_fft[index].re*density_fft[index].re +
 							density_fft[index].im * density_fft[index].im);
 
-						if ( bin == 0 ) {
-							cart_debug("%u %u %u: Pq = %e, k = %e, density_fft[%u] = %e %e", i, j, k, Pq, d,
-								index, density_fft[index].re, density_fft[index].im );
-						}
-
 						power[bin] += Pq;
-
 						avg_k[bin] += d;
 						num_modes[bin]++;
 					}
 
 					/* add power from critical mode */
-					d = sqrt( di + dj + (float)(power_mesh_size*power_mesh_size/4) );
+					d = sqrt( di + dj + (double)(power_mesh_size*power_mesh_size/4) );
 					bin = bin_from_d(d);
 					index = power_mesh_size/2 + (power_mesh_size/2+1) * ( j + power_mesh_size * i );
 
@@ -348,8 +342,8 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 						Pq = (density_fft[index].re*density_fft[index].re +
 							density_fft[index].im * density_fft[index].im);
-						power[bin] += 2.0*Pq;
 
+						power[bin] += 2.0*Pq;
 						avg_k[bin] += 2.0*d;
 						num_modes[bin] += 2;
 					}
@@ -359,18 +353,12 @@ void compute_power_spectrum( char *filename, int power_type ) {
 			/* now write out modes */
 			for ( i = 0; i < power_mesh_size; i++ ) {
 				if ( num_modes[i] > 0 ) {
-					wk = avg_k[i]/(float)num_modes[i] * (2.*M_PI*(float)(1<<m)/box_size);
-					Pk = power[i]/(float)num_modes[i] * (box_size*box_size*box_size) / 
-						(float)(power_mesh_size*power_mesh_size*power_mesh_size)/
-						(float)(power_mesh_size*power_mesh_size*power_mesh_size);
+					wk = avg_k[i]/(double)num_modes[i] * (2.*M_PI*(double)(1<<m)/box_size);
+					Pk = power[i]/(double)num_modes[i] * (box_size*box_size*box_size) / 
+						(double)(power_mesh_size*power_mesh_size*power_mesh_size)/
+						(double)(power_mesh_size*power_mesh_size*power_mesh_size);
 
-					if ( i == 0 ) {
-						cart_debug("power[%u] = %e", i, power[i] );
-						cart_debug("power_mesh_size^3 = %e", (float)(power_mesh_size*power_mesh_size*power_mesh_size) );
-						cart_debug("box_size^3 = %e", (box_size*box_size*box_size) );
-					}
-
-					fprintf(output, "%u %e %e %u\n", m, wk, Pk, num_modes[i] );
+					fprintf(output, "%u %le %le %u\n", m, wk, Pk, num_modes[i] );
 				}
 			}
 		}

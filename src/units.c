@@ -141,6 +141,8 @@ void config_init_units()
   constants_internal.XHe   = 0.25*constants_internal.Yp;
   constants_internal.gamma = 5.0/3.0;
 
+  constants_internal.sigmaT = 6.6524e-25*cgs->cm*cgs->cm;
+
 #ifdef COSMOLOGY
 
   /*

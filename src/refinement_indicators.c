@@ -79,7 +79,7 @@ void control_parameter_set_refinement_indicator(const char *value, void *ptr, in
     {
       cart_error("<from-level> for indicator %d cannot be less than min_level (%d)",id,min_level);
     }
-  if(from_level >= max_level)
+  if(from_level >= max_level && max_level > min_level )
     {
       cart_error("<from-level> for indicator %d must be less than max_level (%d)",id,max_level);
     }

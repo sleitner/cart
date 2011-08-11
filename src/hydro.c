@@ -319,77 +319,87 @@ void hydro_apply_gravity( int level ) {
 }
 #endif /* GRAVITY && !GRAVITY_IN_RIEMANN */
 
-void hydro_magic( int level ) {
-	int failed = 0;
-	int i, j;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
+void hydro_magic_one_cell( int icell ) {
+	int j;
 	float average_density;
 	int neighbors[num_neighbors];
+	static int failed_flag = 0;
 
 	double kinetic_energy;
 	double thermal_energy;
 
-	start_time( WORK_TIMER );
+	/* do density floor stuff */
+	if ( cell_gas_density(icell) < gas_density_floor ) {
+		average_density = 0.0;
+		cell_all_neighbors( icell, neighbors );
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,j,kinetic_energy,thermal_energy,average_density,neighbors), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,gas_density_floor,constants,units,failed)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
+		for ( j = 0; j < num_neighbors; j++ ) {
+			average_density += cell_gas_density( neighbors[j] );
+		}
 
-		if ( cell_is_leaf(icell) ) {
-			/* do density floor stuff */
-			if ( cell_gas_density(icell) < gas_density_floor ) {
-				average_density = 0.0;
-				cell_all_neighbors( icell, neighbors );
-	
-				for ( j = 0; j < num_neighbors; j++ ) {
-					average_density += cell_gas_density( neighbors[j] );
-				}
+		if(!failed) {
+			cart_debug("---------------------------------------------------------");
+			cart_debug("HIT DENSITY FLOOR:");
+			cart_debug("old density = %e g/cc", cell_gas_density(icell)*units->density );
+			cart_debug("new density = %e g/cc", max( average_density/(float)num_neighbors, gas_density_floor ) );
+			cart_debug("T  = %e K", cell_gas_temperature(courant_cell)*units->temperature );
+			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(courant_cell)*units->energy_density );
+			cart_debug("v  = %e %e %e cm/s",
+					cell_momentum(courant_cell,0)/cell_gas_density(courant_cell)*units->velocity,
+					cell_momentum(courant_cell,1)/cell_gas_density(courant_cell)*units->velocity,
+					cell_momentum(courant_cell,2)/cell_gas_density(courant_cell)*units->velocity );
+			cart_debug("---------------------------------------------------------");
+		}	
 
-				if(!failed) {
-					cart_debug("cell %u hit density floor, old density %e, new density = %e",
-					icell, cell_gas_density(icell), max( average_density/(float)num_neighbors,
-					gas_density_floor ) );
-					for ( j = 0; j < num_hydro_vars; j++ ) {
-						cart_debug("hydro var %u: %e", j, cell_hydro_variable( icell, j ) );
-					}
-				}	
+		failed = 1;
 
-				failed = 1;
+		cell_gas_density(icell) = max( average_density/(float)num_neighbors, gas_density_floor );
+	}
 
-				cell_gas_density(icell) = max( average_density/(float)num_neighbors, 
-								gas_density_floor );
-			}
+	kinetic_energy = cell_gas_kinetic_energy(icell);
+	thermal_energy = units->Emin * cell_gas_density(icell);
 
-			kinetic_energy = cell_gas_kinetic_energy(icell);
-			thermal_energy = units->Emin * cell_gas_density(icell);
-
-			cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
-			cell_gas_energy(icell) = max( cell_gas_energy(icell), thermal_energy+kinetic_energy );
+	cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
+	cell_gas_energy(icell) = max( cell_gas_energy(icell), thermal_energy+kinetic_energy );
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-			cell_electron_internal_energy(icell) = max( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
+	cell_electron_internal_energy(icell) = max( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-			for ( j = 0; j < num_chem_species; j++ ) {
-			  /* 
-			     1e-15 may be too large a number for ionic species;
-			     at least let's scale them with density and make 1e-20;
-                             Gnedin: 1e-20 is not small enough for chemistry, making it 1e-30
-			  */
-				cell_advected_variable(icell,j) = max( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
-				/* Doug had it like that:
-				cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
-				*/
-			}
+	for ( j = 0; j < num_chem_species; j++ ) {
+		/* 
+		   1e-15 may be too large a number for ionic species;
+		   at least let's scale them with density and make 1e-20;
+Gnedin: 1e-20 is not small enough for chemistry, making it 1e-30
+		 */
+		cell_advected_variable(icell,j) = max( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
+		/* Doug had it like that:
+		   cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
+		 */
+	}
+}
+
+void hydro_magic( int level ) {
+    int i;
+    int icell;
+    int num_level_cells;
+    int *level_cells;
+
+    start_time( WORK_TIMER );
+
+    select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_child_oct)
+    for ( i = 0; i < num_level_cells; i++ ) {
+        icell = level_cells[i];
+
+        if ( cell_is_leaf(icell) ) {
+			hydro_magic_one_cell(icell);
 		}
 	}
-	cart_free( level_cells );
+    cart_free( level_cells );
 
-	end_time( WORK_TIMER );
-}
+    end_time( WORK_TIMER );
+} 
 
 void hydro_eos( int level ) {
 	int i;
@@ -456,9 +466,7 @@ void qss_getcooling ( double t, double *y, void *params, double *w, double *a) {
 void adjust_internalenergy( double t, double *y, void *params ) {
   /* RL: put temperature/internal energy floor in here??? */
 	double Emin_cell = ((double *)params)[5];
-
 	if (y[0] < Emin_cell) y[0] = Emin_cell;
-
 }
 
 void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
@@ -483,7 +491,8 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	Hdum = 0.0;
 #endif
 
-	Tfac = units->temperature*constants->wmu*( constants->gamma-1 )/1.0e4;
+	/* Note: removed 10^4 K normalization since it wasn't used - DHR */
+	Tfac = units->temperature*constants->wmu*( constants->gamma-1 );
 
 #ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
@@ -610,7 +619,8 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	Hdum = 0.0;
 #endif
 
-	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/1.0e4;
+	/* Note: removed 10^4 K term since it isn't used - DHR */
+	Tfac = units->temperature*constants->wmu*(constants->gamma-1);
 #ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
 #else

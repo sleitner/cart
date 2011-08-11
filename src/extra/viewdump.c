@@ -64,9 +64,10 @@ void print_cell_location_vars( int cell, int level ) {
                 cell_center_position( cell, position);
 
 #ifdef HYDRO
-		fprintf(output, "%u %u %u %u 1 %u %u %u %u %e %e %e\n", corner_count, corner_count+1,
+				fprintf(output, "%u %u %u %u 1 %u %u %u %u %e %e %e\n", corner_count, corner_count+1,
                         corner_count+2, corner_count+3, level, local_proc_id, cell_is_local(cell),
-			processor_owner(cell_parent_root_sfc(cell)));
+						processor_owner(cell_parent_root_sfc(cell)),
+						position[0], position[1], position[2] );
 #endif
 
 		corner_count += 4;

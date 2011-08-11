@@ -36,6 +36,7 @@ void hydro_apply_gravity( int level );
 #endif /* GRAVITY */
 void compute_hydro_fluxes( int cell_list[4], double f[ /* num_hydro_vars-1 */ ] );
 void hydro_eos(int level);
+void hydro_magic_one_cell(int level);
 void hydro_magic(int level);
 void hydro_advance_internalenergy(int level);
 void hydro_split_update( int level );

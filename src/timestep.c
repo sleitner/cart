@@ -278,6 +278,8 @@ int global_timestep() {
 	int ret, global_ret;
 	double fdt;
 
+	cart_assert( buffer_enabled );
+
 	start_time( LEVEL_TIMER );
 	start_time( WORK_TIMER );
 
@@ -519,14 +521,30 @@ int timestep( int level, MPI_Comm level_com )
 
 	/* check for cfl condition violation... */
 	if ( dtl[level] > dt_needed && ret != -1 ) {
-		cart_debug("uh oh, violated cfl condition current dt: %0.25e needed %0.25e courant_cell = %u, velocity = %e", 
-			dtl[level], dt_needed, courant_cell, velocity );
-
-		cart_debug("density = %e, pressure = %e, as = %e", cell_gas_density(courant_cell),
-			cell_gas_pressure(courant_cell), 
-			sqrt( cell_gas_gamma(courant_cell ) * cell_gas_pressure(courant_cell) / cell_gas_density(courant_cell ) ) );
-		cart_debug("momentum = %e %e %e", cell_momentum(courant_cell,0), cell_momentum(courant_cell,1),
-			cell_momentum(courant_cell,2) );
+		cart_debug("---------------------------------------------------------");
+		cart_debug("CFL CONDITION VIOLATED:");
+		cart_debug("current dt = %.25e Myr", dtl[level]*units->time / constants->Myr );
+		cart_debug("needed  dt = %.25e Myr", dt_needed*units->time / constants->Myr );
+		cart_debug("CFL tolerance = %.3f / %.3f = %.4e", cfl_max, cfl_run, cfl_max/cfl_run );
+		cart_debug("courant cell information:");
+		cart_debug("T  = %e K", cell_gas_temperature(courant_cell)*units->temperature );
+		cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(courant_cell)*units->energy_density );
+		cart_debug("n  = %e cm^-3", cell_gas_density(courant_cell)*units->number_density );
+		cart_debug("cs = %e cm/s", sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
+			cell_gas_density(courant_cell))*units->velocity );
+		cart_debug("v  = %e %e %e cm/s", 
+			cell_momentum(courant_cell,0)/cell_gas_density(courant_cell)*units->velocity, 
+			cell_momentum(courant_cell,1)/cell_gas_density(courant_cell)*units->velocity,
+			cell_momentum(courant_cell,2)/cell_gas_density(courant_cell)*units->velocity );
+		cart_debug("dt sound crossing = %e Myr", ( cell_size[level] / 
+			sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / cell_gas_density(courant_cell)) )*
+			units->time / constants->Myr );
+		cart_debug("dt bulk velocity  = %e Myr", 
+			cell_size[level]/(
+				max( cell_momentum(courant_cell,0), 
+					max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
+				cell_gas_density(courant_cell) ) * units->time / constants->Myr;
+		cart_debug("---------------------------------------------------------");
 
 		/*
 		//  Set-up a time-step restriction: do it once only,
@@ -626,9 +644,9 @@ int timestep( int level, MPI_Comm level_com )
 	auni[level] = auni_from_tcode( tl[level] );
 #endif
 
-        start_time( WORK_TIMER );
-        units_update(level);
-        end_time( WORK_TIMER );
+	start_time( WORK_TIMER );
+	units_update(level);
+	end_time( WORK_TIMER );
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 	assign_density( level );
@@ -654,7 +672,13 @@ int timestep( int level, MPI_Comm level_com )
 	PLUGIN_POINT(LevelStepEnd)(level,level_com);
 #endif
 
-	cart_debug("timestep(%u, %e, %d)", level, dtl[level], num_steps_on_level[level] );
+	cart_debug("timestep(%u, %e %s, %d)", level, 
+#ifdef COSMOLOGY
+		dtl[level]*units->time/constants->Myr, "Myr",
+#else
+		dtl[level]*units->time, "s",
+#endif
+		num_steps_on_level[level] );
 
 	num_steps_on_level[level]++;
 
@@ -697,10 +721,14 @@ void set_timestepping_scheme()
 #ifdef HYDRO 
   hydro_cfl_condition(min_level,&courant_cell,&velocity);
 
-  cart_debug("cfl cell: velocity = %e, cell = %u, level = %u, pressure = %e, density = %e, momentum = %e %e %e",
-	     velocity, courant_cell, 0, cell_gas_pressure(courant_cell),
-	     cell_gas_density(courant_cell), cell_momentum(courant_cell,0),
-	     cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) );
+  cart_debug("cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, dt = %e Myr", 
+		courant_cell, cell_level(courant_cell), 
+		max( cell_momentum(courant_cell,0), 
+			max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
+			cell_gas_density(courant_cell) * units->velocity,
+		sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
+			cell_gas_density(courant_cell))*units->velocity,
+		cfl_run*cell_size[min_level]/velocity*units->time/constants->Myr );
 
   if(velocity > 0.0)
     {
@@ -749,7 +777,8 @@ void set_timestepping_scheme()
   */
 
 #ifdef DEBUG_TIMESTEP
-  if(local_proc_id == MASTER_NODE) cart_debug("Ideal time-step: %lg, previous: %lg",dt_new,dt_global);
+  if(local_proc_id == MASTER_NODE) cart_debug("Ideal time-step: %lg s, previous: %lg s",
+		dt_new*units->time, dt_global*units->time );
 #endif
 
   /* 
@@ -775,7 +804,7 @@ void set_timestepping_scheme()
 	  dt_new = dt_global;
 	}
 #ifdef DEBUG_TIMESTEP
-      if(local_proc_id == MASTER_NODE) cart_debug("Limited time-step increase to: %lg",dt_new);
+      if(local_proc_id == MASTER_NODE) cart_debug("Limited time-step increase to: %lg s",dt_new*units->time);
 #endif
     }
   else if(dt_new < 0.999*frac_dt*dt_global) // allow for round-off error
@@ -788,7 +817,7 @@ void set_timestepping_scheme()
       frac_dt = 1.0;
       step_of_last_increase = step; // forbid an increase right away
 #ifdef DEBUG_TIMESTEP
-      if(local_proc_id == MASTER_NODE) cart_debug("Forced time-step decrease to: %lg",dt_new);
+      if(local_proc_id == MASTER_NODE) cart_debug("Forced time-step decrease to: %lg s",dt_new*units->time);
 #endif
     }
 
@@ -830,7 +859,15 @@ void set_timestepping_scheme()
 	  if(dt_new < dtl_local[level])
 	    {
 	      dtl_local[level] = dt_new;
-	      cart_debug("new cfl cell: velocity = %e, cell = %u, level = %u, pressure = %e, density = %e, momentum = %e %e %e", velocity, courant_cell, level, cell_gas_pressure(courant_cell), cell_gas_density(courant_cell), cell_momentum(courant_cell,0), cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) );
+
+		  cart_debug("new cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, dt = %e Myr", 
+				  courant_cell, cell_level(courant_cell), 
+				  max( cell_momentum(courant_cell,0), 
+					  max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
+				  cell_gas_density(courant_cell) * units->velocity,
+				  sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
+					  cell_gas_density(courant_cell))*units->velocity,
+				  cfl_run*cell_size[min_level]/velocity*units->time/constants->Myr );
 	    }
 	}
     }
@@ -936,13 +973,26 @@ void set_timestepping_scheme()
 
   if(local_proc_id == MASTER_NODE)
     {
-      cart_debug("chose %le as our next global time-step (%lg of the optimal value)",dtl[min_level],frac_dt);
+
+		cart_debug("chose %le %s as our next global time-step (%lg of the optimal value)",
+#ifdef COSMOLOGY
+				dtl[min_level]*units->time/constants->Myr, "Myr",
+#else
+				dtl[min_level]*units->time, "Myr",
+#endif
+				frac_dt );
 
       work = 1.0;
       for(level=min_level+1; level<=lowest_level; level++)
 	{
 	  work *= time_refinement_factor[level];
-	  cart_debug("level %d, dt = %9.3le, time-ref = %d, global time-ref = %lg",level,dtl[level],time_refinement_factor[level],work);
+	  cart_debug("level %d, dt = %9.3le %s, time-ref = %d, global time-ref = %lg", level,
+#ifdef COSMOLOGY
+			dtl[level]*units->time/constants->Myr, "Myr",
+#else
+			dtl[level]*units->time, "s",
+#endif
+			time_refinement_factor[level],work);
 	}
     }
 

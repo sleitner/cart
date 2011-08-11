@@ -26,7 +26,8 @@ double dlti, dldi, dlZi, drsi;
 
 cooling_t coolcl[nrsmax][nlzmax][nldmax][nltmax];
 cooling_t ccl_rs[nlzmax][nldmax][nltmax];
-double f_ion[nrsmax][nlzmax][nldmax][nltmax];
+double fion[nrsmax][nlzmax][nldmax][nltmax];
+double fion_rs[nlzmax][nldmax][nltmax];
 
 void init_cooling() {
 	FILE *data;
@@ -73,7 +74,7 @@ void init_cooling() {
 					coolcl[irs][ilz][ild][ilt].Cooling = max(0.0,cdum);
 					coolcl[irs][ilz][ild][ilt].Heating = max(0.0,hdum);
 #endif
-					f_ion[irs][ilz][ild][ilt] = d[5] / pow( 10.0, d[1] );
+					fion[irs][ilz][ild][ilt] = d[5] / pow( 10.0, d[1] );
 				}
 			}
 		}
@@ -107,6 +108,14 @@ void set_cooling_redshift( double auni ) {
 				}
 			}
 		}
+		for ( ilz = 0; ilz < nlz; ilz++ ) {
+			for ( ild = 0; ild < nld; ild++ ) {
+#pragma omp parallel for default(none), private(ilt), shared(irs1,irs2,ilz,ild,fion_rs,fion,nlt)
+				for ( ilt = 0; ilt < nlt; ilt++ ) {
+					fion_rs[ilz][ild][ilt] = fion[irs1][ilz][ild][ilt];
+				}
+			}
+		}
 	} else {
 		/* need to interpolate to specific redshift */
 		rs1 = rsmin + drs*(double)irs1;
@@ -127,6 +136,16 @@ void set_cooling_redshift( double auni ) {
 				}
 			}
 		}
+		for ( ilz = 0; ilz < nlz; ilz++ ) {
+			for ( ild = 0; ild < nld; ild++ ) {
+#pragma omp parallel for default(none), private(ilt,ac,bc), shared(irs1,irs2,ilz,ild,fion_rs,fion,nlt,rs,rs1,rs2)
+				for ( ilt = 0; ilt < nlt; ilt++ ) {
+					ac = (rs2-rs)/(rs2-rs1);
+					bc = (rs-rs1)/(rs2-rs1);
+					fion_rs[ilz][ild][ilt] = ac*fion[irs1][ilz][ild][ilt] + bc*fion[irs2][ilz][ild][ilt];
+				}
+			}
+		}
 	}
 
 	end_time( WORK_TIMER );
@@ -144,7 +163,7 @@ cooling_t cooling_rate( double nHlog, double T_g, double Zlog ) {
 #endif
 
 	/* compute temperature bin */
-	Tlog = log10(T_g) + 4.0;
+	Tlog = log10(T_g);
 	it1 = (int)((Tlog - tlmin)*dlti);
 	it2 = it1 + 1;
 
@@ -220,6 +239,65 @@ cooling_t cooling_rate( double nHlog, double T_g, double Zlog ) {
 	return ret;
 
 #endif /* OLDSTYLE_COOLING_EXPLICIT_SOLVER */
+}
+
+double cooling_fion( double nHlog, double T_g, double Zlog ) {
+	double Tlog;
+	int it1, it2;
+	int id1, id2;
+	int iz1, iz2;
+	int irs1, irs2;
+	double dd,td,zd;
+	double d1,d2,d3,t1,t2,t3;
+
+	/* compute temperature bin */
+	Tlog = log10(T_g);
+	it1 = (int)((Tlog - tlmin)*dlti);
+	it2 = it1 + 1;
+
+	it1 = max(it1,0);
+	it1 = min(it1,nlt-1);
+	it2 = max(it2,0);
+	it2 = min(it2,nlt-1);
+
+	/* compute density bin */
+	id1 = (int)((nHlog - dlmin)*dldi);
+	id2 = id1 + 1;
+
+	id1 = max(id1,0);
+	id1 = min(id1,nld-1);
+	id2 = max(id2,0);
+	id2 = min(id2,nld-1);
+
+	/* compute metallicity bin */
+	iz1 = (int)((Zlog - Zlmin)*dlZi);
+	iz2 = iz1 + 1;
+
+	iz1 = max(iz1,0);
+	iz1 = min(iz1,nlz-1);
+	iz2 = max(iz2,0);
+	iz2 = min(iz2,nlz-1);
+
+	/* set up interpolation variables */
+	td = tlmin + dlt * (double)(it1+1);
+	dd = dlmin + dld * (double)(id1+1);
+	zd = Zlmin + dlZ * (double)(iz1+1);
+
+	t1 = (td - Tlog) * dlti;
+	d1 = 1.0 - t1;
+	t2 = (dd - nHlog) * dldi;
+	d2 = 1.0 - t2;
+	t3 = (zd - Zlog) * dlZi;
+	d3 = 1.0 - t3;
+
+	return	t1*t2*t3 * fion_rs[iz1][id1][it1] +
+		d1*t2*t3 * fion_rs[iz1][id1][it2] +
+		t1*d2*t3 * fion_rs[iz1][id2][it1] +
+		d1*d2*t3 * fion_rs[iz1][id2][it2] +
+		t1*t2*d3 * fion_rs[iz2][id1][it1] +
+		d1*t2*d3 * fion_rs[iz2][id1][it2] +
+		t1*d2*d3 * fion_rs[iz2][id2][it1] +
+		d1*d2*d3 * fion_rs[iz2][id2][it2];
 }
 
 #ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER

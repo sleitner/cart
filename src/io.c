@@ -769,7 +769,7 @@ void set_grid_file_mode(int mode)
   if(mode>=-3 && mode<=3) grid_file_mode = mode;
 }
 
-
+#ifdef PARTICLES
 void set_particle_file_mode(int mode)
 {
   if(mode>=-2 && mode<=2) particle_file_mode = mode;
@@ -780,35 +780,167 @@ void set_particle_file_mode(int mode)
 //  Create multiple versions of restart_load_balance using
 //  C-style templates
 */
-#define FUNCTION                      restart_load_balanceP1
+#define FUNCTION                      restart_load_balance_particle_float
 #define PARTICLE_FLOAT                float
 #include "io1.def"
 
-#define FUNCTION                      restart_load_balanceP2
+#define FUNCTION                      restart_load_balance_particle_double
 #define PARTICLE_FLOAT                double
 #include "io1.def"
+#endif /* PARTICLES */
 
 void restart_load_balance( char *grid_filename, char *particle_header_filename, char *particle_data ) {
-  switch(particle_file_mode)
-    {
-    case 0:
-    case 1:
-    case -1:
-      {
-	restart_load_balanceP2(grid_filename,particle_header_filename,particle_data);
-	break;
-      }
-    case 2:
-    case -2:
-      {
-	restart_load_balanceP1(grid_filename,particle_header_filename,particle_data);
-	break;
-      }
-    default:
-      {
-	cart_error("Invalid particle_file_mode=%d",particle_file_mode);
-      }
-    }
+	int i, j;
+	int index;
+	int coords[nDim];
+	int page;
+	int num_read;
+	float *cell_work;	
+	int *constrained_quantities;
+
+	FILE *input;
+	int endian, nbody_flag;
+	int grid_change_flag;
+	int size, value;
+	int *cellrefined;
+	double rfact;
+	double grid_shift;
+	char filename[256];
+	
+	if ( num_procs == 1 ) {
+		proc_sfc_index[0] = 0;
+		proc_sfc_index[1] = num_root_cells;
+		init_tree();
+		return;
+	}
+
+	if ( local_proc_id == MASTER_NODE ) {
+		/* do load balancing */
+		constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
+		cell_work = cart_alloc(float, num_root_cells );
+
+		for ( i = 0; i < num_root_cells; i++ ) {
+			cell_work[i] = 0.0;
+		}
+
+		for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
+			constrained_quantities[i] = 0;
+		}
+
+		/* load particle work information */
+#ifdef PARTICLES
+		if ( particle_header_filename != NULL ) {
+			switch(particle_file_mode) {
+				case 0:
+				case 1:
+				case -1:
+					restart_load_balance_particle_double(particle_header_filename,particle_data,cell_work,constrained_quantities);
+					break;
+				case 2:
+				case -2:
+					restart_load_balance_particle_float(particle_header_filename,particle_data,cell_work,constrained_quantities);
+					break;
+				default:
+					cart_error("Invalid particle_file_mode=%d",particle_file_mode);
+			}
+		}
+#endif /* PARTICLES */
+
+		if ( grid_filename != NULL ) {
+			index = 0;
+			for ( i = 0; i < num_output_files; i++ ) {
+				if ( num_output_files == 1 ) {
+					sprintf( filename, "%s", grid_filename );
+				} else {
+					sprintf( filename, "%s.%03u", grid_filename, i );
+				}
+
+				input = fopen( filename, "r" );
+				if ( input == NULL ) {
+					cart_error( "Unable to open file %s for reading!", filename );
+				}
+
+				if ( i == 0 ) {
+					/* skip over header information */
+					fread( &size, sizeof(int), 1, input );
+					endian = 0;
+					if ( size != 256 ) {
+						reorder( (char *)&size, sizeof(int) );
+						if ( size != 256 ) {
+							cart_error("Error: file %s is corrupted", filename );
+						} else {
+							endian = 1;
+						}
+					}
+
+					fseek( input, 256*sizeof(char)+sizeof(int), SEEK_CUR );
+
+					value = 0;
+					while ( value != num_root_cells ) {
+						fread( &size, sizeof(int), 1, input );
+
+						if ( endian ) {
+							reorder( (char *)&size, sizeof(int) );
+						}
+
+						if ( size == sizeof(int) ) {
+							fread( &value, sizeof(int), 1, input );
+
+							if ( endian ) {
+								reorder( (char *)&value, sizeof(int) );
+							}
+						} else {
+							fseek( input, size, SEEK_CUR );
+						}
+
+						fread( &size, sizeof(int), 1, input );
+					}
+				}
+
+				/* read cellrefined */
+				fread( &size, sizeof(int), 1, input );
+			
+				if ( endian ) {
+					reorder( (char *)&size, sizeof(int) );
+				}
+
+				size /= sizeof(int);
+				cellrefined = cart_alloc(int, size );
+				fread( cellrefined, sizeof(int), size, input );
+
+				fclose(input);
+
+				if ( endian ) {
+					for ( j = 0; j < size; j++ ) {
+						reorder( (char *)&cellrefined[j], sizeof(int) );
+					}
+				}
+
+				for ( j = 0; j < size; j++ ) {
+					constrained_quantities[num_constraints*index] += cellrefined[j];
+					cell_work[index] += cost_per_cell*cellrefined[j];
+					index++;
+				}
+
+				cart_free( cellrefined );
+			}
+		} else {
+			for ( index = 0; index < num_root_cells; index++ ) {
+				constrained_quantities[num_constraints*index] = 1;
+				cell_work[index] += cost_per_cell;
+			}
+		}	
+
+		cart_debug("load balancing before i/o");
+		load_balance_entire_volume( cell_work, constrained_quantities, proc_sfc_index );
+
+		cart_free( cell_work );
+		cart_free( constrained_quantities );
+	}
+
+	/* let all other processors know what their new workload is */
+	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	init_tree();
 }
 
 #ifdef PARTICLES
@@ -2466,21 +2598,21 @@ void read_particle_header( char *header_filename, particle_header *header, int *
 //  Create multiple versions of read_particles using
 //  C-style templates
 */
-#define FUNCTION                      read_particlesP1T1
+#define FUNCTION                      read_particles_float_time_float
 #define PARTICLE_FLOAT                float
 #define MPI_PARTICLE_FLOAT            MPI_FLOAT
 #define PARTICLE_TIMES_FLOAT          float
 #define MPI_PARTICLE_TIMES_FLOAT      MPI_FLOAT
 #include "io2.def"
 
-#define FUNCTION                      read_particlesP2T1
+#define FUNCTION                      read_particles_double_time_float
 #define PARTICLE_FLOAT                double
 #define MPI_PARTICLE_FLOAT            MPI_DOUBLE
 #define PARTICLE_TIMES_FLOAT          float
 #define MPI_PARTICLE_TIMES_FLOAT      MPI_FLOAT
 #include "io2.def"
 
-#define FUNCTION                      read_particlesP2T2
+#define FUNCTION                      read_particles_double_time_double
 #define PARTICLE_FLOAT                double
 #define MPI_PARTICLE_FLOAT            MPI_DOUBLE
 #define PARTICLE_TIMES_FLOAT          double
@@ -2494,19 +2626,19 @@ void read_particles( char *header_filename, char *data_filename,
     {
     case 0:
       {
-	read_particlesP2T2(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	read_particles_double_time_double(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
 	break;
       }
     case 1:
     case -1:
       {
-	read_particlesP2T1(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	read_particles_double_time_float(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
 	break;
       }
     case 2:
     case -2:
       {
-	read_particlesP1T1(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	read_particles_float_time_float(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
 	break;
       }
     default:

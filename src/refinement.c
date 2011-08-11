@@ -25,6 +25,7 @@ int cells_to_refine[num_octs];
 int num_cells_to_refine;
 
 int refinement_is_static        = 0;
+int spatially_limited_refinement = 1;
 int refinement_volume_level     = min_level;
 
 float split_tolerance		= 0.8;
@@ -41,6 +42,8 @@ float momentum_increment	= 0.4;
 void config_init_refinement()
 {
   control_parameter_add2(control_parameter_int,&refinement_is_static,"ref:static","refinement_is_static","makes the refinement mesh static. All the refinement must be done manually in init_run() call.");
+
+  control_parameter_add2(control_parameter_int,&spatially_limited_refinement,"ref:spatial","spatially_limited_refinement","turns on/off the feature by which refinement_volume_min/max is used to limit refinement.");
 
   control_parameter_add2(control_parameter_int,&refinement_volume_level,"ref:volume-level","refinement_volume_level","sets the level below which refinement_volume_min/max restriction is tested.");
 
@@ -64,6 +67,8 @@ void config_init_refinement()
 
 void config_verify_refinement()
 {
+  cart_assert(spatially_limited_refinement == 0 || spatially_limited_refinement == 1 );
+
   cart_assert(refinement_volume_level>=min_level && refinement_volume_level<=max_level);
 
   cart_assert(refinement_is_static==0 || refinement_is_static==1);
@@ -145,7 +150,7 @@ void modify( int level, int op ) {
 		end_time( DIFFUSION_STEP_TIMER );
 	}
 
-	if ( level >= refinement_volume_level ) {
+	if ( spatially_limited_refinement && level >= refinement_volume_level ) {
 	  /* check refinement mask */
 #pragma omp parallel for default(none), private(i,icell,pos,j) shared(refinement_volume_min,refinement_volume_max,cell_vars,num_level_cells,level_cells)
 		for ( i = 0; i < num_level_cells; i++ ) {

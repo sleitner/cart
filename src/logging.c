@@ -432,9 +432,9 @@ void init_logging( int restart ) {
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
-			fprintf(energy, "# step tl a gas_thermal gas_kinetic gas_potential total_gas_energy baryon_mass particle_kinetic particle_potential total_particle_energy error\n");
+			fprintf(energy, "# step tl a gas_thermal gas_kinetic gas_potential total_gas_energy [ergs] baryon_mass [Msun] particle_kinetic particle_potential total_particle_energy [ergs] error\n");
 #else
-			fprintf(energy, "# step tl gas_thermal gas_kinetic gas_potential total_gas_energy baryon_mass particle_kinetic particle_potential total_particle_energy error\n");
+			fprintf(energy, "# step tl gas_thermal gas_kinetic gas_potential total_gas_energy [ergs] baryon_mass [g] particle_kinetic particle_potential total_particle_energy [ergs] error\n");
 #endif /* COSMOLOGY */
 		}
 
@@ -550,6 +550,7 @@ void log_diagnostics() {
 	double total_particle_kinetic, total_particle_potential;
 	double error;
 	double da;
+	double dtyears, current_age, current_dt;
 
 #ifdef STARFORM
 	double stellar_mass, stellar_initial_mass;
@@ -558,9 +559,17 @@ void log_diagnostics() {
 	double resolved_volume[max_level-min_level+1];
 	double local_resolved_volume[max_level-min_level+1];
 	double total_resolved_volume;
-	double dtyears, current_age;
 	double sfr;
 #endif /* STARFORM */
+
+    dtyears = dtl[min_level] * units->time / constants->yr;
+#ifdef COSMOLOGY
+    current_age = tphys_from_abox(abox[min_level]);
+	current_dt = dtyears;
+#else
+    current_age = tl[min_level]*units->time;
+	current_dt = dtl[min_level]*units->time;
+#endif
 
 #ifdef PARTICLES
 #ifdef COSMOLOGY
@@ -575,9 +584,9 @@ void log_diagnostics() {
 	
 	/* log profiling information */
 #ifdef COSMOLOGY
-	fprintf( timing, "%u %e %e %e", step, tl[min_level], auni[min_level], current_time( TOTAL_TIME, min_level-1 ) );
+	fprintf( timing, "%u %e %e %e", step, current_age, auni[min_level], current_time( TOTAL_TIME, min_level-1 ) );
 #else
-	fprintf( timing, "%u %e %e", step, tl[min_level], current_time( TOTAL_TIME, min_level-1 ) );
+	fprintf( timing, "%u %e %e", step, current_age, current_time( TOTAL_TIME, min_level-1 ) );
 #endif /* COSMOLOGY */
 	for ( level = min_level-1; level <= max_level; level++ ) {
 		for ( i = 1; i < NUM_TIMERS; i++ ) {
@@ -590,15 +599,15 @@ void log_diagnostics() {
 	/* log workload information */
 #ifdef PARTICLES
 #ifdef COSMOLOGY
-	fprintf( workload, "%u %e %e %u %u", step, tl[min_level], auni[min_level], num_local_particles, max_level_now() );
+	fprintf( workload, "%u %e %e %u %u", step, current_age, auni[min_level], num_local_particles, max_level_now() );
 #else
-	fprintf( workload, "%u %e %u %u", step, tl[min_level], num_local_particles, max_level_now() );
+	fprintf( workload, "%u %e %u %u", step, current_age, num_local_particles, max_level_now() );
 #endif /* COSMOLOGY */
 #else
 #ifdef COSMOLOGY
-	fprintf( workload, "%u %e %e 0 %u", step, tl[min_level], auni[min_level], max_level_now() );
+	fprintf( workload, "%u %e %e 0 %u", step, current_age, auni[min_level], max_level_now() );
 #else
-	fprintf( workload, "%u %e 0 %u", step, tl[min_level], max_level_now() );
+	fprintf( workload, "%u %e 0 %u", step, current_age, max_level_now() );
 #endif /* COSMOLOGY */
 #endif /* PARTICLES */
 
@@ -613,9 +622,9 @@ void log_diagnostics() {
 
 	/* log dependency information */
 #ifdef COSMOLOGY
-	fprintf( dependency, "%u %e %e", step, tl[min_level], auni[min_level] );
+	fprintf( dependency, "%u %e %e", step, current_age, auni[min_level] );
 #else
-	fprintf( dependency, "%u %e", step, tl[min_level] );
+	fprintf( dependency, "%u %e", step, current_age );
 #endif /* COSMOLOGY */
 	for ( level = min_level; level <= max_level; level++ ) {
 		for ( i = 0; i < num_procs; i++ ) {
@@ -679,23 +688,17 @@ void log_diagnostics() {
 #endif /* GRAVITY */
 
 #ifdef STARFORM
-	dtyears = dtl[min_level] * units->time / constants->yr;
-#ifdef COSMOLOGY
-	current_age = tphys_from_abox(abox[min_level]);
-#else
-	current_age = tl[min_level];
-#endif
 	old_stellar_mass = total_stellar_mass;
 	old_stellar_initial_mass = total_stellar_initial_mass;
 
-	cart_debug("stellar_mass = %e", stellar_mass );
-	cart_debug("stellar_initial_mass = %e", stellar_initial_mass );
+	cart_debug("stellar_mass = %e Msun", stellar_mass*units->mass/constants->Msun );
+	cart_debug("stellar_initial_mass = %e Msun", stellar_initial_mass*units->mass/constants->Msun );
 
 	MPI_Reduce( &stellar_mass, &total_stellar_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
 	MPI_Reduce( &stellar_initial_mass, &total_stellar_initial_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
 
 	if ( local_proc_id == MASTER_NODE ) {
-		cart_debug("total_stellar_mass = %e", total_stellar_mass );
+		cart_debug("total_stellar_mass = %e Msun", total_stellar_mass*units->mass/constants->Msun );
 	}
 
 	d_stellar_mass = total_stellar_mass - old_stellar_mass;
@@ -724,7 +727,6 @@ void log_diagnostics() {
 		/* sum resolved volume over all levels except min_level (works for MMR simulations) */
 		total_resolved_volume = 0.0;
 		for ( level = min_level; level <= max_level; level++ ) {
-			cart_debug("resolved_volume[%u] = %e", level, resolved_volume[level] );
 			total_resolved_volume += resolved_volume[level];
 		}
 #ifdef COSMOLOGY
@@ -733,9 +735,6 @@ void log_diagnostics() {
 		total_resolved_volume *= pow(units->length/constants->Mpc,3.0);
 #endif /* COSMOLOGY */
 
-
-		cart_debug("total_resolved_volume = %e", total_resolved_volume);
-
 		if ( total_resolved_volume > 0.0 ) {
 			sfr = d_stellar_initial_mass * units->mass / constants->Msun / dtyears / total_resolved_volume;
 		} else {
@@ -743,11 +742,11 @@ void log_diagnostics() {
 		}
 
 #ifdef COSMOLOGY
-		fprintf( star_log, "%u %e %e %e %e %e %u %e %e %e %e %e\n", step, tl[min_level],
-			dtl[min_level], auni[min_level], current_age, dtyears, 
+		fprintf( star_log, "%u %e %e %e %u %e %e %e %e %e\n", step, current_age, current_dt, 
+			auni[min_level], 
 #else
-		fprintf( star_log, "%u %e %e %e %e %u %e %e %e %e %e\n", step, tl[min_level],
-			dtl[min_level], current_age, dtyears, 
+		fprintf( star_log, "%u %e %e %u %e %e %e %e %e\n", step, 
+			current_age, current_dt, 
 #endif /* COSMOLOGY */
 			particle_species_num[num_particle_species-1],
 			total_stellar_mass*units->mass/constants->Msun, 
@@ -758,7 +757,6 @@ void log_diagnostics() {
 		fflush(star_log);
 	}
 #endif /* STARFORM */
-
 
 	particle_kinetic = particle_potential = 0.0;
 	total_particle_kinetic = total_particle_potential = 0.0;
@@ -818,23 +816,32 @@ void log_diagnostics() {
 
 #ifdef COSMOLOGY
 		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e %e\n",
-			step, tl[min_level], auni[min_level], 
+			step, current_age, auni[min_level], 
 #else
 		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e\n",
-			step, tl[min_level], 
+			step, current_age, 
 #endif /* COSMOLOGY */
-			total_gas_thermal, total_gas_kinetic, total_gas_potential, 
-			total_gas_thermal+total_gas_kinetic+total_gas_potential,
-			total_gas_mass,
-			total_particle_kinetic, total_particle_potential,
-			total_particle_kinetic+total_particle_potential,
+			total_gas_thermal*units->energy, 
+			total_gas_kinetic*units->energy, 
+			total_gas_potential*units->energy, 
+			(total_gas_thermal+total_gas_kinetic+total_gas_potential)*units->energy,
+#ifdef COSMOLOGY
+			total_gas_mass*units->mass/constants->Msun,
+#else
+			total_gas_mass*units->mass,
+#endif /* COSMOLOGY */
+			total_particle_kinetic*units->energy, 
+			total_particle_potential*units->energy,
+			(total_particle_kinetic+total_particle_potential)*units->energy,
 			error );
 		fflush(energy);
 
 #ifdef COSMOLOGY
-		fprintf(steptimes, "%u %e %e %e %e %e\n", step, tl[min_level], dtl[min_level], auni[min_level], abox[min_level], abox[min_level]-abox_old[min_level] );
+		fprintf(steptimes, "%u %e %e %e %e %e\n", 
+			step, current_age, current_dt, auni[min_level], abox[min_level], 
+			abox[min_level]-abox_old[min_level] );
 #else
-		fprintf(steptimes, "%u %e %e\n", step, tl[min_level], dtl[min_level] );
+		fprintf(steptimes, "%u %e %e\n", step, current_age, current_dt );
 #endif /* COSMOLOGY */
 		fflush(steptimes);
 	}

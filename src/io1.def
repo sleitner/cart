@@ -11,257 +11,129 @@
 #endif
 
 
-void FUNCTION( char *grid_filename, char *particle_header_filename, char *particle_data ) {
+void FUNCTION( char *particle_header_filename, char *particle_data, float *cell_work, int *constrained_quantities ) {
 	int i, j;
 	int index;
 	int coords[nDim];
 	int page;
 	int num_read;
-	float *cell_work;	
-	int *constrained_quantities;
 
-#ifdef PARTICLES
 	int num_parts_per_page;
 	int num_parts_in_page;
 	int num_pages;
 	PARTICLE_FLOAT *x, *y, *z;
 	PARTICLE_FLOAT *input_page;
 	particle_header header;
-#endif /* PARTICLES */
 
 	FILE *input;
 	int endian, nbody_flag;
 	int grid_change_flag;
-	int size, value;
-	int *cellrefined;
 	double rfact;
 	double grid_shift;
-	char filename[256];
 	
-	if ( num_procs == 1 ) {
-		proc_sfc_index[0] = 0;
-		proc_sfc_index[1] = num_root_cells;
-		init_tree();
-		return;
+	read_particle_header( particle_header_filename, &header, &endian, &nbody_flag );
+
+	num_particles_total = header.num[ header.Nspecies - 1 ];
+	num_parts_per_page = header.Nrow*header.Nrow;
+	num_pages = (num_particles_total-1) / num_parts_per_page + 1;
+
+	cart_debug("num_parts_per_page = %d", num_parts_per_page );
+	cart_debug("num_particles_total = %d", num_particles_total );
+	cart_debug("num_pages = %d", num_pages );
+
+	if ( nbody_flag ) {
+		grid_shift = 1.5;
+	} else {
+		grid_shift = 1.0;
 	}
 
-	if ( local_proc_id == MASTER_NODE ) {
-		/* do load balancing */
-		constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
-		cell_work = cart_alloc(float, num_root_cells );
+	if ( header.Ngrid != num_grid ) {
+		rfact = (float)num_grid / (float)header.Ngrid;
+		grid_change_flag = 1;
+	} else {
+		grid_change_flag = 0;
+	}
 
-		for ( i = 0; i < num_root_cells; i++ ) {
-			cell_work[i] = 0.0;
-		}
+	input_page = cart_alloc(PARTICLE_FLOAT, nDim*num_parts_per_page );
 
-		for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
-			constrained_quantities[i] = 0;
-		}
+	x = input_page;
+	y = &input_page[num_parts_per_page];
+	z = &input_page[2*num_parts_per_page];
 
-		/* load particle work information */
-#ifdef PARTICLES
-		if ( particle_header_filename != NULL ) {
-			read_particle_header( particle_header_filename, &header, &endian, &nbody_flag );
+	input = fopen( particle_data, "r" );
+	if ( input == NULL ) {
+		cart_error( "Unable to load particle data file!\n");
+	}
 
-			num_particles_total = header.num[ header.Nspecies - 1 ];
-			num_parts_per_page = header.Nrow*header.Nrow;
-			num_pages = (num_particles_total-1) / num_parts_per_page + 1;
-
-			cart_debug("num_parts_per_page = %d", num_parts_per_page );
-			cart_debug("num_particles_total = %d", num_particles_total );
-			cart_debug("num_pages = %d", num_pages );
-	
-			if ( nbody_flag ) {
-				grid_shift = 1.5;
-			} else {
-				grid_shift = 1.0;
-			}
-
-			if ( header.Ngrid != num_grid ) {
-				rfact = (float)num_grid / (float)header.Ngrid;
-				grid_change_flag = 1;
-			} else {
-				grid_change_flag = 0;
-			}
-
-			input_page = cart_alloc(PARTICLE_FLOAT, nDim*num_parts_per_page );
-
-			x = input_page;
-			y = &input_page[num_parts_per_page];
-			z = &input_page[2*num_parts_per_page];
-
-			input = fopen( particle_data, "r" );
-			if ( input == NULL ) {
-				cart_error( "Unable to load particle data file!\n");
-			}
-
-			for ( page = 0; page < num_pages; page++ ) {
-				if ( page == num_pages - 1 ) {
-					num_parts_in_page = num_particles_total - 
-							num_parts_per_page*(num_pages-1);
-				} else {
-					num_parts_in_page = num_parts_per_page;
-				}
-
-				num_read = fread( input_page, sizeof(PARTICLE_FLOAT), 
-							nDim*num_parts_per_page, input );
-
-				if ( num_read != nDim*num_parts_per_page ) {
-					cart_error("Error reading from particle file %s: insufficient data", particle_data );
-				}
-
-				if ( endian ) {
-					for ( j = 0; j < num_parts_in_page; j++ ) {
-						reorder( (char *)&x[j], sizeof(PARTICLE_FLOAT) );
-						reorder( (char *)&y[j], sizeof(PARTICLE_FLOAT) );
-						reorder( (char *)&z[j], sizeof(PARTICLE_FLOAT) );
-					}
-				}
-
-				for ( j = 0; j < num_parts_in_page; j++ ) {
-					x[j] -= grid_shift;
-					y[j] -= grid_shift;
-					z[j] -= grid_shift;
-
-					if ( grid_change_flag ) {
-						x[j] *= rfact;
-						y[j] *= rfact;
-						z[j] *= rfact;
-					}
-
-					/* enforce periodic boundary conditions */
-					if ( x[j] < 0.0 ) {
-						x[j] += (double)num_grid;
-					} else if ( x[j] >= (double)num_grid ) {
-						x[j] -= (double)num_grid;
-					}
-
-					if ( y[j] < 0.0 ) {
-						y[j] += (double)num_grid;
-					} else if ( y[j] >= (double)num_grid ) {
-						y[j] -= (double)num_grid;
-					}
-
-					if ( z[j] < 0.0 ) {
-						z[j] += (double)num_grid;
-					} else if ( z[j] >= (double)num_grid ) {
-						z[j] -= (double)num_grid;
-					}
-
-					coords[0] = (int)(x[j]);
-					coords[1] = (int)(y[j]);
-					coords[2] = (int)(z[j]);
-
-					index = sfc_index( coords );
-					cart_assert( index >= 0 && index < num_root_cells );
-
-					constrained_quantities[num_constraints*index+1]++;
-					cell_work[index] += cost_per_particle;
-				}
-
-				fseek( input, nDim*num_parts_per_page*sizeof(PARTICLE_FLOAT), SEEK_CUR );
-			}
-
-			cart_free( input_page );
-			fclose(input);
-		}
-#endif /* PARTICLES */
-
-		if ( grid_filename != NULL ) {
-			index = 0;
-			for ( i = 0; i < num_output_files; i++ ) {
-				if ( num_output_files == 1 ) {
-					sprintf( filename, "%s", grid_filename );
-				} else {
-					sprintf( filename, "%s.%03u", grid_filename, i );
-				}
-
-				input = fopen( filename, "r" );
-				if ( input == NULL ) {
-					cart_error( "Unable to open file %s for reading!", filename );
-				}
-
-				if ( i == 0 ) {
-					/* skip over header information */
-					fread( &size, sizeof(int), 1, input );
-					endian = 0;
-					if ( size != 256 ) {
-						reorder( (char *)&size, sizeof(int) );
-						if ( size != 256 ) {
-							cart_error("Error: file %s is corrupted", filename );
-						} else {
-							endian = 1;
-						}
-					}
-
-					fseek( input, 256*sizeof(char)+sizeof(int), SEEK_CUR );
-
-					value = 0;
-					while ( value != num_root_cells ) {
-						fread( &size, sizeof(int), 1, input );
-
-						if ( endian ) {
-							reorder( (char *)&size, sizeof(int) );
-						}
-
-						if ( size == sizeof(int) ) {
-							fread( &value, sizeof(int), 1, input );
-
-							if ( endian ) {
-								reorder( (char *)&value, sizeof(int) );
-							}
-						} else {
-							fseek( input, size, SEEK_CUR );
-						}
-
-						fread( &size, sizeof(int), 1, input );
-					}
-				}
-
-				/* read cellrefined */
-				fread( &size, sizeof(int), 1, input );
-			
-				if ( endian ) {
-					reorder( (char *)&size, sizeof(int) );
-				}
-
-				size /= sizeof(int);
-				cellrefined = cart_alloc(int, size );
-				fread( cellrefined, sizeof(int), size, input );
-
-				fclose(input);
-
-				if ( endian ) {
-					for ( j = 0; j < size; j++ ) {
-						reorder( (char *)&cellrefined[j], sizeof(int) );
-					}
-				}
-
-				for ( j = 0; j < size; j++ ) {
-					constrained_quantities[num_constraints*index] += cellrefined[j];
-					cell_work[index] += cost_per_cell*cellrefined[j];
-					index++;
-				}
-
-				cart_free( cellrefined );
-			}
+	for ( page = 0; page < num_pages; page++ ) {
+		if ( page == num_pages - 1 ) {
+			num_parts_in_page = num_particles_total - 
+				num_parts_per_page*(num_pages-1);
 		} else {
-			for ( index = 0; index < num_root_cells; index++ ) {
-				constrained_quantities[num_constraints*index] = 1;
-				cell_work[index] += cost_per_cell;
+			num_parts_in_page = num_parts_per_page;
+		}
+
+		num_read = fread( input_page, sizeof(PARTICLE_FLOAT), 
+				nDim*num_parts_per_page, input );
+
+		if ( num_read != nDim*num_parts_per_page ) {
+			cart_error("Error reading from particle file %s: insufficient data", particle_data );
+		}
+
+		if ( endian ) {
+			for ( j = 0; j < num_parts_in_page; j++ ) {
+				reorder( (char *)&x[j], sizeof(PARTICLE_FLOAT) );
+				reorder( (char *)&y[j], sizeof(PARTICLE_FLOAT) );
+				reorder( (char *)&z[j], sizeof(PARTICLE_FLOAT) );
 			}
-		}	
+		}
 
-		cart_debug("load balancing before i/o");
-		load_balance_entire_volume( cell_work, constrained_quantities, proc_sfc_index );
+		for ( j = 0; j < num_parts_in_page; j++ ) {
+			x[j] -= grid_shift;
+			y[j] -= grid_shift;
+			z[j] -= grid_shift;
 
-		cart_free( cell_work );
-		cart_free( constrained_quantities );
+			if ( grid_change_flag ) {
+				x[j] *= rfact;
+				y[j] *= rfact;
+				z[j] *= rfact;
+			}
+
+			/* enforce periodic boundary conditions */
+			if ( x[j] < 0.0 ) {
+				x[j] += (double)num_grid;
+			} else if ( x[j] >= (double)num_grid ) {
+				x[j] -= (double)num_grid;
+			}
+
+			if ( y[j] < 0.0 ) {
+				y[j] += (double)num_grid;
+			} else if ( y[j] >= (double)num_grid ) {
+				y[j] -= (double)num_grid;
+			}
+
+			if ( z[j] < 0.0 ) {
+				z[j] += (double)num_grid;
+			} else if ( z[j] >= (double)num_grid ) {
+				z[j] -= (double)num_grid;
+			}
+
+			coords[0] = (int)(x[j]);
+			coords[1] = (int)(y[j]);
+			coords[2] = (int)(z[j]);
+
+			index = sfc_index( coords );
+			cart_assert( index >= 0 && index < num_root_cells );
+
+			constrained_quantities[num_constraints*index+1]++;
+			cell_work[index] += cost_per_particle;
+		}
+
+		fseek( input, nDim*num_parts_per_page*sizeof(PARTICLE_FLOAT), SEEK_CUR );
 	}
 
-	/* let all other processors know what their new workload is */
-	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	init_tree();
+	cart_free( input_page );
+	fclose(input);
 }
 
 #undef FUNCTION

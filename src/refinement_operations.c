@@ -206,6 +206,9 @@ int split ( int cell ) {
 		}
 #endif /* HYDRO */
 
+		/* ensure new values correspond to variable limits */
+		hydro_magic_one_cell(cell);
+	
 	} else {
 		cart_error("ERROR: split_cell(%u) = %d\n", cell, result );
 	}

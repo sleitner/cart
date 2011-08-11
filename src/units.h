@@ -42,6 +42,7 @@ struct Constants
   double XH;
   double XHe;
   double gamma;
+  double sigmaT;
 };
 extern const struct Constants *constants;
 
