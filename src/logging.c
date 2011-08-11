@@ -32,7 +32,10 @@ FILE *steptimes;
 FILE *timing;
 FILE *energy;
 FILE *workload;
+
+#ifdef DEBUG
 FILE *dependency;
+#endif /* DEBUG */
 
 #ifdef STARFORM
 FILE *star_log;
@@ -503,13 +506,14 @@ void init_logging( int restart ) {
 		fflush(workload);
 	}
 
+#ifdef DEBUG
 	sprintf(filename, "%s/dependency.%03u.dat", logfile_directory, local_proc_id );
 	dependency = fopen( filename, "a" );
 
 	if ( dependency == NULL ) {
 		cart_error( "Unable to open %s for writing!", filename );
 	}
-
+#endif /* DEBUG */
 
 #ifdef DEBUG
 	debug_breakpoint(-1,0,__FILE__,__LINE__);
@@ -532,6 +536,10 @@ void finalize_logging() {
 		fclose(steptimes);
 		fclose(energy);
 	}
+
+#ifdef DEBUG
+	fclose(dependency);
+#endif /* DEBUG */
 
 	fclose(timing);
 	fclose(workload);
@@ -620,6 +628,7 @@ void log_diagnostics() {
 	fprintf(workload, "\n");
 	fflush(workload);
 
+#ifdef DEBUG
 	/* log dependency information */
 #ifdef COSMOLOGY
 	fprintf( dependency, "%u %e %e", step, current_age, auni[min_level] );
@@ -639,6 +648,7 @@ void log_diagnostics() {
 	}
 	fprintf(dependency, "\n");
 	fflush(dependency);
+#endif /* DEPENDENCY */
 
 	/* compute energies */
 	gas_kinetic = gas_thermal = gas_potential = gas_mass = 0.0;
