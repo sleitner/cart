@@ -10,6 +10,7 @@
 //  These are outside the ifdef clause since they are used in io.c
 //  outside the clause too.
 */
+extern int spatially_limited_refinement;
 extern float refinement_volume_min[nDim];
 extern float refinement_volume_max[nDim];
 

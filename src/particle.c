@@ -1279,7 +1279,6 @@ void build_mesh() {
 			load_balance();
 		}
 	}
-	}
 #else
 	load_balance();
 #endif /* REFINEMENT */
