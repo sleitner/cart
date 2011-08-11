@@ -1215,32 +1215,34 @@ void build_mesh() {
 	//set_timestepping_scheme();
 
 #ifdef REFINEMENT
-	for ( i = 0; i < nDim; i++ ) {
-		refmin[i] = num_grid+1.0;
-		refmax[i] = -1.0;
+	if ( spatially_limited_refinement ) {
+		for ( i = 0; i < nDim; i++ ) {
+			refmin[i] = num_grid+1.0;
+			refmax[i] = -1.0;
 
-		for ( j = 0; j < num_particles; j++ ) {
-			if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
-					particle_id[j] < particle_species_indices[1] ) {
-				if ( particle_x[j][i] < refmin[i] ) {
-					refmin[i] = particle_x[j][i];
-				}
+			for ( j = 0; j < num_particles; j++ ) {
+				if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
+						particle_id[j] < particle_species_indices[1] ) {
+					if ( particle_x[j][i] < refmin[i] ) {
+						refmin[i] = particle_x[j][i];
+					}
 
-				if ( particle_x[j][i] > refmax[i] ) {
-					refmax[i] = particle_x[j][i];
+					if ( particle_x[j][i] > refmax[i] ) {
+						refmax[i] = particle_x[j][i];
+					}
 				}
 			}
+
+			refmin[i] = floor(refmin[i]);
+			refmax[i] = ceil(refmax[i]);
 		}
 
-		refmin[i] = floor(refmin[i]);
-		refmax[i] = ceil(refmax[i]);
-	}
+		MPI_Allreduce( refmin, refinement_volume_min, nDim, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD );
+		MPI_Allreduce( refmax, refinement_volume_max, nDim, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD );
 
-	MPI_Allreduce( refmin, refinement_volume_min, nDim, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD );
-	MPI_Allreduce( refmax, refinement_volume_max, nDim, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD );
-
-	for ( i = 0; i < nDim; i++ ) {
-		cart_debug("refinement_volume[%u] = %e %e", i, refinement_volume_min[i], refinement_volume_max[i] );
+		for ( i = 0; i < nDim; i++ ) {
+			cart_debug("refinement_volume[%u] = %e %e", i, refinement_volume_min[i], refinement_volume_max[i] );
+		}
 	}
 #endif /* REFINEMENT */
 
@@ -1276,6 +1278,7 @@ void build_mesh() {
 		   
 			load_balance();
 		}
+	}
 	}
 #else
 	load_balance();
