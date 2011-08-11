@@ -543,7 +543,7 @@ int timestep( int level, MPI_Comm level_com )
 			cell_size[level]/(
 				max( cell_momentum(courant_cell,0), 
 					max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
-				cell_gas_density(courant_cell) ) * units->time / constants->Myr;
+				cell_gas_density(courant_cell) ) * units->time / constants->Myr );
 		cart_debug("---------------------------------------------------------");
 
 		/*
