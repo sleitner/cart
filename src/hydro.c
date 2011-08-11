@@ -323,7 +323,7 @@ void hydro_magic_one_cell( int icell ) {
 	int j;
 	float average_density;
 	int neighbors[num_neighbors];
-	static int failed_flag = 0;
+	static int failed = 0;
 
 	double kinetic_energy;
 	double thermal_energy;
@@ -342,12 +342,12 @@ void hydro_magic_one_cell( int icell ) {
 			cart_debug("HIT DENSITY FLOOR:");
 			cart_debug("old density = %e g/cc", cell_gas_density(icell)*units->density );
 			cart_debug("new density = %e g/cc", max( average_density/(float)num_neighbors, gas_density_floor ) );
-			cart_debug("T  = %e K", cell_gas_temperature(courant_cell)*units->temperature );
-			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(courant_cell)*units->energy_density );
+			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature );
+			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density );
 			cart_debug("v  = %e %e %e cm/s",
-					cell_momentum(courant_cell,0)/cell_gas_density(courant_cell)*units->velocity,
-					cell_momentum(courant_cell,1)/cell_gas_density(courant_cell)*units->velocity,
-					cell_momentum(courant_cell,2)/cell_gas_density(courant_cell)*units->velocity );
+					cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity,
+					cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity,
+					cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity );
 			cart_debug("---------------------------------------------------------");
 		}	
 
