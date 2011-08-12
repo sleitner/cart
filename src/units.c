@@ -123,6 +123,13 @@ void config_init_units()
   constants_internal.s  = cgs->s;
   constants_internal.K  = cgs->K;
 
+  constants_internal.cms = cgs->cm/cgs->s;
+  constants_internal.erg = cgs->g*cgs->cm*cgs->cm/(cgs->s*cgs->s);
+  constants_internal.barye = cgs->g/(cgs->cm*cgs->s*cgs->s);
+  constants_internal.dyne = cgs->g*cgs->cm/(cgs->s*cgs->s);
+  constants_internal.gpercc = cgs->g/(cgs->cm*cgs->cm*cgs->cm);
+  constants_internal.cc = cgs->cm*cgs->cm*cgs->cm;
+
   /* 
   //  NG: values for pc and GMsun are from http://ssd.jpl.nasa.gov/?constants
   //      values for mp, G, k, c, eV, amu are from Particle Physics Booklet 2008

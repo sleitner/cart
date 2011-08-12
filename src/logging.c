@@ -575,8 +575,8 @@ void log_diagnostics() {
     current_age = tphys_from_abox(abox[min_level]);
 	current_dt = dtyears;
 #else
-    current_age = tl[min_level]*units->time;
-	current_dt = dtl[min_level]*units->time;
+    current_age = tl[min_level]*units->time/constants->s;
+	current_dt = dtl[min_level]*units->time/constants->s;
 #endif
 
 #ifdef PARTICLES
@@ -831,18 +831,18 @@ void log_diagnostics() {
 		fprintf(energy, "%u %e %e %e %e %e %e %e %e %e %e\n",
 			step, current_age, 
 #endif /* COSMOLOGY */
-			total_gas_thermal*units->energy, 
-			total_gas_kinetic*units->energy, 
-			total_gas_potential*units->energy, 
-			(total_gas_thermal+total_gas_kinetic+total_gas_potential)*units->energy,
+			total_gas_thermal*units->energy/constants->erg, 
+			total_gas_kinetic*units->energy/constants->erg, 
+			total_gas_potential*units->energy/constants->erg, 
+			(total_gas_thermal+total_gas_kinetic+total_gas_potential)*units->energy/constants->erg,
 #ifdef COSMOLOGY
 			total_gas_mass*units->mass/constants->Msun,
 #else
-			total_gas_mass*units->mass,
+			total_gas_mass*units->mass/constants->g,
 #endif /* COSMOLOGY */
-			total_particle_kinetic*units->energy, 
-			total_particle_potential*units->energy,
-			(total_particle_kinetic+total_particle_potential)*units->energy,
+			total_particle_kinetic*units->energy/constants->erg, 
+			total_particle_potential*units->energy/constants->erg,
+			(total_particle_kinetic+total_particle_potential)*units->energy/constants->erg,
 			error );
 		fflush(energy);
 

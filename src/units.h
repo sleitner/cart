@@ -13,6 +13,12 @@ struct Constants
   double g;
   double s;
   double K;
+  double cms;
+  double erg;
+  double barye;
+  double dyne;
+  double gpercc;
+  double cc;
   double yr;
   double Myr;
   double Gyr;

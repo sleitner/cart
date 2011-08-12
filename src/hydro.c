@@ -340,14 +340,14 @@ void hydro_magic_one_cell( int icell ) {
 		if(!failed) {
 			cart_debug("---------------------------------------------------------");
 			cart_debug("HIT DENSITY FLOOR:");
-			cart_debug("old density = %e g/cc", cell_gas_density(icell)*units->density );
+			cart_debug("old density = %e g/cc", cell_gas_density(icell)*units->density/constants->gpercc );
 			cart_debug("new density = %e g/cc", max( average_density/(float)num_neighbors, gas_density_floor ) );
-			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature );
-			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density );
+			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature/constants->K );
+			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density/constants->barye );
 			cart_debug("v  = %e %e %e cm/s",
-					cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity,
-					cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity,
-					cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity );
+					cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity/constants->cms );
 			cart_debug("---------------------------------------------------------");
 		}	
 
@@ -492,7 +492,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 #endif
 
 	/* Note: removed 10^4 K normalization since it wasn't used - DHR */
-	Tfac = units->temperature*constants->wmu*( constants->gamma-1 );
+	Tfac = units->temperature*constants->wmu*( constants->gamma-1 )/constants->K;
 
 #ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
@@ -514,7 +514,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 		    cell_gas_gamma(icell) = constants->gamma;
 		    rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 		    /* take code density -> log10(n_H [cm^-3]) */
-		    nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell));
+		    nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
 #ifdef ENRICH
 		    Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
 #else
@@ -620,7 +620,8 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 #endif
 
 	/* Note: removed 10^4 K term since it isn't used - DHR */
-	Tfac = units->temperature*constants->wmu*(constants->gamma-1);
+	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/constants->K;
+
 #ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
 #else
@@ -637,7 +638,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 			cell_gas_gamma(icell) = constants->gamma;
 			rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 			/* take code density -> log10(n_H [cm^-3]) */
-			nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell));
+			nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
 
 #ifdef ENRICH
 			Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
@@ -713,9 +714,9 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	Hdum = 0.0;
 #endif
 
-	nfact = 1.0e5*units->number_density*(1.0/constants->wmu - 1.0/constants->wmu_e);
-	Tefact = units->temperature*constants->wmu_e*(constants->gamma-1)/1.0e7;
-	dEfact = pow(Tefact,-1.5)*units->time/(constants->yr*6.3e8)/40.0/(1.0-constants->wmu/constants->wmu_e);  
+	nfact = 1.0e5*units->number_density*(1.0/constants->wmu - 1.0/constants->wmu_e)/constants->cc;
+	Tefact = units->temperature*constants->wmu_e*(constants->gamma-1)/1.0e7/constants->K;
+	dEfact = pow(Tefact,-1.5)*units->time/(constants->yr*6.3e8)/40.0/(1.0-constants->wmu/constants->wmu_e)/constants->erg; 
 
 #pragma omp parallel default(none), shared(nfact,Tefact,dEfact,Hdum,cell_vars,t_begin,t_end,num_level_cells,level_cells,cell_child_oct,err,constants), private(i,icell,e_equil,e_curr,Te7,n_5,logcoulomb,dEfact_cell,params,sys)
 	{

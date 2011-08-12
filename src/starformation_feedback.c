@@ -327,7 +327,6 @@ double fej_IMF( double amstar )
 void init_star_formation_feedback()
 {
   int i;
-  const double erg = constants->g*pow(constants->cm/constants->s,2.0);
   double total_mass;
   double number_SNII, number_SNIa;
 
@@ -341,14 +340,14 @@ void init_star_formation_feedback()
   cart_assert(number_SNII > 0.0);
 
   fbp_snII_phys.dt = snII.time_delay;
-  fbp_snII_phys.energy = 1e51*erg*snII.energy_per_explosion*number_SNII/(constants->Msun*total_mass);
+  fbp_snII_phys.energy = 1e51*constants->erg*snII.energy_per_explosion*number_SNII/(constants->Msun*total_mass);
   fbp_snII_phys.metals = snII.yield_factor*integrate( fej_IMF, imf.min_SNII_mass, imf.max_mass, 1e-6, 1e-9 )/total_mass;
 
   number_SNIa = snIa.exploding_fraction*integrate( f_IMF, imf.min_SNIa_mass, imf.max_SNIa_mass, 1e-6, 1e-9 );
   cart_assert(number_SNIa > 0.0);
 
   fbp_snIa_phys.dt = snIa.time_delay;
-  fbp_snIa_phys.energy = 1e51*erg*snIa.energy_per_explosion*number_SNIa/(constants->Msun*total_mass);
+  fbp_snIa_phys.energy = 1e51*constants->erg*snIa.energy_per_explosion*number_SNIa/(constants->Msun*total_mass);
   fbp_snIa_phys.metals = snIa.mass_in_metals_per_supernova*number_SNIa/total_mass;
 
 #ifdef BLASTWAVE_FEEDBACK 
