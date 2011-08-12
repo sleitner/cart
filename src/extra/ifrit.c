@@ -485,11 +485,13 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 			    buf[var][l] = units->number_density*cell_gas_density(cell);
 			    break;
 			  }
+#ifdef COSMOLOGY
 			case I_GAS_OVERDENSITY:
 			  {
 			    buf[var][l] = cell_gas_density(cell)*cosmology->OmegaM/cosmology->OmegaB;
 			    break;
 			  }
+#endif /* COSMOLOGY */
 			case I_GAS_TEMPERATURE:
 			  {
 			    buf[var][l] = units->temperature*cell_gas_temperature(cell);

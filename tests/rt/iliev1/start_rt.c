@@ -9,7 +9,6 @@
 #include "cell_buffer.h"
 #include "hydro.h"
 #include "iterators.h"
-#include "logging.h"
 #include "parallel.h"
 #include "refinement.h"
 #include "rt_utilities.h"
@@ -30,7 +29,7 @@ const float T_i = 1.0e4;
 const int BottomLevel = 2;
 
 
-extern float rtSingleSourceVal;
+extern float rtSingleSourceValue;
 extern double rtSingleSourcePos[nDim];
 
 double tStart;
@@ -210,11 +209,11 @@ void FindIFront(float val, float *riAvg, float *riMin, float *riMax)
 
 void run_output()
 {
-  const int nvars = 9;
+  const int nvars = 7;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, RT_VAR_OT_FIELD, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2 };
+  int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, RT_VAR_OT_FIELD, rt_field_offset+0 };
   int nbin[] = { nbin1, nbin1, nbin1 };
-  double bb[6];
+  double pos[3] = { 0.5*num_grid, 0.5*num_grid, 0.5*num_grid };
   int done;
   float riAvg[3], riMin, riMax;
   double tPhys;
@@ -223,11 +222,8 @@ void run_output()
 
   tPhys = units->time*(tl[0]-tStart)/constants->Myr;
 
-  bb[0] = bb[2] = bb[4] = num_grid*(0.5-0.25);
-  bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.25);
-
   sprintf(filename,"OUT/out.%05d.bin",step);
-  ifrit.OutputMesh(filename,max_level,nbin,bb,nvars,varid);
+  ifrit.OutputMesh(filename,BottomLevel,nbin,pos,nvars,varid);
 
   FindIFront(0.01,riAvg+2,&riMin,&riMax);
   FindIFront(0.1,riAvg+1,&riMin,&riMax);
@@ -256,12 +252,13 @@ void run_output()
 
   if(done)
     {
-      finalize_logging();
       MPI_Finalize();
       exit(0);
     }
 }
 
+
+extern double max_dt;
 
 void init_run()
 {
@@ -270,6 +267,7 @@ void init_run()
    int *level_cells;
    float astart, hubble;
    const float n0 = 1.0e-3;
+   const char *str;
 
    /* set units */
    astart = 1;
@@ -329,7 +327,7 @@ void init_run()
    /* set time variables */
    tStart = tl[min_level] = 0.0;
 
-   dtl[min_level] = 10*constants->Myr/units->time;
+   max_dt = 10*constants->Myr/units->time;
 
    for ( level = min_level+1; level <= max_level; level++ )
      {
@@ -337,10 +335,18 @@ void init_run()
      }
 
    /* source */
-   rtSingleSourceVal = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
+   rtSingleSourceValue = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
    rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.5*num_grid;
    
-   rtOtvetMaxNumIter = 30;
+   str = check_option1("nit","nit",NULL);
+   if(str != NULL)
+     {
+       if(sscanf(str,"%d",&rtOtvetMaxNumIter)!=1 || rtOtvetMaxNumIter<1 || rtOtvetMaxNumIter>1000)
+	 {
+	   cart_error("-nit=<num> option requires a positive integer <num> between 1 and 1000 as an argument");
+	 }
+       cart_debug("Number of iterations in RT: %d",rtOtvetMaxNumIter);
+     }
 
    cart_debug("done with initialization");
    
@@ -353,7 +359,6 @@ void init_run()
 #ifdef RADIATIVE_TRANSFER
 #ifdef RT_DEBUG
   rt_debug.Mode = 1;
-  rt_debug.Stop = 0;
   rt_debug.Pos[0] = rtSingleSourcePos[0] - 0.5*pow(0.5,BottomLevel);
   rt_debug.Pos[1] = rtSingleSourcePos[1] - 0.5*pow(0.5,BottomLevel);
   rt_debug.Pos[2] = rtSingleSourcePos[2] - 0.5*pow(0.5,BottomLevel);

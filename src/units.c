@@ -15,6 +15,14 @@
 //  If everything is correct, the physical results 
 //  should be independent of these numbers.
 */
+struct CGS
+{
+  double cm;
+  double g;
+  double s;
+  double K;
+};
+
 struct CGS cgs_CGS = { 1.0, 1.0, 1.0, 1.0 };
 struct CGS cgs_SI  = { 1.0e-2, 1.0e-3, 1.0, 1.0 };
 const struct CGS *cgs = &cgs_CGS;
@@ -106,6 +114,14 @@ void config_init_units()
   ControlParameterOps control_parameter_DeltaDC=  { control_parameter_set_DeltaDC, control_parameter_list_double };
   ControlParameterOps control_parameter_h =       { control_parameter_set_h,       control_parameter_list_double };
 #endif /* COSMOLOGY */
+
+  /*
+  // Base units
+  */
+  constants_internal.cm = cgs->cm;
+  constants_internal.g  = cgs->g;
+  constants_internal.s  = cgs->s;
+  constants_internal.K  = cgs->K;
 
   /* 
   //  NG: values for pc and GMsun are from http://ssd.jpl.nasa.gov/?constants

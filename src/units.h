@@ -7,18 +7,12 @@
 #endif
 
 
-struct CGS
+struct Constants
 {
   double cm;
   double g;
   double s;
   double K;
-};
-extern const struct CGS *cgs;
-
-
-struct Constants
-{
   double yr;
   double Myr;
   double Gyr;

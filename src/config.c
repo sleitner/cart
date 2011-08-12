@@ -321,9 +321,9 @@ void config_append_units_to_file(const char *filename)
 #endif /* COSMOLOGY */
 
   fprintf(f,"Primary units:\n");
-  fprintf(f,"   Mass:      %lg g\n",primary_units->mass/cgs->g);
-  fprintf(f,"   Time:      %lg s\n",primary_units->time/cgs->s);
-  fprintf(f,"   Length:    %lg cm\n",primary_units->length/cgs->cm);
+  fprintf(f,"   Mass:      %lg g\n",primary_units->mass/constants->g);
+  fprintf(f,"   Time:      %lg s\n",primary_units->time/constants->s);
+  fprintf(f,"   Length:    %lg cm\n",primary_units->length/constants->cm);
 
 #ifdef CHECK_LEGACY_UNITS
   fprintf(f,"\n");

@@ -327,7 +327,7 @@ double fej_IMF( double amstar )
 void init_star_formation_feedback()
 {
   int i;
-  const double erg = cgs->g*pow(cgs->cm/cgs->s,2.0);
+  const double erg = constants->g*pow(constants->cm/constants->s,2.0);
   double total_mass;
   double number_SNII, number_SNIa;
 
