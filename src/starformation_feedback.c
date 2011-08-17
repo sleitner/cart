@@ -381,7 +381,7 @@ void init_star_formation_feedback()
 
   /* Blaswave time is set separately */
 #ifdef BLASTWAVE_FEEDBACK
-  star_returned_advected_species[HVAR_BLASTWAVE_TIME] = 0.0;
+  star_returned_advected_species[HVAR_BLASTWAVE_TIME-HVAR_ADVECTED_VARIABLES] = 0.0;
 #endif /* BLASTWAVE_FEEDBACK*/
 
   /*
