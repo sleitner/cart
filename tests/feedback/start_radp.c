@@ -313,7 +313,7 @@ void run_output() {
 	MPI_Reduce( avgs, reduced_avgs, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
 
 	if ( local_proc_id == MASTER_NODE ) {
-		sprintf(filename, "%s/%s_%5.4f.dat", output_directory, jobname, tl[min_level]-t_init );
+                sprintf(filename, "%s/%s_stp%04u_tl%5.4f.txt", output_directory, jobname, step, tl[min_level]-t_init );
 
 		RADP = fopen(filename,"w");
 		for ( i = 0; i < num_bins/2; i++ ) {
