@@ -214,7 +214,6 @@ void radial_average( int cell, int level ) {
 
 void run_output() {
 	int i, j;
-        int const endian_test=-99;
 	char filename[128];
 	FILE *SEDOV;
 	float reduced_rho[num_bins];
@@ -300,7 +299,6 @@ void run_output() {
 		sprintf( filename, "%s/%s_slice_%04u.dat", output_directory, jobname, step );
 		output = fopen( filename, "w" );
 
-		fwrite( &endian_test, sizeof(int), 1, output );
 		size = num_grid;
 		fwrite( &size, sizeof(int), 1, output );
 		size = num_grid;
