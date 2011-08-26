@@ -36,14 +36,22 @@
 
 #include "extra/ifrit.h"
 
-#define refine_radius	(4.5)
-#define r0		(1.0/num_grid)
-#define radp_radius	(cell_size[max_level]/num_grid)
-#define delta_r		(1.0)
-#define rho0		(1.0)
-#define p0		(1.0)
-#define E0		(1.0)
-#define E		(1e7)
+#define omm0 1.0
+#define oml0 0.0
+#define omb0 1.0
+#define hubble 1.0
+#define deltadc 0.0
+#define a0 0.9
+#define boxh (0.001/a0*hubble) //1pkpc
+#define refine_radius	(0.1*constants->kpc/units->length)
+#define radp_radius	(1.0*constants->pc/units->length)
+#define delta_r		(1.0*constants->pc/units->length)
+#define rho0		(1.0*constants->gpercc/units->density)
+#define p0		(1.0*constants->kms*constants->Msun/(units->velocity*units->mass))
+#define E0		(1.0*constants->ergs/units->energy)
+#define E		(1e4*constants->ergs/units->energy)
+
+void units_set_art(double OmegaM, double h, double Lbox);
 
 void refine_level( int cell, int level ) {
 	double pos[nDim];
@@ -60,39 +68,45 @@ void refine_level( int cell, int level ) {
 
 	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);
 
-	if ( r < refine_radius*cell_size[level] ) {
-		refinement_indicator(cell,0) = 1.0;	
-	} else {
-		refinement_indicator(cell,0) = 0.0;
-	}
+	 if ( r < refine_radius*cell_size[level] ) { 
+	 	refinement_indicator(cell,0) = 1.0;	 
+	 } else { 
+	 	refinement_indicator(cell,0) = 0.0; 
+	 } 
 }
 	
 void radp_initial_conditions( int icell ) {
 	float r;
 	double pos[nDim];
 	
-	cell_gas_density(icell) = 1.0/rho0;
+	cell_gas_density(icell) = rho0;
 	cell_momentum(icell,0) = 0.0;
 	cell_momentum(icell,1) = 0.0;
 	cell_momentum(icell,2) = 0.0;
 	cell_gas_gamma(icell) = constants->gamma;
 
 	/* now add some energy  */
-	cell_center_position(icell, pos);
+/* 	cell_center_position(icell, pos); */
 
-	pos[0] -= 0.5*num_grid;
-	pos[1] -= 0.5*num_grid;
-	pos[2] -= 0.5*num_grid;
+/* 	pos[0] -= 0.5*num_grid; */
+/* 	pos[1] -= 0.5*num_grid; */
+/* 	pos[2] -= 0.5*num_grid; */
 
-	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2])*r0;
+/* 	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2])*r0; */
 
-	if ( r <= 4.0*r0*cell_size[min_level] ) {
-		cell_gas_pressure(icell) = exp( -r*r / (2.0*radp_radius*radp_radius ) );
-//	if ( r <= cell_size[max_level]*r0 ) {
-//		cell_gas_pressure(icell) = 1.0;
-//              cart_debug("picked a cell!!!!!!!!!!!!!!!!!");
+/* 	if ( r <=  ) { */
+/* 		cell_gas_pressure(icell) = exp( -r*r / (2.0*radp_radius*radp_radius ) ); */
+/* //	if ( r <= cell_size[max_level]*r0 ) { */
+/* //		cell_gas_pressure(icell) = 1.0; */
+/* //              cart_debug("picked a cell!!!!!!!!!!!!!!!!!"); */
+ 	pos[0] = 0.5*num_grid; 
+ 	pos[1] = 0.5*num_grid; 
+ 	pos[2] = 0.5*num_grid; 
+        
+        if(cell_find_position(pos) == icell)
+                cell_gas_pressure(icell) = p0;
 	} else {
-		cell_gas_pressure(icell) = 0.0;
+		cell_gas_pressure(icell) = p0*1e-6;
 	}
 
 	cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (cell_gas_gamma(icell)-1.0);
@@ -149,9 +163,9 @@ void set_radp_initial_conditions() {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
-			cell_gas_internal_energy(icell) = cell_gas_internal_energy(icell)*scale_energy + 
-								p0 / ( (cell_gas_gamma(icell)-1.0) );
-			cell_gas_pressure(icell) = cell_gas_internal_energy(icell) * ( (cell_gas_gamma(icell)-1.0) );
+			cell_gas_internal_energy(icell) = cell_gas_internal_energy(icell)*scale_energy +  //this scales energy to init pressure 
+								p0 / (cell_gas_gamma(icell)-1.0);
+			cell_gas_pressure(icell) = cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0); //this adds energy back to pressure to preserve eos?
 			cell_gas_energy(icell) = cell_gas_internal_energy(icell);
 		}
 	
@@ -239,15 +253,14 @@ void run_output() {
 	int level;
 	int num_level_cells;
 	int *level_cells;
-	float pos[nDim];
-	int cell;
-	int min_index, max_index;
 
 	int icell, sfc, size;
 	float value;
 	float *slice;
 	FILE *output;
 	int coords[nDim];
+
+        int max_child_level;
 
 	const int nvars = 4;
 	const int nbin1 = 128;
@@ -322,7 +335,7 @@ void run_output() {
 				reduced_pressure[i] /= reduced_avgs[i];
 				reduced_rho[i] /= reduced_avgs[i];
 
-				fprintf(RADP, "%e %e %e %e\n", radii[i]*r0, reduced_rho[i], reduced_pressure[i], reduced_vel[i] );
+				fprintf(RADP, "%e %e %e %e\n", radii[i]*units_length/constants->pc, reduced_rho[i], reduced_pressure[i], reduced_vel[i] );
 			}
 		}
 		fclose(RADP);
@@ -447,10 +460,44 @@ void run_output() {
 		}
 
 		fwrite( slice, sizeof(float), num_grid*num_grid, output );
+                
+		coords[1] = num_grid/2;
+		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
+			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
+				sfc = sfc_index( coords );
+
+				if ( root_cell_is_local(sfc) ) {
+					icell = root_cell_location(sfc);
+                                        level=max_level;
+                                        max_child_level=min_level;
+                                        while(level>min_level && max_child_level == min_level){
+                                                select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+                                                for (j=0; j<num_level_cells; j++){
+                                                        if(cell_parent_root_cell(level_cells[j]) == icell){
+                                                                max_child_level = level;
+//   if(level>min_level){cart_debug("%d %d %d", coords[0],coords[2],max_child_level);}
+                                                        }
+                                                }
+                                                cart_free( level_cells );
+                                                level--;
+                                        }
+                                        value = max_child_level;
+				} else {
+					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
+							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				}
+				slice[ coords[2]*num_grid + coords[0] ] = value;
+			}
+		}
+
+		fwrite( slice, sizeof(float), num_grid*num_grid, output );
+
 
 		cart_free( slice );
+                
 		fclose(output);
 	} else {
+                cart_error("need to insert level output before you can be here");
 		coords[1] = num_grid/2;
 		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
 			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
@@ -521,14 +568,8 @@ void run_output() {
 void init_run() {
 	int i;
 	int level;
-	int ioct;
 	int num_level_cells;
 	int *level_cells;
-	char filename[128];
-	int min_index, max_index;
-        float omm0=1.0, oml0=0.0, omb0=1.0, hubble=1.0, deltadc=0.0;
-        float boxh=0.001;
-        float a0=0.9;
         
 	for ( i = 0; i < nDim; i++ ) {
 		refinement_volume_min[i] = 0.0;
@@ -543,29 +584,26 @@ void init_run() {
         
         box_size = boxh;
         auni_init = a0;
+        auni[min_level] = a0;
+        abox[min_level] = a0;
+        t_init = tcode_from_auni(auni_init);
         
         units_set_art(omm0,hubble,box_size);
  	//units_set(1.0,1.0,1.0); //mass time length
  	units_reset();
 	units_update( min_level );
         
-        cart_debug("tl[min_level] = %f", tl[min_level] );
-        cart_debug("au[min_level] = %f", auni[min_level] );
-        cart_debug("ab[min_level] = %f", abox[min_level] );
-        cart_debug("DC mode = %f", cosmology->DeltaDC );
-        
-        cosmology_set_fixed();
-
-
 ////////////////////////////////////////////////////////////////////////////////////
 	/* build buffer */
 	build_cell_buffer();
 	cart_debug("built cell buffer");
 	repair_neighbors();
+	cart_debug("repaired neighbors");
         
 	check_map();
         
-	cart_debug("repaired neighbors");
+	cart_debug("setting initial conditions on root level");
+	set_radp_initial_conditions(); 
         
 	/* do initial refinements */
 	for ( level = min_level; level < max_level; level++ ) {
@@ -580,9 +618,10 @@ void init_run() {
 		cart_debug("about to refine level %u", level );
 		refine(level);
 	}
+        
+	cart_debug("re-setting initial conditions on all levels");
+	set_radp_initial_conditions(); 
 
-	cart_debug("setting initial conditions");
-	set_radp_initial_conditions();
         
 #ifdef HYDRO_TRACERS
 	cart_debug("setting hydro tracers");
@@ -590,7 +629,6 @@ void init_run() {
 #endif /* HYDRO_TRACERS */
         
 	cart_debug("set initial conditions");
-        cart_debug("read in gas");
         
         hydro_magic( min_level );
         hydro_eos( min_level );
@@ -604,12 +642,19 @@ void init_run() {
                 auni[level] = auni[min_level];
                 abox[level] = abox[min_level];
         }
+        cosmology_set_fixed();
+        
+        cart_debug("tl[min_level] = %f", tl[min_level] );
+        cart_debug("au[min_level] = %f", auni[min_level] );
+        cart_debug("ab[min_level] = %f", abox[min_level] );
+        cart_debug("DC mode = %f", cosmology->DeltaDC );
+        
 
 #ifdef PARTICLES
         for(i=0; i<num_particles; i++) if(particle_level[i] != FREE_PARTICLE_LEVEL)
         {
+//  We set the step to 0 so that the first leapfrog step is correct
                 particle_t[i] = tl[min_level];
-                //  We set the step to 0 so that the first leapfrog step is correct
                 particle_dt[i] = 0.0;
         }
 #endif

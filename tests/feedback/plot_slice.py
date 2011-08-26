@@ -1,5 +1,5 @@
-#!/usr/bin/python2.4
 #!/usr/bin/python2.7 -Wignore
+#!/usr/bin/python2.4
 
 from numpy import *
 import numpy as np
@@ -18,13 +18,14 @@ for slice in ( sys.argv[1:] ) :
 	momx = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	momz = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	pressure = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
+	level = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	input.close()
 
 	figure( figsize=(float(nz)/72,float(nx)/72), dpi=72 )
 	a = axes([0,0,1,1])
 	a.axis('off')
 	a.imshow(density,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
-	a.set_autoscale_on(False)
+	a.set_autoscale_on(True)
 	filename="plots/density"+slice.replace("dat","png").replace("dumps","")
 	print filename
 	savefig(filename,dpi=288)
@@ -36,6 +37,7 @@ for slice in ( sys.argv[1:] ) :
 	a.imshow(int_en,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
 	a.set_autoscale_on(False)
 	filename="plots/temp"+slice.replace("dat","png").replace("dumps","")
+	print filename
 	savefig(filename,dpi=288)
 	clf()
 
@@ -45,6 +47,7 @@ for slice in ( sys.argv[1:] ) :
 	a.imshow(momx,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
 	a.set_autoscale_on(False)
 	filename="plots/momx"+slice.replace("dat","png").replace("dumps","")
+	print filename
 	savefig(filename,dpi=288)
 	clf()
 
@@ -54,6 +57,7 @@ for slice in ( sys.argv[1:] ) :
 	a.imshow(momz,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
 	a.set_autoscale_on(False)
 	filename="plots/momz"+slice.replace("dat","png").replace("dumps","")
+	print filename
 	savefig(filename,dpi=288)
 	clf()
 
@@ -63,6 +67,17 @@ for slice in ( sys.argv[1:] ) :
 	a.imshow(pressure,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
 	a.set_autoscale_on(False)
 	filename="plots/pressure"+slice.replace("dat","png").replace("dumps","")
+	print filename
 	savefig(filename,dpi=288)
 	clf()
 
+	figure( figsize=(float(nz)/72,float(nx)/72), dpi=72 )
+	a = axes([0,0,1,1])
+	a.axis('off')
+	a.imshow(level,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0, vmax=6)
+	print level[32:45,32]
+	a.set_autoscale_on(False)
+	filename="plots/level"+slice.replace("dat","png").replace("dumps","")
+	print filename
+	savefig(filename,dpi=288)
+	clf()
