@@ -43,13 +43,17 @@
 #define deltadc 0.0
 #define a0 0.9
 #define boxh (0.001/a0*hubble) //1pkpc
-#define refine_radius	(0.1*constants->kpc/units->length)
-#define radp_radius	(1.0*constants->pc/units->length)
-#define delta_r		(1.0*constants->pc/units->length)
-#define rho0		(1.0*constants->gpercc/units->density)
-#define p0		(1.0*constants->kms*constants->Msun/(units->velocity*units->mass))
-#define E0		(1.0*constants->ergs/units->energy)
-#define E		(1e4*constants->ergs/units->energy)
+#define refine_radius	(100*constants->pc/units->length)
+#define sedov_radius    (cell_size[max_level]/num_grid)
+//#define radp_radius	(1.0*constants->pc/units->length)
+#define r0              (1.0/num_grid)
+#define rho0		(1.0) //*constants->gpercc/units->density)
+#define E0		(1.0*constants->erg/units->energy)
+#define E		(1e7*constants->erg/units->energy)
+#define P0		(1.0) //(1.0e-10*constants->dyne/units->energy_density)
+
+#define rad_sedov(Edum,rhodum,timedum) (0.868*pow(E/rho0*(timedum*timedum),0.2)*1.0)
+
 
 void units_set_art(double OmegaM, double h, double Lbox);
 
@@ -86,28 +90,28 @@ void radp_initial_conditions( int icell ) {
 	cell_gas_gamma(icell) = constants->gamma;
 
 	/* now add some energy  */
-/* 	cell_center_position(icell, pos); */
+ 	cell_center_position(icell, pos); 
 
-/* 	pos[0] -= 0.5*num_grid; */
-/* 	pos[1] -= 0.5*num_grid; */
-/* 	pos[2] -= 0.5*num_grid; */
+ 	pos[0] -= 0.5*num_grid;
+ 	pos[1] -= 0.5*num_grid;
+ 	pos[2] -= 0.5*num_grid; 
 
-/* 	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2])*r0; */
-
-/* 	if ( r <=  ) { */
-/* 		cell_gas_pressure(icell) = exp( -r*r / (2.0*radp_radius*radp_radius ) ); */
+ 	r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2])*r0;
+        if ( r <= 4.0*r0*cell_size[min_level] ) {
+                cell_gas_pressure(icell) = exp( -r*r / (2.0*sedov_radius*sedov_radius ) );
+                
 /* //	if ( r <= cell_size[max_level]*r0 ) { */
 /* //		cell_gas_pressure(icell) = 1.0; */
 /* //              cart_debug("picked a cell!!!!!!!!!!!!!!!!!"); */
- 	pos[0] = 0.5*num_grid; 
- 	pos[1] = 0.5*num_grid; 
- 	pos[2] = 0.5*num_grid; 
-        
-        if(cell_find_position(pos) == icell)
-                cell_gas_pressure(icell) = p0;
-	} else {
-		cell_gas_pressure(icell) = p0*1e-6;
-	}
+
+/*  	pos[0] = 0.5*num_grid;  */
+/*  	pos[1] = 0.5*num_grid;  */
+/*  	pos[2] = 0.5*num_grid;  */
+/*         if(cell_find_position(pos) == icell){ */
+/*                 cell_gas_pressure(icell) = P0; */
+ 	} else { 
+ 		cell_gas_pressure(icell) = 1e-10; // P0*
+ 	} 
 
 	cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (cell_gas_gamma(icell)-1.0);
 	cell_gas_energy(icell) = cell_gas_internal_energy(icell);
@@ -164,7 +168,7 @@ void set_radp_initial_conditions() {
 			icell = level_cells[i];
 
 			cell_gas_internal_energy(icell) = cell_gas_internal_energy(icell)*scale_energy +  //this scales energy to init pressure 
-								p0 / (cell_gas_gamma(icell)-1.0);
+								P0 / (cell_gas_gamma(icell)-1.0);
 			cell_gas_pressure(icell) = cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0); //this adds energy back to pressure to preserve eos?
 			cell_gas_energy(icell) = cell_gas_internal_energy(icell);
 		}
@@ -187,6 +191,7 @@ float vel[num_bins];
 float pressure[num_bins];
 float rho[num_bins];
 float avgs[num_bins];
+float sedov_analytic[num_bins];
 
 void radial_average( int cell, int level ) {
         double pos[nDim];
@@ -210,6 +215,7 @@ void radial_average( int cell, int level ) {
                  * 3) apply proper amounts to each cell */
 
                 bin = (int)((r-0.5*cell_size[level])/bin_width);
+
                 cart_assert( bin >= 0 && bin < num_bins );
 
                 cur_r = r-0.5*cell_size[level];
@@ -253,6 +259,9 @@ void run_output() {
 	int level;
 	int num_level_cells;
 	int *level_cells;
+
+        float rad_an, curr_time, init_E, init_rho;
+        int bin_an;
 
 	int icell, sfc, size;
 	float value;
@@ -304,13 +313,26 @@ void run_output() {
 
 
 	/* now dump the radial profiles */
+                
 	for ( i = 0; i < num_bins; i++ ) {
 		radii[i] = ((float)i + 0.5) * bin_width;
 		vel[i] = 0.0;
 		pressure[i] = 0.0;
 		rho[i] = 0.0;
 		avgs[i] = 0.0;
+		sedov_analytic[i] = 0.0;
 	}
+
+        curr_time = (tl[min_level]-t_init)*units->time;
+        init_E = E*units->energy;
+        init_rho = rho0*units->density;
+                
+        rad_an =  rad_sedov(init_E, init_rho, curr_time)/units->length;
+        bin_an = (int)((rad_an-0.5*cell_size[level])/bin_width);
+        bin_an = (int)(rad_an/bin_width);
+        cart_debug("time=%e sedov radius=%e", curr_time/constants->yr, rad_an*units->length/constants->pc);
+        cart_assert( bin_an >= 0 && bin_an < num_bins );
+        sedov_analytic[bin_an]=1.0;
 
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -335,7 +357,7 @@ void run_output() {
 				reduced_pressure[i] /= reduced_avgs[i];
 				reduced_rho[i] /= reduced_avgs[i];
 
-				fprintf(RADP, "%e %e %e %e\n", radii[i]*units_length/constants->pc, reduced_rho[i], reduced_pressure[i], reduced_vel[i] );
+				fprintf(RADP, "%e %e %e %e %e\n", radii[i]*units->length/constants->pc, reduced_rho[i], reduced_pressure[i], reduced_vel[i], sedov_analytic[i] );
 			}
 		}
 		fclose(RADP);
@@ -460,12 +482,12 @@ void run_output() {
 		}
 
 		fwrite( slice, sizeof(float), num_grid*num_grid, output );
-                
+                if( 1==2){ //snl1
 		coords[1] = num_grid/2;
 		for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
 			for( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
 				sfc = sfc_index( coords );
-
+                               
 				if ( root_cell_is_local(sfc) ) {
 					icell = root_cell_location(sfc);
                                         level=max_level;
@@ -491,7 +513,7 @@ void run_output() {
 		}
 
 		fwrite( slice, sizeof(float), num_grid*num_grid, output );
-
+                }
 
 		cart_free( slice );
                 
