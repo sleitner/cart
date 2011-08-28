@@ -1,12 +1,13 @@
-#!/usr/bin/python2.7 -Wignore
 #!/usr/bin/python2.4
+#!/usr/bin/python2.7 -Wignore
 
 from numpy import *
 import numpy as np
 from pylab import *
 import sys
 
-dpi=288
+middle=64*8/2
+dpi=1024
 
 # load data
 for slice in ( sys.argv[1:] ) :
@@ -21,7 +22,7 @@ for slice in ( sys.argv[1:] ) :
 	momx = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	momz = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	pressure = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
-#	level = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
+	level = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	input.close()
 
 	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
@@ -74,14 +75,14 @@ for slice in ( sys.argv[1:] ) :
 	savefig(filename,dpi=dpi)
 	clf()
 
-	if 1==2:
-		figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
-		a = axes([0,0,1,1])
-		a.axis('off')
-		a.imshow(level,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0, vmax=6)
-		print level[32:45,32]
-		a.set_autoscale_on(False)
-		filename="plots/level"+slice.replace("dat","png").replace("dumps","")
-		print filename
-		savefig(filename,dpi=dpi)
-		clf()
+	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
+	a = axes([0,0,1,1])
+	a.axis('off')
+	a.imshow(level,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0, vmax=6)
+	print level[middle:(middle+20),middle]
+	a.set_autoscale_on(False)
+	filename="plots/level"+slice.replace("dat","png").replace("dumps","")
+	print filename
+	savefig(filename,dpi=dpi)
+	clf()
+		
