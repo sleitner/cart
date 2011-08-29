@@ -37,23 +37,35 @@
 
 #include "extra/ifrit.h"
 
+#ifdef COSMOLOGY
 #define omm0 1.0
 #define oml0 0.0
 #define omb0 1.0
 #define hubble 1.0
 #define deltadc 0.0
 #define a0 0.9
-#define boxh (0.001/a0*hubble) //1pkpc
+#define boxh (1.0e-3/a0*hubble) //1pkpc
 
+#define blast_radius    (boxh/20*constants->Mpc/units->length)
+#define rho0		(1.0*constants->Msun/(pow(constants->pc,3))/units->density)
+#define E_det		(1e6*constants->erg/units->energy)
+#define P_uni		(1.0) //(1.0e-10*constants->dyne/units->energy_density)
 #define refine_radius	(4.0)
-#define sedov_radius    (cell_size[max_level]/num_grid)
-#define r0              (1.0/num_grid)
-#define rho0		(1.0) //*constants->gpercc/units->density)
-#define E0		(1.0*constants->erg/units->energy)
-#define E		(1e7*constants->erg/units->energy)
-#define P0		(1.0) //(1.0e-10*constants->dyne/units->energy_density)
 
-#define rad_sedov(Edum,rhodum,timedum) (0.868*pow(E/rho0*(timedum*timedum),0.2)*1.0)
+#else
+
+#define blast_radius    (cell_size[max_level]) 
+#define rho0     (1.0) 
+#define E_det    (1.0e7) 
+//#define E0		(1.0*constants->erg/units->energy)
+#define P_uni		(1.0) //(1.0e-10*constants->dyne/units->energy_density)
+#define refine_radius	(4.0)
+
+#endif
+
+
+
+#define rad_sedov(Edum,rhodum,timedum) (0.868*pow(Edum/rhodum,0.2)*pow(timedum,0.4)*1.0)
 
 
 float value_cell_property(int icell,int iflag);
@@ -98,25 +110,18 @@ void radp_initial_conditions( int icell ) {
     pos[1] -= 0.5*num_grid;
     pos[2] -= 0.5*num_grid; 
 
-    r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2])*r0;
-    if ( r <= 4.0*r0*cell_size[min_level] ) {
-        cell_gas_pressure(icell) = exp( -r*r / (2.0*sedov_radius*sedov_radius ) );
-                
-/* //	if ( r <= cell_size[max_level]*r0 ) { */
-/* //		cell_gas_pressure(icell) = 1.0; */
-/* //              cart_debug("picked a cell!!!!!!!!!!!!!!!!!"); */
-
-/*  	pos[0] = 0.5*num_grid;  */
-/*  	pos[1] = 0.5*num_grid;  */
-/*  	pos[2] = 0.5*num_grid;  */
-/*         if(cell_find_position(pos) == icell){ */
-/*                 cell_gas_pressure(icell) = P0; */
+    r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);
+    if ( r <= refine_radius*cell_size[min_level] ) {
+        cell_gas_internal_energy(icell) = exp( -r*r / (2.0*blast_radius*blast_radius ) );
+        //cart_debug("%d %e %e %e",cell_level(icell),r,blast_radius,cell_gas_internal_energy(icell) );
     } else { 
-        cell_gas_pressure(icell) = 1e-10; // P0*
+        cell_gas_internal_energy(icell) =  1e-10;
     } 
-
-    cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (cell_gas_gamma(icell)-1.0);
-    cell_gas_energy(icell) = cell_gas_internal_energy(icell);
+    
+    cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
+    cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
+    
+    
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
     cell_electron_internal_energy(icell) = cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e;
@@ -146,7 +151,7 @@ void set_radp_initial_conditions() {
         }
         cart_free( level_cells );
     }
-
+///////////// get E_det normalization
     scale_energy = 0.0;
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -160,24 +165,27 @@ void set_radp_initial_conditions() {
         cart_free( level_cells );
     }
     scale = scale_energy;
-	
     MPI_Allreduce( &scale, &scale_energy, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
-
-    scale_energy = (E/E0) / scale_energy;
+    
+///////////// normalize
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
         for ( i = 0; i < num_level_cells; i++ ) {
             icell = level_cells[i];
-
-            cell_gas_internal_energy(icell) = cell_gas_internal_energy(icell)*scale_energy +  //this scales energy to init pressure 
-                P0 / (cell_gas_gamma(icell)-1.0);
-            cell_gas_pressure(icell) = cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0); //this adds energy back to pressure to preserve eos?
-            cell_gas_energy(icell) = cell_gas_internal_energy(icell);
+            cell_gas_internal_energy(icell) =
+                E_det*cell_gas_internal_energy(icell)/scale_energy
+                + P_uni / (cell_gas_gamma(icell)-1.0);
+            
+            //add a uniform pressure component
+            cell_gas_pressure(icell) = cell_gas_internal_energy(icell)
+                * (cell_gas_gamma(icell)-1.0);
+            cell_gas_energy(icell) = cell_gas_internal_energy(icell)
+                + cell_gas_kinetic_energy(icell);
         }
 	
         cart_free( level_cells );
     }
-
+    
     for ( level = max_level - 1; level >= min_level; level-- ) {
         hydro_split_update(level);
     }
@@ -195,7 +203,8 @@ void init_run() {
         refinement_volume_min[i] = 0.0;
         refinement_volume_max[i] = (double)num_grid;
     }
-        
+
+#ifdef COSMOLOGY    
     cosmology_set(OmegaM,omm0);
     cosmology_set(OmegaL,oml0);
     cosmology_set(OmegaB,omb0);
@@ -209,7 +218,10 @@ void init_run() {
     t_init = tcode_from_auni(auni_init);
         
     units_set_art(omm0,hubble,box_size);
-    //units_set(1.0,1.0,1.0); //mass time length
+#else
+    units_set(1.0,1.0,1.0); //mass time length
+#endif
+    
     units_reset();
     units_update( min_level );
         
@@ -220,12 +232,8 @@ void init_run() {
     repair_neighbors();
     cart_debug("repaired neighbors");
         
-    check_map();
         
-    cart_debug("setting initial conditions on root level");
-    set_radp_initial_conditions(); 
-        
-    /* do initial refinements */
+    /* setup initial refinement for ICs to be placed on */
     for ( level = min_level; level < max_level; level++ ) {
         cart_debug("refining level %u", level );
 
@@ -239,8 +247,10 @@ void init_run() {
         refine(level);
     }
         
-    cart_debug("re-setting initial conditions on all levels");
-    set_radp_initial_conditions(); 
+    cart_debug("setting initial conditions on root level");
+    set_radp_initial_conditions();
+    
+    cart_debug( "mass[min_level]=%e ",cell_volume[min_level] * rho0 );
 
         
 #ifdef HYDRO_TRACERS
@@ -256,6 +266,9 @@ void init_run() {
         
     /* set time variables */
     tl[min_level] = t_init;
+    cart_debug("t_init=%e", t_init);
+    
+#ifdef COSMOLOGY
     for(level=min_level+1; level<=max_level; level++)
     {
         tl[level] = tl[min_level];
@@ -278,8 +291,6 @@ void init_run() {
         particle_dt[i] = 0.0;
     }
 #endif
-        
-        
         
     for(level = min_level; level <= max_level; level++){
         cart_debug("updating level %u", level );
@@ -306,6 +317,8 @@ void init_run() {
         build_cell_buffer();
         repair_neighbors();
     }
+    
+#endif
         
     cart_debug("done with initialization");
         
@@ -559,13 +572,15 @@ void run_output() {
     }
 
     curr_time = (tl[min_level]-t_init)*units->time;
-    init_E = E*units->energy;
+    init_E = E_det*units->energy;
     init_rho = rho0*units->density;
-                
-    rad_an =  rad_sedov(init_E, init_rho, curr_time)/units->length;
-    bin_an = (int)((rad_an-0.5*cell_size[level])/bin_width);
+    rad_an = rad_sedov(init_E, init_rho, curr_time)/units->length;
+    //bin_an = (int)((rad_an-0.5*cell_size[level])/bin_width);
     bin_an = (int)(rad_an/bin_width);
-    cart_debug("time=%e sedov radius=%e", curr_time/constants->yr, rad_an*units->length/constants->pc);
+    cart_debug("code E: %e rho: %e t_code: %e", init_E, init_rho, curr_time); 
+    cart_debug("physical: t=%e yr ; E=%e erg ; rho=%e Msun/pc^3",curr_time/constants->yr, init_E/constants->erg, init_rho/constants->Msun*pow(constants->pc,3) );
+    cart_debug("time=%e sedov radius=%e", curr_time/constants->yr, rad_an/constants->pc);
+    cart_debug("%d, %f %f",bin_an,rad_an,bin_width);
     cart_assert( bin_an >= 0 && bin_an < num_bins );
     sedov_analytic[bin_an]=1.0;
 

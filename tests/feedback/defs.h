@@ -1,4 +1,4 @@
-#define COSMOLOGY
+/* #define COSMOLOGY  */
 
 #define HYDRO
 #define REFINEMENT
