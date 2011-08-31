@@ -37,6 +37,8 @@
 
 #include "extra/ifrit.h"
 
+#define OUTLEVEL 4
+
 #ifdef COSMOLOGY
 #define omm0 1.0
 #define oml0 0.0
@@ -44,28 +46,31 @@
 #define hubble 1.0
 #define deltadc 0.0
 #define a0 0.9
-#define boxh (1.0e-3/a0*hubble) //1pkpc
+#define boxh (1.0e-6/a0*hubble) //1pkpc
 
-#define blast_radius    (boxh/20*constants->Mpc/units->length)
-#define rho0		(1.0*constants->Msun/(pow(constants->pc,3))/units->density)
-#define E_det		(1e6*constants->erg/units->energy)
-#define P_uni		(1.0) //(1.0e-10*constants->dyne/units->energy_density)
+#define blast_radius    (cell_size[max_level]) 
+#define rho0            (1.0) 
+#define E_det           (1.0e7) 
+#define P_uni		(1.0) 
 #define refine_radius	(4.0)
 
 #else
 
+
 #define blast_radius    (cell_size[max_level]) 
-#define rho0     (1.0) 
-#define E_det    (1.0e7) 
-//#define E0		(1.0*constants->erg/units->energy)
-#define P_uni		(1.0) //(1.0e-10*constants->dyne/units->energy_density)
+#define rho0            (1.0) 
+#define E_det           (1.0e7) 
+#define P_uni		(1.0) 
 #define refine_radius	(4.0)
 
 #endif
 
 
 
-#define rad_sedov(Edum,rhodum,timedum) (0.868*pow(Edum/rhodum,0.2)*pow(timedum,0.4)*1.0)
+//#define rad_sedov_pc(Edum,rhodum,timedum) (14*pow(Edum/rhodum,0.2)*pow(timedum,0.4))
+double rad_sedov_pc(double Edum,double rhodum,double timedum){
+    return (0.868*pow(Edum/rhodum,0.2)*pow(timedum,0.4))*constants->cm/constants->pc;
+}
 
 
 float value_cell_property(int icell,int iflag);
@@ -250,6 +255,7 @@ void init_run() {
     cart_debug("setting initial conditions on root level");
     set_radp_initial_conditions();
     
+    
     cart_debug( "mass[min_level]=%e ",cell_volume[min_level] * rho0 );
 
         
@@ -360,7 +366,7 @@ float value_cell_property(int icell,int iflag){
 void dump_slice(int iflag, FILE *output){
     int i, size, nsgrid;
     double pos[nDim];
-    int out_level=max_level;
+    int out_level=OUTLEVEL;
         
     int const block_sign=-1;//lower cell_delta block
     int block_level, block_cell, slice_indx, slice_indy, fill_level;
@@ -420,7 +426,7 @@ void dump_slice(int iflag, FILE *output){
     MESH_RUN_OVER_LEVELS_END;
         
     fwrite( slice, sizeof(float), nsgrid*nsgrid, output );
-    cart_debug("slice in cell prop %d output",iflag);
+//    cart_debug("slice in cell prop %d output",iflag);
         
     cart_free(slice);
 }
@@ -510,7 +516,7 @@ void run_output() {
     int num_level_cells;
     int *level_cells;
 
-    float rad_an, curr_time, init_E, init_rho;
+    double rad_an, curr_time, init_E, init_rho;
     int bin_an;
 
 //	int icell, sfc, size;
@@ -571,16 +577,22 @@ void run_output() {
         sedov_analytic[i] = 0.0;
     }
 
-    curr_time = (tl[min_level]-t_init)*units->time;
-    init_E = E_det*units->energy;
-    init_rho = rho0*units->density;
-    rad_an = rad_sedov(init_E, init_rho, curr_time)/units->length;
-    //bin_an = (int)((rad_an-0.5*cell_size[level])/bin_width);
+    cart_debug("code E: %e rho: %e t_code: %e; dm0=%e;", E_det, rho0, (tl[min_level]-t_init), rho0*cell_volume[min_level] );
+    
+    curr_time = (tphys_from_tcode(tl[min_level]) - tphys_from_tcode(t_init))
+        *constants->yr/constants->s;
+    init_E = E_det*units->energy/constants->erg;
+    init_rho = rho0*units->density/constants->gpercc;
+    cart_debug("\n\nphysical: t=%es ; E=%eerg ; rho=%eg/cc",
+               curr_time, init_E, init_rho );
+    rad_an = rad_sedov_pc(init_E, init_rho, curr_time);
+    rad_an = rad_an*constants->pc/units->length;
     bin_an = (int)(rad_an/bin_width);
-    cart_debug("code E: %e rho: %e t_code: %e", init_E, init_rho, curr_time); 
-    cart_debug("physical: t=%e yr ; E=%e erg ; rho=%e Msun/pc^3",curr_time/constants->yr, init_E/constants->erg, init_rho/constants->Msun*pow(constants->pc,3) );
-    cart_debug("time=%e sedov radius=%e", curr_time/constants->yr, rad_an/constants->pc);
-    cart_debug("%d, %f %f",bin_an,rad_an,bin_width);
+    cart_debug("time=%eyr sedov radius=%epc ",
+               curr_time*constants->s/constants->yr, rad_an*units->length/constants->pc);
+    
+    cart_debug("bin_an:%d, %f %f\n",bin_an, rad_an*units->length/constants->pc,bin_width);
+    //if(!(bin_an>0)){bin_an=0;}
     cart_assert( bin_an >= 0 && bin_an < num_bins );
     sedov_analytic[bin_an]=1.0;
 
@@ -598,9 +610,9 @@ void run_output() {
     MPI_Reduce( avgs, reduced_avgs, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
 
     if ( local_proc_id == MASTER_NODE ) {
-        sprintf(filename, "%s/%s_stp%04u_tl%5.4f.txt", output_directory, jobname, step, tl[min_level]-t_init );
-        
+        sprintf(filename, "%s/%s_stp%04u.txt", output_directory, jobname, step );
         RADP = fopen(filename,"w");
+        fprintf(RADP, "#time=%e \n",tl[min_level]-t_init);
         for ( i = 0; i < num_bins/2; i++ ) {
             if ( reduced_avgs[i] > 0.0 ) {
                 reduced_vel[i] /= reduced_avgs[i];
@@ -640,7 +652,7 @@ void run_output() {
     }else{
         cart_error("output not MPI_parallel!!");
     }
-                
+
 }
 
 

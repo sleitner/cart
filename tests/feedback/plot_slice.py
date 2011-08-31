@@ -6,9 +6,8 @@ import numpy as np
 from pylab import *
 import sys
 
-middle=64*8/2
-dpi=1024
 
+dpi=1024
 # load data
 for slice in ( sys.argv[1:] ) :
 	print slice
@@ -17,6 +16,7 @@ for slice in ( sys.argv[1:] ) :
 	endian= np.fromfile(file=input,dtype='i4',count=1,sep='') #<i little endian >i big endian
 	(nx,nz)= np.fromfile(file=input,dtype='i4',count=2,sep='') #<i little endian >i big endian
 	print nx,nz
+	middle=nx/2
 	density = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	int_en = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
 	momx = np.fromfile(file=input,dtype='f4', count=nx*nz, ).reshape(nz,nx).transpose()
