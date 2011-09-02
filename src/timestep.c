@@ -721,15 +721,16 @@ void set_timestepping_scheme()
 #ifdef HYDRO 
   hydro_cfl_condition(min_level,&courant_cell,&velocity);
 
-  cart_debug("cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, dt = %e Myr", 
-		courant_cell, cell_level(courant_cell), 
-		max( cell_momentum(courant_cell,0), 
-			max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
-			cell_gas_density(courant_cell) * units->velocity/constants->cms,
-		sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
-			cell_gas_density(courant_cell))*units->velocity/constants->cms,
-		cfl_run*cell_size[min_level]/velocity*units->time/constants->Myr );
-
+  cart_debug("cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, n = %e #/cc, dt = %e Myr", 
+             courant_cell, cell_level(courant_cell), 
+             max( cell_momentum(courant_cell,0),
+                  max( cell_momentum(courant_cell,1),
+                       cell_momentum(courant_cell,2) )) /
+             cell_gas_density(courant_cell) * units->velocity/constants->cms,
+             sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
+                   cell_gas_density(courant_cell))*units->velocity/constants->cms,
+             cell_gas_density(courant_cell)*units->number_density/constants->cc,
+             cfl_run*cell_size[min_level]/velocity*units->time/constants->Myr );
   if(velocity > 0.0)
     {
       dt_local = min(dt_local,cfl_run*cell_size[min_level]/velocity);
@@ -852,7 +853,6 @@ void set_timestepping_scheme()
   for(level=min_level+1; level<=lowest_level; level++)
     {
       hydro_cfl_condition(level,&courant_cell,&velocity);
-
       if(velocity > 0.0)
 	{
 	  dt_new = cfl_run*cell_size[level]/velocity;
@@ -860,14 +860,15 @@ void set_timestepping_scheme()
 	    {
 	      dtl_local[level] = dt_new;
 
-		  cart_debug("new cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, dt = %e Myr", 
-				  courant_cell, cell_level(courant_cell), 
-				  max( cell_momentum(courant_cell,0), 
-					  max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
-				  cell_gas_density(courant_cell) * units->velocity/constants->cms,
-				  sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
-					  cell_gas_density(courant_cell))*units->velocity/constants->cms,
-				  cfl_run*cell_size[min_level]/velocity*units->time/constants->Myr );
+		  cart_debug("new cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, n = %e #/cc, dt = %e Myr", 
+                             courant_cell, cell_level(courant_cell), 
+                             max( cell_momentum(courant_cell,0), 
+                                  max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
+                             cell_gas_density(courant_cell) * units->velocity/constants->cms,
+                             sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
+                                   cell_gas_density(courant_cell))*units->velocity/constants->cms,
+                             cell_gas_density(courant_cell)*units->number_density/constants->cc,
+                             cfl_run*cell_size[min_level]/velocity*units->time/constants->Myr );
 	    }
 	}
     }
