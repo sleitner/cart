@@ -77,7 +77,7 @@ const int central_cell=num_grid/2;
 int icell_central;
 #ifdef STARFORM 
 const double mstar_one_msun = 10;
-        
+extern int last_star_id=-1;
 #endif
 #endif
 
