@@ -28,7 +28,7 @@ for slice in ( sys.argv[1:] ) :
 	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
 	a = axes([0,0,1,1])
 	a.axis('off')
-	a.imshow(density,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
+	a.imshow(density,cmap=cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
 	a.set_autoscale_on(True)
 	filename="plots/density"+slice.replace("dat","png").replace("dumps","")
 	print filename
@@ -38,8 +38,8 @@ for slice in ( sys.argv[1:] ) :
 	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
 	a = axes([0,0,1,1])
 	a.axis('off')
-	a.imshow(int_en,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
-	a.set_autoscale_on(False)
+	a.imshow(int_en,cmap=cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
+	a.set_autoscale_on(True)
 	filename="plots/temp"+slice.replace("dat","png").replace("dumps","")
 	print filename
 	savefig(filename,dpi=dpi)
@@ -48,8 +48,8 @@ for slice in ( sys.argv[1:] ) :
 	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
 	a = axes([0,0,1,1])
 	a.axis('off')
-	a.imshow(momx,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
-	a.set_autoscale_on(False)
+	a.imshow(momx,cmap=cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
+	a.set_autoscale_on(True)
 	filename="plots/momx"+slice.replace("dat","png").replace("dumps","")
 	print filename
 	savefig(filename,dpi=dpi)
@@ -58,8 +58,8 @@ for slice in ( sys.argv[1:] ) :
 	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
 	a = axes([0,0,1,1])
 	a.axis('off')
-	a.imshow(momz,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
-	a.set_autoscale_on(False)
+	a.imshow(momz,cmap=cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
+	a.set_autoscale_on(True)
 	filename="plots/momz"+slice.replace("dat","png").replace("dumps","")
 	print filename
 	savefig(filename,dpi=dpi)
@@ -68,8 +68,8 @@ for slice in ( sys.argv[1:] ) :
 	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
 	a = axes([0,0,1,1])
 	a.axis('off')
-	a.imshow(pressure,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
-	a.set_autoscale_on(False)
+	a.imshow(pressure,cmap=cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=0.001,vmax=3.31986)
+	a.set_autoscale_on(True)
 	filename="plots/pressure"+slice.replace("dat","png").replace("dumps","")
 	print filename
 	savefig(filename,dpi=dpi)
@@ -78,9 +78,9 @@ for slice in ( sys.argv[1:] ) :
 	figure( figsize=(float(nz)/dpi,float(nx)/dpi), dpi=dpi )
 	a = axes([0,0,1,1])
 	a.axis('off')
-	a.imshow(level,cmap=cm.jet,origin="lower",interpolation="Nearest",vmin=0, vmax=6)
+	a.imshow(level,cmap=cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=0, vmax=6)
 	print level[middle:(middle+20),middle]
-	a.set_autoscale_on(False)
+	a.set_autoscale_on(True)
 	filename="plots/level"+slice.replace("dat","png").replace("dumps","")
 	print filename
 	savefig(filename,dpi=dpi)
