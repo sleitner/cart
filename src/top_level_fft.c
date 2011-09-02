@@ -69,7 +69,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 
 		data = cart_alloc(type_fft, num_root_cells );
 
-#pragma omp parallel for default(none), private(i,coords,index), shared(num_cells_per_level,data,cell_vars,in_var)
+#pragma omp parallel for default(none), private(i,coords,index), shared(data,cell_vars,in_var)
 		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
 			sfc_coords( i, coords );
 			index = num_grid*(num_grid*coords[0] + coords[1] ) + coords[2];
@@ -185,7 +185,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 			end_time( COMMUNICATION_TIMER );
 
 			start_time( WORK_TIMER );
-#pragma omp parallel for default(none), private(i,coords,index), shared(num_cells_per_level,cell_vars,data,var,out_vars)
+#pragma omp parallel for default(none), private(i,coords,index), shared(cell_vars,data,var,out_vars)
 			for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
 				sfc_coords( i, coords );
 				index = num_grid*(num_grid*coords[0] + coords[1] ) + coords[2];
@@ -214,7 +214,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 		start_time( COMMUNICATION_TIMER );
       	start_time( FFT_COMMUNICATION_TIMER );
 
-#pragma omp parallel for default(none), private(i), shared(num_cells_per_level,cell_vars,buffer,in_var)
+#pragma omp parallel for default(none), private(i), shared(cell_vars,buffer,in_var)
 		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
 			buffer[i] = cell_var(i,in_var);
 		}
@@ -224,7 +224,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 		for(var=0; var<num_out_vars; var++) {
 			MPI_Recv( buffer, num_cells_per_level[min_level], MPI_TYPE_FFT, MASTER_NODE, 1, MPI_COMM_WORLD, &status );
 
-#pragma omp parallel for default(none), private(i), shared(num_cells_per_level,cell_vars,buffer,var,out_vars)
+#pragma omp parallel for default(none), private(i), shared(cell_vars,buffer,var,out_vars)
 			for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
 				cell_var(i,out_vars[var]) = buffer[i];
 			}

@@ -54,7 +54,7 @@ void initialize_density( int level ) {
 
 #ifdef PARTICLES
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_volume,cell_vars,level)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		cell_density(icell) = -cell_volume[level]; 
@@ -130,7 +130,7 @@ void assign_hydro_density( int level ) {
 
 	/* assumes buffer gas density is up to date */
 	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level,cell_volume)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 #ifdef GRAVITY

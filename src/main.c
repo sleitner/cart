@@ -381,7 +381,7 @@ int main ( int argc, char *argv[]) {
 			break;
 		}
 
-		if ( global_timestep() == -1 ) {
+		if ( global_timestep() == -1 ) { /* this if-statement calls the main step*/
 			cart_debug("Error: could not complete timestep, restarting from previous timestep" );
 
 			start_time( RESTART_TIMER );
