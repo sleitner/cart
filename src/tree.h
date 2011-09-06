@@ -257,6 +257,8 @@ int cell_find_position_level( int level, double position[nDim] );
 int cell_find_position_above_level( int level, double position[nDim] );
 int cell_contains_position( int cell, double position[nDim] );
 double compute_distance_periodic( const double *pos1, const double *pos2 );
+double compute_distance_periodic_1d( const double pos1, const double pos2 );
+double compute_displacement_periodic_1d( const double pos1, const double pos2 );
 int cell_child( int c, int j );
 void oct_all_children( int oct, int child_octs[num_children] );
 void cell_all_children( int c, int child_octs[num_children] );

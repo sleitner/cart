@@ -527,6 +527,34 @@ double compute_distance_periodic( const double *pos1, const double *pos2 ) {
 	return sqrt(r);
 }
 
+double compute_distance_periodic_1d( const double pos1, const double pos2 ) {
+	double dx, r;
+	
+        dx = fabs( pos1 - pos2 );
+
+        if ( dx > (double)(num_grid/2) ) {
+            dx -= num_grid;
+        }
+
+        r = dx*dx;
+
+	return sqrt(r);
+}
+
+double compute_displacement_periodic_1d( const double pos1, const double pos2 ) {
+	double dx;
+	
+        dx = pos2 - pos1;
+        if ( fabs(dx) > (double)(num_grid/2) ) {
+            if(dx<0){
+                dx += num_grid;
+            }else{
+                dx -= num_grid;
+            }
+        }
+
+	return dx;
+}
 
 /*******************************************************
  * cell_child
