@@ -32,7 +32,7 @@
 #include "auxiliary.h"
 #include "starformation.h"
 
-#include "slice_output.h"
+#include "output_slice.h"
 
 #ifdef TESTING_STELLAR_FEEDBACK
 
@@ -42,7 +42,7 @@
 
 #include "extra/ifrit.h"
 
-#define OUTLEVEL 4
+#define OUTLEVEL (max_level)
 #define refine_radius	(4.0)
 
 #ifdef COSMOLOGY
@@ -53,7 +53,8 @@
 #define deltadc 0.0
 #define a0 0.9
 //#define boxh (1.0e-6/a0*hubble) //1ppc
-#define boxh (1.0e-2/a0*hubble) //10pkpc
+#define boxh (1.0e-2/a0*hubble) //10pkpc //for level4
+//#define boxh (2.5e-3/a0*hubble) //2.5pkpc //for level2
 
 #define blast_radius    (cell_size[max_level]) 
 #define rho0            (1e7)
@@ -660,16 +661,16 @@ void run_output() {
     cart_debug("mstar=%e[Msun] %e[code] ",mstar_one_msun,mstar_one_msun/units->mass*constants->Msun);
     cart_debug("cell_max[pc]=%e cell_min[pc]%e ",cell_size[min_level]*units->length/constants->pc,cell_size[cell_level(icell)]*units->length/constants->pc);
     
-    cart_debug("\n\n");
-    icell=icell_central();
-    cart_debug("--=physical conditions(cent_cell=%d)=--",icell);
-    cart_debug("rho=%e[#/cc] %e[g/cc] %e[code]", rho0*units->number_density/constants->cc, rho0*units->density/constants->gpercc, rho0);
-    cart_debug("T=%e[K] %e[code]", cell_gas_temperature(icell)*units->temperature/constants->K,cell_gas_temperature(icell) );
-    cart_debug("P=%e[ergs/cc] %e[code]", cell_gas_pressure(icell)*units->energy_density/constants->barye, cell_gas_pressure(icell));
-    cart_debug("crho[%d]=%e[#/cc] %e[g/cc] %e[code]", icell,cell_gas_density(icell)*units->number_density/constants->cc, cell_gas_density(icell)*units->density/constants->gpercc, cell_gas_density(icell));
-    cart_debug("mstar=%e[Msun] %e[code] ",mstar_one_msun,mstar_one_msun/units->mass*constants->Msun);
-    cart_debug("cell_max[pc]=%e cell_min[pc]%e ",cell_size[min_level]*units->length/constants->pc,cell_size[cell_level(icell)]*units->length/constants->pc);
-    cart_debug("\n\n");
+    /* cart_debug("\n\n"); */
+    /* icell=icell_central(); */
+    /* cart_debug("--=physical conditions(cent_cell=%d)=--",icell); */
+    /* cart_debug("rho=%e[#/cc] %e[g/cc] %e[code]", rho0*units->number_density/constants->cc, rho0*units->density/constants->gpercc, rho0); */
+    /* cart_debug("T=%e[K] %e[code]", cell_gas_temperature(icell)*units->temperature/constants->K,cell_gas_temperature(icell) ); */
+    /* cart_debug("P=%e[ergs/cc] %e[code]", cell_gas_pressure(icell)*units->energy_density/constants->barye, cell_gas_pressure(icell)); */
+    /* cart_debug("crho[%d]=%e[#/cc] %e[g/cc] %e[code]", icell,cell_gas_density(icell)*units->number_density/constants->cc, cell_gas_density(icell)*units->density/constants->gpercc, cell_gas_density(icell)); */
+    /* cart_debug("mstar=%e[Msun] %e[code] ",mstar_one_msun,mstar_one_msun/units->mass*constants->Msun); */
+    /* cart_debug("cell_max[pc]=%e cell_min[pc]%e ",cell_size[min_level]*units->length/constants->pc,cell_size[cell_level(icell)]*units->length/constants->pc); */
+    /* cart_debug("\n\n"); */
     
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -714,19 +715,39 @@ void run_output() {
 
     /* output a 2-d slice through the center of the box */
     if ( local_proc_id == MASTER_NODE ) {
+        double slice_region_hsize=500; //100pc
+        slice_region_hsize *= constants->pc/units->length;
+        cart_debug("original ouput size=%e [pc]",slice_region_hsize*units->length/constants->pc);
+        int nsgrid_half=(int)slice_region_hsize/cell_size[OUTLEVEL];
+        slice_region_hsize=nsgrid_half*cell_size[OUTLEVEL]+cell_size[OUTLEVEL]/2.;
+        cart_debug("adjusted ouput size=%e [code] %d[cells]",2*slice_region_hsize,2*nsgrid_half+1);
+        cart_debug("adjusted ouput size=%e [pc]",2*slice_region_hsize*units->length/constants->pc);
+        
+#ifdef ONE_CELL_IN_THE_CENTER
         double pos[3];
-        pos[0]=num_grid/2;
-        pos[1]=num_grid/2;
-        pos[2]=num_grid/2;
+        icell=icell_central();
+        cell_center_position(icell,pos);
+#else
+        for(i=0;i<nDim; i++){
+            pos[i]=num_grid/2;
+        }
         cell_center_position(cell_find_position(pos),pos);
+#endif
+        /* for(i=0;i<nDim; i++){ */
+        /*     //now everything in a given cell will be assigned to that cell by pos/dx */
+        /*     // |00x00|1111| */
+        /*     pos[i]-=cell_size[OUTLEVEL]/2.0; */
+        /* } */
+        
         sprintf( filename, "%s/%s_slice_%04u.dat", output_directory, jobname, step );
         output = fopen( filename, "w" );
-        dump_plane(OUT_CELL_DENSITY, OUTLEVEL, slice_axis_z, pos, output);
-        dump_plane(OUT_CELL_INTERNAL_ENERGY, OUTLEVEL, slice_axis_z, pos, output);
-        dump_plane(OUT_CELL_MOMENTUM+1, OUTLEVEL, slice_axis_z, pos, output);
-        dump_plane(OUT_CELL_MOMENTUM+2, OUTLEVEL, slice_axis_z, pos, output);
-        dump_plane(OUT_CELL_PRESSURE, OUTLEVEL, slice_axis_z, pos, output);
-        dump_plane(OUT_CELL_LEVEL, OUTLEVEL, slice_axis_z, pos, output);
+        cart_debug("dumping plane");
+        dump_plane(OUT_CELL_DENSITY, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_INTERNAL_ENERGY, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_MOMENTUM+1, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_MOMENTUM+2, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_LEVEL, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         fclose(output);
     }else{
         cart_error("output not MPI_parallel!!");
