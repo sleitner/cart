@@ -1,5 +1,6 @@
+#!/usr/local/Python-2.7.2/bin/python
+#!/usr/bin/python -Wignore
 #!/usr/bin/python2.4
-#!/usr/bin/python2.7 -Wignore
 
 def plot_field(field,clabel,filename,time):
 	""" purpose: generate plot from square field; args: field,colorbar label, filename"""
@@ -38,6 +39,7 @@ for slice in ( sys.argv[1:] ) :
 	(nx,ny)= np.fromfile(file=input,dtype='i4',count=2,sep='')
 	box_kpc= np.fromfile(file=input,dtype='f4',count=1)
 	box_kpc=box_kpc[0]
+	time = np.fromfile(file=input,dtype='f4',count=1)
 	time = np.fromfile(file=input,dtype='f4',count=1)
 	time=time[0]*1.0
 	print 'nx=',nx,'ny=',ny,'box[kpc]=',box_kpc

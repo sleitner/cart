@@ -32,12 +32,10 @@
 #include "auxiliary.h"
 #include "starformation.h"
 
-#include "output_slice.h"
-
-#ifdef TESTING_STELLAR_FEEDBACK
+#include "extra/output_slice.h"
 
 #ifdef VIEWDUMP
-#include "extras/viewdump.h"
+#include "extra/viewdump.h"
 #endif
 
 #include "extra/ifrit.h"
@@ -562,9 +560,20 @@ void radial_average( int cell, int level ) {
 
 
 
+#ifdef USER_PLUGIN
+void outslice();
+plugin_t outslicePlugin = {null};
+const plugin_t* add_plugin(int id)
+{
+    if(id==0)
+    {
+        outslicePlugin.RunBegin = outslice;
+        outslicePlugin.GlobalStepEnd = outslice;
+        return &outslicePlugin;
+    }
+}
 
-
-void run_output() {
+void outslice() {
     int i, j;
     char filename[128];
     FILE *RADP;
@@ -609,7 +618,6 @@ void run_output() {
         }
         cart_free( level_cells );
     }
-//        int MPI_Reduce(void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype, MPI_Op op, int root, MPI_Comm comm) 
     MPI_Reduce( MPI_IN_PLACE, &tot_momentum, 1, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
     MPI_Reduce( MPI_IN_PLACE, &dPt, 1, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
             
@@ -622,7 +630,6 @@ void run_output() {
 
 
     /* now dump the radial profiles */
-                
     for ( i = 0; i < num_bins; i++ ) {
         radii[i] = ((float)i + 0.5) * bin_width;
         vel[i] = 0.0;
@@ -646,31 +653,19 @@ void run_output() {
         cart_debug("time=%eyr sedov radius=%epc ",
                    curr_time*constants->s/constants->yr, rad_an*units->length/constants->pc);
         cart_debug("bin_an:%d, %f %f\n",bin_an, rad_an*units->length/constants->pc,bin_width);
-        //if(!(bin_an>0)){bin_an=0;}
         cart_assert( bin_an >= 0 && bin_an < num_bins );
         sedov_analytic[bin_an]=1.0;
 #endif
         
     cart_debug("\n\n");
-    icell=icell_central()+1;
-    cart_debug("--=physical conditions(cent cell=%d+1)=--",icell);
+    icell=icell_central();
+    cart_debug("--=physical conditions(cent cell=%d)=--",icell);
     cart_debug("rho=%e[#/cc] %e[g/cc] %e[code]", rho0*units->number_density/constants->cc, rho0*units->density/constants->gpercc, rho0);
     cart_debug("T=%e[K] %e[code]", cell_gas_temperature(icell)*units->temperature/constants->K,cell_gas_temperature(icell) );
     cart_debug("P=%e[ergs/cc] %e[code]", cell_gas_pressure(icell)*units->energy_density/constants->barye, cell_gas_pressure(icell));
     cart_debug("crho[%d]=%e[#/cc] %e[g/cc] %e[code]", icell,cell_gas_density(icell)*units->number_density/constants->cc, cell_gas_density(icell)*units->density/constants->gpercc, cell_gas_density(icell));
     cart_debug("mstar=%e[Msun] %e[code] ",mstar_one_msun,mstar_one_msun/units->mass*constants->Msun);
     cart_debug("cell_max[pc]=%e cell_min[pc]%e ",cell_size[min_level]*units->length/constants->pc,cell_size[cell_level(icell)]*units->length/constants->pc);
-    
-    /* cart_debug("\n\n"); */
-    /* icell=icell_central(); */
-    /* cart_debug("--=physical conditions(cent_cell=%d)=--",icell); */
-    /* cart_debug("rho=%e[#/cc] %e[g/cc] %e[code]", rho0*units->number_density/constants->cc, rho0*units->density/constants->gpercc, rho0); */
-    /* cart_debug("T=%e[K] %e[code]", cell_gas_temperature(icell)*units->temperature/constants->K,cell_gas_temperature(icell) ); */
-    /* cart_debug("P=%e[ergs/cc] %e[code]", cell_gas_pressure(icell)*units->energy_density/constants->barye, cell_gas_pressure(icell)); */
-    /* cart_debug("crho[%d]=%e[#/cc] %e[g/cc] %e[code]", icell,cell_gas_density(icell)*units->number_density/constants->cc, cell_gas_density(icell)*units->density/constants->gpercc, cell_gas_density(icell)); */
-    /* cart_debug("mstar=%e[Msun] %e[code] ",mstar_one_msun,mstar_one_msun/units->mass*constants->Msun); */
-    /* cart_debug("cell_max[pc]=%e cell_min[pc]%e ",cell_size[min_level]*units->length/constants->pc,cell_size[cell_level(icell)]*units->length/constants->pc); */
-    /* cart_debug("\n\n"); */
     
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -744,6 +739,7 @@ void run_output() {
         cart_debug("dumping plane");
         dump_plane(OUT_CELL_DENSITY, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_INTERNAL_ENERGY, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_MOMENTUM+0, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_MOMENTUM+1, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_MOMENTUM+2, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
@@ -756,5 +752,7 @@ void run_output() {
 }
 
 
+#endif /*  USER_PLUGIN */
 
-#endif /* TESTING_STELLAR_FEEDBACK */
+int run_output(){
+}

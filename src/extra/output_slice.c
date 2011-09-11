@@ -39,26 +39,11 @@ const int axis_direction[nDim][nDim-1] = {
 #if nDim == 2
     {1},{0}
 #elif nDim == 3
-    {1,2},{0,2},{0,1}
+    {1,2},{2,0},{0,1}
 #else
     #error  "Unsupported number of dimensions for other_axis"
 #endif
 };
-
-int is_cell_in_slice_region(double pos_zero[nDim], int slice_axis_x, int slice_axis_y, double slice_region_hsize, double pos[nDim],int level ) {
-        return (compute_distance_periodic_1d(
-                    pos[slice_axis_x] , pos_zero[slice_axis_x])
-                < slice_region_hsize &&
-                compute_distance_periodic_1d(
-                    pos[slice_axis_y] , pos_zero[slice_axis_y])
-                < slice_region_hsize ) ;
-}
-
-int is_cell_in_slice_plane(double pos_zero[nDim], int slice_axis_z, double pos[nDim], int level) {
-    double disp;
-    disp=pos[slice_axis_z]-pos_zero[slice_axis_z];
-        return (disp >=0 && disp <= cell_size[level]/2.0) ;
-}
 
 float value_cell_property(int icell,int iflag){
     switch(iflag){
@@ -84,31 +69,36 @@ float value_cell_property(int icell,int iflag){
 }
 
 
-void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim], double slice_region_hsize, FILE *output){//pos[slice_axis_z]=galaxy center, out_level
+void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim], double slice_region_hsize, FILE *output){
     int i, idummy ;
     float fdummy;
-    //also need to adjust to take cells level with your selected cell in cell_size need cell_size at eachlevel so block_sign[level]
     int islice, icell;
     int slice_indx, slice_indy ;
     double pos[nDim];
     float *slice;
-    float fact_hi_level=pow(2.0,out_level-min_level);
-    int axis[2] = { axis_direction[slice_axis_z][0],  axis_direction[slice_axis_z][1] };
-//lower cell_delta block, output everything within 80kpc? for each projection axis. Around each cell with some critical value of density that is the most extreme in its rootgrid? just the first for now... could do that, eliminate all cells from the list then step to the next...
+    double fact_hi_level=pow(2.0,out_level-min_level);
+    int axis[2];
     const int endian_test=-99;
     const int unassigned=-99;
-    const int nsgrid=slice_region_hsize*2/cell_size[out_level]; //should be odd
-    
+    const int nsgrid=slice_region_hsize*2/cell_size[out_level]; //odd
+    axis[0] = axis_direction[slice_axis_z][0];
+    axis[1] = axis_direction[slice_axis_z][1] ;
+    cart_debug("permuting axes, %d %d %d", axis[0],axis[1],slice_axis_z);
+
+    cart_debug("in output_slice; axes (xyz)=%d%d%d",axis[0],axis[1],axis[2]);
+
     
     fwrite( &endian_test, sizeof(int), 1, output );
-//    nsgrid = num_grid*fact_hi_level;
     idummy  = nsgrid;
     fwrite( &idummy, sizeof(int), 1, output );
     idummy  = nsgrid;
     fwrite( &idummy, sizeof(int), 1, output );
     fdummy  = 2*slice_region_hsize*units->length/constants->kpc;
     fwrite( &fdummy, sizeof(float), 1, output );
-    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_tcode(t_init))*1e-6;
+    fdummy  = tphys_from_tcode(tl[min_level])*1e-6;
+    fwrite( &fdummy, sizeof(float), 1, output );
+//    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_tcode(t_init))*1e-6;
+    fdummy  = dtl[min_level]*units->time/constants->yr*1e-6;
     fwrite( &fdummy, sizeof(float), 1, output );
     cart_debug("nsgrid=%d,out_level=%d, time=%e",nsgrid,out_level, fdummy);
         
@@ -121,19 +111,19 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     pos[slice_axis_z] = pos_zero[slice_axis_z];
     
     for(slice_indy=0;slice_indy<nsgrid;slice_indy++){
-        pos[axis[1]] = (slice_indy-nsgrid/2)/fact_hi_level +
-            pos_zero[axis[1]]; 
+        pos[axis[1]] = (slice_indy-nsgrid/2)/fact_hi_level + pos_zero[axis[1]]; 
+            
         if(pos[axis[1]]>=num_grid){pos[axis[1]]-=num_grid;}
         if(pos[axis[1]]<0        ){pos[axis[1]]+=num_grid;}
             
         for(slice_indx=0;slice_indx<nsgrid;slice_indx++){
-            pos[axis[0]] = (slice_indx-nsgrid/2)/fact_hi_level +
-                pos_zero[axis[axis[0]]];
+            pos[axis[0]] = (slice_indx-nsgrid/2)/fact_hi_level + pos_zero[axis[0]];
+                
             if(pos[axis[0]]>=num_grid){pos[axis[0]]-=num_grid;}
             if(pos[axis[0]]<0        ){pos[axis[0]]+=num_grid;}
             
             islice = slice_indy*nsgrid + slice_indx;
-            icell = cell_find_position_above_level(out_level,pos);
+            icell = cell_find_position_above_level(out_level+1,pos);
             cart_assert(icell!=-1);
             slice[islice] = value_cell_property(icell,iflag);
         }
@@ -142,7 +132,7 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     for(i=0; i<nsgrid*nsgrid; i++){
         cart_assert(slice[i]!=unassigned);
     }
-    
+
     fwrite( slice, sizeof(float), nsgrid*nsgrid, output );
         
     cart_free(slice);
