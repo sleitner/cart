@@ -34,7 +34,6 @@
 
 #include "output_slice.h"
 
-
 const int axis_direction[nDim][nDim-1] = {
 #if nDim == 2
     {1},{0}
@@ -46,18 +45,36 @@ const int axis_direction[nDim][nDim-1] = {
 };
 
 float value_cell_property(int icell,int iflag){
+    double px2, py2, pz2, vmag,cs;
     switch(iflag){
-    case OUT_CELL_DENSITY: return (float)cell_gas_density(icell)*units->number_density/constants->cc;
+    case OUT_CELL_DENSITY: return (float)cell_gas_density(icell)
+            *units->number_density/constants->cc;
         break;
-    case OUT_CELL_INTERNAL_ENERGY: return (float)cell_gas_temperature(icell)*units->temperature/constants->K;
+    case OUT_CELL_INTERNAL_ENERGY: return (float)cell_gas_temperature(icell)
+            *units->temperature/constants->K;
         break;
-    case OUT_CELL_MOMENTUM+0: return (float)cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity/constants->kms;
+    case OUT_CELL_MOMENTUM+0: return (float)cell_momentum(icell,0)/cell_gas_density(icell)
+            *units->velocity/constants->kms;
         break;
-    case OUT_CELL_MOMENTUM+1: return (float)cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity/constants->kms;
+    case OUT_CELL_MOMENTUM+1: return (float)cell_momentum(icell,1)/cell_gas_density(icell)
+            *units->velocity/constants->kms;
         break;
-    case OUT_CELL_MOMENTUM+2: return (float)cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity/constants->kms;
+    case OUT_CELL_MOMENTUM+2: return (float)cell_momentum(icell,2)/cell_gas_density(icell)
+            *units->velocity/constants->kms;
         break;
-    case OUT_CELL_PRESSURE: return (float)cell_gas_pressure(icell)*units->energy_density/constants->erg/pow(constants->pc,3);
+    case OUT_CELL_SOUNDSPEED: return (float) sqrt(
+        cell_gas_pressure(icell)/cell_gas_density(icell)*constants->gamma )
+            *units->velocity/constants->kms; 
+        break;
+    case OUT_CELL_MACH: 
+        px2 = cell_momentum(icell,0)*cell_momentum(icell,0);
+        py2 = cell_momentum(icell,1)*cell_momentum(icell,1);
+        pz2 = cell_momentum(icell,2)*cell_momentum(icell,2);
+        vmag=sqrt(px2+py2+pz2)/cell_gas_density(icell);
+        cs=sqrt( cell_gas_pressure(icell)/cell_gas_density(icell)*constants->gamma );
+        return (float) vmag/cs;
+            /* return sqrt(px2+py2+pz2)/cell_gas_density(icell) */
+            /* / sqrt( cell_gas_pressure(icell)/cell_gas_density(icell)*constants->gamma ); */
         break;
     case OUT_CELL_LEVEL: return (float)cell_level(icell);
         break;
@@ -83,9 +100,8 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     const int nsgrid=slice_region_hsize*2/cell_size[out_level]; //odd
     axis[0] = axis_direction[slice_axis_z][0];
     axis[1] = axis_direction[slice_axis_z][1] ;
-    cart_debug("permuting axes, %d %d %d", axis[0],axis[1],slice_axis_z);
-
-    cart_debug("in output_slice; axes (xyz)=%d%d%d",axis[0],axis[1],axis[2]);
+    cart_debug("in output_slice; axes (xyz)=%d%d%d",axis[0],axis[1],slice_axis_z);
+    cart_debug("nsgrid=%d,out_level=%d, time=%e",nsgrid,out_level, fdummy);
 
     
     fwrite( &endian_test, sizeof(int), 1, output );
@@ -100,7 +116,6 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
 //    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_tcode(t_init))*1e-6;
     fdummy  = dtl[min_level]*units->time/constants->yr*1e-6;
     fwrite( &fdummy, sizeof(float), 1, output );
-    cart_debug("nsgrid=%d,out_level=%d, time=%e",nsgrid,out_level, fdummy);
         
     slice = cart_alloc(float, nsgrid*nsgrid);
         
