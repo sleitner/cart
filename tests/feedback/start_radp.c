@@ -31,6 +31,7 @@
 #include "io.h"
 #include "auxiliary.h"
 #include "starformation.h"
+#include "plugin.h"
 
 #include "extra/output_slice.h"
 
@@ -199,11 +200,9 @@ void radp_initial_conditions( int icell ) {
 
 void set_radp_initial_conditions() {
     int i;
-    int icell;
     int level;
     int num_level_cells;
     int *level_cells;
-    double scale;
     
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -562,14 +561,14 @@ void radial_average( int cell, int level ) {
 
 #ifdef USER_PLUGIN
 void outslice();
-plugin_t outslicePlugin = {null};
-const plugin_t* add_plugin(int id)
-{
-    if(id==0)
-    {
+plugin_t outslicePlugin = {NULL};
+const plugin_t* add_plugin(int id){
+    if(id==0){
         outslicePlugin.RunBegin = outslice;
         outslicePlugin.GlobalStepEnd = outslice;
         return &outslicePlugin;
+    }else{
+        return NULL;
     }
 }
 
@@ -585,8 +584,6 @@ void outslice() {
     int num_level_cells;
     int *level_cells;
 
-    double rad_an, curr_time, init_E, init_rho;
-    int bin_an;
     FILE *output;
     int icell;
     const int nvars = 4;
@@ -596,7 +593,7 @@ void outslice() {
     double bb[6];
     float tot_momentum=0,dPt=0 ;
 
-    cart_debug("run_output:");
+    cart_debug("output feedback test:");
         
     bb[0] = bb[2] = bb[4] = num_grid*(0.5-0.125);
     bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.125);
@@ -640,23 +637,25 @@ void outslice() {
     }
 
 #ifndef STARFORM
-        cart_debug("code E: %e rho: %e t_code: %e; dm0=%e;", E_det, rho0, (tl[min_level]-t_init), rho0*cell_volume[min_level] );
-        curr_time = (tphys_from_tcode(tl[min_level]) - tphys_from_tcode(t_init))
-            *constants->yr/constants->s;
-        init_E = E_det*units->energy/constants->erg;
-        init_rho = rho0*units->density/constants->gpercc;
-        cart_debug("physical: t=%es ; E=%eerg ; rho=%e#/cc",
+    double rad_an, curr_time, init_E, init_rho;
+    int bin_an;
+    cart_debug("code E: %e rho: %e t_code: %e; dm0=%e;", E_det, rho0, (tl[min_level]-t_init), rho0*cell_volume[min_level] );
+    curr_time = (tphys_from_tcode(tl[min_level]) - tphys_from_tcode(t_init))
+        *constants->yr/constants->s;
+    init_E = E_det*units->energy/constants->erg;
+    init_rho = rho0*units->density/constants->gpercc;
+    cart_debug("physical: t=%es ; E=%eerg ; rho=%e#/cc",
                curr_time, init_E, rho0*units->number_density/constants->cc);
-        rad_an = rad_sedov_pc(init_E, init_rho, curr_time);
-        rad_an = rad_an*constants->pc/units->length;
-        bin_an = (int)(rad_an/bin_width);
-        cart_debug("time=%eyr sedov radius=%epc ",
-                   curr_time*constants->s/constants->yr, rad_an*units->length/constants->pc);
-        cart_debug("bin_an:%d, %f %f\n",bin_an, rad_an*units->length/constants->pc,bin_width);
-        cart_assert( bin_an >= 0 && bin_an < num_bins );
-        sedov_analytic[bin_an]=1.0;
+    rad_an = rad_sedov_pc(init_E, init_rho, curr_time);
+    rad_an = rad_an*constants->pc/units->length;
+    bin_an = (int)(rad_an/bin_width);
+    cart_debug("time=%eyr sedov radius=%epc ",
+               curr_time*constants->s/constants->yr, rad_an*units->length/constants->pc);
+    cart_debug("bin_an:%d, %f %f\n",bin_an, rad_an*units->length/constants->pc,bin_width);
+    cart_assert( bin_an >= 0 && bin_an < num_bins );
+    sedov_analytic[bin_an]=1.0;
 #endif
-        
+    
     cart_debug("\n\n");
     icell=icell_central();
     cart_debug("--=physical conditions(cent cell=%d)=--",icell);
@@ -733,16 +732,18 @@ void outslice() {
         /*     // |00x00|1111| */
         /*     pos[i]-=cell_size[OUTLEVEL]/2.0; */
         /* } */
+        cart_debug("snl1:%d%d%d",axis_direction[slice_axis_z][0],axis_direction[slice_axis_z][1], slice_axis_z);
         
         sprintf( filename, "%s/%s_slice_%04u.dat", output_directory, jobname, step );
         output = fopen( filename, "w" );
         cart_debug("dumping plane");
         dump_plane(OUT_CELL_DENSITY, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_INTERNAL_ENERGY, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_MOMENTUM+0, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_MOMENTUM+1, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_MOMENTUM+2, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_MOMENTUM+axis_direction[slice_axis_z][0], OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_MOMENTUM+axis_direction[slice_axis_z][1], OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_MOMENTUM+slice_axis_z, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_SOUNDSPEED, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_MACH, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_LEVEL, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         fclose(output);
     }else{
@@ -754,5 +755,5 @@ void outslice() {
 
 #endif /*  USER_PLUGIN */
 
-int run_output(){
+void run_output(){
 }

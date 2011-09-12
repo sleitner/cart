@@ -1,3 +1,5 @@
+#define USER_PLUGIN
+
 #define STARFORM 
 #define PARTICLES 
 #define ONE_CELL_IN_THE_CENTER
