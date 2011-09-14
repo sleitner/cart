@@ -17,6 +17,7 @@
 
 
 #include <mpi.h>
+#include "rt_global.h"
 
 
 void rtInitRunTransfer();
