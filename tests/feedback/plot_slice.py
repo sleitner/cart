@@ -34,9 +34,9 @@ def mycmap_rgba(x):
             k=j+(x.shape[0]*i)
             tmp[k][3] = x[i,j]
 #HERE! make black
-            tmp[k][0] = 0
-            tmp[k][1] = 0
-            tmp[k][2] = 0
+            tmp[k][0] = 1
+            tmp[k][1] = 1
+            tmp[k][2] = 1
 
     return tmp
 
@@ -72,7 +72,7 @@ def findmax(a):
 
 def add_arrows(fieldx,fieldy):
 	norm=abs(np.concatenate((fieldx,fieldy)).max())/1. #1d norm
-	freq=1
+	freq=2
 	M = py.sqrt(pow(fieldx, 2) + pow(fieldy, 2))
 	X,Y = py.meshgrid( py.arange(0,nx,1),py.arange(0,ny,1) )
 
@@ -87,11 +87,12 @@ def add_arrows(fieldx,fieldy):
                 #		width=0.4,linewidths=(.5), edgecolors=('k'), 
 #                color=colors,
 		width=0.2,linewidths=(.2),
-		pivot='mid', 
+#		pivot='mid', 
+#		pivot='tail', 
 		units='x',
 		headaxislength=5 ,
-		scale=norm)
-            colors=mycmap_rgba(M)
+		scale=norm/freq)
+            colors=mycmap_rgba(M[::freq, ::freq])
             Q.set_facecolor(colors)
             Q.set_edgecolor('k')
             Q.set_edgecolor(colors)
@@ -103,15 +104,13 @@ def add_arrows(fieldx,fieldy):
 		width=0.2,
 		units='x',
 		headaxislength=5 ,
-		scale=norm)
+		scale=norm/2)
 
         legend='{:.2g}km/s'.format(norm)
-        qk = py.quiverkey(Q, 0.9, 1.05, 1, legend,
+        qk = py.quiverkey(Q, 0.9, 1.05, norm, legend,
                           labelpos='E',
                           fontproperties={'weight': 'bold'})
 
-#
-#		im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax)
 	
 def plot_field(field,clabel,filename,time,vmin,vmax):
 	""" purpose: generate plot from square field; args: field,colorbar label, filename"""
@@ -122,9 +121,9 @@ def plot_field(field,clabel,filename,time,vmin,vmax):
 		add_arrows(vx,vy)
 	
         if(vmin==vmax):
-            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest")        
+            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
         else:
-            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
+            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
 
 	title='t-t0={:.2g}Myr,dt={:.2g}Myr'.format(time,dtl)
 	py.title(title)
@@ -179,7 +178,7 @@ for slice in ( sys.argv[1:] ) :
 	density = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='' ).reshape(nx,ny))
 
 	read_header(input)
-	temp = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+	temp = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
 	read_header(input)
 	vx = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
 	read_header(input)
@@ -203,7 +202,8 @@ for slice in ( sys.argv[1:] ) :
 
 	input.close()
 
-	filename="plots/density/"+slice.replace("dat","png").replace("out/","")
+#	filename="plots/density/"+slice.replace("dat","png").replace("out/","")
+	filename=slice.replace("dat","png").replace("out/","plots/density/")
 	print filename
 	clabel='log(n [1/cc])'
 	vmin=0
@@ -215,35 +215,35 @@ for slice in ( sys.argv[1:] ) :
 #	arrows=0
 
 
-	filename="plots/vx/"+slice.replace("dat","png").replace("out/","")
+	filename=slice.replace("dat","png").replace("out/","plots/vx/")
 	print filename
 	clabel='vx [km/s])'
 	vmin=0
 	vmax=50
 	plot_field(vx,clabel,filename, time,0,0)
 
-	filename="plots/mach/"+slice.replace("dat","png").replace("out/","")
+	filename=slice.replace("dat","png").replace("out/","plots/mach/")
 	print filename
 	clabel='|v/cs|'
 	plot_field(mach,clabel,filename, time,0,0)
 
-	filename="plots/cs/"+slice.replace("dat","png").replace("out/","")
+	filename=slice.replace("dat","png").replace("out/","plots/cs/")
 	print filename
 	clabel='cs [km/s]'
 	plot_field(soundspeed,clabel,filename, time,0,0)
 
-	filename="plots/temp/"+slice.replace("dat","png").replace("out/","")
+	filename=slice.replace("dat","png").replace("out/","plots/temp/")
 	print filename
 	clabel='log(T [K])'
 	vmin=2
 	vmax=8
 	plot_field(temp,clabel,filename, time,vmin,vmax)
 	
-	filename="plots/level/"+slice.replace("dat","png").replace("out/","")
+	filename=slice.replace("dat","png").replace("out/","plots/level/")
 	print filename
 	clabel='level'
 	vmin=0
-	vmax=10
+	vmax=5
 	plot_field(level,clabel,filename, time,vmin,vmax)
 
 

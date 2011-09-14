@@ -2,7 +2,6 @@
 
 #define STARFORM 
 #define PARTICLES 
-#define ONE_CELL_IN_THE_CENTER
 #define COSMOLOGY  
 
 #define HYDRO
@@ -17,5 +16,5 @@
 
 
 /* #define GRAVITY  */
-/* #define COOLING */
-/* #define RADIATIVE_TRANSFER */
+#define COOLING  
+#define RADIATIVE_TRANSFER 
