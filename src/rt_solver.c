@@ -309,7 +309,7 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 #ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info,blastwave_time), shared(cell_vars,num_level_cells,level,cell_child_oct,level_cells,level,time,timeyr,cell_size,rt_debug,nchunk,blastwave_time_floor,blastwave_time_cut,blastwave_time_code_max), schedule(dynamic,nchunk)
 #else      
-#pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,time,cell_size,rt_debug,nchunk), schedule(dynamic,nchunk)
+#pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,time,rt_debug,nchunk), schedule(dynamic,nchunk)
 #endif /* BLASTWAVE_FEEDBACK */
   for(i=0; i<num_level_cells; i++) if(cell_is_leaf((cell = level_cells[i])) && cell_gas_density(cell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
     {
@@ -547,7 +547,7 @@ void rtSetGlobalParameters(frt_real parAvg[3])
   */
   sumSrc = sumRho = sumRhoHI = sumRhoH2 = 0.0;
 
-#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_vars,cell_volume,cell_child_oct), reduction(+:sumSrc,sumRho,sumRhoHI,sumRhoH2)
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_vars,cell_child_oct), reduction(+:sumSrc,sumRho,sumRhoHI,sumRhoH2)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   if(cell_is_leaf(cell))
     {
