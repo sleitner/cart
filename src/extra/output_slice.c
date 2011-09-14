@@ -100,8 +100,6 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     const int nsgrid=slice_region_hsize*2/cell_size[out_level]; //odd
     axis[0] = axis_direction[slice_axis_z][0];
     axis[1] = axis_direction[slice_axis_z][1] ;
-    cart_debug("in output_slice; axes (xyz)=%d%d%d",axis[0],axis[1],slice_axis_z);
-    cart_debug("nsgrid=%d,out_level=%d, time=%e",nsgrid,out_level, fdummy);
 
     
     fwrite( &endian_test, sizeof(int), 1, output );
@@ -111,7 +109,7 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     fwrite( &idummy, sizeof(int), 1, output );
     fdummy  = 2*slice_region_hsize*units->length/constants->kpc;
     fwrite( &fdummy, sizeof(float), 1, output );
-    fdummy  = tphys_from_tcode(tl[min_level])*1e-6;
+    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_tcode(t_init))*1e-6;
     fwrite( &fdummy, sizeof(float), 1, output );
 //    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_tcode(t_init))*1e-6;
     fdummy  = dtl[min_level]*units->time/constants->yr*1e-6;
