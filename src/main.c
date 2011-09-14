@@ -415,6 +415,10 @@ int main ( int argc, char *argv[]) {
                         log_star_creation(-1,-1.0,FILE_CLOSE); 
                         log_star_creation(-1,-1.0,FILE_OPEN); 
 #endif
+                        
+#ifdef USER_PLUGIN
+                        PLUGIN_POINT(AfterCFLRestart)();
+#endif
 
 		} else {
 			step++;
