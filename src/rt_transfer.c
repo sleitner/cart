@@ -310,7 +310,7 @@ void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cel
   */
   start_time( WORK_TIMER );
 
-#pragma omp parallel for default(none), private(i), shared(level,num_level_cells,level_cells,cell_vars,cell_volume_inverse)
+#pragma omp parallel for default(none), private(i), shared(level,num_level_cells,level_cells,cell_vars)
   for(i=0; i<num_level_cells; i++)
     {
       cell_rt_source(level_cells[i]) *= cell_volume_inverse[level];
