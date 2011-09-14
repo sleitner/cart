@@ -23,6 +23,7 @@ typedef struct PLUGIN_TYPE
   void (*RunEnd)();
   void (*GlobalStepBegin)();
   void (*GlobalStepEnd)();
+  void (*AfterCFLRestart)();
   void (*LevelStepBegin)(int level, MPI_Comm level_com);
   void (*LevelStepEnd)(int level, MPI_Comm level_com);
   void (*LevelStepFail)(int level, MPI_Comm level_com);
