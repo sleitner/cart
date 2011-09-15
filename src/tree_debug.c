@@ -76,7 +76,7 @@ void check_map() {
 	/* check neighbors */
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,j,icell,sfc,neighbors,pos,ioct), shared(num_level_cells,level_cells,level,proc_sfc_index,local_proc_id,cell_child_oct,oct_neighbors,oct_level,oct_parent_cell,oct_parent_root_sfc,oct_pos, reverse_direction)
+#pragma omp parallel for default(none), private(i,j,icell,sfc,neighbors,pos,ioct), shared(num_level_cells,level_cells,level,proc_sfc_index,local_proc_id,cell_child_oct,oct_neighbors,oct_level,oct_parent_cell,oct_parent_root_sfc,oct_pos,reverse_direction)
 		for ( k = 0; k < num_level_cells; k++ ) {
 			icell = level_cells[k];
 

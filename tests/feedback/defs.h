@@ -15,6 +15,6 @@
 #define num_star_particles		5	/* suitable for no refinement */
 
 
-/* #define GRAVITY  */
-#define COOLING  
-#define RADIATIVE_TRANSFER 
+/* #define GRAVITY   */
+/* #define COOLING   */
+/* #define RADIATIVE_TRANSFER  */
