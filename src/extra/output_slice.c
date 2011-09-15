@@ -109,9 +109,14 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     fwrite( &idummy, sizeof(int), 1, output );
     fdummy  = 2*slice_region_hsize*units->length/constants->kpc;
     fwrite( &fdummy, sizeof(float), 1, output );
-    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_tcode(t_init))*1e-6;
+#ifdef COSMOLOGY
+    fdummy  = auni[min_level];
     fwrite( &fdummy, sizeof(float), 1, output );
-//    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_tcode(t_init))*1e-6;
+    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_auni(auni_init))*1e-6;
+    fwrite( &fdummy, sizeof(float), 1, output );
+#else
+    cart_error("pick a different time variable to output");
+#endif
     fdummy  = dtl[min_level]*units->time/constants->yr*1e-6;
     fwrite( &fdummy, sizeof(float), 1, output );
         

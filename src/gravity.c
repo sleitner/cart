@@ -704,7 +704,7 @@ void smooth( int level ) {
 		start_time( WORK_TIMER );
 
 		/* red (local red and buffered red) */
-#pragma omp parallel for default(none), private(i,block,phi1,phi2,phi4,phi7,phi_ext_neighbors,icell), shared(num_local_blocks,num_direct_blocks,phi_black,ext_red,phi_red,wsor6,trfi2,rho_red)
+#pragma omp parallel for default(none), private(i,block,phi1,phi2,phi4,phi7,phi_ext_neighbors,icell), shared(num_local_blocks,num_direct_blocks,phi_black,ext_red,phi_red,wsor6,trfi2,rho_red,local)
 		for ( i = 0; i < num_local_blocks + num_direct_blocks; i++ ) {
 			block = i*4;
 			
@@ -968,7 +968,7 @@ void compute_accelerations_hydro( int level ) {
 #endif 
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half)
+#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half, local)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
