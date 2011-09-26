@@ -72,7 +72,7 @@ def findmax(a):
 
 def add_arrows(fieldx,fieldy):
 	norm=abs(np.concatenate((fieldx,fieldy)).max())/1. #1d norm
-	freq=2
+	freq=4
 	M = py.sqrt(pow(fieldx, 2) + pow(fieldy, 2))
 	X,Y = py.meshgrid( py.arange(0,nx,1),py.arange(0,ny,1) )
 
@@ -86,7 +86,7 @@ def add_arrows(fieldx,fieldy):
 #		facecolors=mycmap(M[::freq, ::freq]),
                 #		width=0.4,linewidths=(.5), edgecolors=('k'), 
 #                color=colors,
-		width=0.2,linewidths=(.2),
+		width=(0.2*py.sqrt(freq)),linewidths=(.2),
 #		pivot='mid', 
 #		pivot='tail', 
 		units='x',
@@ -121,11 +121,15 @@ def plot_field(field,clabel,filename,time,vmin,vmax):
 		add_arrows(vx,vy)
 	
         if(vmin==vmax):
-            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
+            #im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
+            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest")        
         else:
-            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
+            #im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
+            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
 
-	title='t-t0={:.2g}Myr,dt={:.2g}Myr'.format(time,dtl)
+#	title='t-t0={:.2g}Myr,dt={:.2g}Myr'.format(time,dtl)
+#	title='t-t0={:.2g}Myr'.format(time)
+	title='a={:.3g}, t-t0={:.2g}Myr'.format(auni,time)
 	py.title(title)
 	plt.xticks(tick_locs,tick_lbls)
 	plt.yticks(tick_locs,tick_lbls)
@@ -146,12 +150,21 @@ def read_header(input):
 	(nx,ny)= np.fromfile(file=input,dtype='i4',count=2,sep='')
 	box_kpc= np.fromfile(file=input,dtype='f4',count=1,sep='')
 	box_kpc=box_kpc[0]
+        print 'rounding box size %4.f for labels' % box_kpc
+        if(box_kpc>20):
+            box_kpc = round(box_kpc,0)
+        elif(box_kpc>2):
+            box_kpc = round(box_kpc,-1)
+        elif(box_kpc>0.2):
+            box_kpc = round(box_kpc,-2)
+	auni = np.fromfile(file=input,dtype='f4',count=1,sep='')
 	time = np.fromfile(file=input,dtype='f4',count=1,sep='')
 	dtl = np.fromfile(file=input,dtype='f4',count=1,sep='')
+	auni=auni[0]*1.0
 	time=time[0]*1.0
 	dtl=dtl[0]*1.0
 	print 'nx=',nx,'ny=',ny,'box[kpc]=',box_kpc
-	return (nx,ny,box_kpc,time,dtl)
+	return (nx,ny,box_kpc,auni,time,dtl)
 	
 def set_axis(np):
 	middle=np/2
@@ -170,10 +183,7 @@ for slice in ( sys.argv[1:] ) :
 	print slice
 
 	input = open( slice, "r" )
-
-
-	(nx,ny,box_kpc,time,dtl)=read_header(input)
-	
+	(nx,ny,box_kpc,auni,time,dtl)=read_header(input)
 	(tick_locs,tick_lbls) = set_axis(nx-1)
 	density = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='' ).reshape(nx,ny))
 
@@ -236,14 +246,16 @@ for slice in ( sys.argv[1:] ) :
 	print filename
 	clabel='log(T [K])'
 	vmin=2
-	vmax=8
+        vmax=7
+	dpi=400
 	plot_field(temp,clabel,filename, time,vmin,vmax)
+	dpi=100
 	
 	filename=slice.replace("dat","png").replace("out/","plots/level/")
 	print filename
 	clabel='level'
 	vmin=0
-	vmax=5
+	vmax=0
 	plot_field(level,clabel,filename, time,vmin,vmax)
 
 

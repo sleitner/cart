@@ -135,13 +135,16 @@ void radp_initial_conditions_one_cell( int icell ) {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
     cell_electron_internal_energy(icell) = cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e;
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-        
-#ifdef ENRICH
-    cell_gas_metal_density_II(icell) = 1e-30;
+
+
+#ifdef ENRICH 
+    /* cell_gas_metal_density_II(icell) = 1e-30; */
+    cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
 #ifdef ENRICH_SNIa
-    cell_gas_metal_density_Ia(icell) = 1e-30;
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+    /* cell_gas_metal_density_Ia(icell) = 1e-30; */
+    cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
+#endif
+#endif
 }
 
 

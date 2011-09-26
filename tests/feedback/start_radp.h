@@ -20,7 +20,8 @@ int const slice_axis_z=2;
 
 #define E_ambient       (1.0e10)
 const double mstar_one_msun = 10;
-extern int last_star_id=-1;
+extern int last_star_id;
+int last_star_id=-1;
 
 
 
