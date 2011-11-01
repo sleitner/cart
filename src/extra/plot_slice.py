@@ -5,7 +5,6 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pylab as py
-import sys
 
 def mycmap_rgba(x):
     #scale for colormap
@@ -122,10 +121,10 @@ def plot_field(field,clabel,filename,time,vmin,vmax):
 	
         if(vmin==vmax):
             #im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
-            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest")        
+            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation=None)        
         else:
             #im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
-            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
+            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="gaussian",vmin=vmin,vmax=vmax) 
 
 #	title='t-t0={:.2g}Myr,dt={:.2g}Myr'.format(time,dtl)
 #	title='t-t0={:.2g}Myr'.format(time)
@@ -141,12 +140,32 @@ def plot_field(field,clabel,filename,time,vmin,vmax):
 	plt.savefig(filename,dpi=dpi)
 	plt.clf()
 
+def Ctuple_to_string(word,sizeword):
+        new=''
+        i=0
+        while i < sizeword-1 and word[i]+word[i+1]!='\n' :
+            new=new+word[i]
+            i=i+1
+        return new
+
 def read_header(input):
 	(endian)= np.fromfile(file=input,dtype='i4',count=1,sep='') #<i little endian >i big endian
+	if(len(endian)==0):
+            print 'read everything, next file?'
+            return ('','','','','','','')
+            
 	if(endian!=-99):
-		sys.stderr.write('read issue endian=',endian,'expected -99')
-		quit()
-
+            sys.stderr.write('read issue endian=',endian,'expected -99')
+            quit()
+            
+	(sizestring)= np.fromfile(file=input,dtype='i4',count=1,sep='') 
+        if(sizestring!=256):
+            sys.stderr.write('read issue sizestring=',sizestring,'expected 256')
+            quit()
+        else:
+            (name_slice) = np.fromfile(file=input,dtype='c',count=sizestring,sep='')
+            name_slice=Ctuple_to_string(name_slice, sizestring)
+        
 	(nx,ny)= np.fromfile(file=input,dtype='i4',count=2,sep='')
 	box_kpc= np.fromfile(file=input,dtype='f4',count=1,sep='')
 	box_kpc=box_kpc[0]
@@ -163,8 +182,8 @@ def read_header(input):
 	auni=auni[0]*1.0
 	time=time[0]*1.0
 	dtl=dtl[0]*1.0
-	print 'nx=',nx,'ny=',ny,'box[kpc]=',box_kpc
-	return (nx,ny,box_kpc,auni,time,dtl)
+	print 'name=',name_slice,'nx=',nx,'ny=',ny,'box[kpc]=',box_kpc
+	return (name_slice,nx,ny,box_kpc,auni,time,dtl)
 	
 def set_axis(np):
 	middle=np/2
@@ -183,81 +202,126 @@ for slice in ( sys.argv[1:] ) :
 	print slice
 
 	input = open( slice, "r" )
-	(nx,ny,box_kpc,auni,time,dtl)=read_header(input)
-	(tick_locs,tick_lbls) = set_axis(nx-1)
-	density = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='' ).reshape(nx,ny))
-
-	read_header(input)
-	temp = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
-	read_header(input)
-	vx = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
-	read_header(input)
-	vy = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
-	read_header(input)
-	vz = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
-
-	read_header(input)
-	mach = (np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
-
-	read_header(input)
-	soundspeed = (np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
-
-	read_header(input)
-	level = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
-
+        (name_slice,nx,ny,box_kpc,auni,time,dtl)=read_header(input)
+                
+        while (len(name_slice)!=0):
+            if(name_slice=='density_numbercc'):
+                density = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='' ).reshape(nx,ny))
+            elif(name_slice=='temperature_kelvin'):
+                 temp = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='vx_kms'):
+                 vx = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+            elif(name_slice=='vy_kms'):
+                 vy = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+            elif(name_slice=='vz_kms'):
+                vz = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+            elif(name_slice=='mach_number'):
+                mach = (np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='cs_kms'):
+                soundspeed = (np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='level_number'):
+                level = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+            elif(name_slice=='tauUV_number'):
+                tauUV = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='Urad_ergcc'):
+                Urad =  np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='radPoverP_number'):
+                radPoP = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            else:
+                sys.stderr.write('bad name_slice value',name_slice)
+                dummy = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+                
+            (name_slice,ndum,ndum,bdum,adum,tdum,dtdum)=read_header(input)
+            
+        print 'done reading '
+        (tick_locs,tick_lbls) = set_axis(nx-1)
 	for i in range(nx/2,nx/2+10):
-		print 'rho',density[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2],'mach#:',mach[i,nx/2]
-		
-		
+            print 'rho',density[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2],'mach#:',mach[i,nx/2],'radPoP#:',radPoP[i,nx/2]
 
 	input.close()
 
-#	filename="plots/density/"+slice.replace("dat","png").replace("out/","")
-	filename=slice.replace("dat","png").replace("out/","plots/density/")
-	print filename
-	clabel='log(n [1/cc])'
-	vmin=0
-	vmax=4
-	arrows=1
-	dpi=400
-	plot_field(density,clabel,filename, time,vmin,vmax)
-	dpi=100
-#	arrows=0
+
+        
+        if 'vx' in locals() and 'vy' in locals():
+            arrows=1
+        else:
+            arrows=0
+        if 'density' in locals():
+            #	filename="plots/density/"+slice.replace("dat","png").replace("out/","")
+            filename=slice.replace("dat","png").replace("out/","plots/density/")
+            print filename
+            clabel='log(n [1/cc])'
+            vmin=0
+            vmax=4
+            arrows=1
+            dpi=400
+            plot_field(density,clabel,filename, time,vmin,vmax)
+            dpi=100
+            #	arrows=0
+
+        if 'vx' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/vx/")
+            print filename
+            clabel='vx [km/s])'
+            vmin=0
+            vmax=50
+            plot_field(vx,clabel,filename, time,0,0)
+
+        if 'mach' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/mach/")
+            print filename
+            clabel='|v/cs|'
+            plot_field(mach,clabel,filename, time,0,0)
+
+        if 'soundspeed' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/cs/")
+            print filename
+            clabel='cs [km/s]'
+            plot_field(soundspeed,clabel,filename, time,0,0)
+
+        if 'temp' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/temp/")
+            print filename
+            clabel='log(T [K])'
+            vmin=2
+            vmax=7
+            dpi=400
+            plot_field(temp,clabel,filename, time,vmin,vmax)
+            dpi=100
+
+        if 'level' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/level/")
+            print filename
+            clabel='level'
+            vmin=0
+            vmax=0
+            plot_field(level,clabel,filename, time,vmin,vmax)
 
 
-	filename=slice.replace("dat","png").replace("out/","plots/vx/")
-	print filename
-	clabel='vx [km/s])'
-	vmin=0
-	vmax=50
-	plot_field(vx,clabel,filename, time,0,0)
+        if 'Urad' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/urad/")
+            print filename
+            clabel='log(Urad[erg/cc])'
+            vmin=0
+            vmax=0
+            plot_field(Urad,clabel,filename, time,vmin,vmax)
 
-	filename=slice.replace("dat","png").replace("out/","plots/mach/")
-	print filename
-	clabel='|v/cs|'
-	plot_field(mach,clabel,filename, time,0,0)
-
-	filename=slice.replace("dat","png").replace("out/","plots/cs/")
-	print filename
-	clabel='cs [km/s]'
-	plot_field(soundspeed,clabel,filename, time,0,0)
-
-	filename=slice.replace("dat","png").replace("out/","plots/temp/")
-	print filename
-	clabel='log(T [K])'
-	vmin=2
-        vmax=7
-	dpi=400
-	plot_field(temp,clabel,filename, time,vmin,vmax)
-	dpi=100
-	
-	filename=slice.replace("dat","png").replace("out/","plots/level/")
-	print filename
-	clabel='level'
-	vmin=0
-	vmax=0
-	plot_field(level,clabel,filename, time,vmin,vmax)
-
+        if 'tauUV' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/tauUV/")
+            print filename
+            clabel='log(tauUV)'
+            vmin=0
+            vmax=0
+            plot_field(tauUV,clabel,filename, time,vmin,vmax)
+            
+        if 'radPoP' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/prad/")
+            print filename
+            clabel='log(Prad/P)'
+            vmin=0
+            vmax=0
+            plot_field(radPoP,clabel,filename, time,vmin,vmax)
+            
 
 #	varr = arrow(pos=ball.pos, axis=vscale*ball.velocity, color=color.yellow)
 #	X,Y = py.meshgrid( py.arange(0,2*py.pi,(2*py.pi/nx)),py.arange(0,2*py.pi,(2*py.pi/nx)) )

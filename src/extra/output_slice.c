@@ -33,6 +33,7 @@
 #include "starformation.h"
 
 #include "output_slice.h"
+const int string_size=256;
 
 const int axis_direction[nDim][nDim-1] = {
 #if nDim == 2
@@ -44,28 +45,100 @@ const int axis_direction[nDim][nDim-1] = {
 #endif
 };
 
+void name_cell_property(int iflag, char varname[]){
+    switch(iflag){
+    case OUT_CELL_DENSITY:
+        sprintf(varname,"density_numbercc\n");
+        break;
+    case OUT_CELL_INTERNAL_ENERGY:
+        sprintf(varname,"temperature_kelvin\n");
+        break;
+    case OUT_CELL_MOMENTUM+0:
+        sprintf(varname,"vx_kms\n");
+        break;
+    case OUT_CELL_MOMENTUM+1: 
+        sprintf(varname,"vy_kms\n");
+        break;
+    case OUT_CELL_MOMENTUM+2: 
+        sprintf(varname,"vz_kms\n");
+        break;
+    case OUT_CELL_SOUNDSPEED: 
+        sprintf(varname,"cs_kms\n");
+        break;
+    case OUT_CELL_MACH: 
+        sprintf(varname,"mach_number\n");
+        break;
+    case  OUT_CELL_PRESSURE:
+        sprintf(varname,"pressure_ergcc\n");
+        break;
+        
+#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
+    case  OUT_CELL_TAUUV: 
+        sprintf(varname,"tauUV_number\n");
+        break;
+    case  OUT_CELL_RADIATION_PRESSURE:
+        sprintf(varname,"radPoverP_number\n");
+        break;
+    case  OUT_CELL_URAD:
+        sprintf(varname,"Urad_ergcc\n");
+        break;
+#endif
+        
+    case OUT_CELL_LEVEL: 
+        sprintf(varname,"level_number\n");
+        break;
+    default:
+        cart_error("bad flag");
+        break;
+    }
+}
+
 float value_cell_property(int icell,int iflag){
     double px2, py2, pz2, vmag,cs;
     switch(iflag){
-    case OUT_CELL_DENSITY: return (float)cell_gas_density(icell)
-            *units->number_density/constants->cc;
+    case OUT_CELL_DENSITY: 
+        return (float)(cell_gas_density(icell)
+                       *units->number_density*constants->cc);
         break;
-    case OUT_CELL_INTERNAL_ENERGY: return (float)cell_gas_temperature(icell)
-            *units->temperature/constants->K;
+    case OUT_CELL_INTERNAL_ENERGY:
+        return (float)(cell_gas_temperature(icell)
+                       *units->temperature/constants->K);
         break;
-    case OUT_CELL_MOMENTUM+0: return (float)cell_momentum(icell,0)/cell_gas_density(icell)
-            *units->velocity/constants->kms;
+    case OUT_CELL_MOMENTUM+0:
+        return (float)(cell_momentum(icell,0)/cell_gas_density(icell)
+                       *units->velocity/constants->kms);
         break;
-    case OUT_CELL_MOMENTUM+1: return (float)cell_momentum(icell,1)/cell_gas_density(icell)
-            *units->velocity/constants->kms;
+    case OUT_CELL_MOMENTUM+1:
+        return (float)(cell_momentum(icell,1)/cell_gas_density(icell)
+                       *units->velocity/constants->kms);
         break;
-    case OUT_CELL_MOMENTUM+2: return (float)cell_momentum(icell,2)/cell_gas_density(icell)
-            *units->velocity/constants->kms;
+    case OUT_CELL_MOMENTUM+2:
+        return (float)(cell_momentum(icell,2)/cell_gas_density(icell)
+                       *units->velocity/constants->kms);
         break;
-    case OUT_CELL_SOUNDSPEED: return (float) sqrt(
-        cell_gas_pressure(icell)/cell_gas_density(icell)*constants->gamma )
-            *units->velocity/constants->kms; 
+    case OUT_CELL_SOUNDSPEED:
+        return (float)( sqrt(
+            cell_gas_pressure(icell)/cell_gas_density(icell)*constants->gamma )
+                        *units->velocity/constants->kms); 
         break;
+    case  OUT_CELL_PRESSURE:
+        return (float)
+            ( cell_gas_pressure(icell)*units->energy_density*constants->cc/constants->erg );
+        break;
+#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
+    case  OUT_CELL_TAUUV: 
+        return (float) cell_tauUV(icell);
+        break;
+    case  OUT_CELL_RADIATION_PRESSURE:
+        return (float)
+            ( cell_radiation_pressure(icell)
+              /(cell_gas_pressure(icell)-cell_radiation_pressure(icell)) );
+        break;
+    case  OUT_CELL_URAD:
+        return (float)
+            ( cell_Urad(icell)*units->energy_density*constants->cc/constants->erg );
+        break;
+#endif
     case OUT_CELL_MACH: 
         px2 = cell_momentum(icell,0)*cell_momentum(icell,0);
         py2 = cell_momentum(icell,1)*cell_momentum(icell,1);
@@ -96,13 +169,21 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     double fact_hi_level=pow(2.0,out_level-min_level);
     int axis[2];
     const int endian_test=-99;
-    const int unassigned=-99;
+    const float unassigned=-98;
     const int nsgrid=slice_region_hsize*2/cell_size[out_level]; //odd
+    char varname[string_size];
     axis[0] = axis_direction[slice_axis_z][0];
     axis[1] = axis_direction[slice_axis_z][1] ;
+//    FILE *fp;
+//    fp=fopen("checkrp.txt","w");
 
     
     fwrite( &endian_test, sizeof(int), 1, output );
+    
+    fwrite( &string_size, sizeof(int), 1, output );
+    name_cell_property(iflag, varname);
+    fwrite(varname, string_size*sizeof(char), 1, output );
+    
     idummy  = nsgrid;
     fwrite( &idummy, sizeof(int), 1, output );
     idummy  = nsgrid;
@@ -144,11 +225,22 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
             icell = cell_find_position_above_level(out_level+1,pos);
             cart_assert(icell!=-1);
             slice[islice] = value_cell_property(icell,iflag);
+/*             if(slice[islice]==unassigned){ */
+/*                 fprintf(fp,"%d %f %f %e\n",iflag, pos[axis[0]],pos[axis[1]],slice[i]); */
+/*             } */
         }
     }
-
+//    fclose(fp);
+    
+    int    debug_unassigned=0;
     for(i=0; i<nsgrid*nsgrid; i++){
-        cart_assert(slice[i]!=unassigned);
+        if(slice[i]==unassigned){
+            debug_unassigned=1;
+        }
+        if(debug_unassigned==1){
+            cart_debug("%d %e %e",iflag,slice[i],unassigned);
+            exit(1);
+        }
     }
 
     fwrite( slice, sizeof(float), nsgrid*nsgrid, output );
