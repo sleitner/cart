@@ -126,18 +126,18 @@ float value_cell_property(int icell,int iflag){
             ( cell_gas_pressure(icell)*units->energy_density*constants->cc/constants->erg );
         break;
 #if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
-    case  OUT_CELL_TAUUV: 
-        return (float) cell_tauUV(icell);
-        break;
-    case  OUT_CELL_RADIATION_PRESSURE:
-        return (float)
-            ( cell_radiation_pressure(icell)
-              /(cell_gas_pressure(icell)-cell_radiation_pressure(icell)) );
-        break;
-    case  OUT_CELL_URAD:
-        return (float)
-            ( cell_Urad(icell)*units->energy_density*constants->cc/constants->erg );
-        break;
+/*     case  OUT_CELL_TAUUV:  */
+/*         return (float) cell_tauUV(icell); */
+/*         break; */
+/*     case  OUT_CELL_RADIATION_PRESSURE: */
+/*         return (float) */
+/*             ( cell_radiation_pressure(icell) */
+/*               /(cell_gas_pressure(icell)-cell_radiation_pressure(icell)) ); */
+/*         break; */
+/*     case  OUT_CELL_URAD: */
+/*         return (float) */
+/*             ( cell_Urad(icell)*units->energy_density*constants->cc/constants->erg ); */
+/*         break; */
 #endif
     case OUT_CELL_MACH: 
         px2 = cell_momentum(icell,0)*cell_momentum(icell,0);

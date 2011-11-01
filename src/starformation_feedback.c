@@ -81,20 +81,21 @@ void control_parameter_list_imf(FILE *stream, const void *ptr)
 struct
 {
   double energy_per_explosion;     /* used to be called E_51 */
-  double time_delay;               /* used to be called t_fb */
+  double time_duration;               /* used to be called t_fb */
+  double time_before_start;               
   double yield_factor;             /* fraction yield relative to the one coded in */
 }
-  snII = { 2.0, 1.0e3, 1.0 };
+  snII = { 2.0, 1.0e3, 0.0, 1.0 };
 
 
 struct
 {
   double energy_per_explosion;          /* used to be called E_51 */
-  double time_delay;                    /* used to be called t_SNIa */
+  double time_duration;                    /* used to be called t_SNIa */
   double exploding_fraction;            /* used to be called C_SNIa */
   double mass_in_metals_per_supernova;  /* used to be called ejM_SNIa */
 }
-snIa = { 2.0, 2.0e8, 1.5e-2, 1.3 };
+  snIa = { 2.0, 2.0e8, 1.5e-2, 1.3 };
 
 void control_parameter_set_tSNIa(const char *value, void *ptr, int ind)
 {
@@ -102,7 +103,7 @@ void control_parameter_set_tSNIa(const char *value, void *ptr, int ind)
   /*
   //  Backward compatibility
   */
-  if(ind == 2) snIa.time_delay *= 1.0e9;
+  if(ind == 2) snIa.time_duration *= 1.0e9;
 }
 
 
@@ -160,7 +161,8 @@ void config_init_star_formation_feedback()
   */
   control_parameter_add3(control_parameter_double,&snII.energy_per_explosion,"snII:energy-per-explosion","snII.energy_per_explosion","e_51","average energy per type II supernova explosion, in 1e51 ergs.");
 
-  control_parameter_add3(control_parameter_double,&snII.time_delay,"snII:time-delay","snII.time_delay","t_fb","time delay (in yrs) between the formation of the stellar particle and type II supernova explosions.");
+  control_parameter_add3(control_parameter_double,&snII.time_duration,"snII:time-duration","snII.time_duration","t_fb","time duration (in yrs) over which type II supernova explosions occur.");
+  control_parameter_add2(control_parameter_double,&snII.time_before_start,"snII:time-before-start","snII.time_before_start","time before start (in yrs) between the formation of the stellar particle and type II supernova explosions.");
 
   control_parameter_add2(control_parameter_double,&snII.yield_factor,"snII:yield-factor","snII.yield_factor","fractional yield relative to the coded in model.");
 
@@ -169,7 +171,7 @@ void config_init_star_formation_feedback()
   */
   control_parameter_add3(control_parameter_double,&snIa.energy_per_explosion,"snIa:energy-per-explosion","snIa.energy_per_explosion","e_51","average energy per type Ia supernova explosion, in 1e51 ergs.");
 
-  control_parameter_add3(control_parameter_tSNIa,&snIa.time_delay,"snIa:time-delay","snIa.time_delay","t_snia","average time delay (in yrs) between the formation of the stellar particle and type Ia supernova explosions.");
+  control_parameter_add3(control_parameter_tSNIa,&snIa.time_duration,"snIa:time-duration","snIa.time_duration","t_snia","average time duration (in yrs) between the formation of the stellar particle and type Ia supernova explosions.");
 
   control_parameter_add3(control_parameter_double,&snIa.exploding_fraction,"snIa:exploding-fraction","snIa.exploding_fraction","c_snia","fraction of stars exploding as type Ia supernovae.");
 
@@ -217,7 +219,7 @@ void config_verify_star_formation_feedback()
   */
   cart_assert(!(snII.energy_per_explosion < 0.0));
 
-  cart_assert(snII.time_delay > 0.0);
+  cart_assert(snII.time_duration > 0.0);
 
   cart_assert(snII.yield_factor > 0.0);
 
@@ -226,7 +228,7 @@ void config_verify_star_formation_feedback()
   */
   cart_assert(!(snIa.energy_per_explosion < 0.0));
 
-  cart_assert(snIa.time_delay > 0.0);
+  cart_assert(snIa.time_duration > 0.0);
 
   cart_assert(snIa.exploding_fraction>0.0 && snIa.exploding_fraction<1.0);
 
@@ -256,6 +258,7 @@ typedef struct
   double energy;
   double metals;
   double dt;
+  double tbefore_start;
 }
 fb_pars;
 
@@ -339,14 +342,15 @@ void init_star_formation_feedback()
   number_SNII = integrate( f_IMF, imf.min_SNII_mass, imf.max_mass, 1e-6, 1e-9 );
   cart_assert(number_SNII > 0.0);
 
-  fbp_snII_phys.dt = snII.time_delay;
+  fbp_snII_phys.tbefore_start = snII.time_before_start;
+  fbp_snII_phys.dt = snII.time_duration;
   fbp_snII_phys.energy = 1e51*constants->erg*snII.energy_per_explosion*number_SNII/(constants->Msun*total_mass);
   fbp_snII_phys.metals = snII.yield_factor*integrate( fej_IMF, imf.min_SNII_mass, imf.max_mass, 1e-6, 1e-9 )/total_mass;
 
   number_SNIa = snIa.exploding_fraction*integrate( f_IMF, imf.min_SNIa_mass, imf.max_SNIa_mass, 1e-6, 1e-9 );
   cart_assert(number_SNIa > 0.0);
 
-  fbp_snIa_phys.dt = snIa.time_delay;
+  fbp_snIa_phys.dt = snIa.time_duration;
   fbp_snIa_phys.energy = 1e51*constants->erg*snIa.energy_per_explosion*number_SNIa/(constants->Msun*total_mass);
   fbp_snIa_phys.metals = snIa.mass_in_metals_per_supernova*number_SNIa/total_mass;
 
@@ -412,7 +416,7 @@ void init_star_formation_feedback()
 #endif /* ENRICH_SNIa */
 
 #ifdef BLASTWAVE_FEEDBACK 
-	cart_debug("Blast wave feedback cooling delay : %le",bw.blast_time);
+	cart_debug("Blast wave feedback cooling duration : %le",bw.blast_time);
 #endif /* BLASTWAVE_FEEDBACK */
     }
 }
@@ -440,14 +444,18 @@ void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_n
   double dteff, phi, dU;
   double dmloss, rhor, e_old, rhofact;
   int i;
-
   /* do feedback, enrichment, etc */
   if(fbp_snII_phys.energy>0.0 || fbp_snII_phys.metals>0.0)
     {
-      dteff = particle_t[ipart] - (double)star_tbirth[ipart];
-      if(dteff < fbp_snII_code.dt)
+      /* snII proceeds for fpb_snII_code.dt */
+      dteff = particle_t[ipart] - (double)star_tbirth[ipart] - fbp_snII_code.tbefore_start; 
+      if(dteff < fbp_snII_code.dt && dteff+delta_t > 0) 
 	{
-	  phi = min(delta_t,fbp_snII_code.dt-dteff)/fbp_snII_code.dt;
+            if(dteff+delta_t > 0 && dteff < 0){
+                phi = min((dteff+delta_t)/fbp_snII_code.dt,1.0);
+            }else{
+                phi = min(delta_t,fbp_snII_code.dt-dteff)/fbp_snII_code.dt;
+            }
 
 #ifdef ENRICH
 	  cell_gas_metal_density_II(cell) += phi*fbp_snII_code.metals*star_initial_mass[ipart];
@@ -467,8 +475,9 @@ void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_n
 
   if(fbp_snIa_phys.energy>0.0 || fbp_snIa_phys.metals>0.0)
     {
+      /* snIa starts at 0.1*fbp_snIa_code.dt peaks at fbp_snIa_code.dt*/
       dteff = t_next - (double)star_tbirth[ipart];
-      if(dteff > 0.1*fbp_snIa_code.dt)
+      if(dteff > 0.1*fbp_snIa_code.dt) 
 	{
 	  phi = f_SNIa(fbp_snIa_code.dt/dteff)*(delta_t/fbp_snIa_code.dt);
 
@@ -539,6 +548,7 @@ void setup_star_formation_feedback(int level)
 {
   dUfact = feedback_temperature_ceiling/(units->temperature*constants->wmu*(constants->gamma-1));
 
+  fbp_snII_code.tbefore_start = fbp_snII_phys.tbefore_start*constants->yr/units->time;
   fbp_snII_code.dt = fbp_snII_phys.dt*constants->yr/units->time;
   fbp_snII_code.energy = fbp_snII_phys.energy*units->mass/units->energy*cell_volume_inverse[level]; 
   fbp_snII_code.metals = fbp_snII_phys.metals*cell_volume_inverse[level]; 
