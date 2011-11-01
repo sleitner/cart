@@ -285,6 +285,7 @@ int tree_num_cells( int c, int level );
 #define cell_child_number(c)		((c) % num_children)
 
 /* public constant arrays (precomputed tables) */
+#ifndef GCC_COMPILER
 extern const int external_direction[num_children][nDim];
 extern const int uniform_stencil[num_stencil][nDim];
 extern const int secondary_neighbors[num_secondary_neighbors][2];
@@ -297,5 +298,20 @@ extern const int ishift[num_neighbors][nDim];
 extern const double cell_delta[num_children][nDim];
 extern const int reverse_direction[num_neighbors];
 extern const int neighbor_moves[num_children][nDim];
+#else /* GCC_COMPILER*/
+extern int external_direction[num_children][nDim];
+extern int uniform_stencil[num_stencil][nDim];
+extern int secondary_neighbors[num_secondary_neighbors][2];
+extern int tertiary_neighbors[num_tertiary_neighbors][2];
+extern int secondary_external_neighbors[num_children][nDim];
+extern int pyramid_vertices[num_children][nDim];
+extern int local[num_children][num_neighbors];
+extern int in_local_oct[num_children][num_neighbors];
+extern int ishift[num_neighbors][nDim];
+extern double cell_delta[num_children][nDim];
+extern int reverse_direction[num_neighbors];
+extern int neighbor_moves[num_children][nDim];
+#endif  /* GCC_COMPILER*/
+
 
 #endif
