@@ -10,6 +10,6 @@ FFLAGS  = -fopenmp -O3 -mcmodel=medium
 F77     = mpif77
 INCLUDES = -I/usr/lib/
 EXTRALIBS = -L/usr/lib/ -lgfortran -lmpi_f77
-INCLUDES = -I/home/sleitner/drudd/include -I/usr/lib/
-EXTRALIBS = -L/home/sleitner/drudd/lib -L/usr/lib/ -lgfortran -lmpi_f77
+INCLUDES = -I/home/drudd/include -I/usr/lib/
+EXTRALIBS = -L/home/drudd/lib -L/usr/lib/ -lgfortran -lmpi_f77
 

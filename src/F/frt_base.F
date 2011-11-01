@@ -763,6 +763,7 @@ C
       include 'frt_tables.inc'
       dimension var(*), rawrf(*)
       dimension wlen(nout), anxi(nout)
+      integer frtBinId
 #ifdef RT_TRANSFER
 #ifdef RT_UV
       include 'frt_transfer4.inc'
@@ -895,7 +896,7 @@ C
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension wlen(nout), anxi(nout)
-
+      integer frtBinId
       do iout=1,nout
 
          lr = frtBinId(wlen(iout))
@@ -913,10 +914,9 @@ C
 C
 C
 C
-      function frtBinId(wlen)
+      integer function frtBinId(wlen)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-      integer frtBinId
 
       if(wlen .lt. 1.0e-35) then
          frtBinId = 0
