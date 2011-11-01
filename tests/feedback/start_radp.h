@@ -13,13 +13,13 @@ int const slice_axis_z=2;
 #define deltadc 0.0
 #define a0 0.9
 #define boxh (1.0e-3/a0*hubble) //1pkpc //for level4
-#define rho0            (1e7)
+#define rho0            (0.65e8)
 #define blast_radius    (cell_size[max_level]) 
 
 #ifdef STARFORM
 
 #define E_ambient       (1.0e10)
-const double mstar_one_msun = 10;
+const double mstar_one_msun = 5e3; //5e3; //10
 extern int last_star_id;
 int last_star_id=-1;
 
@@ -35,7 +35,7 @@ int last_star_id=-1;
 #else /* !COSMOLOGY */
 
 #define blast_radius    (cell_size[max_level]) 
-#define rho0            (1.0e7) 
+#define rho0            (0.6e8) //1e7=150/cc
 #define P_ambient	(1.0) 
 #define refine_radius	(4.0)
 

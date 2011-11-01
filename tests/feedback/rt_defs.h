@@ -1,5 +1,5 @@
 
-#define RT_OLDSTYLE_SOURCE_FUNCTION
+/* #define RT_OLDSTYLE_SOURCE_FUNCTION  */
 #define RT_OUTPUT
 
 
@@ -10,9 +10,11 @@
 #define RT_SIGNALSPEED_TO_C 
 #define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_HAARDT_MADAU
 /*#define RT_EXTERNAL_BACKGROUND RT_BACKGROUND_SELFCONSISTENT/* /* This is the other extermal background allowed*/
-/*#define RT_UV*/ /*Comment this out for the old runs (Milkyway and original 6MPC)*/
 
-#define RT_PARALLEL_NUM_OPENMP_BUFFERS 2
-/* #define RT_PARALLEL_NUM_OPENMP_BUFFERS 8 */
+
+/* #define RT_UV /\*Comment this out for the old runs (Milkyway and original 6MPC)*\/ */
+
+/* #define RT_PARALLEL_NUM_OPENMP_BUFFERS 2 */
+#define RT_PARALLEL_NUM_OPENMP_BUFFERS 8
 /* #define RT_PARALLEL_USE_MPI */
 

@@ -13,8 +13,8 @@
 #define num_root_grid_refinements	6
 #define num_refinement_levels		4
 #define num_octs			2000000	/* suitable for no refinement */
-#define num_particles		        5	/* suitable for no refinement */
-#define num_star_particles		5	/* suitable for no refinement */
+#define num_particles		        8	/* suitable for no refinement */
+#define num_star_particles		8	/* suitable for no refinement */
 
 #define ENRICH 
 #define ENRICH_SNIa 

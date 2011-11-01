@@ -1,0 +1,6 @@
+#!/bin/bash
+
+for dir in `ls -d plots/*/`
+do
+  convert -delay 120 -loop 0 $dir/*.png $dir/mov.gif
+done
