@@ -11,6 +11,9 @@
 #define NULL_PARTICLE   (-1)
 #define FREE_PARTICLE_LEVEL	(-1)
 
+#define SAVE_PARTICLE_LISTS     0
+#define FREE_PARTICLE_LISTS     1
+
 #define MAX_PARTICLE_SPECIES	10
 
 extern int num_row;
@@ -66,14 +69,18 @@ void particle_move( int ipart_old, int ipart_new );
 void init_particles();
 void build_mesh();
 
+#ifdef GRAVITY 
+void accelerate_particles( int level );
+#endif /* GRAVITY */
 void move_particles( int level );
 void update_particle_list( int level );
-void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, int trade_level );
+void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_to_send[MAX_PROCS], int trade_level, int free_particle_flag );
 void build_particle_list();
 void split_particle_list( int cell );
 void join_particle_list( int cell );
 void insert_particle( int cell, int part );
 void delete_particle( int cell, int part );
+void rebuild_particle_list();
 int particle_specie( int id );
 
 #ifdef STARFORM

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "agn.h"
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "cosmology.h"
@@ -217,6 +218,8 @@ void config_print_to_file(const char *filename, int append)
   fprintf(f,"Star formation settings:\n");
   PRINT(ENRICH);
   PRINT(ENRICH_SNIa);
+  PRINT(STAR_PARTICLE_TYPES);
+  PRINT(AGN);
 #endif /* STARFORM */
 
 #ifdef RADIATIVE_TRANSFER 
@@ -374,6 +377,9 @@ void config_init()
 
 #ifdef STARFORM
   config_init_star_formation();
+#ifdef AGN
+  config_init_agn();
+#endif /* AGN */
 #endif
 
 #ifdef RADIATIVE_TRANSFER
@@ -407,6 +413,9 @@ void config_verify()
 
 #ifdef STARFORM
   config_verify_star_formation();
+#ifdef AGN
+  config_verify_agn();
+#endif /* AGN */  
 #endif
 
 #ifdef RADIATIVE_TRANSFER

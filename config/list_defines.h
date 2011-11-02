@@ -528,7 +528,20 @@ d_flag[idrt_num_freqs] = 1;
 #else
 d_flag[idrt_num_freqs] = 0;
 #endif
+#define idAGN 88
+#ifdef AGN
+d_flag[idAGN] = 1;
+#else
+d_flag[idAGN] = 0;
+#endif
+#define idSTAR_PARTICLE_TYPES 89
+#ifdef STAR_PARTICLE_TYPES
+d_flag[idSTAR_PARTICLE_TYPES] = 1;
+#else
+d_flag[idSTAR_PARTICLE_TYPES] = 0;
+#endif
 #define PRINT_ALL \
+PRINT(AGN) \
 PRINT(BLASTWAVE_FEEDBACK) \
 PRINT(CHECK_LEGACY_UNITS) \
 PRINT(CONSTANT_TIMESTEP) \
@@ -610,6 +623,7 @@ PRINT(RT_XLF_BUG_FIX1) \
 PRINT(RT_XRAYS) \
 PRINT(SAVE_LOAD_BALANCE_PARTITION) \
 PRINT(STARFORM) \
+PRINT(STAR_PARTICLE_TYPES) \
 PRINT(UNIQUE_RAND) \
 PRINT(USER_PLUGIN) \
 PRINT(rt_abs_field_offset) \

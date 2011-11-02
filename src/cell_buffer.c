@@ -7,6 +7,7 @@
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "index_hash.h"
+#include "oct_hash.h"
 #include "iterators.h"
 #include "pack.h"
 #include "parallel.h"
@@ -22,8 +23,8 @@ int buffer_enabled = 0;
 int *buffer_cell_sfc_index;
 
 index_hash *buffer_root_hash;
-index_hash *buffer_oct_hash[MAX_PROCS];
-index_hash *buffer_oct_reverse_hash[MAX_PROCS];
+oct_hash *buffer_oct_hash[MAX_PROCS];
+oct_hash *buffer_oct_reverse_hash[MAX_PROCS];
 
 /* WARNING: remote_buffers[min_level] stores sfc index, while
  *  local_buffers[min_level] stores actual buffer index */
@@ -165,10 +166,10 @@ void cell_buffer_delete_local_oct( int local_oct, int processor ) {
 
 	num_local_buffers[level][processor]--;
 
-	remote_oct = index_hash_lookup( buffer_oct_reverse_hash[processor], local_oct );
+	remote_oct = oct_hash_lookup( buffer_oct_reverse_hash[processor], local_oct );
 
-	index_hash_delete( buffer_oct_reverse_hash[processor], remote_oct );
-	index_hash_delete( buffer_oct_hash[processor], local_oct );
+	oct_hash_delete( buffer_oct_reverse_hash[processor], remote_oct );
+	oct_hash_delete( buffer_oct_hash[processor], local_oct );
 
 	new_buffer = cart_alloc(int, num_local_buffers[level][processor] );
 	for ( i = 0; i < num_local_buffers[level][processor]; i++ ) {
@@ -369,10 +370,8 @@ void build_root_cell_buffer() {
 		cart_assert( index == num_buffer_cells[min_level] );
 		skiplist_destroy( buffer_list );
 
-		buffer_root_hash = index_hash_create( num_buffer_cells[min_level] );
-		index_hash_add_list( buffer_root_hash, num_buffer_cells[min_level], 
-				buffer_cell_sfc_index, buffer_indices );
-
+		buffer_root_hash = index_hash_create( num_buffer_cells[min_level], 
+								max_sfc_index, buffer_cell_sfc_index, buffer_indices );
 		cart_free( buffer_indices );
 	} else {
 		num_buffer_cells[min_level] = 0;
@@ -477,8 +476,8 @@ void build_cell_buffer()
 		num_hash_octs = ( buffer_list->num_sending_cells_total[proc] - 
 				buffer_list->num_sending_cells[proc][min_level] ) / num_children;
 
-		buffer_oct_hash[proc] = index_hash_create( num_hash_octs );
-		buffer_oct_reverse_hash[proc] = index_hash_create( num_hash_octs );
+		buffer_oct_hash[proc] = oct_hash_create( num_hash_octs );
+		buffer_oct_reverse_hash[proc] = oct_hash_create( num_hash_octs );
 	}
 
 	pack_communicate( buffer_list );
@@ -537,11 +536,11 @@ void destroy_cell_buffer()
 
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( buffer_oct_hash[i] != NULL ) {
-			index_hash_free( buffer_oct_hash[i] );
+			oct_hash_free( buffer_oct_hash[i] );
 		}
 
 		if ( buffer_oct_reverse_hash[i] != NULL ) {
-			index_hash_free( buffer_oct_reverse_hash[i] );
+			oct_hash_free( buffer_oct_reverse_hash[i] );
 		}
 	}
 
@@ -1173,7 +1172,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 				for ( j = 0; j < num_cells_to_recv; j++ ) {
 					cart_assert( buffer_cells_to_split[proc][3*j] != NULL_OCT );
 
-					oct_index = index_hash_lookup( buffer_oct_hash[proc],
+					oct_index = oct_hash_lookup( buffer_oct_hash[proc],
 									 buffer_cells_to_split[proc][3*j] );
 					cell_index = oct_child( oct_index, buffer_cells_to_split[proc][3*j+1] );
 
@@ -1197,8 +1196,8 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 				}
 			}
 
-			index_hash_add_list( buffer_oct_hash[proc], num_new_octs, remote_octs, local_octs );
-			index_hash_add_list( buffer_oct_reverse_hash[proc], num_new_octs, local_octs, remote_octs );
+			oct_hash_add_list( buffer_oct_hash[proc], num_new_octs, remote_octs, local_octs );
+			oct_hash_add_list( buffer_oct_reverse_hash[proc], num_new_octs, local_octs, remote_octs );
 
 			cell_buffer_add_local_octs( level+1, proc, local_octs, num_new_octs );
 
@@ -1324,7 +1323,7 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 			for ( j = 0; j < num_octs_joined; j++ ) {
 				cart_assert( buffer_octs_to_join[i][j] >= 0 && buffer_octs_to_join[i][j] < num_octs );
 
-				oct_index = index_hash_lookup( buffer_oct_hash[i], buffer_octs_to_join[i][j] );
+				oct_index = oct_hash_lookup( buffer_oct_hash[i], buffer_octs_to_join[i][j] );
 				cart_assert( oct_index >= 0 && oct_index < num_octs );
 				cart_assert( oct_level[oct_index] == level+1 );
 

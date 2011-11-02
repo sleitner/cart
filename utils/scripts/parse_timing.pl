@@ -24,6 +24,7 @@ $old_total = 0.0;
 @old_timers = ();
 
 while ( $line = <FILE> ) {
+	next if $line =~ /^\#/;
 	chomp $line;
 	($step, $t, $aexp, $total, @cols) = split /\s+/, $line;
 
@@ -68,7 +69,7 @@ while ( $line = <FILE> ) {
 			printf " %10.3f", $current_timers[$level*$num_timers + $timer];
 			$sum += $current_timers[$level*$num_timers + $timer];
 		}
-		printf "%10.2f %6.2f\n", $sum, 100.0*$sum/$current_step;
+		printf "%10.2f %6.2f\n", $sum, ($current_step > 0) ? 100.0*$sum/$current_step : 0.0;
 	}
 }
 

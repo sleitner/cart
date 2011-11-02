@@ -8,16 +8,16 @@
 
 #ifdef HYDRO
 
-#define COPY		0
-#define RESTORE		1
-#define COPY_ZERO_REF	2
+#include "tree.h"
 
-#define	COPY_ALL_LEAFS		0
-#define	COPY_SPLIT_NEIGHBORS	1
-#define COPY_NO_SPLIT_NEIGHBORS	2
+#define HYDRO_COPY_ALL      0
+#define HYDRO_RESTORE_CLEAN 1
+#define HYDRO_RESTORE_ALL   2
 
 extern int pressure_floor_min_level;
 
+extern int backup_dirty[num_cells];
+extern float backup_hvars[num_cells][num_hydro_vars-2];
 extern float ref[num_cells];
 DECLARE_LEVEL_ARRAY(int,level_sweep_dir);
 
@@ -28,7 +28,7 @@ void config_init_hydro();
 void config_verify_hydro();
 
 void hydro_step( int level );
-void hydro_copy_vars( int level, int direction, int cell_type );
+void hydro_copy_vars( int level, int direction );
 void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[ /* num_hydro_vars-1 */ ] );
 void hydro_sweep_1d( int level );
 #ifdef GRAVITY
@@ -43,6 +43,7 @@ void hydro_split_update( int level );
 
 float cell_gas_kinetic_energy(int cell);
 float cell_gas_temperature(int cell);
+float cell_gas_sound_speed(int icell);
 
 #endif /* HYDRO */
 #endif /* __HYDRO_H__ */

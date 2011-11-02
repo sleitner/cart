@@ -1,6 +1,8 @@
 #ifndef __INDEX_HASH_H__
 #define __INDEX_HASH_H__
 
+#include <sys/types.h>
+                                                                                                                                              
 typedef struct INDEX_HASH_ENTRY {
 	int local_index;
 	int remote_index;
@@ -8,17 +10,15 @@ typedef struct INDEX_HASH_ENTRY {
 
 typedef struct INDEX_HASH {
 	int hash_size;
-	int num_entries;
-	index_hash_entry *hash_array;
+	int64_t a0, b0;
+	int64_t p;
+	int *n, *s;
+	int64_t *a, *b;
+    index_hash_entry *hash_array;
 } index_hash;
 
-#define DELETED_ENTRY		-2
-
-index_hash *index_hash_create( int size );
+index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int *local_index );
 void index_hash_free( index_hash *hash );
-void index_hash_add( index_hash *hash, int remote_index, int local_index );
-void index_hash_add_list( index_hash *hash, int num_indices, int *remote_index, int *local_index );
-void index_hash_delete( index_hash *hash, int local_index );
 int index_hash_lookup ( index_hash *hash, int remote_index );
 
-#endif
+#endif /* __INDEX_HASH_H__ */

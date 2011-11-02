@@ -9,15 +9,20 @@
 #include <mpi.h>
 
 
-#define		UNREFINED_CELL		-1
+#define		UNREFINED_CELL	-1
 #define		NULL_OCT		-1
-#define		FREE_OCT_LEVEL		-1
+#define		FREE_OCT_LEVEL	-1
 
 #define		CELL_TYPE_NONLOCAL	0
 #define		CELL_TYPE_LOCAL		1
 #define		CELL_TYPE_BUFFER	2
-#define		CELL_TYPE_ANY		-1
 
+#define 	CELL_TYPE_REFINED	4
+#define		CELL_TYPE_LEAF		8
+
+#define		CELL_TYPE_ANY           ( CELL_TYPE_LOCAL | CELL_TYPE_BUFFER | CELL_TYPE_REFINED | CELL_TYPE_LEAF )
+#define		CELL_TYPE_ANY_LEAF      ( CELL_TYPE_LOCAL | CELL_TYPE_BUFFER | CELL_TYPE_LEAF )
+#define		CELL_TYPE_ANY_REFINED   ( CELL_TYPE_LOCAL | CELL_TYPE_BUFFER | CELL_TYPE_REFINED )
 
 #ifdef RADIATIVE_TRANSFER
   #include "rt_tree.h"

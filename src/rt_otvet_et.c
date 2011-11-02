@@ -119,7 +119,7 @@ void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *lev
       /*
       // We start with interpolating from parents
       */
-      select_level_with_condition(0,level-1,&num_parent_cells,&parent_cells);
+      select_level(level-1,CELL_TYPE_LOCAL | CELL_TYPE_REFINED,&num_parent_cells,&parent_cells);
 
       h2 = cell_size[level]*cell_size[level];
       norm = cell_volume[level]/(4*M_PI*h2);

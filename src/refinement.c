@@ -236,13 +236,11 @@ void refine( int level ) {
 	start_time( WORK_TIMER );
 
 	num_cells_to_refine = 0;
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( refinement_indicator(icell,0) > split_tolerance &&
-				cell_is_leaf(icell) ) {
-
+		if ( refinement_indicator(icell,0) > split_tolerance ) {
 			cells_to_refine[num_cells_to_refine++] = icell;
 
 			if ( num_cells_to_refine >= num_octs ) {

@@ -669,7 +669,7 @@ void load_balance() {
 	int ipart;
 #ifdef PARTICLES
 	int num_parts_to_send[MAX_PROCS];
-	int particle_list_to_send[MAX_PROCS];
+	int *particle_list_to_send[MAX_PROCS];
 #endif /* PARTICLES */
 
 #ifdef HYDRO_TRACERS
@@ -953,7 +953,6 @@ void load_balance() {
 #ifdef PARTICLES
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		num_parts_to_send[proc] = 0;
-		particle_list_to_send[proc] = NULL_PARTICLE;
 	}
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
@@ -967,18 +966,44 @@ void load_balance() {
 			proc = processor_owner( sfc_index( coords ) );
 
 			if ( proc != local_proc_id ) {
-				/* don't need to call delete_particle here since the 
-				 * linked lists are in cells which have just been freed */
-				particle_level[ipart] = FREE_PARTICLE_LEVEL;
-				particle_list_next[ipart] = particle_list_to_send[proc];
-				particle_list_to_send[proc] = ipart;
 				num_parts_to_send[proc]++;
 			}
 		}
 	}
 
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_parts_to_send[proc] > 0 ) {
+			particle_list_to_send[proc] = cart_alloc(int, num_parts_to_send[proc]);
+			num_parts_to_send[proc] = 0;
+		}
+	}
+
+	for ( ipart = 0; ipart < num_particles; ipart++ ) {
+		if ( particle_level[ipart] != FREE_PARTICLE_LEVEL ) {
+			/* check which processor this particle now belongs to */
+			for ( i = 0; i < nDim; i++ ) {
+				coords[i] = (int)(particle_x[ipart][i]);
+				cart_assert( coords[i] >= 0 && coords[i] < num_grid );
+			}
+
+			proc = processor_owner( sfc_index( coords ) );
+
+			if ( proc != local_proc_id ) {
+				/* don't need to call delete_particle here since the particles
+				 * are in cells which have just been freed */
+				particle_list_to_send[proc][ num_parts_to_send[proc]++ ] = ipart;
+			}
+		}
+	}
+
 	/* send and receive particles which switched processor */
-	trade_particle_lists( num_parts_to_send, particle_list_to_send, -1 );
+	trade_particle_lists( num_parts_to_send, particle_list_to_send, -1, FREE_PARTICLE_LISTS );
+
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_parts_to_send[proc] > 0 ) {
+			cart_free( particle_list_to_send[proc] );
+		}
+	}
 
 	/* reorder particles for cache efficiency */
 	cache_reorder_particles();

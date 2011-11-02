@@ -3,26 +3,27 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include "auxiliary.h"
 #include "index_hash.h"
-#include "parallel.h"
 #include "tree.h"
 
+const index_hash_entry null_entry = { -1, -1 };
 
 /*******************************************************
  * next_largest_prime
  *******************************************************/
-int next_largest_prime( int count )
+int64_t next_largest_prime64( int64_t count )
 /* purpose: calculates the next largest prime by brute 
  * 	force, used since primes make good hash sizes
  * 	(keeps the number of hash collisions low)
  * returns: the next prime larger than count, or 3 if count <= 2
  */
 {
-	int i;
+	int64_t i;
 	int is_prime;
-	int next_prime;
+	int64_t next_prime;
 
 	if ( count > 2 ) {
 		next_prime = ( count % 2 == 0 ) ? count + 1: count + 2;
@@ -48,7 +49,7 @@ int next_largest_prime( int count )
 /*******************************************************
  * index_hash_create 
  *******************************************************/
-index_hash *index_hash_create( int size ) 
+index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int *local_index ) 
 /* purpose: allocates space and initializes a new 
  * 	index hash which will contain at most size
  * 	entries
@@ -56,328 +57,125 @@ index_hash *index_hash_create( int size )
  * returns: a pointer to the newly allocated index hash
  */
 {
-	int i;
+	int i, j, k, h;
+	int oldj;
 	index_hash *hash;
+	int iter = 0;
+	int total;
+	int rekey;
+	index_hash_entry tmp_entry, new_entry;
 
 	/* allocate space for the new hash */
-	hash = cart_alloc(index_hash, 1 );
+	hash = cart_alloc( index_hash, 1 );
 	
-	/* select a prime size larger than 2*size (leaving room for refinement) */
-	hash->hash_size = next_largest_prime( 2*size );
-	hash->num_entries = 0;
-	
-	/* allocate space for the actual hash array */
-	hash->hash_array = cart_alloc(index_hash_entry, hash->hash_size );
+	/* create universal hash function for first layer */
+	hash->hash_size = size;
+	hash->p = next_largest_prime64( 3*max_key );
 
-	/* initialize the hash array to empty entries */
-	for ( i = 0; i < hash->hash_size; i++ ) {
-		hash->hash_array[i].remote_index = NULL_OCT;
-		hash->hash_array[i].local_index = NULL_OCT;
-	}
+	hash->a = cart_alloc( int64_t, hash->hash_size );
+	hash->b = cart_alloc( int64_t, hash->hash_size );
+	hash->s = cart_alloc( int, hash->hash_size );
+	hash->n = cart_alloc( int, hash->hash_size );
 
-	return hash;
-}
-
-/*******************************************************
- * index_hash_free
- *******************************************************/
-void index_hash_free( index_hash *hash ) 
-/* purpose: deallocates the given index hash
- */
-{
-	cart_assert( hash != NULL );
-	
-	if ( hash->hash_size > 0 ) {
-		cart_assert( hash->hash_array != NULL );
-		cart_free( hash->hash_array );
-	}
-
-	cart_free( hash );
-}
-
-void index_hash_resize( index_hash *hash, int new_size ) {
-	int i;
-	int count;
-	int old_entries;
-	index_hash_entry *old_hash;
-	int *old_remote, *old_local;
-
-	cart_assert( hash->hash_size < new_size );
-
-	old_remote = cart_alloc(int, hash->num_entries );
-	old_local = cart_alloc(int, hash->num_entries );
-	old_hash = hash->hash_array;
-
-	count = 0;
-	for ( i = 0; i < hash->hash_size; i++ ) {
-		if ( old_hash[i].remote_index != NULL_OCT &&
-				old_hash[i].remote_index != DELETED_ENTRY ) {
-			old_remote[count] = old_hash[i].remote_index;
-			old_local[count] = old_hash[i].local_index;
-			count++;
-		}
-	}
-
-	cart_assert( count == hash->num_entries );
-	cart_free( hash->hash_array );
-
-	hash->hash_size = next_largest_prime( new_size );
-	hash->hash_array = cart_alloc(index_hash_entry, hash->hash_size );
-
-	/* initialize the hash array to empty entries */
-	for ( i = 0; i < hash->hash_size; i++ ) {
-		hash->hash_array[i].remote_index = NULL_OCT;
-		hash->hash_array[i].local_index = NULL_OCT;
-	}
-
-	old_entries = hash->num_entries;
-	hash->num_entries = 0;
-
-	/* re-add all the old entries */
-	index_hash_add_list( hash, old_entries, old_remote, old_local );
-
-	count = 0;
-	for ( i = 0; i < hash->hash_size; i++ ) {
-		if ( hash->hash_array[i].remote_index != DELETED_ENTRY &&
-			hash->hash_array[i].remote_index != NULL_OCT ) {
-			count++;
-		}
-	}
-	
-	cart_assert( count == hash->num_entries );
-	cart_assert( hash->num_entries == old_entries );
-
-	/* free arrays */
-	cart_free( old_remote );
-	cart_free( old_local );
-}
-
-/*******************************************************
- * index_hash_add
- ********************************************************/
-void index_hash_add( index_hash *hash, int remote_index, int local_index )	
-/* purpose: adds the given remote_index->local_index mapping to
- * 	the given index hash
- *
- * Uses Brent's method for reducing probing times
- * Brent, Richard.  Reducing the Retrieval Time of Scatter Storage Techniques.
- * CACM, Vol. 16 #2.  1973.
- * -or-
- * Knuth.  The Art of Computer Programming Vol 3 pg 532-533
- */
-{
-	int c, h, i, j, p, q, r, s, t;
-	int placed;
-
-	cart_assert( hash != NULL );
-	cart_assert( remote_index >= 0 );
-	cart_assert( local_index >= 0 );
-
-	/* we may later want to lower the threshold for increasing
-	 * hash size to keep the number of probes down */
-	if ( hash->num_entries >= hash->hash_size ) {
-		index_hash_resize( hash, 2*hash->hash_size );
-	}
-
-	cart_assert( hash->num_entries < hash->hash_size );
-
-	r = remote_index % hash->hash_size;
-	q = (remote_index % (hash->hash_size-2)) + 1;
-	h = r;
-
-	/* probe for the proper hash position */
-	for ( s = 0; s < hash->hash_size; s++ ) {
-		cart_assert( h >= 0 && h < hash->hash_size );
-		cart_assert( hash->hash_array[h].remote_index != remote_index );
-
-		if ( hash->hash_array[h].remote_index == NULL_OCT ||
-				hash->hash_array[h].remote_index == DELETED_ENTRY ) {
-			break;
-		}
-		h = ( h + q ) % hash->hash_size;
-	}
-
-	cart_assert( s < hash->hash_size );
-
-	/* look for a better place to put this entry to reduce number of probes */
-	placed = 0;
-	for ( i = 0; i < s - 1 && !placed; i++ ) {
-		p = ( r + i*q) % hash->hash_size;
-		c = (hash->hash_array[p].remote_index % ( hash->hash_size - 2 ) ) + 1;
+	do { 
+		/* choose a first-level hash function */
+		hash->a0 = (int)(hash->p*cart_rand()) + 1;
+		hash->b0 = (int)(hash->p*cart_rand());
 		
-		for ( j = 1; j < s - i - 1; j++ ) {
-			t = ( p + j * c) % hash->hash_size;
-			
-			/* if this is a better place, switch entry at p to t and place in p */
-			if ( hash->hash_array[t].remote_index == NULL_OCT || 
-					hash->hash_array[t].remote_index == DELETED_ENTRY ) {
-				hash->hash_array[t].remote_index = hash->hash_array[p].remote_index;
-				hash->hash_array[t].local_index = hash->hash_array[p].local_index;
-				hash->hash_array[p].remote_index = remote_index;
-				hash->hash_array[p].local_index = local_index;
-
-				placed = 1;
-				break;
-			}
+		for ( i = 0; i < hash->hash_size; i++ ) {
+			hash->n[i] = 0;
 		}
-	}
 
-	/* we couldn't find a better place to put this entry, so place it at h */
-	if ( !placed ) {
-		hash->hash_array[h].remote_index = remote_index;
-		hash->hash_array[h].local_index = local_index;
-	}
+		for ( i = 0; i < size; i++ ) {
+			h = (((int64_t)remote_index[i]*hash->a0 + hash->b0) % hash->p) % hash->hash_size;		
+			hash->n[h]++;
+		}
 
-	hash->num_entries++;
+		total = 0;
+		for ( i = 0; i < hash->hash_size; i++ ) {
+			hash->n[i] *= hash->n[i];
+			total += hash->n[i];
+		}
+		iter++;
+	} while ( total >= 1.5*size && iter < 1000 );
 
-	placed = 0;
+	total = 0;
 	for ( i = 0; i < hash->hash_size; i++ ) {
-		if ( hash->hash_array[i].remote_index != NULL_OCT &&
-			hash->hash_array[i].remote_index != DELETED_ENTRY ) {
-
-			placed++;
-		}
-	}
-	cart_assert( placed == hash->num_entries );	
-}
-
-/*******************************************************
- * index_hash_add_list
- ********************************************************/
-void index_hash_add_list( index_hash *hash, int num_indices, int *remote_index, int *local_index )
-/* purpose: adds the given list of remote_index->local_index mappings to
- *      the given index hash
- *      resizes the hash 1 time (major savings when we're adding large numbers of indices)
- */
-{
-	int c, h, i, j, p, q, r, s, t;
-	int index;
-	int placed;
-
-	cart_assert( hash != NULL );
-
-	/* we may later want to lower the threshold for increasing
-	 * hash size to keep the number of probes down */
-	if ( hash->num_entries+num_indices >= hash->hash_size ) {
-		index_hash_resize( hash, 2*hash->hash_size+num_indices );
+		hash->s[i] = total;
+		total += hash->n[i];
 	}
 
-	cart_assert( hash->num_entries < hash->hash_size );
+	/* allocate space for the actual hash array */
+	hash->hash_array = cart_alloc( index_hash_entry, total );
 
-	for ( index = 0; index < num_indices; index++ ) {
-		cart_assert( remote_index[index] >= 0 );
-		cart_assert( local_index[index] >= 0 );
+	for ( i = 0; i < total; i++ ) {
+		hash->hash_array[i] = null_entry;
+	}
 
-		r = remote_index[index] % hash->hash_size;
-		q = (remote_index[index] % (hash->hash_size-2)) + 1;
-		h = r;
+	for ( i = 0; i < hash->hash_size; i++ ) {
+		hash->n[i] = 0;
+	}
 
-		/* probe for the proper hash position */
-		for ( s = 0; s < hash->hash_size; s++ ) {
-			cart_assert( h >= 0 && h < hash->hash_size );
+	for ( i = 0; i < size; i++ ) {
+		h = (((int64_t)remote_index[i]*hash->a0 + hash->b0) % hash->p) % hash->hash_size;
+		hash->hash_array[ hash->s[h] + hash->n[h] ].remote_index = remote_index[i];
+		hash->hash_array[ hash->s[h] + hash->n[h] ].local_index = local_index[i];
+		hash->n[h]++;
+	}
 
-			/* ensure no duplicate entries */
-			cart_assert( hash->hash_array[h].remote_index != remote_index[index] );
+	for ( i = 0; i < hash->hash_size; i++ ) {
+		hash->n[i] *= hash->n[i];
+	}	
+	
+	/* hash each secondary array */
+	for ( i = 0; i < size; i++ ) {
+		do {
+			rekey = 0;
+	
+			/* choose secondary hash function */
+			hash->a[i] = (int)(hash->p*cart_rand()) + 1;
+			hash->b[i] = (int)(hash->p*cart_rand());
 
-			if ( hash->hash_array[h].remote_index == NULL_OCT ||
-					hash->hash_array[h].remote_index == DELETED_ENTRY ) {
-				break;
-			}
-			h = ( h + q ) % hash->hash_size;
-		}
+			for ( j = 0; j < hash->n[i]; j++ ) {
+				if ( hash->hash_array[ hash->s[i] + j ].remote_index != -1 ) {
+					/* find new hash location */
+					new_entry = hash->hash_array[ hash->s[i] + j ];
+					hash->hash_array[ hash->s[i] + j ] = null_entry;
+					oldj = j;
 
-		cart_assert( s < hash->hash_size );
+					while (1) {
+						k = ((hash->a[i]*(int64_t)new_entry.remote_index + hash->b[i]) % hash->p) % hash->n[i];
 
-		/* look for a better place to put this entry to reduce number of probes */
-		placed = 0;
-		for ( i = 0; i < s - 1 && !placed; i++ ) {
-			p = ( r + i*q) % hash->hash_size;
-			c = (hash->hash_array[p].remote_index % ( hash->hash_size - 2 ) ) + 1;
+						if ( hash->hash_array[ hash->s[i] + k ].remote_index == -1 ) {
+							hash->hash_array[ hash->s[i] + k ] = new_entry;
+							break;
+						} else if ( k > oldj ) {
+							tmp_entry = hash->hash_array[ hash->s[i] + k ];
+							hash->hash_array[ hash->s[i] + k ] = new_entry;
+							new_entry = tmp_entry;
+							oldj = k;
+						} else {
+							/* unresolvable collision, need to rekey, put new_entry in first open spot */
+							for ( k = 0; k < hash->n[i]; k++ ) {
+								if ( hash->hash_array[ hash->s[i] + k ].remote_index == -1 ) {
+									hash->hash_array[ hash->s[i] + k ] = new_entry;
+									break;
+								}
+							}
+							rekey = 1;
+							break;	
+						}
+					}
+				}
 
-			for ( j = 1; j < s - i - 1; j++ ) {
-				t = ( (long)p + (long)j*(long)c) % hash->hash_size;
-				cart_assert( t >= 0 && t < hash->hash_size );
-
-				/* if this is a better place, switch entry at p to t and place in p */
-				if ( hash->hash_array[t].remote_index == NULL_OCT ||
-						hash->hash_array[t].remote_index == DELETED_ENTRY ) {
-
-					hash->hash_array[t].remote_index = hash->hash_array[p].remote_index;
-					hash->hash_array[t].local_index = hash->hash_array[p].local_index;
-					hash->hash_array[p].remote_index = remote_index[index];
-					hash->hash_array[p].local_index = local_index[index];
-					hash->num_entries++;
-
-					placed = 1;
+				if ( rekey ) {
 					break;
 				}
 			}
-		}
-
-		/* we couldn't find a better place to put this entry, so place it at h */
-		if ( !placed ) {
-			hash->hash_array[h].remote_index = remote_index[index];
-			hash->hash_array[h].local_index = local_index[index];
-			hash->num_entries++;
-		}
-	}
-}
-
-/*******************************************************
- * index_hash_delete
- *******************************************************/
-void index_hash_delete( index_hash *hash, int local_index ) 
-/* purpose: removes the given local_index from the index
- * 	hash.
- */
-{
-	int i,j,count, deleted;
-	
-	cart_assert( hash != NULL );
-
-	count = 0;
-	deleted = 0;
-	for ( j = 0; j < hash->hash_size; j++ ) {
-		if ( hash->hash_array[j].remote_index != DELETED_ENTRY &&
-				hash->hash_array[j].remote_index != NULL_OCT ) {
-			count++;
-		}
-
-		if ( hash->hash_array[j].remote_index == DELETED_ENTRY ) {
-			deleted++;
-		}
+		} while ( j < hash->n[i] );
 	}
 
-	if ( count != hash->num_entries ) {
-		cart_debug("count = %u", count );
-		cart_debug("deleted = %d", deleted );
-		cart_debug("hash->num_entries = %d", hash->num_entries );
-		cart_debug("hash->hash_size = %d", hash->hash_size );
-	}
-
-	cart_assert( count == hash->num_entries );
-	
-	for ( i = 0; i < hash->hash_size; i++ ) {
-		if ( hash->hash_array[i].local_index == local_index ) {
-			hash->hash_array[i].remote_index = DELETED_ENTRY;
-			hash->hash_array[i].local_index = NULL_OCT;
-			hash->num_entries--;
-
-			count = 0;
-			for ( j = 0; j < hash->hash_size; j++ ) {
-				if ( hash->hash_array[j].remote_index != DELETED_ENTRY &&
-					hash->hash_array[j].remote_index != NULL_OCT ) {
-					count++;
-				}
-			}
-
-			cart_assert( count == hash->num_entries );
-
-			return;
-		}
-	}
-
-	cart_error("index_hash_delete unable to find %u", local_index );
+	return hash;
 }
 
 /*******************************************************
@@ -391,27 +189,32 @@ int index_hash_lookup ( index_hash *hash, int remote_index )
  * 	remote index was not found.
  */
 {
-	int h, q, i;
-
-	cart_assert( hash != NULL );
+	int h, k;
 
 	if ( remote_index != NULL_OCT ) {
-		cart_assert( remote_index >= 0 );
+		h = (int)(((int64_t)remote_index*hash->a0 + hash->b0) % hash->p) % hash->hash_size;      
 
-		h = remote_index % hash->hash_size;
-		q = (remote_index % (hash->hash_size - 2)) + 1;
-
-		for ( i = 0; i < hash->hash_size; i++ ) {
-			if ( hash->hash_array[h].remote_index == NULL_OCT ) {
-				return NULL_OCT;
-			} else if ( hash->hash_array[h].remote_index == remote_index ) {
-				return hash->hash_array[h].local_index;
-			} else {
-				/* note we're skipping over DELETED_ENTRY spaces */
-				h = (h+q) % hash->hash_size;
+		if ( hash->n[h] > 0 ) {
+			k = (int)((hash->a[h]*(int64_t)remote_index+hash->b[h]) % hash->p) % hash->n[h];
+			if ( hash->hash_array[ hash->s[h] + k ].remote_index == remote_index ) {
+				return hash->hash_array[ hash->s[h] + k ].local_index;
 			}
 		}
 	}
 
 	return NULL_OCT;
+}
+
+void index_hash_free( index_hash *hash ) {
+	cart_assert( hash != NULL );
+
+	if ( hash->hash_size > 0 ) {
+		cart_free( hash->n );
+		cart_free( hash->s );
+		cart_free( hash->a );
+		cart_free( hash->b );
+		cart_free( hash->hash_array );
+	}
+
+	cart_free( hash );
 }

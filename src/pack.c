@@ -621,9 +621,9 @@ void pack_communicate( pack *p ) {
 	if ( p->cell_type == CELL_TYPE_BUFFER ) {
 		for ( proc = 0; proc < num_procs; proc++ ) {
 			if ( num_oct_indices[proc] > 0 ) {
-				index_hash_add_list( buffer_oct_hash[proc],  num_oct_indices[proc], 
+				oct_hash_add_list( buffer_oct_hash[proc],  num_oct_indices[proc], 
 					oct_indices[proc][0], oct_indices[proc][1] );
-				index_hash_add_list( buffer_oct_reverse_hash[proc], num_oct_indices[proc], 
+				oct_hash_add_list( buffer_oct_reverse_hash[proc], num_oct_indices[proc], 
 					oct_indices[proc][1], oct_indices[proc][0] );
         		}
 

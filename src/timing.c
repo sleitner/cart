@@ -46,6 +46,7 @@ const char *timer_name[][2] = {
 { "hydro", "blue" }, 
 { "hydro_update", "red" }, 
 { "cooling", "blue" },
+{ "accel_parts", "blue" },
 { "move_parts", "blue" }, 
 { "stellar_feedback_update", "red" },
 { "update_parts", "blue" }, 

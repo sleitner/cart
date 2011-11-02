@@ -595,6 +595,20 @@ void cache_reorder_particles() {
 		particle_level[ipart] = backup_ints[ipart];
 	}
 
+#if defined(STARFORM) && defined(STAR_PARTICLE_TYPES)
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
+		if ( old_particle_index[ipart] != -1 ) {
+			backup_ints[ipart] = star_particle_type[ old_particle_index[ipart] ];
+		} else {
+			backup_ints[ipart] = STAR_TYPE_DELETED;
+		}
+	}
+
+	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
+		star_particle_type[ipart] = backup_ints[ipart];
+	}
+#endif /* STARFORM && STAR_PARTICLE_TYPES */
+
 	cart_free( backup_ints );
 
 	backup_doubles = cart_alloc(double, num_particles );

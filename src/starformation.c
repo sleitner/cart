@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "agn.h"
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "cosmology.h"
@@ -23,9 +24,9 @@
 #include "logging.h"
 #endif
 
-int num_local_star_particles;
-int last_star_id;
-int num_new_stars;
+int num_local_star_particles = 0;
+int last_star_id = -1;
+int num_new_stars = 0;
 
 double total_stellar_mass = 0.0;
 double total_stellar_initial_mass = 0.0;
@@ -39,6 +40,10 @@ float star_metallicity_II[num_star_particles];
 float star_metallicity_Ia[num_star_particles];
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
+
+#ifdef STAR_PARTICLE_TYPES
+int star_particle_type[num_star_particles];
+#endif /* STAR_PARTICLE_TYPES */
 
 float star_formation_volume_min[nDim];
 float star_formation_volume_max[nDim];
@@ -167,8 +172,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
 }
 
 
-void star_formation( int level, int time_multiplier )
-{
+void star_formation( int level, int time_multiplier ) {
   int i;
   int icell;
   int num_level_cells;
@@ -211,7 +215,7 @@ void star_formation( int level, int time_multiplier )
 #ifdef LOG_STAR_CREATION	  
 	  log_star_creation( icell, dm_star, FILE_RECORD);
 #endif
-	  create_star_particle( icell, dm_star );
+	  create_star_particle( icell, dm_star, STAR_TYPE_NORMAL );
 
 #ifdef BLASTWAVE_FEEDBACK
 	  init_blastwave(icell);
@@ -225,10 +229,58 @@ void star_formation( int level, int time_multiplier )
   end_time( WORK_TIMER );
 }
 
+void star_particle_feedback(int level) {
+	int i;
+	int count;
+	int ipart;
+	int iter_cell;
+	int num_level_cells;
+	int *level_cells;
+	double t_next;
+
+	start_time( WORK_TIMER );
+
+	setup_star_formation_feedback(level);
+	t_next = tl[level] + dtl[level];
+
+	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+#ifdef STAR_PARTICLE_TYPES
+#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,dtl,particle_list_next), schedule(dynamic)
+#else
+#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next), schedule(dynamic)
+#endif
+	for ( i = 0; i < num_level_cells; i++ ) {
+		iter_cell = level_cells[i];
+
+		ipart = cell_particle_list[iter_cell];
+		while ( ipart != NULL_PARTICLE ) {
+			if ( particle_is_star(ipart) && particle_t[ipart] < t_next - 0.5*dtl[max_level] ) {
+#ifdef STAR_PARTICLE_TYPES
+				if ( star_particle_type[ipart] == STAR_TYPE_NORMAL ) {                                                                              
+					stellar_feedback(level,iter_cell,ipart,t_next);
+				}
+#else
+				stellar_feedback(level,iter_cell,ipart,t_next);
+#endif /* STAR_PARTICLE_TYPES */
+			}
+
+			ipart = particle_list_next[ipart];
+		}
+	}
+
+	cart_free(level_cells);
+
+#if defined(STAR_PARTICLE_TYPES) && defined(AGN)                                                                                                                               
+	agn_feedback( level );
+#endif /* STAR_PARTICLE_TYPES && AGN */
+
+	end_time( WORK_TIMER );
+}
+
 /*
 //  NG: I haven't modified Doug's code below.
 */
-void create_star_particle( int icell, float mass ) {
+void create_star_particle( int icell, float mass, int type ) {
 	int i;
 	int ipart;
 	int id;
@@ -246,6 +298,10 @@ void create_star_particle( int icell, float mass ) {
 
 	ipart = particle_alloc( id );
 	cart_assert( ipart < num_star_particles );
+
+#ifdef STAR_PARTICLE_TYPES
+	star_particle_type[ipart] = type;
+#endif
 
 	/* place particle at center of cell with cell momentum */
 	cell_center_position(icell, pos );

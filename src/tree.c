@@ -162,15 +162,12 @@ void repair_neighbors()
 	/* repair neighbors level by level so each succeeding level can use
 	 * previous for calculating neighbors */
 	for ( level = min_level; level < max_level; level++ ) {
-		select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
+		select_level( level, CELL_TYPE_ANY_REFINED, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell,ioct), shared(num_level_cells,level_cells,cell_child_oct,oct_neighbors)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
-
-			if ( cell_is_refined(icell) ) {
-				ioct = cell_child_oct[icell];
-				cell_all_neighbors( icell, oct_neighbors[ioct] );
-			}
+			ioct = cell_child_oct[icell];
+			cell_all_neighbors( icell, oct_neighbors[ioct] );
 		}
 		cart_free( level_cells );
 	}
@@ -183,8 +180,9 @@ int root_cell_type( int sfc )
 /* purpose: identifies what type of root cell corresponds
  *  to the given index
  *
- *  returns: 1 if cell is local, 2 if cell is buffer, 
- *  	0 if cell is non-local
+ *  returns: CELL_TYPE_LOCAL if cell is local, CELL_TYPE_BUFFER
+		if cell is non-local but in the buffer, CELL_TYPE_NONLOCAL 
+		otherwise.
  */
 {
 	cart_assert( sfc >= 0 && sfc < max_sfc_index );

@@ -439,11 +439,13 @@ void check_bwtime_precision(int level)
 double dUfact;  /* must be here to simplify OpenMP directives */
 double dt_ml_code;   /* used to be called T0_ml_code */
 
-void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_next, double vx, double vy, double vz)
+void stellar_feedback(int level, int cell, int ipart, double t_next )
 {
   double dteff, phi, dU;
   double dmloss, rhor, e_old, rhofact;
   int i;
+  double delta_t = t_next - particle_t[ipart];
+
   /* do feedback, enrichment, etc */
   if(fbp_snII_phys.energy>0.0 || fbp_snII_phys.metals>0.0)
     {
@@ -518,9 +520,9 @@ void stellar_feedback(int level, int cell, int ipart, double delta_t, double t_n
       cell_gas_density(cell) += dmloss;
       rhofact = rhor * cell_gas_density(cell);
   
-      cell_momentum(cell,0) += dmloss * vx;
-      cell_momentum(cell,1) += dmloss * vy;
-      cell_momentum(cell,2) += dmloss * vz;
+      cell_momentum(cell,0) += dmloss * particle_v[ipart][0];
+      cell_momentum(cell,1) += dmloss * particle_v[ipart][1];
+      cell_momentum(cell,2) += dmloss * particle_v[ipart][2];
 			
       cell_gas_energy(cell) = e_old + 
 	0.5 * ( cell_momentum(cell,0)*cell_momentum(cell,0) +

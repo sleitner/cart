@@ -136,15 +136,13 @@ void prolongate( int level ) {
 
 	start_time( WORK_TIMER );
 
-	select_level( level-1, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level-1, CELL_TYPE_LOCAL | CELL_TYPE_REFINED, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell,j), shared(num_level_cells,level_cells,cell_vars,cell_child_oct)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_refined(icell) ) {
-			for ( j = 0; j < num_children; j++ ) {
-				cell_potential( cell_child(icell,j) ) = cell_interpolate( icell, j, VAR_POTENTIAL );
-			}
+		for ( j = 0; j < num_children; j++ ) {
+			cell_potential( cell_child(icell,j) ) = cell_interpolate( icell, j, VAR_POTENTIAL );
 		}
 	}
 	cart_free( level_cells );
@@ -258,17 +256,15 @@ void smooth( int level ) {
 		ind[i] = -1;
 	}
 
-	select_level( level-1, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level-1, CELL_TYPE_LOCAL | CELL_TYPE_REFINED, &num_level_cells, &level_cells );
 
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_refined(icell) ) {
-			oct_list[oct_count] = cell_child_oct[icell];
-			ind[cell_child_oct[icell]] = oct_count;
-			oct_count++;
-			cart_assert( oct_count <= list_size );
-		}
+		oct_list[oct_count] = cell_child_oct[icell];
+		ind[cell_child_oct[icell]] = oct_count;
+		oct_count++;
+		cart_assert( oct_count <= list_size );
 	}
 
 	num_local_blocks = oct_count;
@@ -276,66 +272,64 @@ void smooth( int level ) {
 	cart_free( level_cells );
 
 	/* loop over buffer cells */
-	select_level( level-1, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
+	select_level( level-1, CELL_TYPE_BUFFER | CELL_TYPE_REFINED, &num_level_cells, &level_cells );
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_refined(icell) ) {
-			ioct = cell_child_oct[icell];
-			sfc = cell_parent_root_sfc(icell);
-			proc = processor_owner( sfc );
+		ioct = cell_child_oct[icell];
+		sfc = cell_parent_root_sfc(icell);
+		proc = processor_owner( sfc );
 
-			recv_indices[proc][num_recv_octs[proc]] = ioct;
-			send_recv_indices[proc][num_recv_octs[proc]] = 
-					index_hash_lookup( buffer_oct_reverse_hash[proc], ioct );
-			num_recv_octs[proc]++;
+		recv_indices[proc][num_recv_octs[proc]] = ioct;
+		send_recv_indices[proc][num_recv_octs[proc]] = 
+			oct_hash_lookup( buffer_oct_reverse_hash[proc], ioct );
+		num_recv_octs[proc]++;
 
-			direct = 0;
-			if ( level == min_level+1 ) {
-				sfc_coords( sfc, coords );
+		direct = 0;
+		if ( level == min_level+1 ) {
+			sfc_coords( sfc, coords );
 
-				for ( j = 0; j < num_neighbors; j++ ) {
-					for ( k = 0; k < nDim; k++ ) {
-						coords_neighbor[k] = coords[k] + ishift[j][k];
+			for ( j = 0; j < num_neighbors; j++ ) {
+				for ( k = 0; k < nDim; k++ ) {
+					coords_neighbor[k] = coords[k] + ishift[j][k];
 
-						/* boundary check to ensure periodicity */
-						if ( coords_neighbor[k] >= num_grid ) {
-							coords_neighbor[k] = 0;
-						} else if ( coords_neighbor[k] < 0 ) {
-							coords_neighbor[k] = num_grid - 1;
-						}
-					}
-
-					if ( root_cell_is_local( sfc_index( coords_neighbor ) ) ) {
-						direct = 1;
-						break;
+					/* boundary check to ensure periodicity */
+					if ( coords_neighbor[k] >= num_grid ) {
+						coords_neighbor[k] = 0;
+					} else if ( coords_neighbor[k] < 0 ) {
+						coords_neighbor[k] = num_grid - 1;
 					}
 				}
-			} else {
-				/* using the oct neighbors should be a safe 
-				 * optimization since we only
-				 * solve gravity when oct neighbors are ok */
-				for ( k = 0; k < num_neighbors; k++ ) {
-					if ( oct_neighbors[ioct][k] == NULL_OCT ) {
-						break;
-					} else if ( cell_is_local( oct_neighbors[ioct][k] ) ) {
-						direct = 1;
-						break;
-					}
+
+				if ( root_cell_is_local( sfc_index( coords_neighbor ) ) ) {
+					direct = 1;
+					break;
 				}
 			}
-
-			if ( direct ) {
-				oct_list[oct_count] = ioct;
-				ind[ioct] = oct_count;
-				oct_count++;
-				num_direct_blocks++;
-				cart_assert( oct_count < list_size );
-			} else {
-				/* pack at the end */
-				oct_list[list_size - num_indirect_blocks - 1] = ioct;
-				num_indirect_blocks++;
+		} else {
+			/* using the oct neighbors should be a safe 
+			 * optimization since we only
+			 * solve gravity when oct neighbors are ok */
+			for ( k = 0; k < num_neighbors; k++ ) {
+				if ( oct_neighbors[ioct][k] == NULL_OCT ) {
+					break;
+				} else if ( cell_is_local( oct_neighbors[ioct][k] ) ) {
+					direct = 1;
+					break;
+				}
 			}
+		}
+
+		if ( direct ) {
+			oct_list[oct_count] = ioct;
+			ind[ioct] = oct_count;
+			oct_count++;
+			num_direct_blocks++;
+			cart_assert( oct_count < list_size );
+		} else {
+			/* pack at the end */
+			oct_list[list_size - num_indirect_blocks - 1] = ioct;
+			num_indirect_blocks++;
 		}
 	}
 
@@ -909,18 +903,16 @@ void restrict_to_level( int level ) {
 	start_time( GRAVITY_TIMER );
 	start_time( WORK_TIMER );
                                                                                                                   
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_REFINED, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell,sum,j), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
-		if ( cell_is_refined(icell) ) {
-			sum = 0.0;
-			for ( j = 0; j < num_children; j++ ) {
-				sum += cell_potential(cell_child(icell,j));
-			}
-
-			cell_potential(icell) = sum*rfw;
+		sum = 0.0;
+		for ( j = 0; j < num_children; j++ ) {
+			sum += cell_potential(cell_child(icell,j));
 		}
+
+		cell_potential(icell) = sum*rfw;
 	}
 	cart_free( level_cells );
 

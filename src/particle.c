@@ -27,7 +27,7 @@
 #include "units.h"
 
 
-int num_row;
+int num_row = 128;
 
 double particle_t[num_particles];
 double particle_dt[num_particles];
@@ -45,19 +45,20 @@ int particle_list_next[num_particles];
 int particle_list_prev[num_particles];
 
 /* particle species */
-int num_particle_species;
+int num_particle_species = 0;
 float particle_species_mass[MAX_PARTICLE_SPECIES];
 int particle_species_num[MAX_PARTICLE_SPECIES];
 int particle_species_indices[MAX_PARTICLE_SPECIES+1];
 
 /* variables for logging energy */
-double tintg;
-double ekin;
-double ekin1;
-double ekin2;
-double au0;
-double aeu0;
-double ap0, ap1;
+double tintg = 0.0;
+double ekin = 0.0;
+double ekin1 = 0.0;
+double ekin2 = 0.0;
+double au0 = 0.0;
+double aeu0 = 0.0;
+double ap0 = 0.0;
+double ap1 = 0.0;
 
 int cell_particle_list[num_cells];
 
@@ -105,8 +106,8 @@ void init_particles() {
 	particle_list_enabled = 0;
 }
 
-
-void move_particles( int level ) {
+#ifdef GRAVITY
+void accelerate_particles( int level ) {
 	int i, m;
 	int ipart;
 	int iter_cell;
@@ -123,37 +124,25 @@ void move_particles( int level ) {
 	double pt3, pd3;
 	double t1,t2,t3,d1,d2,d3;
 	double t2t1, t2d1, d2t1, d2d1;
-	double x, y, z, vx, vy, vz, ax, ay, az;
+	double x, y, z, ax, ay, az;
 	double t3t2t1, t3t2d1, t3d2t1, t3d2d1;
 	double d3t2t1, d3t2d1, d3d2t1, d3d2d1;
 	double pconst;
-	double delta_t;
 
 	cart_assert( level >= min_level && level <= max_level );
         
-	start_time( MOVE_PARTS_TIMER );
+	start_time( ACCEL_PARTS_TIMER );
 	start_time( WORK_TIMER ); 
-
-#ifdef STARFORM
-	setup_star_formation_feedback(level);
-#endif /* STARFORM */
 
 	t_next = tl[level] + dtl[level];
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#ifdef GRAVITY
-#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t,t2t1,t2d1,d2t1,d2d1), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,particle_list_next,particle_pot,particle_mass,cell_vars, neighbor_moves), schedule(dynamic)
-#else
-#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,particle_list_next,neighbor_moves)
-#endif
+#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,t2t1,t2d1,d2t1,d2d1), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next,cell_size_inverse,tl,particle_pot,particle_mass,cell_vars,neighbor_moves), schedule(dynamic)
 	for ( m = 0; m < num_level_cells; m++ ) {
 		iter_cell = level_cells[m];
 
 		ipart = cell_particle_list[iter_cell];
 		while ( ipart != NULL_PARTICLE ) {
-			cart_assert( ipart >= 0 && ipart < num_particles );
-			cart_assert( particle_level[ipart] == level );
-		
 			if ( particle_t[ipart] < t_next - 0.5*dtl[max_level] ) {
 				x = particle_x[ipart][0];
 				y = particle_x[ipart][1];
@@ -223,7 +212,6 @@ void move_particles( int level ) {
 				cart_assert( c[0] != NULL_OCT );
 				cell_center_position( c[0], pos );
 
-#ifdef GRAVITY
 				/* now we have the level on which this particle will move */
 				diff1 = pos[0] - x;
 				if ( fabs(diff1) > (double)(num_grid/2) ) {
@@ -325,27 +313,54 @@ void move_particles( int level ) {
 					d3d2t1 * cell_accel(c[6], 2) +
 					d3d2d1 * cell_accel(c[7], 2);
 
-				vx = particle_v[ipart][0] + ax;
-				vy = particle_v[ipart][1] + ay;
-				vz = particle_v[ipart][2] + az;
-#else
-				vx = particle_v[ipart][0];
-				vy = particle_v[ipart][1];
-				vz = particle_v[ipart][2];
+				particle_v[ipart][0] += ax;
+				particle_v[ipart][1] += ay;
+				particle_v[ipart][2] += az;
+			}
+
+			ipart = particle_list_next[ipart];
+		}
+	}
+	cart_free( level_cells );
+
+	end_time( WORK_TIMER );
+	end_time( ACCEL_PARTS_TIMER );
+}
 #endif /* GRAVITY */
+
+void move_particles( int level ) {
+	int m;
+	int iter_cell;
+	int ipart;
+	double x, y, z;
+	int num_level_cells;
+	int *level_cells;
+	double t_next, delta_t;
+
+    cart_assert( level >= min_level && level <= max_level );
+        
+    start_time( MOVE_PARTS_TIMER );
+    start_time( WORK_TIMER ); 
+
+    t_next = tl[level] + dtl[level];
+
+    select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,delta_t), shared(num_level_cells,level_cells,cell_particle_list,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_list_next)
+    for ( m = 0; m < num_level_cells; m++ ) {
+        iter_cell = level_cells[m];
+
+        ipart = cell_particle_list[iter_cell];
+        while ( ipart != NULL_PARTICLE ) {
+            if ( particle_t[ipart] < t_next - 0.5*dtl[max_level] ) {
+                x = particle_x[ipart][0];
+                y = particle_x[ipart][1];
+                z = particle_x[ipart][2];
 	
 				delta_t = t_next - particle_t[ipart];
 
-#ifdef STARFORM
-				/* do feedback, enrichment, etc */
-				if ( particle_is_star(ipart) ) {
-				    stellar_feedback(level,iter_cell,ipart,delta_t,t_next,vx,vy,vz);
-				}
-#endif /* STARFORM */
-
-				x += vx * delta_t;
-				y += vy * delta_t;
-				z += vz * delta_t;
+				x += particle_v[ipart][0] * delta_t;
+				y += particle_v[ipart][1] * delta_t;
+				z += particle_v[ipart][2] * delta_t;
 	
 				if ( x < 0.0 ) {
 					x += (double)(num_grid);		
@@ -369,10 +384,6 @@ void move_particles( int level ) {
 				particle_x[ipart][1] = y;
 				particle_x[ipart][2] = z;
 	
-				particle_v[ipart][0] = vx;
-				particle_v[ipart][1] = vy;
-				particle_v[ipart][2] = vz;
-	
 				particle_t[ipart] = t_next;
 				particle_dt[ipart] = dtl[level];
 			}
@@ -395,8 +406,8 @@ void update_particle_list( int level ) {
 	int coords[nDim];
 	int num_parts_to_send[MAX_PROCS];
 	int particle_list_to_send[MAX_PROCS];
+	int *particle_array_to_send[MAX_PROCS];
 	int ipart2, new_cell;
-	int last_part;
 	int proc;
 	int collect_level;
 
@@ -429,10 +440,12 @@ void update_particle_list( int level ) {
 						coords[i] = (int)(particle_x[ipart][i]);
 					}
 					proc = processor_owner( sfc_index( coords ) );
+					cart_assert( proc != local_proc_id );
 
 					delete_particle( iter_cell, ipart );
 					particle_list_next[ipart] = particle_list_to_send[proc];
 					particle_list_to_send[proc] = ipart;
+					num_parts_to_send[proc]++;
 				} else { 
 					if ( new_cell != iter_cell ) {
 						if ( cell_level(new_cell) < min_level_modified ) {
@@ -468,34 +481,67 @@ void update_particle_list( int level ) {
 
 			if ( cell_particle_list[iter_cell] != NULL_PARTICLE ) {
 				proc = processor_owner( cell_parent_root_sfc( iter_cell ) );
-
-				last_part = cell_particle_list[iter_cell];
-				particle_level[last_part] = FREE_PARTICLE_LEVEL;
-				num_parts_to_send[proc]++;
-
-				while ( particle_list_next[last_part] != NULL_PARTICLE ) {
-					last_part = particle_list_next[last_part];
-					particle_level[last_part] = FREE_PARTICLE_LEVEL;
+				
+				ipart = cell_particle_list[iter_cell];
+				while ( ipart != NULL_PARTICLE ) {
 					num_parts_to_send[proc]++;
+					ipart = particle_list_next[ipart];
 				}
-
-				particle_list_next[last_part] = particle_list_to_send[proc];
-				particle_list_to_send[proc] = cell_particle_list[iter_cell];
-
-				cell_particle_list[iter_cell] = NULL_PARTICLE;
 			}
 		}
 		cart_free( level_cells );
 	}
 
-	trade_particle_lists( num_parts_to_send, particle_list_to_send, level );
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_parts_to_send[proc] > 0 ) {
+			particle_array_to_send[proc] = cart_alloc(int, num_parts_to_send[proc]);
+			num_parts_to_send[proc] = 0;
+
+			/* add particles that ended up in linked list */
+			ipart = particle_list_to_send[proc];
+			while ( ipart != NULL_PARTICLE ) {
+				particle_array_to_send[proc][ num_parts_to_send[proc]++ ] = ipart;
+				particle_id[ipart] = NULL_PARTICLE;
+				particle_level[ipart] = FREE_PARTICLE_LEVEL;
+				ipart = particle_list_next[ipart];
+			}
+		}
+	}
+
+	for ( collect_level = min_level_modified; collect_level <= max_level_modified; collect_level++ ) {
+		select_level( collect_level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
+		for ( i = 0; i < num_level_cells; i++ ) {
+			iter_cell = level_cells[i];
+
+			if ( cell_particle_list[iter_cell] != NULL_PARTICLE ) {
+				proc = processor_owner( cell_parent_root_sfc( iter_cell ) );
+
+				ipart = cell_particle_list[iter_cell];
+				while ( ipart != NULL_PARTICLE ) {
+					particle_array_to_send[proc][ num_parts_to_send[proc]++ ] = ipart;
+					ipart = particle_list_next[ipart];
+				}
+
+				cell_particle_list[iter_cell] = NULL_PARTICLE;                                                                                                               
+			}
+		}
+		cart_free( level_cells );
+	}
+
+	trade_particle_lists( num_parts_to_send, particle_array_to_send, level, FREE_PARTICLE_LISTS );
+
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_parts_to_send[proc] > 0 ) {
+			cart_free( particle_array_to_send[proc] );
+		}
+    }
 
 	end_time( UPDATE_PARTS_COMMUNICATION_TIMER );
 	end_time( COMMUNICATION_TIMER );
 	end_time( UPDATE_PARTS_TIMER );
 }
 
-void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, int trade_level ) {
+void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_to_send[MAX_PROCS], int trade_level, int free_particle_flag ) {
 	int i, j;
 	int id_count, part_count;
 	int proc, icell, ipart;
@@ -513,6 +559,15 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 	double *recv_parts[MAX_PROCS];
 	int num_pages_received;
 
+	int coords[nDim], level;
+	double pos[nDim];
+
+#ifdef GRAVITY
+	float *send_potential;
+	float *recv_potential[MAX_PROCS];
+	MPI_Request recv_pot_requests[MAX_PROCS];
+#endif /* GRAVITY */
+
 #ifdef STARFORM
 	int star_page_start;
 	int star_vars_sent;
@@ -522,6 +577,12 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 	MPI_Request recv_stars_requests[MAX_PROCS];
 	float *send_stars;
 	float *recv_stars[MAX_PROCS];
+
+#ifdef STAR_PARTICLE_TYPES
+	MPI_Request recv_star_type_requests[MAX_PROCS];
+	int *send_star_types;
+	int *recv_star_types[MAX_PROCS];
+#endif /* STAR_PARTICLE_TYPES */
 
 #ifdef ENRICH
 #ifdef ENRICH_SNIa
@@ -536,6 +597,7 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 
 	#define num_particle_vars	(2+2*nDim)	/* t, dt, x, v */
 
+	int num_request_types;
 	MPI_Request *send_requests;
 	MPI_Request recv_id_requests[MAX_PROCS];
 	MPI_Request recv_parts_requests[MAX_PROCS];
@@ -596,10 +658,21 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 			MPI_Irecv( recv_parts[proc], parts_page_size, MPI_DOUBLE, 
 				proc, 0, MPI_COMM_WORLD, &recv_parts_requests[proc] );
 
+#ifdef GRAVITY
+			recv_potential[proc] = cart_alloc(float, page_size );
+			MPI_Irecv( recv_potential[proc], page_size, MPI_FLOAT, proc, 1,
+				MPI_COMM_WORLD, &recv_pot_requests[proc] );
+#endif /* GRAVITY */
+
 #ifdef STARFORM
 			recv_stars[proc] = cart_alloc(float, star_page_size );
 			MPI_Irecv( recv_stars[proc], star_page_size, MPI_FLOAT, proc, 0, 
 				MPI_COMM_WORLD, &recv_stars_requests[proc] );
+#ifdef STAR_PARTICLE_TYPES
+			recv_star_types[proc] = cart_alloc(int, page_size);
+			MPI_Irecv( recv_star_types[proc], page_size, MPI_INT, proc, 1,
+				MPI_COMM_WORLD, &recv_star_type_requests[proc] );
+#endif /* STAR_PARTICLE_TYPES */
 #endif /* STARFORM */
 
 			page_count[proc] = 0;
@@ -607,8 +680,15 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 			recv_id_requests[proc] = MPI_REQUEST_NULL;
 			recv_parts_requests[proc] = MPI_REQUEST_NULL;
 
+#ifdef GRAVITY
+			recv_pot_requests[proc] = MPI_REQUEST_NULL;
+#endif /* GRAVITY */
 #ifdef STARFORM
 			recv_stars_requests[proc] = MPI_REQUEST_NULL;
+
+#ifdef STAR_PARTICLE_TYPES
+			recv_star_type_requests[proc] = MPI_REQUEST_NULL;
+#endif /* STAR_PARTICLE_TYPES */
 #endif /* STARFORM */
 		}
 	}
@@ -616,100 +696,122 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 	/* allocate space for the pages */
 	send_id = cart_alloc(int, num_pages_to_send * page_size );
 	send_parts = cart_alloc(double, num_pages_to_send * parts_page_size );
+	num_request_types = 2;
 
+#ifdef GRAVITY
+	send_potential = cart_alloc(float, num_pages_to_send*page_size );
+	num_request_types++;
+#endif /* GRAVITY */
 #ifdef STARFORM
 	/* allocating enough space for all particles to be stars */
 	send_stars = cart_alloc(float, num_pages_to_send * star_page_size );
-	send_requests = cart_alloc(MPI_Request, 3*num_pages_to_send );
 	star_page_start = 0;
 	star_vars_sent = 0;
-#else
-	send_requests = cart_alloc(MPI_Request, 2*num_pages_to_send );
-#endif /* STARFORM */	
+	num_request_types++;
+
+#ifdef STAR_PARTICLE_TYPES
+	num_request_types++;
+	send_star_types = cart_alloc(int, num_pages_to_send*page_size);
+#endif /* STAR_PARTICLE_TYPES */
+#endif /* STARFORM */
+
+	send_requests = cart_alloc(MPI_Request, num_request_types*num_pages_to_send);
 
 	num_pages_sent = 0;
 	num_send_requests = 0;
+
 	for ( proc = 0; proc < num_procs; proc++ ) {
-		if ( num_parts_to_send[proc] > 0 ) {
-			part_count = 0;
-			id_count = 0;
-			proc_pages_sent = 0;
+		id_count = num_pages_sent*page_size;
+		part_count = num_pages_sent*parts_page_size;
+		proc_pages_sent = 0;
 
-			ipart = particle_list_to_send[proc];
+		for ( i = 0; i < num_parts_to_send[proc]; i++ ) {
+			ipart = particle_list_to_send[proc][i];
 			cart_assert( ipart == NULL_PARTICLE || ( ipart >= 0 && ipart < num_particles ) );
+	
+			send_id[id_count] = particle_id[ipart];
+	
+			send_parts[part_count++] = particle_t[ipart];
+			send_parts[part_count++] = particle_dt[ipart];
+	
+			for ( j = 0; j < nDim; j++ ) {
+				send_parts[part_count++] = particle_x[ipart][j];
+			}
+	
+			for ( j = 0; j < nDim; j++ ) {
+				send_parts[part_count++] = particle_v[ipart][j];
+			}
 
-			while ( ipart != NULL_PARTICLE ) {
-				send_id[page_size*num_pages_sent+id_count++] = particle_id[ipart];
-	
-				send_parts[parts_page_size*num_pages_sent+part_count++] = particle_t[ipart];
-				send_parts[parts_page_size*num_pages_sent+part_count++] = particle_dt[ipart];
-	
-				for ( j = 0; j < nDim; j++ ) {
-					send_parts[parts_page_size*num_pages_sent+part_count++] = particle_x[ipart][j];
-				}
-	
-				for ( j = 0; j < nDim; j++ ) {
-					send_parts[parts_page_size*num_pages_sent+part_count++] = particle_v[ipart][j];
-				}
+#ifdef GRAVITY
+			send_potential[id_count] = particle_pot[ipart];
+#endif /* GRAVITY */
 
 #ifdef STARFORM
-				if ( particle_is_star( ipart ) ) {
-					/* pack in star variables */
-					send_stars[star_vars_sent++] = particle_mass[ipart];
-					send_stars[star_vars_sent++] = star_initial_mass[ipart];
-					send_stars[star_vars_sent++] = star_tbirth[ipart];
+			if ( particle_is_star( ipart ) ) {
+				/* pack in star variables */
+				send_stars[star_vars_sent++] = particle_mass[ipart];
+				send_stars[star_vars_sent++] = star_initial_mass[ipart];
+				send_stars[star_vars_sent++] = star_tbirth[ipart];
 
 #ifdef ENRICH
-					send_stars[star_vars_sent++] = star_metallicity_II[ipart];
+				send_stars[star_vars_sent++] = star_metallicity_II[ipart];
 #ifdef ENRICH_SNIa
-					send_stars[star_vars_sent++] = star_metallicity_Ia[ipart];
+				send_stars[star_vars_sent++] = star_metallicity_Ia[ipart];
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
-				}
+#ifdef STAR_PARTICLE_TYPES
+				send_star_types[id_count] = star_particle_type[ipart];
+#endif /* STAR_PARTICLE_TYPES */
+			}
 #endif /* STARFORM */
-	
-				ipart = particle_list_next[ipart];
 
-				if ( id_count == page_size ) {
-					MPI_Isend( &send_id[num_pages_sent*page_size], page_size, MPI_INT, proc, 
-						proc_pages_sent, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
-					MPI_Isend( &send_parts[num_pages_sent*parts_page_size], parts_page_size, 
+			id_count++;
+
+			if ( id_count % page_size == 0 || i == num_parts_to_send[proc]-1 ) {
+				MPI_Isend( &send_id[num_pages_sent*page_size], 
+					id_count - num_pages_sent*page_size, 
+					MPI_INT, proc, 2*proc_pages_sent, MPI_COMM_WORLD, 
+					&send_requests[num_send_requests++] );
+
+				MPI_Isend( &send_parts[num_pages_sent*parts_page_size], 
+						part_count - num_pages_sent*parts_page_size, 
 						MPI_DOUBLE, proc, proc_pages_sent, MPI_COMM_WORLD, 
 						&send_requests[num_send_requests++] );
 
-#ifdef STARFORM
-					MPI_Isend( &send_stars[star_page_start], star_vars_sent-star_page_start,
-						MPI_FLOAT, proc, proc_pages_sent, MPI_COMM_WORLD,
-						&send_requests[num_send_requests++] );
-					star_page_start = star_vars_sent;
-#endif /* STARFORM */
-
-					proc_pages_sent++;
-					num_pages_sent++;
-					id_count = 0;
-					part_count = 0;
-				}
-			}
-	
-			particle_list_free( particle_list_to_send[proc] );
-
-			if ( id_count > 0 ) {
-	
-				MPI_Isend( &send_id[num_pages_sent*page_size], id_count, MPI_INT, proc, proc_pages_sent, 
-					MPI_COMM_WORLD, &send_requests[num_send_requests++] );
-				MPI_Isend( &send_parts[num_pages_sent*parts_page_size], part_count, MPI_DOUBLE, proc, 
-					proc_pages_sent, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
-
-#ifdef STARFORM
-				MPI_Isend( &send_stars[star_page_start], star_vars_sent-star_page_start,
-					MPI_FLOAT, proc, proc_pages_sent, MPI_COMM_WORLD,
+#ifdef GRAVITY
+				MPI_Isend( &send_potential[num_pages_sent*page_size],
+					id_count - num_pages_sent*page_size,
+					MPI_FLOAT, proc, 2*proc_pages_sent+1, MPI_COMM_WORLD,
 					&send_requests[num_send_requests++] );
+#endif /* GRAVITY */
+
+#ifdef STARFORM
+				MPI_Isend( &send_stars[star_page_start], 
+						star_vars_sent-star_page_start,
+						MPI_FLOAT, proc, 2*proc_pages_sent, MPI_COMM_WORLD,
+						&send_requests[num_send_requests++] );
+
+#ifdef STAR_PARTICLE_TYPES
+				/* sending one int per particle, not just star particles */
+				MPI_Isend( &send_star_types[num_pages_sent*page_size], 
+						id_count - num_pages_sent*page_size, MPI_INT, proc, 
+						2*proc_pages_sent+1, MPI_COMM_WORLD, 
+						&send_requests[num_send_requests++] ); 
+#endif /* STAR_PARTICLE_TYPES */
+
 				star_page_start = star_vars_sent;
 #endif /* STARFORM */
-				num_pages_sent++;
+
 				proc_pages_sent++;
+				num_pages_sent++;
 			}
 		}
+
+		if ( free_particle_flag ) {
+			for ( i = 0; i < num_parts_to_send[proc]; i++ ) {
+				particle_free( particle_list_to_send[proc][i] );
+			}
+		}	
 	}
 
 	cart_assert( num_pages_sent == num_pages_to_send );
@@ -727,9 +829,18 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 
 			MPI_Wait( &recv_parts_requests[proc], MPI_STATUS_IGNORE );
 
+#ifdef GRAVITY 
+			MPI_Wait( &recv_pot_requests[proc], MPI_STATUS_IGNORE );
+#endif /* GRAVITY */
+
 #ifdef STARFORM
 			MPI_Wait( &recv_stars_requests[proc], &status );
 			MPI_Get_count( &status, MPI_FLOAT, &total_star_vars );
+
+#ifdef STAR_PARTICLE_TYPES
+			MPI_Wait( &recv_star_type_requests[proc], MPI_STATUS_IGNORE );
+#endif /* STAR_PARTICLE_TYPES */
+
 			star_vars_recv = 0;
 #endif /* STARFORM */
 
@@ -751,6 +862,10 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 					particle_v[ipart][j] = recv_parts[proc][part_count++];
 				}
 
+#ifdef GRAVITY 
+				particle_pot[ipart] = recv_potential[proc][i];
+#endif /* GRAVITY */
+
 #ifdef STARFORM
 				if ( particle_id_is_star( recv_id[proc][i] ) ) {
 					cart_assert( ipart >= 0 && ipart < num_star_particles );
@@ -767,6 +882,11 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 					star_metallicity_Ia[ipart] = recv_stars[proc][star_vars_recv++];
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
+
+#ifdef STAR_PARTICLE_TYPES
+					star_particle_type[ipart] = recv_star_types[proc][i];
+#endif /* STAR_PARTICLE_TYPES */
+				
 				} else {
 					particle_mass[ipart] = particle_species_mass[ particle_specie( recv_id[proc][i] ) ];
 				}
@@ -775,7 +895,37 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 #endif /* STARFORM */
 
 				icell = cell_find_position( particle_x[ipart] );
+				if ( icell == -1 || !cell_is_local(icell) ) {
+					cart_debug("BAD PARTICLE POSITION");
+					cart_debug("proc = %d", proc );
+					cart_debug("ipart = %d", ipart );
+					cart_debug("particle id = %d", particle_id[ipart] );
+					cart_debug("particle_x = %e %e %e", particle_x[ipart][0], particle_x[ipart][1], 
+							particle_x[ipart][2] );
+					cart_debug("particle_v = %e %e %e", particle_v[ipart][0],particle_v[ipart][1],particle_v[ipart][2]);
+					cart_debug("icell = %d", icell );
+					cart_debug("particle_is_star(ipart=%d)=%d",ipart,particle_is_star(ipart));
+					if ( icell != -1 ) {
+						cell_center_position( icell, pos );
+						cart_debug("cell position = %e %e %e", pos[0], pos[1], pos[2] );
+						cart_debug("sfc = %u, local range = %u %u", cell_parent_root_sfc(icell),
+								proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1] );
+						cart_debug("cell owner = %u", processor_owner( cell_parent_root_sfc(icell) ) );
+						cart_debug("level = %u", level );	
+					} else {
+						coords[0] = (int)particle_x[ipart][0];
+						coords[1] = (int)particle_x[ipart][1];
+						coords[2] = (int)particle_x[ipart][2];
+
+						cart_debug("coords = %u %u %u", coords[0], coords[1], coords[2] );
+						cart_debug("sfc = %d, local range = %u %u", sfc_index( coords ), 
+								proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1] );
+					}
+				}
+				/* DHR - changed to allow collection of buffer particles 
 				cart_assert( icell != -1 && cell_is_local(icell) );
+				*/
+				cart_assert( icell != -1 );
 				insert_particle( icell, ipart );
 			}
 
@@ -789,21 +939,37 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 			/* if we received a full page, set up to receive a new one */
 			if ( num_parts_to_recv[proc] > 0 ) {
 				page_count[proc]++;
-				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, page_count[proc], 
+				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 2*page_count[proc], 
 						MPI_COMM_WORLD, &recv_id_requests[proc] );
 				MPI_Irecv( recv_parts[proc], parts_page_size, MPI_DOUBLE, proc, 
 						page_count[proc], MPI_COMM_WORLD, &recv_parts_requests[proc] );
 
+#ifdef GRAVITY
+				MPI_Irecv( recv_potential[proc], page_size, MPI_FLOAT, proc,
+						2*page_count[proc]+1, MPI_COMM_WORLD, &recv_pot_requests[proc] );
+#endif
+
 #ifdef STARFORM
 				MPI_Irecv( recv_stars[proc], star_page_size, MPI_FLOAT, proc, 
-						page_count[proc], MPI_COMM_WORLD, &recv_stars_requests[proc] );
+						2*page_count[proc], MPI_COMM_WORLD, &recv_stars_requests[proc] );
+
+#ifdef STAR_PARTICLE_TYPES
+				MPI_Irecv( recv_star_types[proc], page_size, MPI_INT, proc, 2*page_count[proc]+1,
+						MPI_COMM_WORLD, &recv_star_type_requests[proc] );
+#endif /* STAR_PARTICLE_TYPES */
 #endif /* STARFORM */
 			} else {
 				cart_free( recv_id[proc] );
 				cart_free( recv_parts[proc] );
-
+#ifdef GRAVITY
+				cart_free( recv_potential[proc] );
+#endif /* GRAVITY */
 #ifdef STARFORM
 				cart_free( recv_stars[proc] );
+
+#ifdef STAR_PARTICLE_TYPES
+				cart_free( recv_star_types[proc] );
+#endif /* STAR_PARTICLE_TYPES */
 #endif /* STARFORM */
 			}
 		}
@@ -818,12 +984,46 @@ void trade_particle_lists( int *num_parts_to_send, int *particle_list_to_send, i
 	cart_free( send_id );
 	cart_free( send_parts );
 	cart_free( send_requests );
-
+#ifdef GRAVITY
+	cart_free( send_potential );
+#endif /* GRAVITY */
 #ifdef STARFORM
 	cart_free( send_stars );
+#ifdef STAR_PARTICLE_TYPES
+	cart_free( send_star_types );
+#endif /* STAR_PARTICLE_TYPES */
 #endif /* STARFORM */
 
 	end_time( TRADE_PARTICLE_TIMER );
+}
+
+void rebuild_particle_list() 
+/* recreates particle_list_prev links based on current particle_list_next lists */
+{                                                                                                       
+	int i;
+	int ipart;                                                                                                                                      
+	int level, num_level_cells;
+	int *level_cells;
+	int icell;
+	int prev;
+
+	for ( level = min_level; level <= max_level; level++ ) {
+		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+
+		for ( i = 0; i < num_level_cells; i++ ) {
+			icell = level_cells[i];
+
+			prev = NULL_PARTICLE;
+			ipart = cell_particle_list[icell];
+			while ( ipart != NULL_PARTICLE ) {
+				particle_list_prev[ipart] = prev;
+				prev = ipart;
+				ipart = particle_list_next[ipart];
+			}
+		}
+
+		cart_free( level_cells );
+	}
 }
 
 void build_particle_list() {
@@ -1008,7 +1208,10 @@ void particle_move( int ipart_old, int ipart_new ) {
 		star_metallicity_Ia[ipart_new] = star_metallicity_Ia[ipart_old];
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
-	
+#ifdef STAR_PARTICLE_TYPES
+        star_particle_type[ipart_new] = star_particle_type[ipart_old];
+        star_particle_type[ipart_old] = STAR_TYPE_DELETED;
+#endif /* STAR_PARTICLE_TYPES */	
 	}
 #endif /* STARFORM */
 
@@ -1025,7 +1228,11 @@ void particle_free( int ipart ) {
 		particle_list_next[ipart] = free_star_particle_list;
 		free_star_particle_list = ipart;
 
-		if ( particle_is_star(ipart) ) {	
+		if ( particle_is_star(ipart) ) {
+#ifdef STAR_PARTICLE_TYPES
+            star_particle_type[ipart] = STAR_TYPE_DELETED;
+#endif /* STAR_PARTICLE_TYPES */
+
 			num_local_star_particles--;
 		}
 	} else {

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "agn.h"
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "control_parameter.h"
@@ -356,6 +357,13 @@ int global_timestep() {
 #endif
 
 #ifdef STARFORM
+#ifdef AGN                                                                                                                                                                     
+		/* do agn mergers */
+		agn_find_mergers();
+
+        /* do agn formation */
+#endif /* AGN */
+
 		/* now remap ids of stars created in this timestep */
 		remap_star_ids();
 #endif /* STARFORM */
@@ -385,7 +393,7 @@ int global_timestep() {
 int timestep( int level, MPI_Comm level_com ) 
 /* returns -1 if timestep would invalidate cfl condition */
 {
-	int j, courant_cell;
+	int i, j, courant_cell;
 	double velocity;
 	int ret;
 	int step_ret;
@@ -445,7 +453,7 @@ int timestep( int level, MPI_Comm level_com )
 	/*
 	//  Backup hydro variables for upodating fluxes on lower levels
 	*/
-	hydro_copy_vars( level, COPY_ZERO_REF, COPY_SPLIT_NEIGHBORS );
+	hydro_copy_vars( level, HYDRO_COPY_ALL );
 #endif /* HYDRO */
 #if defined(GRAVITY) && defined(PARTICLES)
 	/*
@@ -619,19 +627,33 @@ int timestep( int level, MPI_Comm level_com )
 #endif /* HYDRO */
 
 #ifdef GRAVITY
+#if defined(HYDRO) || defined(REFINEMENT)
+    /* if hydro or refinement are enabled, we destroyed the value of the 
+     * acceleration variable and need to recompute it here */
 	compute_accelerations_particles(level);
+#endif /* HYDRO || REFINEMENT */
+
+	accelerate_particles(level);
 #endif /* GRAVITY */
 
-	move_particles( level );
-	update_particle_list( level );
-
 #ifdef STARFORM
+	star_particle_feedback(level);
+
 	/* update cell values changed by starformation and feedback */
 	start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 	update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+
+#ifdef AGN                                                                                                                                                                     
+	for ( i = level+1; i <= max_level; i++ ) {
+		update_buffer_level( i, all_hydro_vars, num_hydro_vars );
+	}
+#endif /* AGN */
+
 	end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 #endif /* STARFORM */
 
+	move_particles( level );
+	update_particle_list( level );
 #endif /* PARTICLES */
 
 	/* advance time on level */
@@ -1026,24 +1048,22 @@ void hydro_cfl_condition( int level, int *courant_cell, double *velocity ) {
 	vas = 0.0;
 	ivas = 0;
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_leaf(icell) ) {
-			as = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
-			vel = cell_gas_density(icell)*min_courant_velocity;
-			for ( j = 0; j < nDim; j++ ) {
-				if ( fabs(cell_momentum(icell,j)) > vel ) {
-					vel = fabs(cell_momentum(icell,j));
-				}
+		as = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
+		vel = cell_gas_density(icell)*min_courant_velocity;
+		for ( j = 0; j < nDim; j++ ) {
+			if ( fabs(cell_momentum(icell,j)) > vel ) {
+				vel = fabs(cell_momentum(icell,j));
 			}
-			vel = vel/cell_gas_density(icell) + as;
+		}
+		vel = vel/cell_gas_density(icell) + as;
 
-			if ( vel >= vas ) {
-				ivas = icell;
-				vas = vel;
-			}
+		if ( vel >= vas ) {
+			ivas = icell;
+			vas = vel;
 		}
 	}
 	cart_free( level_cells );

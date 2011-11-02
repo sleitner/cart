@@ -7,7 +7,6 @@
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "control_parameter.h"
-#include "index_hash.h"
 #include "parallel.h"
 #include "sfc.h"
 #include "tree.h"

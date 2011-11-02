@@ -13,7 +13,6 @@
 #include "cosmology.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
-#include "index_hash.h"
 #include "io.h"
 #include "iterators.h"
 #include "load_balance.h"
@@ -987,6 +986,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 	int first_star;
 	float *output_stars;
 	float *star_page[MAX_PROCS];
+
+#ifdef STAR_PARTICLE_TYPES
+	int *output_types;
+	int *star_type_page[MAX_PROCS];
+#endif /* STAR_PARTICLE_TYPES */
 #endif /* STARFORM */
 
 	if(particle_file_mode > 0) particle_file_mode = 0; /* Auto-reset */
@@ -2283,6 +2287,199 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 
 #endif /* ENRICH_SNIa */
 
+#ifdef STAR_PARTICLE_TYPES
+			for ( i = 1; i < num_procs; i++ ) {
+				star_type_page[i] = cart_alloc(int, num_parts_per_proc_page);
+			}
+			output_types = cart_alloc(int, num_parts_per_page);
+
+			size = num_stars * sizeof(int);
+			fwrite( &size, sizeof(int), 1, stellar_output );
+
+			processor_heap[0] = MASTER_NODE;
+			pos[0] = 0;
+			if ( first_star == num_local_particles ) {
+				page_ids[0][0] = -1;
+			} else {
+				page_ids[0][0] = particle_id[particle_order[first_star]];
+			}
+
+			/* receive initial pages */
+			for ( i = 1; i < num_procs; i++ ) {
+				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, 
+						i, 0, MPI_COMM_WORLD, &status );
+				MPI_Get_count( &status, MPI_INT, &count[i] );
+				MPI_Recv( star_type_page[i], num_parts_per_proc_page, MPI_INT, 
+						i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				pos[i] = 0;
+				pages[i] = 1;
+				processor_heap[i] = i;
+
+				if ( count[i] == 0 ) {
+					page_ids[i][0] = -1;
+				}
+			}
+
+			/* build processor heap ordered by minimum particle id */
+			for ( i = num_procs/2-1; i >= 0; i-- ) {
+				root = i;
+				left = 2*root+1;
+				while ( left < num_procs ) {
+					leftproc = processor_heap[left];
+					rootproc = processor_heap[root];
+
+					if ( page_ids[rootproc][0] == -1 || ( page_ids[leftproc][0] != -1 && 
+								page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
+						smallest = left;
+					} else {
+						smallest = root;
+					}
+
+					right = left+1;
+					if ( right < num_procs && 
+							( page_ids[processor_heap[smallest]][0] == -1 || 
+							( page_ids[processor_heap[right]][0] != -1 && 
+							  page_ids[processor_heap[right]][0] < 
+							  page_ids[processor_heap[smallest]][0] ) ) ) {
+						smallest = right;
+					}
+
+					if ( smallest != root ) {
+						/* swap */
+						processor_heap[root] = processor_heap[smallest];
+						processor_heap[smallest] = rootproc;
+						root = smallest;
+						left = 2*root+1;
+					} else {
+						left = num_procs;
+					}
+				}
+			}
+
+			local_count = first_star;
+			current_id = particle_species_indices[num_particle_species-1];
+			for ( i = 0; i < num_pages; i++ ) {
+				/* construct page */
+				num_parts = 0;
+
+				if ( i == num_pages - 1 ) {
+					num_parts_in_page = num_stars - num_parts_per_page*(num_pages-1);
+				} else {
+					num_parts_in_page = num_parts_per_page;
+				}
+
+				while ( num_parts < num_parts_in_page ) {
+					/* choose proc from min heap */
+					proc = processor_heap[0];
+					if ( page_ids[proc][pos[proc]] > current_id ) {
+						output_types[num_parts] = STAR_TYPE_DELETED;
+						num_parts++;
+						current_id++;
+					} else { 
+						if ( proc == local_proc_id ) {
+							/* add from our list */
+							while ( num_parts < num_parts_in_page &&
+									local_count < num_local_particles &&
+									particle_id[particle_order[local_count]] == current_id ) {
+								index = particle_order[local_count];
+								output_types[num_parts] = star_particle_type[index];
+								local_count++;
+								num_parts++;
+								current_id++;
+							}
+
+							if ( local_count < num_local_particles ) {
+								page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
+							} else {
+								page_ids[local_proc_id][0] = -1;
+							}
+						} else {
+							while ( num_parts < num_parts_in_page &&
+									pos[proc] < count[proc] &&
+									page_ids[proc][pos[proc]] == current_id ) {
+
+								output_types[num_parts] = star_type_page[proc][pos[proc]];
+								num_parts++;
+								current_id++;
+								pos[proc]++;
+
+								/* if we've run out, refill page */
+								if ( pos[proc] == count[proc] ) {
+									if ( count[proc] == num_parts_per_proc_page ) {
+										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+												proc, 2*pages[proc], MPI_COMM_WORLD, &status );
+										MPI_Get_count( &status, MPI_INT, &count[proc] );
+										MPI_Recv( star_type_page[proc], num_parts_per_proc_page,
+												MPI_INT, proc, 2*pages[proc]+1, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+										pos[proc] = 0;
+										pages[proc]++;
+
+										if ( count[proc] == 0 ) {
+											page_ids[proc][0] = -1;
+										}
+									} else {
+										pos[proc] = 0;
+										page_ids[proc][0] = -1;
+									}
+								}
+							}
+						}
+
+						/* re-heapify */
+						root = 0;
+						left = 1;
+						while ( left < num_procs ) {
+							leftproc = processor_heap[left];
+							rootproc = processor_heap[root];
+
+							if ( page_ids[rootproc][pos[rootproc]] == -1 ||
+									( page_ids[leftproc][pos[leftproc]] != -1 && 
+									  page_ids[leftproc][pos[leftproc]] < page_ids[rootproc][pos[rootproc]] ) ) {
+								smallest = left;
+							} else {
+								smallest = root;
+							}
+
+							right = left+1;
+							if ( right < num_procs ) {
+								rightproc = processor_heap[right];
+								smallestproc = processor_heap[smallest];
+
+								if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
+										( page_ids[rightproc][pos[rightproc]] != -1 &&
+										  page_ids[rightproc][pos[rightproc]] < 
+										  page_ids[smallestproc][pos[smallestproc]] ) ) {
+									smallest = right;
+								}
+							}
+
+							if ( smallest != root ) {
+								/* swap */
+								processor_heap[root] = processor_heap[smallest];
+								processor_heap[smallest] = rootproc;
+								root = smallest;
+								left = 2*root+1;
+							} else {
+								left = num_procs;
+							}
+						}
+					}
+				}
+
+				/* write out page */
+				cart_assert( num_parts == num_parts_in_page );
+				fwrite( output_types, sizeof(int), num_parts_in_page, stellar_output );
+			}
+
+			fwrite( &size, sizeof(int), 1, stellar_output );
+
+            for ( i = 1; i < num_procs; i++ ) {
+				cart_free( star_type_page[i] );
+            }
+
+			cart_free( output_types );
+#endif /* STAR_PARTICLE_TYPES */
+
 			cart_free( output_stars );
 
 			for ( i = 1; i < num_procs; i++ ) {
@@ -2435,6 +2632,28 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 #endif /* ENRICH */
 
 			cart_free( star_page[local_proc_id] );
+
+#ifdef STAR_PARTICLE_TYPES
+			star_type_page[local_proc_id] = cart_alloc(int, num_parts_per_proc_page );
+
+			num_parts = first_star;
+			pages[local_proc_id] = 0;
+			do {
+				for ( i = 0; i < num_parts_per_proc_page && num_parts < num_local_particles; i++ ) {
+					page_ids[local_proc_id][i] = particle_id[particle_order[num_parts]];
+					star_type_page[local_proc_id][i] = star_particle_type[particle_order[num_parts]];
+					num_parts++;
+				}
+
+				/* send the page */
+				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( star_type_page[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id]+1, MPI_COMM_WORLD );
+				pages[local_proc_id]++;
+			} while ( i == num_parts_per_proc_page );
+
+			cart_free( star_type_page[local_proc_id] );
+#endif /* STAR_PARTICLE_TYPES */
+
 		}
 #endif /* STARFORM */
 

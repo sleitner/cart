@@ -8,6 +8,15 @@
 
 #ifdef STARFORM
 
+#ifdef STAR_PARTICLE_TYPES
+extern int star_particle_type[num_star_particles];
+#endif /* STAR_PARTICLE_TYPES */
+
+#define STAR_TYPE_DELETED       (-1)
+#define STAR_TYPE_NORMAL        0
+#define STAR_TYPE_AGN           1
+
+
 extern float star_formation_volume_min[nDim];
 extern float star_formation_volume_max[nDim];
 
@@ -36,7 +45,7 @@ void config_verify_star_formation();
 void init_star_formation();
 void star_formation( int level, int time_multiplier );
 void star_formation_rate( int level, int num_level_cells, int *level_cells, float *sfr);
-void create_star_particle( int icell, float mass );
+void create_star_particle( int icell, float mass, int type );
 void remap_star_ids();
 
 /* global parameters */

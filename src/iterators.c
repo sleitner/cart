@@ -17,64 +17,129 @@ void select_level( int level, int cell_types, int *num_cells_selected, int **sel
 	int num_selected;
 	int *level_cells;
 	int ioct, ichild;
+	int refined_flag;
 
 	start_time( SELECT_LEVEL_TIMER );
 
 	cart_assert( level >= min_level && level <= max_level );
-	cart_assert( cell_types == CELL_TYPE_LOCAL || cell_types == CELL_TYPE_BUFFER || cell_types == CELL_TYPE_ANY );
 
-	switch ( cell_types ) {
-		case CELL_TYPE_LOCAL:
-			*num_cells_selected = num_cells_per_level[level];
-			break;
-		case CELL_TYPE_BUFFER:
-			*num_cells_selected = num_buffer_cells[level];
-			break;
-		case CELL_TYPE_ANY:
-			*num_cells_selected = num_cells_per_level[level] + num_buffer_cells[level];
-			break;
+	/* hack to allow backwards compatibility for cell_types */
+	if ( !((cell_types & CELL_TYPE_LEAF) || (cell_types & CELL_TYPE_REFINED)) ) {
+		cell_types |= CELL_TYPE_LEAF | CELL_TYPE_REFINED;
 	}
-
-	level_cells = cart_alloc(int, *num_cells_selected );
+	
 	num_selected = 0;
 
-	if ( cell_types == CELL_TYPE_LOCAL || cell_types == CELL_TYPE_ANY ) {
-		if ( level == min_level ) {
-			cart_assert( num_cells_per_level[min_level] <= *num_cells_selected );
-			for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-				level_cells[i] = i;
+	if ( cell_types & CELL_TYPE_LOCAL ) {
+		if ( cell_types & CELL_TYPE_LEAF ) {
+			if ( level < max_level ) {
+				num_selected += num_cells_per_level[level] - num_cells_per_level[level+1]/num_children;
+			} else {
+				num_selected += num_cells_per_level[level];
 			}
-			num_selected = num_cells_per_level[min_level];
-		} else {
-			ioct = local_oct_list[level];
-			while ( ioct != NULL_OCT ) {
-				for ( ichild = 0; ichild < num_children; ichild++ ) {
-					level_cells[num_selected++] = oct_child(ioct,ichild);
-				}
-				ioct = oct_next[ioct];
-			}
+		} 
+		if ( (cell_types & CELL_TYPE_REFINED) && (level < max_level) ) {
+			num_selected += num_cells_per_level[level+1]/num_children;
 		}
 	}
 
-	if ( cell_types == CELL_TYPE_BUFFER || cell_types == CELL_TYPE_ANY ) {
-		if ( level == min_level ) { 
-			for ( i = num_cells_per_level[min_level]; 
-					i < num_cells_per_level[min_level]+num_buffer_cells[min_level]; i++ ) {
-				level_cells[num_selected++] = i;
+	if ( cell_types & CELL_TYPE_BUFFER ) {
+		if ( cell_types & CELL_TYPE_LEAF ) {
+			if ( level < max_level ) {
+				num_selected += num_buffer_cells[level] - num_buffer_cells[level+1]/num_children;
+			} else {
+				num_selected += num_buffer_cells[level];
 			}
-		} else {
-			ioct = buffer_oct_list[level];
-			while ( ioct != NULL_OCT ) {
-				for ( ichild = 0; ichild < num_children; ichild++ ) {
-					level_cells[num_selected++] = oct_child(ioct,ichild);
+		} 
+        if ( (cell_types & CELL_TYPE_REFINED) && (level < max_level) ) {
+            num_selected += num_buffer_cells[level+1]/num_children;
+        }
+    }
+
+	level_cells = cart_alloc(int, num_selected );
+	*num_cells_selected = num_selected;
+	num_selected = 0;
+
+	if ( (cell_types & CELL_TYPE_LEAF) && (cell_types & CELL_TYPE_REFINED) ) {
+		if ( cell_types & CELL_TYPE_LOCAL ) {
+			if ( level == min_level ) {
+				for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
+					level_cells[i] = i;
 				}
-				ioct = oct_next[ioct];
+				num_selected = num_cells_per_level[min_level];
+			} else {
+				ioct = local_oct_list[level];
+				while ( ioct != NULL_OCT ) {
+					for ( ichild = 0; ichild < num_children; ichild++ ) {
+						level_cells[num_selected++] = oct_child(ioct,ichild);
+					}
+					ioct = oct_next[ioct];
+				}
+			}
+		}
+
+		if ( cell_types & CELL_TYPE_BUFFER ) {
+			if ( level == min_level ) { 
+				for ( i = num_cells_per_level[min_level]; 
+						i < num_cells_per_level[min_level]+num_buffer_cells[min_level]; i++ ) {
+					level_cells[num_selected++] = i;
+				}
+			} else {
+				ioct = buffer_oct_list[level];
+				while ( ioct != NULL_OCT ) {
+					for ( ichild = 0; ichild < num_children; ichild++ ) {
+						level_cells[num_selected++] = oct_child(ioct,ichild);
+					}
+					ioct = oct_next[ioct];
+				}
+			}
+		}
+	} else {
+		refined_flag = ( cell_types & CELL_TYPE_REFINED ) ? 1 : 0;
+
+		if ( cell_types & CELL_TYPE_LOCAL ) {
+			if ( level == min_level ) {
+				for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
+					if ( cell_is_refined(i) == refined_flag ) {
+						level_cells[num_selected++] = i;	
+					}
+				}
+			} else {
+				ioct = local_oct_list[level];
+				while ( ioct != NULL_OCT ) {
+					for ( ichild = 0; ichild < num_children; ichild++ ) {
+						if ( cell_is_refined( oct_child(ioct,ichild) ) == refined_flag ) {
+							level_cells[num_selected++] = oct_child(ioct,ichild);
+						}
+					}
+					ioct = oct_next[ioct];
+				}
+			}
+		}
+
+		if ( cell_types & CELL_TYPE_BUFFER ) {
+			if ( level == min_level ) { 
+				for ( i = num_cells_per_level[min_level]; 
+						i < num_cells_per_level[min_level]+num_buffer_cells[min_level]; i++ ) {
+					if ( cell_is_refined(i) == refined_flag ) {
+						level_cells[num_selected++] = i;
+					}
+				}
+			} else {
+				ioct = buffer_oct_list[level];
+				while ( ioct != NULL_OCT ) {
+					for ( ichild = 0; ichild < num_children; ichild++ ) {
+						if ( cell_is_refined( oct_child(ioct,ichild) ) == refined_flag ) {
+							level_cells[num_selected++] = oct_child(ioct,ichild);
+						}
+					}
+					ioct = oct_next[ioct];
+				}
 			}
 		}
 	}
 
 	cart_assert( num_selected == *num_cells_selected );
-
 	*selection = level_cells;
 
 	end_time( SELECT_LEVEL_TIMER );
@@ -88,32 +153,29 @@ void select_level_octs( int level, int oct_types, int *num_octs_selected, int **
 	start_time( SELECT_LEVEL_TIMER );
 
 	cart_assert( level > min_level && level <= max_level );
-	cart_assert( oct_types == CELL_TYPE_LOCAL || oct_types == CELL_TYPE_BUFFER || oct_types == CELL_TYPE_ANY );
+	cart_assert( !((oct_types & CELL_TYPE_LEAF) || (oct_types & CELL_TYPE_REFINED) ) );
 
-	switch ( oct_types ) {
-		case CELL_TYPE_LOCAL:
-			*num_octs_selected = num_cells_per_level[level]/num_children;
-			break;
-		case CELL_TYPE_BUFFER:
-			*num_octs_selected = num_buffer_cells[level]/num_children;
-			break;
-		case CELL_TYPE_ANY:
-			*num_octs_selected = (num_cells_per_level[level] + num_buffer_cells[level])/num_children;
-			break;
+	num_selected = 0;
+	if ( oct_types & CELL_TYPE_LOCAL ) {
+		num_selected += num_cells_per_level[level]/num_children;
+	}
+	if ( oct_types & CELL_TYPE_BUFFER ) {
+		num_selected += num_buffer_cells[level]/num_children;
 	}
 
-	level_octs = cart_alloc(int, *num_octs_selected );
+	level_octs = cart_alloc(int, num_selected );
+	*num_octs_selected = num_selected;
 	num_selected = 0;
 
-	if ( oct_types == CELL_TYPE_LOCAL || oct_types == CELL_TYPE_ANY ) {
+	if ( oct_types & CELL_TYPE_LOCAL ) {
 		ioct = local_oct_list[level];
 		while ( ioct != NULL_OCT ) {
 			level_octs[num_selected++] = ioct;
 			ioct = oct_next[ioct];
 		}
-        }
+	}
 
-	if ( oct_types == CELL_TYPE_BUFFER || oct_types == CELL_TYPE_ANY ) {
+	if ( oct_types & CELL_TYPE_BUFFER ) {
 		ioct = buffer_oct_list[level];
 		while ( ioct != NULL_OCT ) {
 			level_octs[num_selected++] = ioct;
@@ -122,92 +184,47 @@ void select_level_octs( int level, int oct_types, int *num_octs_selected, int **
 	}
 
 	cart_assert( num_selected == *num_octs_selected );
-
 	*selection = level_octs;
 
 	end_time( SELECT_LEVEL_TIMER );
 }
 
-void select_level_with_condition( int select_leaves, int level, int *num_cells_selected, int **selection )
-{
-  int i;
-  int num_selected, size;
-  int *level_cells;
-  int ioct, ichild;
+void select_local_buffered_cells( int level, int proc, int *num_cells_selected, int **selection ) {
+	int i, j;
+	int num_selected;
+	int *level_cells;
 
-  start_time( SELECT_LEVEL_TIMER );
+	cart_assert( level >= min_level && level <= max_level );
+	cart_assert( proc >= 0 && proc < num_procs );
 
-  cart_assert( level >= min_level && level <= max_level );
-  cart_assert( select_leaves == 0 || select_leaves == 1 );
+	start_time( SELECT_LEVEL_TIMER );
 
-  /*
-  //  Measure array size
-  */
-  size = 0;
-  if ( level == min_level )
-    {
-      for ( i = 0; i < num_cells_per_level[min_level]; i++ ) if(cell_is_leaf(i) == select_leaves) 
-	{
-	  size++;
+	if ( level == min_level ) {
+		*num_cells_selected = num_remote_buffers[min_level][proc];
+	} else {
+		*num_cells_selected = num_children*num_remote_buffers[level][proc];
 	}
-    }
-  else
-    {
-      ioct = local_oct_list[level];
-      while ( ioct != NULL_OCT )
-	{
-	  for ( ichild = 0; ichild < num_children; ichild++ )
-	    {
-	      i = oct_child(ioct,ichild);
-	      if(cell_is_leaf(i) == select_leaves) 
-		{
-		  size++;
+
+	level_cells = cart_alloc(int, *num_cells_selected);
+
+	if ( level == min_level ) {
+		for ( i = 0; i < num_remote_buffers[min_level][proc]; i++ ) {
+			level_cells[i] = root_cell_location( remote_buffers[min_level][proc][i] );
 		}
-	    }
-	  ioct = oct_next[ioct];
-	}
-    }
-
-  if(size == 0)
-    {
-      *selection = NULL;
-      *num_cells_selected = 0;
-    }
-  else
-    {
-      level_cells = cart_alloc(int, size );
-      num_selected = 0;
-
-      if ( level == min_level )
-	{
-	  for ( i = 0; i < num_cells_per_level[min_level]; i++ ) if(cell_is_leaf(i) == select_leaves) 
-	    {
-	      level_cells[num_selected++] = i;
-	    }
-	}
-      else
-	{
-	  ioct = local_oct_list[level];
-	  while ( ioct != NULL_OCT )
-	    {
-	      for ( ichild = 0; ichild < num_children; ichild++ )
-		{
-		  i = oct_child(ioct,ichild);
-		  if(cell_is_leaf(i) == select_leaves) 
-		    {
-		      level_cells[num_selected++] = i;
-		    }
+		num_selected = num_remote_buffers[min_level][proc];
+	} else {
+		num_selected = 0;
+		for ( i = 0; i < num_remote_buffers[level][proc]; i++ ) {
+			for ( j = 0; j < num_children; j++ ) {
+				level_cells[num_selected++] = oct_child( remote_buffers[level][proc][i], j );
+			}
 		}
-	      ioct = oct_next[ioct];
-	    }
 	}
 
-      *selection = level_cells;
-      *num_cells_selected = num_selected;
+	cart_assert( num_selected == *num_cells_selected );
+	*selection = level_cells;
 
-    }
-
-  end_time( SELECT_LEVEL_TIMER );
+	end_time( SELECT_LEVEL_TIMER );
 }
 
 /*******************************************************

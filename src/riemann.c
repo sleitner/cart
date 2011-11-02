@@ -114,21 +114,36 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	}
 
 	u	= 0.5 * ( ul_0 + ur_0 );
-	ind_r	= floor( 0.9 - sign( 0.5, u ) );
-	rho_s	= ind_r * ( str[0] - stl[0] ) + stl[0];
-	u_s	= ind_r * ( str[1] - stl[1] ) + stl[1];
-	p_s	= ind_r * ( str[2] - stl[2] ) + stl[2];
-	bgam_s	= ind_r * ( str[3] - stl[3] ) + stl[3];
-	gam_s	= ind_r * ( str[4] - stl[4] ) + stl[4];
-	a_s	= ind_r * ( ar - al ) + al;
-	b_s	= ind_r * ( br - bl ) + bl;
-	c_s	= ind_r * ( cr - cl ) + cl;
+	ind_r = floor( 0.9 - sign( 0.5, u ) );
+	cart_assert( ind_r == 0 || ind_r == 1.0 );
+
+	if ( u >= 0.0 ) {
+		rho_s = stl[0];
+		u_s = stl[1];
+		p_s = stl[2];
+		bgam_s = stl[3];
+		gam_s = stl[4];
+		a_s = al;
+		b_s = bl;
+		c_s = cl;
+		indd = -1.0;
+	} else {
+		rho_s = str[0];
+		u_s = str[1];
+		p_s = str[2];
+		bgam_s = str[3];
+		gam_s = str[4];
+		a_s = ar;
+		b_s = br;
+		c_s = cr;
+		indd = 1.0;
+	}
+
 	w_s	= ( a_s * p_1 + b_s ) / ( p_1 + c_s );
 	w_s	= max( small_R, w_s * rho_s * ( p_1 + p_s ) );
 	rho	= max( small_R, rho_s / ( 1.0 - rho_s * ( p_1 - p_s ) / w_s ) );
 	gam	= gam_s + 2.0 * ( gam_s - 1.0 ) * ( 1.0 - gam_s / bgam_s ) 
 			/ ( p_1 + p_s ) * ( p_1 - p_s );
-	indd	= 2.0 * ind_r - 1.0;
 
 	if ( (p_1 - p_s) > 0 ) {
 		a2 = indd * u_s + sqrt( w_s ) / rho_s;
@@ -145,7 +160,7 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	if ( fs > 1.0 ) fs = 1.0;
 
 	sta[0] = rho	+ fs * ( rho_s - rho );
-	sta[1] = u	+ fs * ( u_s - u );
+	sta[1] = u	    + fs * ( u_s - u );
 	sta[2] = p_1	+ fs * ( p_s - p_1 );
 	sta[3] = gam	+ fs * ( gam_s - gam );
 }       

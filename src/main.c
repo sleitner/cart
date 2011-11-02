@@ -12,6 +12,7 @@
 #include <omp.h>
 #endif
 
+#include "agn.h"
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "cooling.h"
@@ -221,6 +222,9 @@ int main ( int argc, char *argv[]) {
 
 #ifdef STARFORM
 	init_star_formation();
+#ifdef AGN                                                                                                                                                                     
+	init_agn();
+#endif /* AGN */
 #endif /* STARFORM */
 
 #ifdef RADIATIVE_TRANSFER
