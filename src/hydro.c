@@ -1087,7 +1087,7 @@ float cell_gas_temperature(int cell) {
 	} else return 0.0;
 }
 
-double cell_gas_sound_speed( int icell ) {
+float cell_gas_sound_speed( int icell ) {
 	return sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
 }
 

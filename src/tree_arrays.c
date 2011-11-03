@@ -95,7 +95,7 @@ const int tertiary_neighbors[num_tertiary_neighbors][2]
 #ifdef GCC_COMPILER
       int secondary_external_neighbors[num_children][nDim] 
 #else
-const int tertiary_neighbors[num_tertiary_neighbors][2] 
+const int secondary_external_neighbors[num_children][nDim] 
 #endif
 = {
 	#if nDim == 3
