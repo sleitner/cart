@@ -12,7 +12,7 @@
 #define OUT_CELL_TAUUV (OUT_CELL_RADIATION_PRESSURE+1)
 #define OUT_CELL_URAD (OUT_CELL_TAUUV+1)
 #define OUT_CELL_METALS (OUT_CELL_URAD+1)
-#define OUT_CELL_DUST (OUT_CELL_URAD+1)
+#define OUT_CELL_DUST (OUT_CELL_METALS+1)
 
 extern const int axis_direction[nDim][nDim-1];
 

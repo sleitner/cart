@@ -120,11 +120,11 @@ def plot_field(field,clabel,filename,time,vmin,vmax):
 		add_arrows(vx,vy)
 	
         if(vmin==vmax):
-            #im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
-            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation=None)        
+            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
+#            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation=None)        
         else:
-            #im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
-            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="gaussian",vmin=vmin,vmax=vmax) 
+            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
+#            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="gaussian",vmin=vmin,vmax=vmax) 
 
 #	title='t-t0={:.2g}Myr,dt={:.2g}Myr'.format(time,dtl)
 #	title='t-t0={:.2g}Myr'.format(time)
@@ -208,11 +208,11 @@ for slice in ( sys.argv[1:] ) :
             if(name_slice=='density_numbercc'):
                 density = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='' ).reshape(nx,ny))
             elif(name_slice=='temperature_kelvin'):
-                 temp = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+                temp = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
             elif(name_slice=='vx_kms'):
-                 vx = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+                vx = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
             elif(name_slice=='vy_kms'):
-                 vy = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
+                vy = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
             elif(name_slice=='vz_kms'):
                 vz = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
             elif(name_slice=='mach_number'):
@@ -227,6 +227,8 @@ for slice in ( sys.argv[1:] ) :
                 Urad =  np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
             elif(name_slice=='radPoverP_number'):
                 radPoP = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='pressure_ergcc'):
+                Pergcc = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
             else:
                 sys.stderr.write('bad name_slice value',name_slice)
                 dummy = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
@@ -236,7 +238,7 @@ for slice in ( sys.argv[1:] ) :
         print 'done reading '
         (tick_locs,tick_lbls) = set_axis(nx-1)
 	for i in range(nx/2,nx/2+10):
-            print 'rho',density[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2],'mach#:',mach[i,nx/2],'radPoP#:',radPoP[i,nx/2]
+            print 'rho',density[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2],'mach#:',mach[i,nx/2] #,'radPoP#:',radPoP[i,nx/2]
 
 	input.close()
 
@@ -297,6 +299,13 @@ for slice in ( sys.argv[1:] ) :
             vmax=0
             plot_field(level,clabel,filename, time,vmin,vmax)
 
+        if 'Pergcc' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/pressure/")
+            print filename
+            clabel='log(P[erg/cc])'
+            vmin=0
+            vmax=0
+            plot_field(Pergcc,clabel,filename, time,vmin,vmax)
 
         if 'Urad' in locals():
             filename=slice.replace("dat","png").replace("out/","plots/urad/")

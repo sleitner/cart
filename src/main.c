@@ -448,7 +448,10 @@ int main ( int argc, char *argv[]) {
 				load_balance();
 			}
 
-			cart_debug("done with timestep %u at tl = %e", step, tl[min_level] );
+			cart_debug("done with timestep %u at tl = %e, t-t_init =%e[Myr]",
+                                   step,
+                                   tl[min_level],
+                                   (tphys_from_tcode(tl[min_level])-tphys_from_auni(auni_init))*1e-6);
 			start_time( IO_TIMER );
 			log_diagnostics();
 			end_time( IO_TIMER );

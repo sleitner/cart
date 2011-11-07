@@ -281,6 +281,10 @@ void mark_refinement_indicators( int cell, int level ) {
 	if ( refinement_indicator[ENTROPY_GRADIENT_INDICATOR].use[level] ) {
 		indicator = max( entropy_gradient_indicator(cell,level,neighbors), indicator );
 	}
+        
+	if ( refinement_indicator[SPATIAL_INDICATOR].use[level] ) {
+		indicator = max( spatial_indicator(cell,level), indicator );
+        }
 #endif /* HYDRO */
 
         refinement_indicator(cell, 0) = indicator;
@@ -300,6 +304,18 @@ float dark_mass_indicator( int cell, int level ) {
 }
 
 #ifdef HYDRO
+
+float spatial_indicator( int cell, int level ) {
+	float in_region = 0;
+        const double central_cell[nDim] = {num_grid/2,num_grid/2,num_grid/2};
+        double pos[3];
+
+        cell_center_position( cell, pos );
+        if(refinement_indicator[SPATIAL_INDICATOR].threshold[level] > compute_distance_periodic(pos,central_cell)){
+            in_region = refinement_indicator[SPATIAL_INDICATOR].weight;
+        }
+return in_region ;
+}
 
 float gas_mass_indicator( int cell, int level ) {
 	float ave_mass;
