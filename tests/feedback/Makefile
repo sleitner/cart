@@ -17,4 +17,4 @@ radp: .obj $(OBJS) defs.h start_radp.h start_radp.c .obj/extra/viewdump.o .obj/e
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_radp.c -o radp .obj/extra/viewdump.o .obj/extra/ifrit.o .obj/extra/utils.o .obj/extra/output_slice.o $(LIBS) $(EXTRALIBS)
 
 clean:
-	@rm -rf .obj radp core
+	@rm -rf .obj radp core *.o *.log

@@ -42,13 +42,9 @@
 
 #include "start_radp.h"
 
-const int NSTARS=7;
+const int NSTARS=1;
 #define OUTLEVEL (max_level)
-#ifndef ONE_CELL_IN_THE_CENTER
-#error "not sure !ONE_CELL_IN_CENTER will work"
-#endif
 
-#ifdef ONE_CELL_IN_THE_CENTER
 const int central_cell=num_grid/2;
 int icell_central(double dispx,double dispy,double dispz){
     double pos[nDim];
@@ -57,9 +53,9 @@ int icell_central(double dispx,double dispy,double dispz){
     pos[2] = central_cell+dispz;
     return cell_find_position(pos);
 }
-#endif
 
 #ifdef USER_PLUGIN
+void record_momentum_input(int level, int cell);
 void outslice();
 void outslicebegin();
 void outsliceCFL();
@@ -73,47 +69,35 @@ const plugin_t* add_plugin(int id){
         outslicePlugin.AfterCFLRestart = outsliceCFL;
         outslicePlugin.RunBegin = outslicebegin;
         outslicePlugin.GlobalStepEnd = outslice;
+        outslicePlugin.StarformationFeedbackEnd = record_momentum_input;
         return &outslicePlugin;
     }else{
         return NULL;
     }
 }
-#endif
 
-
-
-///////////////////////////////////////////////////////////////
-double rad_sedov_pc(double Edum,double rhodum,double timedum){
-    return (0.868*pow(Edum/rhodum,0.2)*pow(timedum,0.4))*constants->cm/constants->pc;
+double dmom_from_press =0;
+void record_momentum_input(int level, int cell){
+    float dmom;
+/*     printf("%f %e %e\n", */
+/*            (tphys_from_tcode(tl[min_level])-tphys_from_auni(auni_init))*1e-6, */
+/*            cell_gas_pressure(cell) *6 *(cell_size[level]*cell_size[level])*dtl[level] */
+/*            *units->velocity*units->mass/constants->kms/constants->Msun, */
+/*            dtl[level] */
+/*         ); */
+    dmom = cell_gas_pressure(cell) *6 *(cell_size[level]*cell_size[level])*dtl[level];
+    MPI_Reduce( MPI_IN_PLACE, &dmom, 1, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+    if ( local_proc_id == MASTER_NODE ) {
+        dmom_from_press +=dmom;
+    }
+        
+    
 }
-
+#endif
 
 void units_set_art(double OmegaM, double h, double Lbox);
 
-void refine_level( int cell, int level ) {
-    double pos[nDim];
-    float r;
-
-    cart_assert( cell >= 0 && cell < num_cells );
-    cart_assert( cell_level(cell) == level );
-	
-    cell_center_position(cell, pos);
-
-    pos[0] -= 0.5*num_grid;
-    pos[1] -= 0.5*num_grid;
-    pos[2] -= 0.5*num_grid;
-
-    r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);
-
-    if ( r < refine_radius*cell_size[level] ) { 
-        refinement_indicator(cell,0) = 1.0;	 
-    } else { 
-        refinement_indicator(cell,0) = 0.0; 
-    } 
-}
-
-
-void radp_initial_conditions_one_cell( int icell ) {
+void radp_initial_conditions( int icell ) {
     cell_gas_density(icell) = rho0;
     cell_momentum(icell,0) = 0.0;
     cell_momentum(icell,1) = 0.0;
@@ -137,58 +121,17 @@ void radp_initial_conditions_one_cell( int icell ) {
     
     cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
     cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
-#ifdef ELECTRON_ION_NONEQUILIBRIUM
-    cell_electron_internal_energy(icell) = cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e;
-#endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 
+    
 #ifdef ENRICH 
-    /* cell_gas_metal_density_II(icell) = 1e-30; */
     cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
 #ifdef ENRICH_SNIa
-    /* cell_gas_metal_density_Ia(icell) = 1e-30; */
     cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
 #endif
 #endif
 }
 
-
-void radp_initial_conditions( int icell ) {
-    double pos[nDim];
-    float r;
-    
-    cell_gas_density(icell) = rho0;
-    cell_momentum(icell,0) = 0.0;
-    cell_momentum(icell,1) = 0.0;
-    cell_momentum(icell,2) = 0.0;
-    cell_gas_gamma(icell) = constants->gamma;
-    
-    /* now add some energy  */
-    cell_center_position(icell, pos); 
-    pos[0] -= 0.5*num_grid;
-    pos[1] -= 0.5*num_grid;
-    pos[2] -= 0.5*num_grid; 
-    r = sqrt(pos[0]*pos[0]+pos[1]*pos[1]+pos[2]*pos[2]);
-    if ( r <= refine_radius*cell_size[min_level] ) {
-        cell_gas_internal_energy(icell) = exp( -r*r / (2.0*blast_radius*blast_radius ) );
-    } else { 
-        cell_gas_internal_energy(icell) =  E_ambient;
-    }
-    
-    cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
-    cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
-
-#ifdef ELECTRON_ION_NONEQUILIBRIUM
-    cell_electron_internal_energy(icell) = cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e;
-#endif /* ELECTRON_ION_NONEQUILIBRIUM */
-        
-#ifdef ENRICH
-    cell_gas_metal_density_II(icell) = 1e-30;
-#ifdef ENRICH_SNIa
-    cell_gas_metal_density_Ia(icell) = 1e-30;
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
-}
 
 
 void set_radp_initial_conditions() {
@@ -200,57 +143,23 @@ void set_radp_initial_conditions() {
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
         for ( i = 0; i < num_level_cells; i++ ) {
-#ifdef ONE_CELL_IN_THE_CENTER
-            radp_initial_conditions_one_cell( level_cells[i] );
-#else 
             radp_initial_conditions( level_cells[i] );
-#endif /* ONE_CELL_IN_THE_CENTER */
         }
         cart_free( level_cells );
     }
-    
-#ifndef STARFORM
-    double scale_energy;
-    
-///////////// get E_det normalization
-    scale_energy = 0.0;
-    for ( level = min_level; level <= max_level; level++ ) {
-        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-        for ( i = 0; i < num_level_cells; i++ ) {
-            icell = level_cells[i];
-
-            if ( cell_is_leaf(icell) ) {
-                scale_energy += cell_gas_internal_energy(icell)*cell_volume[level];
-            }
-        }
-        cart_free( level_cells );
-    }
-    scale = scale_energy;
-    MPI_Allreduce( &scale, &scale_energy, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
-    
-///////////// normalize
-    for ( level = min_level; level <= max_level; level++ ) {
-        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-        for ( i = 0; i < num_level_cells; i++ ) {
-            icell = level_cells[i];
-            cell_gas_internal_energy(icell) =
-                E_det*cell_gas_internal_energy(icell)/scale_energy
-                + P_ambient / (cell_gas_gamma(icell)-1.0);
-               
-            
-            //add a uniform pressure component
-            cell_gas_pressure(icell) = cell_gas_internal_energy(icell)
-                * (cell_gas_gamma(icell)-1.0);
-            cell_gas_energy(icell) = cell_gas_internal_energy(icell)
-                + cell_gas_kinetic_energy(icell);
-        }
-	
-        cart_free( level_cells );
-    }
-#endif /* STARFORM */
-    
+    //update all non-leafs with their child's value
     for ( level = max_level - 1; level >= min_level; level-- ) {
         hydro_split_update(level);
+    }
+    
+    for ( level = min_level; level <= max_level; level++ ) {
+        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+        for ( i = 0; i < num_level_cells; i++ ) {
+            cart_assert(cell_momentum(level_cells[i],0) == 0.0);
+            cart_assert(cell_momentum(level_cells[i],1) == 0.0);
+            cart_assert(cell_momentum(level_cells[i],2) == 0.0);
+        }
+        cart_free( level_cells );
     }
 }
 
@@ -290,17 +199,12 @@ void init_run() {
         
 ////////////////////////////////////////////////////
     /* build buffer */
-    build_cell_buffer();
     cart_debug("built cell buffer");
-    repair_neighbors();
     cart_debug("repaired neighbors");
-        
-
-    ic_refine_levels();
-    ic_refine_levels();
-
     build_cell_buffer();
     repair_neighbors();
+    ic_refine_levels(); 
+    
         
     cart_debug("setting initial conditions on root level");
     set_radp_initial_conditions();
@@ -374,24 +278,22 @@ void init_run() {
 
 #ifdef PARTICLES
 #ifdef STARFORM
-#ifdef ONE_CELL_IN_THE_CENTER
     num_particle_species=1;
     num_particles_total=0;
     last_star_id=-1;
-    //--------------------------------
-    //ic_star();
-    //--------------------------------
     float dm_star; double dx;
     int ic[NSTARS];
     ic[0] = icell_central(0,0,0);
     level = cell_level(ic[0]);
     dx=cell_size[level];
-    ic[1] = icell_central( dx,0,0);
-    ic[2] = icell_central(-dx,0,0);
-    ic[3] = icell_central(0, dx,0);
-    ic[4] = icell_central(0,-dx,0);
-    ic[5] = icell_central(0, 0 , dx);
-    ic[6] = icell_central(0, 0 ,-dx);
+    if(NSTARS==7){
+        ic[1] = icell_central( dx,0,0);
+        ic[2] = icell_central(-dx,0,0);
+        ic[3] = icell_central(0, dx,0);
+        ic[4] = icell_central(0,-dx,0);
+        ic[5] = icell_central(0, 0 , dx);
+        ic[6] = icell_central(0, 0 ,-dx);
+    }
     for(i=0;i<NSTARS;i++){
         cart_debug("ic: %d",ic[i]);
     }
@@ -405,17 +307,6 @@ void init_run() {
         star_formation_volume_min[i] = 0;
         star_formation_volume_max[i] = 0;
     }
-    
-
-    //--------------------------------
-
-#else /* ONE_CELL_IN_THE_CENTER */
-    for ( i = 0; i < nDim; i++ ) {
-        star_formation_volume_min[i] = refinement_volume_min[i];
-        star_formation_volume_max[i] = refinement_volume_max[i];
-    }
-    
-#endif /* ONE_CELL_IN_THE_CENTER */
 #endif /* STARFORM */
 #endif /* PARTICLES */
         
@@ -461,6 +352,7 @@ float sedov_analytic[num_bins];
 
 void radial_average( int cell, int level ) {
     double pos[nDim];
+    double momentum;
     float r1, r, v;
     float amt, cur_r;
     int bin;
@@ -472,14 +364,14 @@ void radial_average( int cell, int level ) {
                   (pos[2]-((float)num_grid/2.0))*(pos[2]-((float)num_grid/2.0)));
 
         /* this needs to be converted to v_r */
-        v = sqrt( cell_momentum(cell,0)*cell_momentum(cell,0) +
-                  cell_momentum(cell,1)*cell_momentum(cell,1) +
-                  cell_momentum(cell,2)*cell_momentum(cell,2) ) / cell_gas_density(cell);
-
+        momentum = sqrt( cell_momentum(cell,0)*cell_momentum(cell,0) +
+                               cell_momentum(cell,1)*cell_momentum(cell,1) +
+                               cell_momentum(cell,2)*cell_momentum(cell,2) ) ;
+        v = momentum / cell_gas_density(cell);
+        
         /* 1) determine which bin left hand edge of cell is in
          * 2) go outwards in bins until right hand edge of bin > right hand edge of cell
          * 3) apply proper amounts to each cell */
-
         bin = (int)((r-0.5*cell_size[level])/bin_width);
 
         cart_assert( bin >= 0 && bin < num_bins );
@@ -519,12 +411,14 @@ void radial_average( int cell, int level ) {
 
 #ifdef USER_PLUGIN
  void outsliceCFL(){ 
-     ic_refine_levels(); 
+     ic_refine_levels();
+     dmom_from_press=0;
 } 
 void outslicebegin(){
     write_restart( WRITE_SAVE, WRITE_SAVE, WRITE_SAVE, NULL );
     outslice(); 
 }
+double mom_from_press=0;
 void outslice() {
     int i, j;
     char filename[128];
@@ -545,40 +439,66 @@ void outslice() {
     int nbin[] = { nbin1, nbin1, nbin1 };
     double bb[6];
     float tot_momentum=0,dPt=0 ;
-
+    int icell_level;
+    icell=icell_central(0,0,0);
+    icell_level=cell_level(icell);
     cart_debug("output feedback test:");
         
     bb[0] = bb[2] = bb[4] = num_grid*(0.5-0.125);
     bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.125);
         
-    sprintf(filename,"%s/out.%05d.bin",output_directory,step);
-    ifrit.OutputMesh(filename,max_level,nbin,bb,nvars,varid);
+//    sprintf(filename,"%s/out.%05d.bin",output_directory,step);
+//    ifrit.OutputMesh(filename,max_level,nbin,bb,nvars,varid);
         
         
     /* now dump the total gas momentum */
-    tot_momentum=0, tot_momentum=0;
+    dPt=0;
+    tot_momentum=0;
     for ( level = min_level; level <= max_level; level++ ) {
-        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+        select_level( level, CELL_TYPE_LOCAL , &num_level_cells, &level_cells );
         for ( i = 0; i < num_level_cells; i++ ) {
             j=level_cells[i];
-            tot_momentum += sqrt( cell_momentum(j,0)*cell_momentum(j,0) +
-                                  cell_momentum(j,1)*cell_momentum(j,1) +
-                                  cell_momentum(j,2)*cell_momentum(j,2) )*cell_volume[level];
-            dPt += cell_gas_pressure(j)* 6*cell_size[level]*cell_size[level];
+            if(cell_is_leaf(j)){
+                tot_momentum += sqrt( cell_momentum(j,0)*cell_momentum(j,0) +
+                                      cell_momentum(j,1)*cell_momentum(j,1) +
+                                      cell_momentum(j,2)*cell_momentum(j,2) )*cell_volume[level];
+            }
         }
-        cart_free( level_cells );
+    cart_free( level_cells );
     }
+    //coarser binning of momentum   
+    dPt = cell_gas_pressure(icell)*
+        6*(cell_size[icell_level]*cell_size[icell_level])
+        *dtl[min_level]
+        *units->velocity*units->mass/constants->kms/constants->Msun;
+    
+    
     MPI_Reduce( MPI_IN_PLACE, &tot_momentum, 1, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
     MPI_Reduce( MPI_IN_PLACE, &dPt, 1, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-            
+
     if ( local_proc_id == MASTER_NODE ) {
-        sprintf(filename, "%s/mom_%s.dat", output_directory, jobname );
+        mom_from_press += dmom_from_press;
+        dmom_from_press=0;
+        //sprintf(filename, "%s/mom_%s.dat", output_directory, jobname );
+        sprintf(filename, "totmompress.dat" );
         RADP = fopen(filename,"a+");
-        fprintf(RADP, "%e %e %e\n", tl[min_level]-t_init , tot_momentum,dPt*(tl[min_level]-t_init) );
+        fprintf(RADP, "%e %e %e %e\n",
+                (tphys_from_tcode(tl[min_level])-tphys_from_auni(auni_init))*1e-6,
+                tot_momentum*units->velocity*units->mass/constants->kms/constants->Msun ,
+                mom_from_press*units->velocity*units->mass/constants->kms/constants->Msun ,
+                dPt/dtl[min_level] );
+                
         fclose(RADP);
     }
 
-
+    cart_debug("--=physical conditions(cent cell=%d)=--",icell);
+    cart_debug("IC:rho=%e[#/cc] %e[g/cc] %e[code]", rho0*units->number_density/constants->cc, rho0*units->density/constants->gpercc, rho0);
+    cart_debug("rho=%e[#/cc] %e[g/cc] %e[code]", cell_gas_density(icell)*units->number_density/constants->cc, cell_gas_density(icell)*units->density/constants->gpercc, cell_gas_density(icell));
+    cart_debug("T=%e[K] %e[code]", cell_gas_temperature(icell)*units->temperature/constants->K,cell_gas_temperature(icell) );
+    cart_debug("P=%e[ergs/cc] %e[code]", cell_gas_pressure(icell)*units->energy_density/constants->barye, cell_gas_pressure(icell));
+    cart_debug("mstar=%e[Msun] %e[code] ",mstar_one_msun,mstar_one_msun/units->mass*constants->Msun);
+    cart_debug("cell_max[pc]=%e cell_min[pc]%e ",cell_size[min_level]*units->length/constants->pc,cell_size[cell_level(icell)]*units->length/constants->pc);
+    
     /* now dump the radial profiles */
     for ( i = 0; i < num_bins; i++ ) {
         radii[i] = ((float)i + 0.5) * bin_width;
@@ -588,37 +508,6 @@ void outslice() {
         avgs[i] = 0.0;
         sedov_analytic[i] = 0.0;
     }
-
-#ifndef STARFORM
-    double rad_an, curr_time, init_E, init_rho;
-    int bin_an;
-    cart_debug("code E: %e rho: %e t_code: %e; dm0=%e;", E_det, rho0, (tl[min_level]-t_init), rho0*cell_volume[min_level] );
-    curr_time = (tphys_from_tcode(tl[min_level]) - tphys_from_tcode(t_init))
-        *constants->yr/constants->s;
-    init_E = E_det*units->energy/constants->erg;
-    init_rho = rho0*units->density/constants->gpercc;
-    cart_debug("physical: t=%es ; E=%eerg ; rho=%e#/cc",
-               curr_time, init_E, rho0*units->number_density/constants->cc);
-    rad_an = rad_sedov_pc(init_E, init_rho, curr_time);
-    rad_an = rad_an*constants->pc/units->length;
-    bin_an = (int)(rad_an/bin_width);
-    cart_debug("time=%eyr sedov radius=%epc ",
-               curr_time*constants->s/constants->yr, rad_an*units->length/constants->pc);
-    cart_debug("bin_an:%d, %f %f\n",bin_an, rad_an*units->length/constants->pc,bin_width);
-    cart_assert( bin_an >= 0 && bin_an < num_bins );
-    sedov_analytic[bin_an]=1.0;
-#endif
-    
-    cart_debug("\n\n");
-    icell=icell_central(0,0,0);
-    cart_debug("--=physical conditions(cent cell=%d)=--",icell);
-    cart_debug("IC:rho=%e[#/cc] %e[g/cc] %e[code]", rho0*units->number_density/constants->cc, rho0*units->density/constants->gpercc, rho0);
-    cart_debug("rho=%e[#/cc] %e[g/cc] %e[code]", cell_gas_density(icell)*units->number_density/constants->cc, cell_gas_density(icell)*units->density/constants->gpercc, cell_gas_density(icell));
-    cart_debug("T=%e[K] %e[code]", cell_gas_temperature(icell)*units->temperature/constants->K,cell_gas_temperature(icell) );
-    cart_debug("P=%e[ergs/cc] %e[code]", cell_gas_pressure(icell)*units->energy_density/constants->barye, cell_gas_pressure(icell));
-    cart_debug("mstar=%e[Msun] %e[code] ",mstar_one_msun,mstar_one_msun/units->mass*constants->Msun);
-    cart_debug("cell_max[pc]=%e cell_min[pc]%e ",cell_size[min_level]*units->length/constants->pc,cell_size[cell_level(icell)]*units->length/constants->pc);
-    
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
         for ( i = 0; i < num_level_cells; i++ ) {
@@ -642,7 +531,11 @@ void outslice() {
                 reduced_pressure[i] /= reduced_avgs[i];
                 reduced_rho[i] /= reduced_avgs[i];
                 
-                fprintf(RADP, "%e %e %e %e %e\n", radii[i]*units->length/constants->pc, reduced_rho[i], reduced_pressure[i], reduced_vel[i], sedov_analytic[i] );
+                fprintf(RADP, "%e %e %e %e \n",
+                        radii[i]*units->length/constants->pc,
+                        reduced_rho[i], reduced_pressure[i],
+                        reduced_vel[i] );
+//                , sedov_analytic[i]
             }
         }
         fclose(RADP);
@@ -670,16 +563,9 @@ void outslice() {
         cart_debug("adjusted ouput size=%e [code] %d[cells]",2*slice_region_hsize,2*nsgrid_half+1);
         cart_debug("adjusted ouput size=%e [pc]",2*slice_region_hsize*units->length/constants->pc);
         
-#ifdef ONE_CELL_IN_THE_CENTER
         double pos[3];
         icell=icell_central(0,0,0);
         cell_center_position(icell,pos);
-#else
-        for(i=0;i<nDim; i++){
-            pos[i]=num_grid/2;
-        }
-        cell_center_position(cell_find_position(pos),pos);
-#endif
         /* for(i=0;i<nDim; i++){ */
         /*     //now everything in a given cell will be assigned to that cell by pos/dx */
         /*     // |00x00|1111| */
@@ -699,12 +585,13 @@ void outslice() {
         dump_plane(OUT_CELL_MOMENTUM+axis_direction[slice_axis_z][0], OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_MOMENTUM+axis_direction[slice_axis_z][1], OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_MOMENTUM+slice_axis_z, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_SOUNDSPEED, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_MACH, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+/*         dump_plane(OUT_CELL_SOUNDSPEED, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
+/*         dump_plane(OUT_CELL_MACH, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
         dump_plane(OUT_CELL_LEVEL, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_TAUUV, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_RADIATION_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-        dump_plane(OUT_CELL_URAD, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+        dump_plane(OUT_CELL_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
+/*         dump_plane(OUT_CELL_TAUUV, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
+/*         dump_plane(OUT_CELL_RADIATION_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
+/*         dump_plane(OUT_CELL_URAD, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
         cart_debug("\n\n");
         fclose(output);
     }else{
@@ -712,25 +599,24 @@ void outslice() {
     }
 
 }
+
+
+
+
+
 void ic_refine_levels(){
+    int i, level;
     int num_level_cells;
     int *level_cells;
-    int i, level;
-        
-    
-    /* setup initial refinement for ICs to be placed on */
-    for ( level = min_level; level < max_level; level++ ) {
-        cart_debug("refining level %u", level );
-        
-        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-        cart_debug("num_level_cells = %u", num_level_cells );
-        for ( i = 0; i < num_level_cells; i++ ) {
-            refine_level( level_cells[i], level );
+    for(level=min_level; level<max_level; level++){
+        modify( level, 0 );
+        if((!refinement_indicator[SPATIAL_INDICATOR].use[level])){
+            cart_error("need spatial refinement");
         }
-        cart_free( level_cells );
-        cart_debug("about to refine level %u", level );
-        refine(level);
     }
+    build_cell_buffer();
+    repair_neighbors();
+    load_balance();
 }
 
 void    ic_star_spread(int icell, float dm_star){
@@ -746,7 +632,7 @@ void    ic_star_spread(int icell, float dm_star){
     log_star_creation( icell, dm_star, FILE_RECORD);
 #endif
     if(dm_star!=0){
-        create_star_particle(icell, dm_star);
+        create_star_particle(icell, dm_star, 1);
     }
     cart_debug("snl1:npspec npt %d %d", num_particle_species,num_particles_total);
 
@@ -784,74 +670,14 @@ void    ic_star_spread(int icell, float dm_star){
 #endif /* BLASTWAVE_FEEDBACK */
 }
 
-void    ic_star(){
-    int icell;
-    float dm_star;
-    double old_density, density_fraction;
-    int i,level;
-    last_star_id=-1;
-        
-    icell = icell_central(0,0,0);
-    level = cell_level(icell);
-    cart_debug("snl1:level=%d",level);
-    dm_star = mstar_one_msun*constants->Msun/units->mass;
-    
-    /* for ( i = 0; i < nDim; i++ ) {  */
-    /*     star_formation_volume_min[i] = pos[i];   */
-    /*     star_formation_volume_max[i] = pos[i]+cell_size(level);  */
-    /* }  */
-#ifdef LOG_STAR_CREATION
-    log_star_creation( icell, dm_star, FILE_RECORD);
-#endif
-    num_particle_species=1;
-    num_particles_total=0;
-    if(dm_star!=0){
-        create_star_particle(icell, dm_star);
-    }
-
-    remap_star_ids();
-    
-    /* reset ICs where star formed -- may have removed way too much mass*/
-    if(dm_star < 0.6*cell_gas_density(icell)*cell_volume[cell_level(icell)]){
-        old_density = cell_gas_density(icell) +  dm_star * cell_volume_inverse[level];
-        density_fraction = old_density / cell_gas_density(icell);
-        cart_debug("snl1density_fraction=%e %e %e",density_fraction, old_density,cell_gas_energy(icell+1)  );
-        cell_gas_energy(icell) *= density_fraction;
-        cell_gas_internal_energy(icell) *= density_fraction;
-        cell_gas_pressure(icell) *= density_fraction;
-        cell_momentum(icell,0) *= density_fraction;
-        cell_momentum(icell,1) *= density_fraction;
-        cell_momentum(icell,2) *= density_fraction;
-        for ( i = 0; i < num_chem_species; i++ ) {
-            cell_advected_variable(icell,i) *= density_fraction;
-        }
-    }else{
-        cell_gas_density(icell) = rho0;
-        cell_momentum(icell,0) = 0.0;
-        cell_momentum(icell,1) = 0.0;
-        cell_momentum(icell,2) = 0.0;
-        cell_gas_internal_energy(icell) =  E_ambient;
-        cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
-        cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
-        cart_debug("snl1=%e %e ",cell_gas_energy(icell),cell_gas_pressure(icell) );
-    }
-    
-    cell_gas_density(icell) = rho0;
-    
-    /* make it impossible to produce more stars */
-    for ( i = 0; i < nDim; i++ ) {
-        star_formation_volume_min[i] = 0;
-        star_formation_volume_max[i] = 0;
-    }
-    
-
-#ifdef BLASTWAVE_FEEDBACK
-    init_blastwave(icell);
-#endif /* BLASTWAVE_FEEDBACK */
-}
-
-
 #endif /*  USER_PLUGIN */
 
 void run_output(){
 }
+
+
+
+
+
+
+

@@ -287,7 +287,7 @@ void create_star_particle( int icell, float mass, int type ) {
 	int level;
 	double pos[nDim];
 	float new_density;
-	float density_fraction;
+	float density_fraction, thermal_pressure;
 
 	cart_assert( icell >= 0 && icell < num_cells );
 	cart_assert( mass > 0.0 );
@@ -336,14 +336,21 @@ void create_star_particle( int icell, float mass, int type ) {
 	new_density = cell_gas_density(icell) - mass * cell_volume_inverse[level];
 	density_fraction = new_density / cell_gas_density(icell);
 
+        /*
+        // NG: this is to allow non-thermal pressure contribution
+        */
+        thermal_pressure = max((cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell),0.0);
+        cell_gas_pressure(icell) = max(0.0,cell_gas_pressure(icell)-thermal_pressure);
+        
 	cell_gas_density(icell) = new_density;
 	cell_gas_energy(icell) *= density_fraction;
 	cell_gas_internal_energy(icell) *= density_fraction;
-	cell_gas_pressure(icell) *= density_fraction;
 	cell_momentum(icell,0) *= density_fraction;
 	cell_momentum(icell,1) *= density_fraction;
 	cell_momentum(icell,2) *= density_fraction;
 		
+	cell_gas_pressure(icell) += thermal_pressure*density_fraction;
+        
 	for ( i = 0; i < num_chem_species; i++ ) {
 		cell_advected_variable(icell,i) *= density_fraction;
 	}

@@ -444,10 +444,11 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 {
   double dteff, phi, dU;
   double dmloss, rhor, e_old, rhofact;
+  float thermal_pressure;
   int i;
   
-#ifndef STAR_PRESSURE 
   double delta_t = t_next - particle_t[ipart];
+#ifndef STAR_PRESSURE 
 
   /* do feedback, enrichment, etc */
   if(fbp_snII_phys.energy>0.0 || fbp_snII_phys.metals>0.0)
@@ -532,8 +533,16 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 		cell_momentum(cell,1)*cell_momentum(cell,1) +
 		cell_momentum(cell,2)*cell_momentum(cell,2) ) /
 	cell_gas_density(cell);
+      
+      /*
+      // NG: this is to allow non-thermal pressure contribution
+      */
+      thermal_pressure = max((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0);
+      cell_gas_pressure(cell) = max(0.0,cell_gas_pressure(cell)-thermal_pressure);
+      
       cell_gas_internal_energy(cell) *= rhofact;
-      cell_gas_pressure(cell) *= rhofact;
+      cell_gas_pressure(cell) += thermal_pressure*rhofact;
+      
 
 #ifdef ENRICH
       cell_gas_metal_density_II(cell) += dmloss*star_metallicity_II[ipart];
@@ -570,9 +579,10 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 /*                && cell_gas_density(cell)*units->number_density/constants->cc > 0.01) */
 /*           { */
             if ( cell_gas_density(cell)*units->number_density/constants->cc > 0.01){
-              cell_gas_energy(cell) = cell_gas_kinetic_energy(cell)+dU;
-              cell_gas_internal_energy(cell) = dU;
-              cell_gas_pressure(cell) = dU * (cell_gas_gamma(cell)-1);
+/*               cell_gas_energy(cell) = cell_gas_kinetic_energy(cell)+dU; */
+/*               cell_gas_internal_energy(cell) = dU; */
+                cell_gas_pressure(cell) = dU * (cell_gas_gamma(cell)-1); //just adding constant gas pressure!
+                
 /*               cell_gas_energy(cell) += dU; */
 /*               cell_gas_internal_energy(cell) += dU; */
 /*               cell_gas_pressure(cell) += dU * (cell_gas_gamma(cell)-1); */
