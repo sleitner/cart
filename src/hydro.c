@@ -415,7 +415,8 @@ void hydro_eos( int level ) {
 		  {
 		    cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), 0.0 );
 		    cell_gas_energy(icell) = max( kinetic_energy, cell_gas_energy(icell) );
-		    cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
+                    cell_gas_pressure(icell) = max((constants->gamma-1.0)*cell_gas_internal_energy(icell),0.0);
+		    //cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 		    cell_electron_internal_energy(icell) = min( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );
@@ -424,6 +425,10 @@ void hydro_eos( int level ) {
 	}
 
 	cart_free( level_cells );
+
+#ifdef STAR_PRESSURE //snl1
+        feedback_from_particles(level);
+#endif
 
 	end_time( WORK_TIMER );
 }

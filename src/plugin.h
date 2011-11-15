@@ -27,7 +27,7 @@ typedef struct PLUGIN_TYPE
   void (*LevelStepBegin)(int level, MPI_Comm level_com);
   void (*LevelStepEnd)(int level, MPI_Comm level_com);
   void (*LevelStepFail)(int level, MPI_Comm level_com);
-  void (*StarformationFeedbackEnd)(int level, int cell);
+    void (*StarformationFeedbackEnd)(int level, int cell, double dU);
 }
 plugin_t;
 
