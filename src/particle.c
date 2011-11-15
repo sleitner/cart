@@ -153,8 +153,6 @@ void accelerate_particles( int level ) {
 				do {
 					found = 1;
 					icell_orig = icell;
-					cart_assert( icell != NULL_OCT );
-
 					cell_center_position( icell, pos );
 
 					/* find lower leftmost cell */
@@ -164,7 +162,6 @@ void accelerate_particles( int level ) {
 							child += (1<<i);
 						}
 					}
-					cart_assert( child >= 0 && child < num_children );
 
 					for ( i = 0; i < nDim; i++ ) {
 						if ( neighbor_moves[child][i] == -1 ) {
@@ -197,7 +194,6 @@ void accelerate_particles( int level ) {
 							if ( cell_level(c[i]) != level1 ) {
 								icell = cell_parent_cell(icell_orig);
 								level1 = level1 - 1;
-								cart_assert( icell != NULL_OCT );
 								found = 0;
 								break;
 							}
@@ -205,11 +201,6 @@ void accelerate_particles( int level ) {
 					}
 				} while ( !found );
 	
-				for ( i = 0; i < num_children; i++ ) {
-					cart_assert( cell_level(c[i]) == level1 );
-				}
-
-				cart_assert( c[0] != NULL_OCT );
 				cell_center_position( c[0], pos );
 
 				/* now we have the level on which this particle will move */
@@ -261,8 +252,15 @@ void accelerate_particles( int level ) {
 				d2t1 = d2 * t1;
 				d2d1 = d2 * d1;
 
-				/* a2cs term in HART is computed in accel */
-				pconst = tl[level] - particle_t[ipart] + 0.5*( dtl[level] + particle_dt[ipart] );
+				/* Use to kick-steps to advance particle velocity (note, this may result in a negative step):
+				 *   v(t - dt/2) = v(tp-dtp/2) + g(t)*(t - dt/2 - tp + dtp/2)
+				 *   v(t + dt/2) = v(t-dt/2) + g(t)*(dt/2)
+				 *
+				 * v(t+dt/2) = v(tp-dtp/2) + g(t)*( t - tp + 0.5*(dtp+dp) ) 
+				 *
+				 * Also note, the a2cs term in HART is computed in compute_accelerations_particles
+				 */
+				pconst = tl[level] - particle_t[ipart] + 0.5*( dtl[level] + particle_dt[ipart] ) + 1e-30;
 
 				pt3 = pconst * t3;
 				pd3 = pconst * d3;
