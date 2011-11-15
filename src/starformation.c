@@ -303,7 +303,7 @@ void create_star_particle( int icell, float mass, int type ) {
 	star_particle_type[ipart] = type;
 #endif
 
-	/* place particle at center of cell with cell velocity */
+	/* place particle at center of cell with cell momentum */
 	cell_center_position(icell, pos );
 	level = cell_level(icell);
 
@@ -339,8 +339,7 @@ void create_star_particle( int icell, float mass, int type ) {
         /*
         // NG: this is to allow non-thermal pressure contribution
         */
-//        thermal_pressure = max((cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell),0.0);
-        thermal_pressure = max((constants->gamma-1.0)*cell_gas_internal_energy(icell),0.0);
+        thermal_pressure = max((cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell),0.0);
         cell_gas_pressure(icell) = max(0.0,cell_gas_pressure(icell)-thermal_pressure);
         
 	cell_gas_density(icell) = new_density;

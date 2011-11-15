@@ -23,8 +23,6 @@ void init_blastwave(int icell);
 void check_bwtime_precision(int level);
 #endif /* BLASTWAVE_FEEDBACK */
 
-void nonthermal_particle_feedback(int level, int cell, int ipart, double t_next); 
-
 #endif /* STARFORM */
 
 #endif

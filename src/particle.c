@@ -75,7 +75,6 @@ int free_star_particle_list = NULL_PARTICLE;
 
 int particle_list_enabled = 0;
 
-
 void init_particles() { 
 	int i;
 
@@ -1495,20 +1494,3 @@ void build_mesh() {
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 #endif /* PARTICLES */
-
-
-void feedback_from_particles(int level){ 
-    int ipart, j, icell;
-    double t_next;
-    setup_star_formation_feedback(level);
-    t_next = tl[level] + dtl[level];
-    for(ipart=0; ipart<num_particles; ipart++){
-        if(particle_is_star(ipart) && particle_level[ipart]==level ){
-            icell = cell_find_position_level(level, particle_x[ipart]);
-            nonthermal_particle_feedback(level, icell, ipart, t_next);
-        }
-    }
-}
-
-
-
