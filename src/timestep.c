@@ -530,10 +530,7 @@ int timestep( int level, MPI_Comm level_com )
 	/* check for cfl condition violation... */
 	if ( dtl[level] > dt_needed && ret != -1 ) {
 		cart_debug("---------------------------------------------------------");
-		cart_debug("CFL CONDITION VIOLATED: &d,courant_cell");
-                double pos[3];
-                cell_center_position(courant_cell,pos);
-		cart_debug("%position f %f %f",pos[0],pos[1],pos[2]);
+		cart_debug("CFL CONDITION VIOLATED:");
 		cart_debug("current dt = %.25e Myr", dtl[level]*units->time / constants->Myr );
 		cart_debug("needed  dt = %.25e Myr", dt_needed*units->time / constants->Myr );
 		cart_debug("CFL tolerance = %.3f / %.3f = %.4e", cfl_max, cfl_run, cfl_max/cfl_run );

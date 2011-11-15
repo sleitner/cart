@@ -14,7 +14,6 @@
 #include "timestep.h"
 #include "tree.h"
 #include "units.h"
-#include "plugin.h"
 
 
 float star_returned_advected_species[num_chem_species+1];
@@ -444,11 +443,8 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 {
   double dteff, phi, dU;
   double dmloss, rhor, e_old, rhofact;
-  float thermal_pressure;
   int i;
-  
   double delta_t = t_next - particle_t[ipart];
-#ifndef STAR_PRESSURE 
 
   /* do feedback, enrichment, etc */
   if(fbp_snII_phys.energy>0.0 || fbp_snII_phys.metals>0.0)
@@ -533,16 +529,8 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 		cell_momentum(cell,1)*cell_momentum(cell,1) +
 		cell_momentum(cell,2)*cell_momentum(cell,2) ) /
 	cell_gas_density(cell);
-      
-      /*
-      // NG: this is to allow non-thermal pressure contribution
-      */
-      thermal_pressure = max((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0);
-      cell_gas_pressure(cell) = max(0.0,cell_gas_pressure(cell)-thermal_pressure);
-      
       cell_gas_internal_energy(cell) *= rhofact;
-      cell_gas_pressure(cell) += thermal_pressure*rhofact;
-      
+      cell_gas_pressure(cell) *= rhofact;
 
 #ifdef ENRICH
       cell_gas_metal_density_II(cell) += dmloss*star_metallicity_II[ipart];
@@ -555,53 +543,6 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 	  cell_advected_variable(cell,i) += dmloss*star_returned_advected_species[i];
 	}
     }
-#else /* STAR_PRESSURE */
-  
-  if(fbp_snII_phys.energy>0.0 || fbp_snII_phys.metals>0.0)
-  {
-      dteff = particle_t[ipart] - (double)star_tbirth[ipart] - fbp_snII_code.tbefore_start; 
-      if(dteff < fbp_snII_code.dt && dteff+delta_t > 0) 
-      {
-          
-          if(dteff+delta_t > 0 && dteff < 0){
-              phi = min((dteff+delta_t)/fbp_snII_code.dt,1.0);
-          }else{
-              phi = min(delta_t,fbp_snII_code.dt-dteff)/fbp_snII_code.dt;
-          }
-            cart_debug("phi=%f",phi);
-
-          
-            //dU = min(phi*fbp_snII_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
-            dU = 0.001*fbp_snII_code.energy*star_initial_mass[ipart]/(cell_gas_gamma(cell)-1);
-          
-	  /* limit energy release and don't allow to explode in hot bubble */
-/* 	  if ( units->temperature*cell_gas_temperature(cell) < feedback_temperature_ceiling */
-/*                && cell_gas_density(cell)*units->number_density/constants->cc > 0.01) */
-/*           { */
-            if ( cell_gas_density(cell)*units->number_density/constants->cc > 0.01){
-/*               cell_gas_energy(cell) = cell_gas_kinetic_energy(cell)+dU; */
-/*               cell_gas_internal_energy(cell) = dU; */
-                cell_gas_pressure(cell) = dU * (cell_gas_gamma(cell)-1); //just adding constant gas pressure!
-                
-/*               cell_gas_energy(cell) += dU; */
-/*               cell_gas_internal_energy(cell) += dU; */
-/*               cell_gas_pressure(cell) += dU * (cell_gas_gamma(cell)-1); */
-              //cell_gas_pressure(cell) = fbp_snII_code.energy*star_initial_mass[ipart]*.001;//dU * (cell_gas_gamma(cell)-1);
-
-#ifdef USER_PLUGIN
-              PLUGIN_POINT(StarformationFeedbackEnd)(level, cell);
-#endif
-          }else{
-              cart_debug("ACK ------------- YOU're hitting the temperature/density ceiling!");
-              cart_error("ACK ------------- YOU're hitting the temperature/density ceiling!");
-          }
-          
-      }
-  }
-  
-#endif /* STAR_PRESSURE */
-
-  
 }
 
 
