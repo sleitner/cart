@@ -7,24 +7,33 @@
 #endif
 
 
+struct HALO;
 struct HALO_LIST;
-
-typedef void (*DumpWorker)(int level, int cell, int num, float *ptr);
 
 
 /*
 //  Dump ASCII files with cell data and spherically averaged profiles.
-//  If halos is not NULL, these two calls overwrite VAR_ACCEL variable.
-//  <weight_id> array determined as the profiles are weighted: 
+//  <WeightId> values determine how the profiles are weighted: 
 //    0: volume average
 //    1: total mass average
 //    2: baryonic mass average
+//    3: HI mass average
 */
-void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **header, int level1, int level2, struct HALO_LIST *halos);
+typedef struct DUMP_WORKER
+{
+  float (*Value)(int level, int cell, double *ref_pos, float *ref_vel);
+  const char *Header;
+  int WeightId;
+}
+DumpWorker;
 
-void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, struct HALO_LIST *halos, int resolution_level, float outer_edge);
+void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, struct HALO_LIST *halos);
 
-void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, double center[3]);
+void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, struct HALO_LIST *halos);
+
+void extDumpHaloProfiles(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, struct HALO_LIST *halos, int resolution_level, float outer_edge);
+
+void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, double center[3]);
 
 /*
 //  SF law from stellar particles

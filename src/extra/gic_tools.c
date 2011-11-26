@@ -140,14 +140,14 @@ void gicMakeMask(const char *filename, int num_halos, const struct HALO **halos,
 	  gicMakeMaskAddPoints(mode,n,pos,mask);
 	  for(i=1; i<num_procs; i++)
 	    {
-	      MPI_Recv(&n,1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	      MPI_Recv(&n,1,MPI_INT,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	      if(n > nbuf)
 		{
 		  cart_free(pos);
 		  nbuf = n;
 		  pos = cart_alloc(int,nDim*nbuf);
 		}
-	      MPI_Recv(pos,nDim*n,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	      MPI_Recv(pos,nDim*n,MPI_INT,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	      gicMakeMaskAddPoints(mode,n,pos,mask);
 	    }
 	  cart_free(pos);
@@ -244,8 +244,8 @@ void gicMakeMask(const char *filename, int num_halos, const struct HALO **halos,
 	}
       else
 	{
-	  MPI_Send(&n,1,MPI_INT,MASTER_NODE,0,MPI_COMM_WORLD);
-	  MPI_Send(pos,nDim*n,MPI_INT,MASTER_NODE,0,MPI_COMM_WORLD);
+	  MPI_Send(&n,1,MPI_INT,MASTER_NODE,0,mpi.comm.run);
+	  MPI_Send(pos,nDim*n,MPI_INT,MASTER_NODE,0,mpi.comm.run);
 	  cart_free(pos);
 	}
 

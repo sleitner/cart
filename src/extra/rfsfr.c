@@ -9,13 +9,12 @@
 #include "auxiliary.h"
 #include "iterators.h"
 #include "parallel.h"
-#include "rt_solver.h"
-#include "rt_utilities.h"
+#include "rt.h"
 #include "starformation.h"
 #include "tree.h"
 #include "units.h"
 
-#include "extra/halo_finder.h"
+#include "halo_finder.h"
 
 
 #if defined (HYDRO) && defined(STARFORM) && defined(RADIATIVE_TRANSFER)
@@ -35,8 +34,8 @@ void extRFvsSFR1(const char *froot, int top_level, float *var, const halo *h)
 
   cart_assert(top_level>=min_level && top_level<=max_level);
 
-  MPI_Comm_size(MPI_COMM_WORLD,&size);
-  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(mpi.comm.run,&size);
+  MPI_Comm_rank(mpi.comm.run,&rank);
 
   /*
   // Units
@@ -46,7 +45,7 @@ void extRFvsSFR1(const char *froot, int top_level, float *var, const halo *h)
   /*
   //  Create a set of files for each requested level
   */
-  for(level=max_level_now_global(MPI_COMM_WORLD); level>=top_level; level--)
+  for(level=max_level_now_global(mpi.comm.run); level>=top_level; level--)
     {
       cart_debug("Working on level %d...",level);
 
@@ -55,7 +54,7 @@ void extRFvsSFR1(const char *froot, int top_level, float *var, const halo *h)
       */
       if(h != NULL)
 	{
-	  if(halo_level(h,MPI_COMM_WORLD) < level) continue;
+	  if(halo_level(h,mpi.comm.run) < level) continue;
 	  sprintf(fsuffix,"L=%02d.res.%05d",level,h->id);
 	}
       else
@@ -67,7 +66,7 @@ void extRFvsSFR1(const char *froot, int top_level, float *var, const halo *h)
 
       for(i=0; i<size; i++)
 	{
-	  MPI_Barrier(MPI_COMM_WORLD);
+	  MPI_Barrier(mpi.comm.run);
 	  if(i == rank)
 	    {
 	      cart_debug("Writing file piece #%d",i);
@@ -199,7 +198,7 @@ void extRFvsSFR(const char *froot, int top_level, const halo_list *halos)
     }
   else
     {
-      for(ih=0; ih<halos->num_halos; ih++) if(halo_level(&halos->list[ih],MPI_COMM_WORLD) >= top_level)
+      for(ih=0; ih<halos->num_halos; ih++) if(halo_level(&halos->list[ih],mpi.comm.run) >= top_level)
 	{
 	  extRFvsSFR1(froot,top_level,var,&halos->list[ih]);
 	}

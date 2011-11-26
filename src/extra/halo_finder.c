@@ -15,10 +15,9 @@
 #include "io.h"
 #include "parallel.h"
 #include "particle.h"
-#include "rt_utilities.h"
 #include "sfc.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -89,7 +88,7 @@ void recv_int_bins( int *output_buffer, int num_bins, int proc, int tag ) {
 	int bin;
 	int recv_buffer[max_bins];
 
-	MPI_Recv( recv_buffer, num_bins, MPI_INT, proc, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+	MPI_Recv( recv_buffer, num_bins, MPI_INT, proc, tag, mpi.comm.run, MPI_STATUS_IGNORE );
 
 	for ( bin = 0; bin < num_bins; bin++ ) {
 		output_buffer[bin] += recv_buffer[bin];
@@ -100,7 +99,7 @@ void recv_float_bins( float *output_buffer, int num_bins, int proc, int tag ) {
 	int bin;
 	float recv_buffer[max_bins];
 
-	MPI_Recv( recv_buffer, num_bins, MPI_FLOAT, proc, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+	MPI_Recv( recv_buffer, num_bins, MPI_FLOAT, proc, tag, mpi.comm.run, MPI_STATUS_IGNORE );
 
 	for ( bin = 0; bin < num_bins; bin++ ) {
 		output_buffer[bin] += recv_buffer[bin];
@@ -229,6 +228,7 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
   halos->num_halos = 0;
   size = 100;
   halos->list = cart_alloc(halo, size );
+  halos->map = NULL;  /* not mapped by default */
 
   while (fscanf( input, "%u %e %e %e %e %e %e %e %e %e %u %e %e %e %u",
 		 &id, &px, &py, &pz, &vx, &vy, &vz, &rvir, &rhalo,
@@ -252,9 +252,9 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
 	  halos->list[halos->num_halos].pos[1] = py/r0;
 	  halos->list[halos->num_halos].pos[2] = pz/r0;
 
-	  halos->list[halos->num_halos].vel[0] = vx/units->velocity;
-	  halos->list[halos->num_halos].vel[1] = vy/units->velocity;
-	  halos->list[halos->num_halos].vel[2] = vz/units->velocity;
+	  halos->list[halos->num_halos].vel[0] = constants->kms*vx/units->velocity;
+	  halos->list[halos->num_halos].vel[1] = constants->kms*vy/units->velocity;
+	  halos->list[halos->num_halos].vel[2] = constants->kms*vz/units->velocity;
 
 	  halos->list[halos->num_halos].rvir = rvir/( 1e3*r0 );
 	  halos->list[halos->num_halos].rhalo = rhalo/( 1e3*r0 );
@@ -285,8 +285,6 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
   fclose(input);
 
   cart_debug("Done loading halo list; read %d halos.",halos->num_halos);
-
-  halos->map = -1;
 
   return halos;
 }
@@ -421,6 +419,8 @@ void destroy_halo_list( halo_list *halos ) {
 		cart_free( halos->list );
 	}
 
+	if ( halos->map != NULL ) cart_free( halos->map );
+
 	cart_free( halos );
 }
 
@@ -485,8 +485,8 @@ void crude_stellar_mass_fractions( halo_list *halos ) {
 	}
 
 
-	MPI_Reduce( stellar_mass, total_stellar_mass, num_halos, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Reduce( dm_mass, total_dm_mass, num_halos, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Reduce( stellar_mass, total_stellar_mass, num_halos, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Reduce( dm_mass, total_dm_mass, num_halos, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 
 	if ( local_proc_id == MASTER_NODE ) {
 		for ( ihalo = 0; ihalo < num_halos; ihalo++ ) {
@@ -2124,49 +2124,49 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 #endif /* STARFORM */
 				} else {
 					/* send bin values to halo owner */
-					MPI_Send( bin_dark_num, num_bins, MPI_INT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_momentum[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_momentum[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_momentum[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_num, num_bins, MPI_INT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_momentum[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_momentum[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_momentum[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_age, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_metallicity_II, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_metallicity_Ia, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_num, num_bins, MPI_INT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_momentum[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_momentum[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_momentum[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_metallicity_II, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_metallicity_Ia, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_velocity[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_velocity[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_velocity[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_cold_gas_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_pressure, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_entropy, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_temperature, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_tcool, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_coolingrate, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_metallicity_II, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_metallicity_Ia, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_sz_flux, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
+					MPI_Send( bin_dark_num, num_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_momentum[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_momentum[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_momentum[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_num, num_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_momentum[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_momentum[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_momentum[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_age, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_metallicity_II, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_metallicity_Ia, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_num, num_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_momentum[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_momentum[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_momentum[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_metallicity_II, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_metallicity_Ia, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_velocity[0], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_velocity[1], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_velocity[2], num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_vrms, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_cold_gas_mass, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_pressure, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_entropy, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_temperature, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_tcool, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_coolingrate, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_metallicity_II, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_metallicity_Ia, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_sz_flux, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
 #ifdef ANALYZE_XRAY
-					MPI_Send( bin_xray_Fcont, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_xray_Fline, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_xray_avgE, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_xray_Tcont1, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_xray_Tcont2, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
+					MPI_Send( bin_xray_Fcont, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_xray_Fline, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_xray_avgE, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_xray_Tcont1, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_xray_Tcont2, num_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
 #endif /* ANALYZE_XRAY */
 				}
 
@@ -2178,14 +2178,14 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					for ( proc = 0; proc < num_procs; proc++ ) {
 						if ( processor_mask[proc] ) {
 							MPI_Send( delta_r, num_radii, MPI_FLOAT, proc, ihalo,
-								MPI_COMM_WORLD );
+								mpi.comm.run );
 						}
 					}
 				} else {
 					cart_assert( num_procs > 1 );
 
 					MPI_Recv( delta_r, num_radii, MPI_FLOAT, halos->list[ihalo].proc, 
-							ihalo, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+							ihalo, mpi.comm.run, MPI_STATUS_IGNORE );
 				}
 
 				if ( delta_r[virial_radius_index] < 1e-6 ) {
@@ -2778,42 +2778,42 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 #endif /* STARFORM */
 				} else {
 					/* send bin values to halo owner */
-					MPI_Send( bin_dark_num, num_vir_bins, MPI_INT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_momentum[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_momentum[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_momentum[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_dark_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_num, num_vir_bins, MPI_INT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_momentum[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_momentum[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_momentum[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_age, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_metallicity_II, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_star_metallicity_Ia, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_num, num_vir_bins, MPI_INT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_momentum[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_momentum[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_momentum[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_metallicity_II, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_new_star_metallicity_Ia, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_velocity[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_velocity[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_velocity[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_cold_gas_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_pressure, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_entropy, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_temperature, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_tcool, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_coolingrate, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_metallicity_II, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
-					MPI_Send( bin_gas_metallicity_Ia, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, MPI_COMM_WORLD );
+					MPI_Send( bin_dark_num, num_vir_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_momentum[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_momentum[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_momentum[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_dark_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_num, num_vir_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_momentum[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_momentum[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_momentum[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_age, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_metallicity_II, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_star_metallicity_Ia, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_num, num_vir_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_momentum[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_momentum[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_momentum[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_metallicity_II, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_new_star_metallicity_Ia, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_velocity[0], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_velocity[1], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_velocity[2], num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_vrms, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_cold_gas_mass, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_pressure, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_entropy, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_temperature, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_tcool, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_coolingrate, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_metallicity_II, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
+					MPI_Send( bin_gas_metallicity_Ia, num_vir_bins, MPI_FLOAT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
 				}
 
 #ifdef HYDRO
@@ -2935,14 +2935,14 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
 
       for(i=1; i<num_procs; i++)
         {
-          MPI_Recv(&n,1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+          MPI_Recv(&n,1,MPI_INT,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
           if(n > nbuf)
             {
               cart_free(ids);
 	      nbuf = n;
               ids = cart_alloc(int,nbuf);
             }
-          MPI_Recv(ids,n,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+          MPI_Recv(ids,n,MPI_INT,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	  for(j=0; j<n; j++)
 	    {
 	      fprintf(f,"%d\n",ids[j]);
@@ -2953,8 +2953,8 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
     }
   else
     {
-      MPI_Send(&n,1,MPI_INT,MASTER_NODE,0,MPI_COMM_WORLD);
-      MPI_Send(ids,n,MPI_INT,MASTER_NODE,0,MPI_COMM_WORLD);
+      MPI_Send(&n,1,MPI_INT,MASTER_NODE,0,mpi.comm.run);
+      MPI_Send(ids,n,MPI_INT,MASTER_NODE,0,mpi.comm.run);
    }
 
   cart_free(ids);
@@ -2962,39 +2962,35 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
 
 
 /*
-//  Set cell_var(c,var) with the halo id for each halo, or 0 if belongs to 
+//  Set halos->map with the halo id for each halo, or 0 if belongs to 
 //  none; a cell belongs to a halo if it is inside its size_factor*Rtrunc, 
 //  and satellites are accounted for properly.
+//
+//  MG: needs to be rewritten, very inefficient.
 */
-void map_halos(int var, int resolution_level, halo_list *halos, float size_factor)
+void map_halos(int resolution_level, halo_list *halos, float size_factor)
 {
-  int j, ih, iold, *halo_levels;
+  int j, ih, iold, *halo_levels, *map;
   MESH_RUN_DECLARE(level,cell);
   double pos[3], dx, r2, r2old, r2Cut;
 
   cart_assert(halos != NULL);
-  cart_assert(var>=0 && var<num_vars);
+  if(halos->map != NULL) return; /* Already mapped */
 
-  if(halos->map == var) return; /* Already mapped */
-
-  halos->map = var;
+  map = cart_alloc(int,num_cells);
+  /*
+  //  Zero map array
+  */
+  memset(map,0,num_cells*sizeof(int));
 
   halo_levels = cart_alloc(int,halos->num_halos);
-  for(ih=0; ih<halos->num_halos; ih++) halo_levels[ih] = halo_level(&halos->list[ih],MPI_COMM_WORLD);
+  for(ih=0; ih<halos->num_halos; ih++) halo_levels[ih] = halo_level(&halos->list[ih],mpi.comm.run);
 
   /*
   //  Loop over levels first to avoid selecting cells multiple times
   */
   MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
   cart_debug("Mapping level %d...",level);
-
-  /*
-  //  Zero map array
-  */
-#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,var)
-  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
-  if(cell_is_leaf(cell)) cell_var(cell,var) = 0.0;
-  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
 
   for(ih=0; ih<halos->num_halos; ih++) if(halo_levels[ih] >= resolution_level)
     {
@@ -3003,7 +2999,7 @@ void map_halos(int var, int resolution_level, halo_list *halos, float size_facto
       /*
       //  Map halo indices(+1), not ids, first (to simplify inter-comparison)
       */
-#pragma omp parallel for default(none), private(_Index,cell,j,dx,r2,iold,r2old,pos), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,var,r2Cut,halos,ih)
+#pragma omp parallel for default(none), private(_Index,cell,j,dx,r2,iold,r2old,pos), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,r2Cut,halos,ih,map)
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
       if(cell_is_leaf(cell))
@@ -3019,10 +3015,10 @@ void map_halos(int var, int resolution_level, halo_list *halos, float size_facto
 	  
 	  if(r2 < r2Cut)
 	    {
-	      iold = (int)(0.5+cell_var(cell,var));
+	      iold = map[cell];
 	      if(iold == 0)
 		{
-		  cell_var(cell,var) = ih + 1;
+		   map[cell] = ih + 1;
 		}
 	      else
 		{
@@ -3040,7 +3036,7 @@ void map_halos(int var, int resolution_level, halo_list *halos, float size_facto
 		      /*
 		      //  This cells belongs to a satellite
 		      */
-		      cell_var(cell,var) = ih + 1;
+		      map[cell] = ih + 1;
 		    }
 		}
 	    }
@@ -3053,6 +3049,8 @@ void map_halos(int var, int resolution_level, halo_list *halos, float size_facto
   MESH_RUN_OVER_LEVELS_END;
 
   cart_free(halo_levels);
+
+  halos->map = map;
 }
 
 #endif /* COSMOLOGY */

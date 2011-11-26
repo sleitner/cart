@@ -9,17 +9,23 @@
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "cosmology.h"
+#include "density.h"
 #include "iterators.h"
 #include "parallel.h"
-#include "rt_utilities.h"
-#include "timestep.h"
+#include "particle.h"
+#include "rt.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
+
+#include "F/frt_c.h"
 
 #include "los.h"
 #include "halo_finder.h"
 #include "ifrit.h"
 #include "ism.h"
+
+
 
 
 #ifndef ISM_BUFFER_SIZE
@@ -28,10 +34,6 @@
 
 
 #ifdef RADIATIVE_TRANSFER
-
-#include "rt_solver.h"
-#include "F/frt_c.h"
-
 
 void extDumpRadiationBackground(const char *filename)
 {
@@ -316,7 +318,7 @@ void extProximityZones(const char *fname, int resolution_level, int nside, int h
   /*
   //  Loop over all halos resoved to the lowest possible level at the center
   */
-  for(ih=0; ih<halos->num_halos; ih++) if((halo_id==0 || halo_id==halos->list[ih].id) && halo_level(&halos->list[ih],MPI_COMM_WORLD)>=resolution_level)
+  for(ih=0; ih<halos->num_halos; ih++) if((halo_id==0 || halo_id==halos->list[ih].id) && halo_level(&halos->list[ih],mpi.comm.run)>=resolution_level)
     {
       /*
       //  Init LOS buffers
@@ -372,11 +374,12 @@ void extProximityZones(const char *fname, int resolution_level, int nside, int h
 
 
 #ifdef HYDRO
-void extGasFractions(const char *fname, halo_list *halos)
+void extMassFractions(const char *fname, halo_list *halos)
 {
-  const int nmass = 5;
+  const int nmass = 7;
   int j, ih, *hlev;
   float *massl[nmass], *mass[nmass];
+  float v, dv;
   FILE *f;
   MESH_RUN_DECLARE(level,cell);
 
@@ -389,18 +392,10 @@ void extGasFractions(const char *fname, halo_list *halos)
   /*
   //  Map cells
   */
-  if(halos->map == -1)
+  if(halos->map == NULL)
     {
-      map_halos(VAR_ACCEL,min_level,halos,1.0);
+      map_halos(min_level,halos,1.0);
     }
-
-#ifndef RADIATIVE_TRANSFER
-  for(level=min_level; level<=max_level; level++)
-    {
-      cart_debug("assigning density on level %u",level);
-      assign_density(level);
-    }
-#endif /* RADIATIVE_TRANSFER */
 
   for(j=0; j<nmass; j++)
     {
@@ -416,17 +411,28 @@ void extGasFractions(const char *fname, halo_list *halos)
   
   if(cell_is_leaf(cell))
     {
-      ih = (int)(0.5+cell_var(cell,VAR_ACCEL+0));
+      ih = halos->map[cell];
       cart_assert(ih>=0 && ih<=halos->num_halos);
       if(ih > 0) 
 	{
 	  ih--;
-	  massl[0][ih] += (cell_volume[level]+cell_density(cell));
+	  massl[0][ih] += cell_total_mass(cell)*cell_volume[level];
 	  massl[1][ih] += cell_gas_density(cell)*cell_volume[level];
 #ifdef RADIATIVE_TRANSFER
 	  massl[2][ih] += cell_HI_density(cell)*cell_volume[level];
 	  massl[3][ih] += cell_HII_density(cell)*cell_volume[level];
 	  massl[4][ih] += 2*cell_H2_density(cell)*cell_volume[level];
+
+	  /*
+	  //  HI line width
+	  */
+	  dv = 0.0;
+	  for(j=0; j<nDim; j++)
+	    {
+	      v = cell_momentum(cell,j)/cell_gas_density(cell) - halos->list[ih].vel[j];
+	      dv += v*v;
+	    } 
+	  massl[6][ih] += cell_HI_density(cell)*cell_volume[level]*dv;
 #endif /* RADIATIVE_TRANSFER */
 	}
     }
@@ -434,9 +440,29 @@ void extGasFractions(const char *fname, halo_list *halos)
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
   MESH_RUN_OVER_LEVELS_END;
 
+  /*
+  // Measure stellar masses
+  */
+#ifdef STARFORM
+  for(j=0; j<num_particles; j++) if(particle_is_star(j))
+    {
+      cell = cell_find_position(particle_x[j]);
+      if(cell > -1)
+	{
+	  ih = halos->map[cell];
+	  cart_assert(ih>=0 && ih<=halos->num_halos);
+	  if(ih > 0) 
+	    {
+	      ih--;
+	      massl[5][ih] += particle_mass[j];
+	    }
+	}
+    }
+#endif
+
   for(j=0; j<nmass; j++)
     {
-      MPI_Allreduce(massl[j],mass[j],halos->num_halos,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
+      MPI_Allreduce(massl[j],mass[j],halos->num_halos,MPI_FLOAT,MPI_SUM,mpi.comm.run);
     }
 
   for(j=0; j<nmass; j++)
@@ -447,7 +473,7 @@ void extGasFractions(const char *fname, halo_list *halos)
   hlev = cart_alloc(int,halos->num_halos);
   for(ih=0; ih<halos->num_halos; ih++) 
     {
-      hlev[ih] = halo_level(&halos->list[ih],MPI_COMM_WORLD);
+      hlev[ih] = halo_level(&halos->list[ih],mpi.comm.run);
     }
 
   /*
@@ -460,12 +486,12 @@ void extGasFractions(const char *fname, halo_list *halos)
 	{
 	  cart_error("Unable to open output file.");
 	}
-      fprintf(f,"# id Mvir..... Mtot..... Mgas..... MHI...... MHII..... MH2...... Level (all masses are in Msun)\n");
+      fprintf(f,"# id Mvir..... Mtot..... Mgas..... MHI...... MHII..... MH2...... Mstars... Level.... Vmax..... sigHI.... (all masses are in Msun, velocities are in km/s)\n");
       fprintf(f,"#\n");
 
       for(ih=0; ih<halos->num_halos; ih++) 
 	{
-	  fprintf(f,"%4d %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %2d %9.3e\n",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir,mass[0][ih]*units->mass/constants->Msun,mass[1][ih]*units->mass/constants->Msun,mass[2][ih]*units->mass/constants->Msun,mass[3][ih]*units->mass/constants->Msun,mass[4][ih]*units->mass/constants->Msun,hlev[ih],units->velocity/constants->kms*halos->list[ih].vmax);
+	  fprintf(f,"%4d %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %9.3e %2d %9.3e %9.3e\n",halos->list[ih].id,units->mass/constants->Msun*halos->list[ih].mvir,mass[0][ih]*units->mass/constants->Msun,mass[1][ih]*units->mass/constants->Msun,mass[2][ih]*units->mass/constants->Msun,mass[3][ih]*units->mass/constants->Msun,mass[4][ih]*units->mass/constants->Msun,mass[5][ih]*units->mass/constants->Msun,hlev[ih],units->velocity/constants->kms*halos->list[ih].vmax,mass[2][ih]>0.0?sqrt(mass[6][ih]/mass[2][ih])*units->velocity/constants->kms:0.0);
 	}
       
       fclose(f);

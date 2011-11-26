@@ -48,7 +48,7 @@ void extProximityZones(const char *fname, int resolution_level, int nside, int h
 //  If halos is not NULL, this call overwrites VAR_ACCEL variable.
 */
 #ifdef HYDRO
-void extGasFractions(const char *fname, struct HALO_LIST *halos);
+void extMassFractions(const char *fname, struct HALO_LIST *halos);
 #endif /* HYDRO */
 #endif /* COSMOLOGY */
 

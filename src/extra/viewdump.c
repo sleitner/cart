@@ -106,7 +106,7 @@ void print_cell_grav_vars( int cell, int level ) {
 		fprintf( output, "%u %u %u %u 1 %u %u %u %e %e %e %e %e %e %e %e\n", corner_count, corner_count+1,
 			corner_count+2, corner_count+3, level, local_proc_id, cell,
 			position[0], position[1], position[2], 
-			cell_density(cell), cell_potential(cell), cell_accel(cell,0),
+			cell_total_mass(cell), cell_potential(cell), cell_accel(cell,0),
 			cell_accel(cell,1), cell_accel(cell,2) );
 #endif
 
@@ -185,15 +185,15 @@ void viewdump( const char *filename, int max_level_dumped, float slice, int d, i
 		cart_free( level_cells );
 	}
 
-	MPI_Reduce( &num_cells_intersected, &total_intersected, 1, MPI_INT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Allgather( &num_cells_intersected, 1, MPI_INT, cell_count, 1, MPI_INT, MPI_COMM_WORLD );
+	MPI_Reduce( &num_cells_intersected, &total_intersected, 1, MPI_INT, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Allgather( &num_cells_intersected, 1, MPI_INT, cell_count, 1, MPI_INT, mpi.comm.run );
 
 	for ( p = 0; p < num_procs; p++ ) {
 		if ( p == local_proc_id ) {
 			cart_debug("dumping %u cells", num_cells_intersected );
 		} 
 
-		MPI_Barrier(MPI_COMM_WORLD );
+		MPI_Barrier(mpi.comm.run );
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
@@ -220,7 +220,7 @@ void viewdump( const char *filename, int max_level_dumped, float slice, int d, i
 		fclose(output);
 	}
 
-	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Barrier(mpi.comm.run);
 
 	for ( p = 0; p < num_procs; p++ ) {
 		if ( p == local_proc_id ) {
@@ -237,7 +237,7 @@ void viewdump( const char *filename, int max_level_dumped, float slice, int d, i
 			fclose(output);
 		}
 
-		MPI_Barrier(MPI_COMM_WORLD);
+		MPI_Barrier(mpi.comm.run);
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
@@ -283,7 +283,7 @@ void viewdump( const char *filename, int max_level_dumped, float slice, int d, i
 			corner_count += cell_count[p] * 4;
 		}
 
-                MPI_Barrier(MPI_COMM_WORLD);
+                MPI_Barrier(mpi.comm.run);
         }
 
 	if ( local_proc_id == MASTER_NODE ) {

@@ -16,7 +16,7 @@
 #include "particle.h"
 #include "starformation.h"
 #include "tree.h"
-#include "timestep.h"
+#include "times.h"
 #include "units.h"
 
 #include "power.h"
@@ -87,7 +87,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 				}
 			}
 
-			MPI_Allreduce( &stellar_mass, &total_stellar_mass, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+			MPI_Allreduce( &stellar_mass, &total_stellar_mass, 1, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
 
 			cart_debug("total_stellar_mass = %e", total_stellar_mass );
 
@@ -275,7 +275,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 		/* merge */
 		MPI_Reduce( local_mesh, global_mesh, num_power_mesh, MPI_FLOAT, 
-				MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+				MPI_SUM, MASTER_NODE, mpi.comm.run );
 
 		/* compute power spectrum */
 		if ( local_proc_id == MASTER_NODE ) {

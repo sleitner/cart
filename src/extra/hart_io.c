@@ -18,11 +18,13 @@
 #include "sfc.h"
 #include "skiplist.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 #include "refinement.h"
 
+#include "run/step.h"
+#include "run/hydro_step.h"
 
 
 #ifdef HYDRO
@@ -31,10 +33,10 @@
 #error  warning: without GRAVITY define, io will be wrong 
 #endif
 
-/*#define HART_NVAR_L6N*/
+#define HART_NVAR_L6N
 /*#define DEBUG*/
 
-#define CONVERT_FOR_IFRIT
+/*#define CONVERT_FOR_IFRIT*/
 
 #define HART_rt_num_chem_species  8
 #define HART_num_enrichment_species  2

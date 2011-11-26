@@ -327,36 +327,36 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	}
 
 	/* send header information to all other processors */
-	MPI_Bcast( &endian, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &minlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &maxlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &endian, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &minlevel, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &maxlevel, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
-	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, mpi.comm.run );
 	cosmology_copy(&temp_cosmo);
 
-	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( dtl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( dtl_old, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( level_sweep_dir, max_level-min_level+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( dtl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( dtl_old, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( level_sweep_dir, max_level-min_level+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
-	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 
 #ifdef STARFORM
-	MPI_Bcast( star_formation_volume_min, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( star_formation_volume_max, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( star_formation_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( star_formation_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 #endif /* STARFORM */
 
-	MPI_Bcast( &num_file_vars, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &num_file_vars, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 	
 	if ( local_proc_id != MASTER_NODE ) {
 		varindex = cart_alloc(int, num_file_vars );
 	}
 
-	MPI_Bcast( varindex, num_file_vars, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( varindex, num_file_vars, MPI_INT, MASTER_NODE, mpi.comm.run );
 
 	cells_per_level = cart_alloc(int, (maxlevel-minlevel+1) );
 
@@ -441,10 +441,10 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			if ( num_procs > 1 && !root_cell_is_local( sfc_list[i] ) ) {
 				/* send to owner */
 				proc = processor_owner( sfc_list[i] );
-				MPI_Send( &cell_refined_to_read, 1, MPI_INT, proc, sfc_list[i], MPI_COMM_WORLD );
-				MPI_Send( &cells_to_read, 1, MPI_INT, proc, sfc_list[i], MPI_COMM_WORLD );
-				MPI_Send( cell_refined, cell_refined_to_read, MPI_INT, proc, sfc_list[i], MPI_COMM_WORLD );
-				MPI_Send( vars, cells_to_read*num_file_vars, MPI_FLOAT, proc, sfc_list[i], MPI_COMM_WORLD );
+				MPI_Send( &cell_refined_to_read, 1, MPI_INT, proc, sfc_list[i], mpi.comm.run );
+				MPI_Send( &cells_to_read, 1, MPI_INT, proc, sfc_list[i], mpi.comm.run );
+				MPI_Send( cell_refined, cell_refined_to_read, MPI_INT, proc, sfc_list[i], mpi.comm.run );
+				MPI_Send( vars, cells_to_read*num_file_vars, MPI_FLOAT, proc, sfc_list[i], mpi.comm.run );
 
 				cart_free( cell_refined );
 				cart_free( vars );
@@ -454,14 +454,14 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 		} else {
 			if ( root_cell_is_local( sfc_list[i] ) ) {
 				/* receive from root */
-				MPI_Recv( &cell_refined_to_read, 1, MPI_INT, MASTER_NODE, sfc_list[i], MPI_COMM_WORLD, MPI_STATUS_IGNORE );
-				MPI_Recv( &cells_to_read, 1, MPI_INT, MASTER_NODE, sfc_list[i], MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				MPI_Recv( &cell_refined_to_read, 1, MPI_INT, MASTER_NODE, sfc_list[i], mpi.comm.run, MPI_STATUS_IGNORE );
+				MPI_Recv( &cells_to_read, 1, MPI_INT, MASTER_NODE, sfc_list[i], mpi.comm.run, MPI_STATUS_IGNORE );
 
 				cell_refined = cart_alloc(int, cell_refined_to_read );
 				vars = cart_alloc(float, cells_to_read*num_file_vars );
 
-				MPI_Recv( cell_refined, cell_refined_to_read, MPI_INT, MASTER_NODE, sfc_list[i], MPI_COMM_WORLD, MPI_STATUS_IGNORE );
-				MPI_Recv( vars, cells_to_read*num_file_vars, MPI_FLOAT, MASTER_NODE, sfc_list[i], MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				MPI_Recv( cell_refined, cell_refined_to_read, MPI_INT, MASTER_NODE, sfc_list[i], mpi.comm.run, MPI_STATUS_IGNORE );
+				MPI_Recv( vars, cells_to_read*num_file_vars, MPI_FLOAT, MASTER_NODE, sfc_list[i], mpi.comm.run, MPI_STATUS_IGNORE );
 			}
 		}
 

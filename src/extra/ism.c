@@ -12,10 +12,9 @@
 #include "iterators.h"
 #include "parallel.h"
 #include "particle.h"
-#include "rt_solver.h"
-#include "rt_utilities.h"
+#include "rt.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -48,7 +47,7 @@ float extGetCellVarInTRange(int cell, int var, float Tmin, float Tmax)
 #endif /* HYDRO */
 
 
-void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **header, int level1, int level2, halo_list *halos)
+void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, halo_list *halos)
 {
   int i, j, ih, node, size, rank, select;
   MESH_RUN_DECLARE(level,cell);
@@ -57,6 +56,20 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
   float *buffer, *ptr;
   int nselproc, nseltot, ntot = 0;
   int *selected;
+
+  if(nout == 0)
+    {
+      cart_debug("There are no cell data to dump. Skipping DumpLevels...");
+      return;
+    }
+
+  cart_assert(nout>0 && nout<100);
+  cart_assert(workers != NULL);
+  for(i=0; i<nout; i++)
+    {
+      cart_assert(workers[i].Value != NULL);
+      cart_assert(workers[i].Header != NULL);
+    }
 
   /*
   //  Count number of cells
@@ -82,12 +95,12 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
   buffer = cart_alloc(float, ntot*nout );
   selected = cart_alloc(int, ntot );
 
-  if(halos!=NULL && halos->map==-1)
+  if(halos!=NULL && halos->map==NULL)
     {
       /*
       //  Map cells
       */
-      map_halos(VAR_ACCEL,min_level,halos,1.0);
+      map_halos(min_level,halos,1.0);
     }
 
   /*
@@ -96,19 +109,19 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
   ih = 0;
   do
     {
-      if(halos==NULL || halo_level(&halos->list[ih],MPI_COMM_WORLD)>=level1)
+      if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
 	{
 	  nselproc = ntot = 0;
 	  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
 
-#pragma omp parallel for default(none), private(_Index,cell,ptr,select,i), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,buffer,ntot,halos,ih,worker,units,selected,nout,level2), reduction(+:nselproc)
+#pragma omp parallel for default(none), private(_Index,cell,ptr,select,i), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,buffer,ntot,halos,ih,workers,units,selected,nout,level2), reduction(+:nselproc)
 	  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
 	  if(level==level2 || cell_is_leaf(cell))
 	    {
 	      if(halos != NULL)
 		{
-		  if(ih+1 == (int)(0.5+cell_var(cell,VAR_ACCEL))) select = 1; else select = 0;
+		  if(ih+1 == halos->map[cell]) select = 1; else select = 0;
 		}
 	      else select = 1;
 	    }
@@ -120,9 +133,17 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
 	    {
 	      nselproc++;
 	      ptr = buffer + nout*(ntot+_Index);
-	      for(i=0; i<nout; i++) ptr[i] = 0.0;
-	      worker(level,cell,nout,ptr);
-
+	      for(i=0; i<nout; i++)
+		{
+		  if(halos==NULL)
+		    {
+		      ptr[i] = workers[i].Value(level,cell,NULL,NULL);
+		    }
+		  else
+		    {
+		      ptr[i] = workers[i].Value(level,cell,halos->list[ih].pos,halos->list[ih].vel);
+		    }
+		}
 	    }
 	  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
 
@@ -130,7 +151,7 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
 
 	  MESH_RUN_OVER_LEVELS_END;
   
-	  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+	  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
 	  if(nseltot > 0)
 	    {
 	      if(halos != NULL)
@@ -142,11 +163,11 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
 	      /*
 	      //  Write to a file in order of a proc rank
 	      */
-	      MPI_Comm_size(MPI_COMM_WORLD,&size);
-	      MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+	      MPI_Comm_size(mpi.comm.run,&size);
+	      MPI_Comm_rank(mpi.comm.run,&rank);
 	      for(node=0; node<size; node++)
 		{
-		  MPI_Barrier(MPI_COMM_WORLD);
+		  MPI_Barrier(mpi.comm.run);
 		  if(node == rank)
 		    {
 		      cart_debug("Writing file piece #%d",node);
@@ -157,7 +178,7 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
 			{
 			  fprintf(f,"# Levels: from %d to %d\n",level1,level2);
 			  fprintf(f,"# Columns:\n");
-			  for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,header[i]);
+			  for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,workers[i].Header);
 			  fprintf(f,"#\n");
 			}
 
@@ -185,9 +206,170 @@ void extDumpLevels(const char *fname, int nout, DumpWorker worker, const char **
 }
 
 
-void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, halo_list *halos, int resolution_level, float outer_edge)
+void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, halo_list *halos)
 {
-  const int num_weights = 3;
+  int i, j, ih, node, size, rank, select;
+  MESH_RUN_DECLARE(level,cell);
+  FILE *f;
+  char str[999];
+  float *ptr;
+  int nselproc, nseltot, ntot = 0;
+
+  if(nout == 0)
+    {
+      cart_debug("There are no cell data to dump. Skipping DumpLevels...");
+      return;
+    }
+
+  cart_assert(nout>0 && nout<100);
+  cart_assert(workers != NULL);
+  for(i=0; i<nout; i++)
+    {
+      cart_assert(workers[i].Value != NULL);
+      cart_assert(workers[i].Header != NULL);
+    }
+
+  /*
+  //  Count number of cells
+  */
+  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct), reduction(+:ntot)
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  ntot++;
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+  MESH_RUN_OVER_LEVELS_END;
+  
+  if(ntot == 0)
+    {
+      cart_debug("There are no cells on levels %d to %d",level1,level2);
+      return;
+    }
+
+  cart_debug("Dumping %d cells on levels %d - %d",ntot,level1,level2);
+
+  /*
+  //  Create the buffer
+  */
+  ptr = cart_alloc(float, nout );
+
+  if(halos!=NULL && halos->map==NULL)
+    {
+      /*
+      //  Map cells
+      */
+      map_halos(min_level,halos,1.0);
+    }
+
+  /*
+  //  Fill in the buffer for each halo
+  */
+  ih = 0;
+  do
+    {
+      if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
+	{
+	  nselproc = ntot = 0;
+	  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
+
+#pragma omp parallel for default(none), private(_Index,cell,select,i), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,halos,ih,level2), reduction(+:nselproc)
+	  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  
+	  if(level==level2 || cell_is_leaf(cell))
+	    {
+	      if(halos != NULL)
+		{
+		  if(ih+1 == halos->map[cell]) select = 1; else select = 0;
+		}
+	      else select = 1;
+	    }
+	  else select = 0;
+
+	  if(select) nselproc++;
+
+	  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+	  MESH_RUN_OVER_LEVELS_END;
+  
+	  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
+
+	  if(nseltot == 0) continue;
+
+	  if(halos != NULL)
+	    {
+	      sprintf(str,"%s.%05d",fname,halos->list[ih].id);
+	    }
+	  else strcpy(str,fname);
+
+	  /*
+	  //  Write to a file in order of a proc rank
+	  */
+	  MPI_Comm_size(mpi.comm.run,&size);
+	  MPI_Comm_rank(mpi.comm.run,&rank);
+	  for(node=0; node<size; node++)
+	    {
+	      MPI_Barrier(mpi.comm.run);
+	      if(node == rank)
+		{
+		  cart_debug("Writing file piece #%d",node);
+		  f = fopen(str,(node==0?"w":"a"));
+		  cart_assert(f != NULL);
+
+		  if(node == 0)
+		    {
+		      fprintf(f,"# Levels: from %d to %d\n",level1,level2);
+		      fprintf(f,"# Columns:\n");
+		      for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,workers[i].Header);
+		      fprintf(f,"#\n");
+		    }
+
+		  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
+		  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+  
+		  if(level==level2 || cell_is_leaf(cell))
+		    {
+		      if(halos != NULL)
+			{
+			  if(ih+1 == halos->map[cell]) select = 1; else select = 0;
+			}
+		      else select = 1;
+		    }
+		  else select = 0;
+
+		  if(select)
+		    {
+		      for(i=0; i<nout; i++)
+			{
+			  if(halos==NULL)
+			    {
+			      ptr[i] = workers[i].Value(level,cell,NULL,NULL);
+			    }
+			  else
+			    {
+			      ptr[i] = workers[i].Value(level,cell,halos->list[ih].pos,halos->list[ih].vel);
+			    }
+			}
+
+		      fprintf(f,"%9.3e",ptr[0]);
+		      for(i=1; i<nout; i++) fprintf(f," %9.3e",ptr[i]);
+		      fprintf(f,"\n");
+		    }
+		  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+		  MESH_RUN_OVER_LEVELS_END;
+  
+		  fclose(f);
+		}
+	    }
+	}
+      ih++;
+    }
+  while(halos!=NULL && ih<halos->num_halos);
+
+  cart_free(ptr);
+}
+
+
+void extDumpHaloProfiles(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, halo_list *halos, int resolution_level, float outer_edge)
+{
+  const int num_weights = 4;
   int i, j, ih;
   MESH_RUN_DECLARE(level,cell);
   FILE *f;
@@ -197,17 +379,30 @@ void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const c
   int ntot, ibin;
   float *rbin, lrmin;
   
-  cart_assert(ndex>0 && rmax>0.0 && rmin>0.0);
-
-  for(j=0; j<nout; j++) 
+  if(nout == 0)
     {
-      if(weight_id[j]<0 || weight_id[j]>=num_weights) cart_error("Invalid weight id[%d] = %d (should be between 0 and %d)",j,weight_id[j],num_weights-1);
+      cart_debug("There are no cell data to dump. Skipping DumpHaloProfiles...");
+      return;
     }
 
   if(halos == NULL)
     {
-      cart_debug("No halo file is loaded. Skipping dumping profiles.");
+      cart_debug("No halo file is loaded. Skipping DumpHaloProfiles...");
       return;
+    }
+
+  cart_assert(nout>0 && nout<100);
+  cart_assert(ndex>0 && rmax>0.0 && rmin>0.0);
+  cart_assert(workers != NULL);
+  for(i=0; i<nout; i++)
+    {
+      cart_assert(workers[i].Value != NULL);
+      cart_assert(workers[i].Header != NULL);
+    }
+
+  for(j=0; j<nout; j++) 
+    {
+      if(workers[j].WeightId<0 || workers[j].WeightId>=num_weights) cart_error("Invalid weight id[%d] = %d (should be between 0 and %d)",j,workers[j].WeightId,num_weights-1);
     }
 
   lrmin = log10(rmin);
@@ -233,15 +428,15 @@ void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const c
   /*
   //  Map cells
   */
-  if(halos->map == -1)
+  if(halos->map == NULL)
     {
-      map_halos(VAR_ACCEL,min_level,halos,outer_edge);
+      map_halos(min_level,halos,outer_edge);
     }
 
   /*
   //  Fill in the buffer for each halo
   */
-  for(ih=0; ih<halos->num_halos; ih++) if(halo_level(&halos->list[ih],MPI_COMM_WORLD) >= resolution_level)
+  for(ih=0; ih<halos->num_halos; ih++) if(halo_level(&halos->list[ih],mpi.comm.run) >= resolution_level)
     {
 
       cart_debug("Analysing halo #%d...",halos->list[ih].id);
@@ -264,7 +459,7 @@ void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const c
 
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
-      if(cell_is_leaf(cell) && ih+1==(int)(0.5+cell_var(cell,VAR_ACCEL)))
+      if(cell_is_leaf(cell) && ih+1==halos->map[cell])
 	{
 	  cell_center_position(cell,pos);
 	  r = compute_distance_periodic(pos,halos->list[ih].pos);
@@ -273,15 +468,22 @@ void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const c
 	  if(ibin < 0) ibin = 0;
 	  if(ibin>=0 && ibin<ntot)
 	    {
-	      for(j=0; j<nout; j++) ptr[j] = 0.0;
-	      worker(level,cell,nout,ptr);
+	      for(j=0; j<nout; j++)
+		{
+		  ptr[j] = workers[j].Value(level,cell,halos->list[ih].pos,halos->list[ih].vel);
+		}
 
 	      w[0] = cell_volume[level];
-	      w[1] = (cell_density(cell)+cell_volume[level]);
+	      w[1] = (cell_total_mass(cell)+cell_volume[level]);
 #ifdef HYDRO
 	      w[2] = cell_gas_density(cell)*cell_volume[level];
 #else
 	      w[2] = 1;
+#endif
+#if defined(HYDRO) && defined(RADIATIVE_TRANSFER)
+	      w[3] = cell_HI_density(cell)*cell_volume[level];
+#else
+	      w[3] = w[2];
 #endif
 
 	      for(j=0; j<num_weights; j++)
@@ -290,21 +492,21 @@ void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const c
 		}
 	      for(j=0; j<nout; j++)
 		{
-		  buffer[j+ibin*nout] += ptr[j]*w[weight_id[j]];
+		  buffer[j+ibin*nout] += ptr[j]*w[workers[j].WeightId];
 		}
 	    }
 	}
       MESH_RUN_OVER_CELLS_OF_LEVEL_END;
       MESH_RUN_OVER_LEVELS_END;
   
-      MPI_Allreduce(buffer,gbuffer,ntot*nout,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
-      MPI_Allreduce(weight,gweight,ntot*num_weights,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
+      MPI_Allreduce(buffer,gbuffer,ntot*nout,MPI_FLOAT,MPI_SUM,mpi.comm.run);
+      MPI_Allreduce(weight,gweight,ntot*num_weights,MPI_FLOAT,MPI_SUM,mpi.comm.run);
 
       for(i=0; i<ntot; i++)
 	{
-	  for(j=0; j<nout; j++) if(gweight[weight_id[j]+i*num_weights] > 0.0)
+	  for(j=0; j<nout; j++) if(gweight[workers[j].WeightId+i*num_weights] > 0.0)
 	    {
-	      gbuffer[j+i*nout] /= gweight[weight_id[j]+i*num_weights];
+	      gbuffer[j+i*nout] /= gweight[workers[j].WeightId+i*num_weights];
 	    }
 	}
 
@@ -315,7 +517,7 @@ void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const c
 	  cart_assert(f != NULL);
 
 	  fprintf(f,"# Columns:\n");
-	  for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,header[i]);
+	  for(j=0; j<nout; j++) fprintf(f,"#   %2d. %s\n",j+1,workers[j].Header);
 	  fprintf(f,"#\n");
 
 	  for(i=0; i<ntot; i++)
@@ -339,9 +541,9 @@ void extDumpHaloProfiles(const char *fname, int nout, DumpWorker worker, const c
 }
 
 
-void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const char **header, const int *weight_id, float rmin, float rmax, int ndex, double center[3])
+void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, double center[3])
 {
-  const int num_weights = 3;
+  const int num_weights = 4;
   int i, j;
   MESH_RUN_DECLARE(level,cell);
   FILE *f;
@@ -351,11 +553,24 @@ void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const c
   int ntot, ibin;
   float *rbin, lrmin;
   
+  if(nout == 0)
+    {
+      cart_debug("There are no cell data to dump. Skipping DumpPointProfile...");
+      return;
+    }
+
+  cart_assert(nout>0 && nout<100);
   cart_assert(ndex>0 && rmax>0.0 && rmin>0.0);
+  cart_assert(workers != NULL);
+  for(i=0; i<nout; i++)
+    {
+      cart_assert(workers[i].Value != NULL);
+      cart_assert(workers[i].Header != NULL);
+    }
 
   for(j=0; j<nout; j++) 
     {
-      if(weight_id[j]<0 || weight_id[j]>=num_weights) cart_error("Invalid weight id[%d] = %d (should be between 0 and %d)",j,weight_id[j],num_weights-1);
+      if(workers[j].WeightId<0 || workers[j].WeightId>=num_weights) cart_error("Invalid weight id[%d] = %d (should be between 0 and %d)",j,workers[j].WeightId,num_weights-1);
     }
 
   lrmin = log10(rmin);
@@ -408,15 +623,22 @@ void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const c
       if(ibin < 0) ibin = 0;
       if(ibin>=0 && ibin<ntot)
 	{
-	  for(j=0; j<nout; j++) ptr[j] = 0.0;
-	  worker(level,cell,nout,ptr);
+	  for(j=0; j<nout; j++)
+	    {
+	      ptr[j] = workers[j].Value(level,cell,center,NULL);
+	    }
 
 	  w[0] = cell_volume[level];
-	  w[1] = (cell_density(cell)+cell_volume[level]);
+	  w[1] = (cell_total_mass(cell)+cell_volume[level]);
 #ifdef HYDRO
 	  w[2] = cell_gas_density(cell)*cell_volume[level];
 #else
 	  w[2] = 1;
+#endif
+#if defined(HYDRO) && defined(RADIATIVE_TRANSFER)
+	  w[3] = cell_HI_density(cell)*cell_volume[level];
+#else
+	  w[3] = w[2];
 #endif
 
 	  for(j=0; j<num_weights; j++)
@@ -425,21 +647,21 @@ void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const c
 	    }
 	  for(j=0; j<nout; j++)
 	    {
-	      buffer[j+ibin*nout] += ptr[j]*w[weight_id[j]];
+	      buffer[j+ibin*nout] += ptr[j]*w[workers[j].WeightId];
 	    }
 	}
     }
   MESH_RUN_OVER_CELLS_OF_LEVEL_END;
   MESH_RUN_OVER_LEVELS_END;
   
-  MPI_Allreduce(buffer,gbuffer,ntot*nout,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
-  MPI_Allreduce(weight,gweight,ntot*num_weights,MPI_FLOAT,MPI_SUM,MPI_COMM_WORLD);
+  MPI_Allreduce(buffer,gbuffer,ntot*nout,MPI_FLOAT,MPI_SUM,mpi.comm.run);
+  MPI_Allreduce(weight,gweight,ntot*num_weights,MPI_FLOAT,MPI_SUM,mpi.comm.run);
 
   for(i=0; i<ntot; i++)
     {
-      for(j=0; j<nout; j++) if(gweight[weight_id[j]+i*num_weights] > 0.0)
+      for(j=0; j<nout; j++) if(gweight[workers[j].WeightId+i*num_weights] > 0.0)
 	{
-	  gbuffer[j+i*nout] /= gweight[weight_id[j]+i*num_weights];
+	  gbuffer[j+i*nout] /= gweight[workers[j].WeightId+i*num_weights];
 	}
     }
 
@@ -450,7 +672,7 @@ void extDumpPointProfile(const char *fname, int nout, DumpWorker worker, const c
       cart_assert(f != NULL);
 
       fprintf(f,"# Columns:\n");
-      for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,header[i]);
+      for(j=0; j<nout; j++) fprintf(f,"#   %2d. %s\n",j+1,workers[j].Header);
       fprintf(f,"#\n");
 
       for(i=0; i<ntot; i++)
@@ -497,7 +719,7 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
 
   cart_assert(level>=min_level && level<=max_level);
 
-  level_global = max_level_now_global(MPI_COMM_WORLD);
+  level_global = max_level_now_global(mpi.comm.run);
 
   /*
   // Units
@@ -512,7 +734,7 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
   select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
   index = cart_alloc(int, num_cells );
 
-#pragma omp parallel for default(none), private(i), shared(index)
+#pragma omp parallel for default(none), private(i), shared(index,size_cell_array)
   for(i=0; i<num_cells; i++)
     {
       index[i] = -1;
@@ -579,14 +801,14 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
 	}
     }
 
-  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
 
   if(nseltot > 0)
     {
       ih = -1;
       do
 	{
-	  if(ih<0 || (halos!=NULL && (level_halo=halo_level(&halos->list[ih],MPI_COMM_WORLD))>=level))
+	  if(ih<0 || (halos!=NULL && (level_halo=halo_level(&halos->list[ih],mpi.comm.run))>=level))
 	    {
 	      if(ih >= 0)
 		{
@@ -603,12 +825,12 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
 	      /*
 	      //  Write to a file in order of a proc rank
 	      */
-	      MPI_Comm_size(MPI_COMM_WORLD,&size);
-	      MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+	      MPI_Comm_size(mpi.comm.run,&size);
+	      MPI_Comm_rank(mpi.comm.run,&rank);
 	      for(i=0; i<size; i++)
 		{
 
-		  MPI_Allreduce(&lstarted,&gstarted,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+		  MPI_Allreduce(&lstarted,&gstarted,1,MPI_INT,MPI_MAX,mpi.comm.run);
 
 		  if(i == rank)
 		    {
@@ -726,7 +948,7 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_lis
 
   cart_assert(level>=min_level && level<=max_level);
 
-  level_global = max_level_now_global(MPI_COMM_WORLD);
+  level_global = max_level_now_global(mpi.comm.run);
 
   /*
   // Units
@@ -741,7 +963,7 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_lis
   select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
   index = cart_alloc(int, num_cells );
 
-#pragma omp parallel for default(none), private(i), shared(index)
+#pragma omp parallel for default(none), private(i), shared(index,size_cell_array)
   for(i=0; i<num_cells; i++)
     {
       index[i] = -1;
@@ -815,13 +1037,13 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_lis
       if(sfr[i] > 1.0e-30) nselproc++;
     }
 
-  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
   if(nseltot > 0)
     {
       ih = -1;
       do
 	{
-	  if(ih<0 || (halos!=NULL && (level_halo=halo_level(&halos->list[ih],MPI_COMM_WORLD))>=level))
+	  if(ih<0 || (halos!=NULL && (level_halo=halo_level(&halos->list[ih],mpi.comm.run))>=level))
 	    {
 	      if(ih >= 0)
 		{
@@ -838,12 +1060,12 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_lis
 	      /*
 	      //  Write to a file in order of a proc rank
 	      */
-	      MPI_Comm_size(MPI_COMM_WORLD,&size);
-	      MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+	      MPI_Comm_size(mpi.comm.run,&size);
+	      MPI_Comm_rank(mpi.comm.run,&rank);
 	      for(i=0; i<size; i++)
 		{
 
-		  MPI_Allreduce(&lstarted,&gstarted,1,MPI_INT,MPI_MAX,MPI_COMM_WORLD);
+		  MPI_Allreduce(&lstarted,&gstarted,1,MPI_INT,MPI_MAX,mpi.comm.run);
 
 		  if(i == rank)
 		    {
@@ -961,11 +1183,11 @@ void extHaloStars(const char *fname, const halo *h, float rmax)
   /*
   //  Write to a file in order of a proc rank
   */
-  MPI_Comm_size(MPI_COMM_WORLD,&size);
-  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(mpi.comm.run,&size);
+  MPI_Comm_rank(mpi.comm.run,&rank);
   for(i=0; i<size; i++)
     {
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(mpi.comm.run);
       if(i==rank && ntot>0)
 	{
 	  cart_debug("Writing file piece #%d",i);

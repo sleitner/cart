@@ -9,10 +9,9 @@
 #include "hydro.h"
 #include "parallel.h"
 #include "particle.h"
+#include "rt.h"
 #include "starformation.h"
-#include "rt_solver.h"
-#include "rt_utilities.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -20,7 +19,7 @@
 #include "ifrit.h"
 
 
-float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar, int *varid);
+float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar, const int *varid);
 
 
 #ifdef STARFORM
@@ -28,7 +27,7 @@ extern double sf_min_stellar_particle_mass;
 #endif
 
 
-int ifritOutputMesh(const char *filename, int level, int nbinIn[], const double pcenIn[], int nvars, int *varid)
+int ifritOutputMesh(const char *filename, int level, int nbinIn[], const double pcenIn[], int nvars, const int *varid)
 {
   int i, ntemp, nbin[3];
   double pcen[3];
@@ -144,8 +143,8 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
   /*
   //  Write to a file in order of a proc rank
   */
-  MPI_Comm_size(MPI_COMM_WORLD,&size);
-  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Comm_size(mpi.comm.run,&size);
+  MPI_Comm_rank(mpi.comm.run,&rank);
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -161,7 +160,7 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
 
   for(i=0; i<size; i++)
     {
-      MPI_Barrier(MPI_COMM_WORLD);
+      MPI_Barrier(mpi.comm.run);
       if(i == rank)
 	{
 	  if(filename != NULL)
@@ -240,7 +239,7 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
 	}
     }
 
-  MPI_Allreduce(&nloc,&ntot,1,MPI_LONG,MPI_SUM,MPI_COMM_WORLD);
+  MPI_Allreduce(&nloc,&ntot,1,MPI_LONG,MPI_SUM,mpi.comm.run);
 
   return ntot;
 
@@ -352,9 +351,8 @@ void ifritOutputParticles(const char *fileroot, double *bb)
 #endif /* PARTICLES */
 
 
-void ifritOutputBox(const char *fileroot, int floor_level, int nbin[], const double pos[3], int nvars, int *varid)
+void ifritOutputBox(const char *fileroot, int floor_level, int nbin[], const double pos[3], int nvars, const int *varid)
 {
-  int j;
   double bb[6], dx;
   char str[999];
 
@@ -382,7 +380,7 @@ void ifritOutputBox(const char *fileroot, int floor_level, int nbin[], const dou
 }
 
 
-void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const halo *h, int nvars, int *varid)
+void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const halo *h, int nvars, const int *varid)
 {
   if(h == NULL)
     {
@@ -417,12 +415,15 @@ long ifritUniformGrid_GetSize(int level, int nbin[3], double pcen[3])
   for(k=0; k<nbin[2]; k++)
     {
       pos[2] = pcen[2] + dx*(k+0.5-0.5*nbin[2]);
+      pos[2] -= num_grid*floor(pos[2]/num_grid);
       for(j=0; j<nbin[1]; j++)
 	{
 	  pos[1] = pcen[1] + dx*(j+0.5-0.5*nbin[1]);
+	  pos[1] -= num_grid*floor(pos[1]/num_grid);
 	  for(i=0; i<nbin[0]; i++)
 	    {
 	      pos[0] = pcen[0] + dx*(i+0.5-0.5*nbin[0]);
+	      pos[0] -= num_grid*floor(pos[0]/num_grid);
 	      cell = cell_find_position_above_level(level,pos);
 	      if(cell!=-1 && root_cell_type(root_cell_sfc_index(cell_parent_root_cell(cell)))==1)
 		{
@@ -436,7 +437,7 @@ long ifritUniformGrid_GetSize(int level, int nbin[3], double pcen[3])
 }
 
 
-void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars, int *varid, float **buf, long *loc)
+void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars, const int *varid, float **buf, long *loc)
 {
   int i, j, k, var, cell;
   long offset, l;
@@ -448,13 +449,16 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
   for(k=0; k<nbin[2]; k++)
     {
       pos[2] = pcen[2] + dx*(k+0.5-0.5*nbin[2]);
+      pos[2] -= num_grid*floor(pos[2]/num_grid);
       for(j=0; j<nbin[1]; j++)
 	{
 	  pos[1] = pcen[1] + dx*(j+0.5-0.5*nbin[1]);
+	  pos[1] -= num_grid*floor(pos[1]/num_grid);
 	  offset = nbin[1]*(j+nbin[2]*k);
 	  for(i=0; i<nbin[0]; i++)
 	    {
 	      pos[0] = pcen[0] + dx*(i+0.5-0.5*nbin[0]);
+	      pos[0] -= num_grid*floor(pos[0]/num_grid);
 	      cell = cell_find_position_above_level(level,pos);
 	      if(cell!=-1 && root_cell_type(root_cell_sfc_index(cell_parent_root_cell(cell)))==1)
 		{
@@ -476,6 +480,21 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 			case I_HI_FRACTION:
 			  {
 			    buf[var][l] = cell_HI_fraction(cell);
+			    break;
+			  }
+			case I_H2_FRACTION:
+			  {
+			    buf[var][l] = cell_H2_fraction(cell);
+			    break;
+			  }
+			case I_DMW:
+			  {
+			    buf[var][l] = rtDmw(cell);
+			    break;
+			  }
+			case I_UMW:
+			  {
+			    buf[var][l] = rtUmw(cell);
 			    break;
 			  }
 #endif
@@ -543,7 +562,7 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 }
 
 
-float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvars, int *varid)
+float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvars, const int *varid)
 {
   int i, ip;
   long l, ncells;
@@ -571,7 +590,7 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar
 	    }
 	  else
 	    {
-	      MPI_Recv(&ncells,1,MPI_LONG,ip,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	      MPI_Recv(&ncells,1,MPI_LONG,ip,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	    }
 
 	  /*
@@ -589,8 +608,8 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar
 	    }
 	  else
 	    {
-	      MPI_Recv(loc,ncells,MPI_LONG,ip,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-	      for(i=0; i<nvars; i++) MPI_Recv(buf[i],ncells,MPI_FLOAT,ip,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	      MPI_Recv(loc,ncells,MPI_LONG,ip,0,mpi.comm.run,MPI_STATUS_IGNORE);
+	      for(i=0; i<nvars; i++) MPI_Recv(buf[i],ncells,MPI_FLOAT,ip,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	    }
 
 	  /*
@@ -620,7 +639,7 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar
       //  Measure & transfer buffer size
       */
       ncells = ifritUniformGrid_GetSize(level,nbin,pcen);
-      MPI_Send(&ncells,1,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
+      MPI_Send(&ncells,1,MPI_LONG,MASTER_NODE,0,mpi.comm.run);
 
       /*
       //  Allocate buffers
@@ -633,8 +652,8 @@ float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar
       */
       ifritUniformGrid_FillData(level,nbin,pcen,nvars,varid,buf,loc);
 
-      MPI_Send(loc,ncells,MPI_LONG,MASTER_NODE,0,MPI_COMM_WORLD);
-      for(i=0; i<nvars; i++) MPI_Send(buf[i],ncells,MPI_FLOAT,MASTER_NODE,0,MPI_COMM_WORLD);
+      MPI_Send(loc,ncells,MPI_LONG,MASTER_NODE,0,mpi.comm.run);
+      for(i=0; i<nvars; i++) MPI_Send(buf[i],ncells,MPI_FLOAT,MASTER_NODE,0,mpi.comm.run);
 
       /*
       //  Free buffers

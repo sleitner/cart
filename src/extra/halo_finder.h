@@ -1,5 +1,5 @@
-#ifndef __ANALYSIS_H__
-#define __ANALYSIS_H__
+#ifndef __HALO_FINDER_H__
+#define __HALO_FINDER_H__
 
 #ifndef CONFIGURED
 #error "Missing config.h include."
@@ -31,7 +31,7 @@ typedef struct HALO {
 typedef struct HALO_LIST {
 	int num_halos;
 	halo *list;
-	int map;  
+	int *map;  
 } halo_list;
 
 void load_halo_finder_epochs( char *filename, int *num_epochs, float **epoch );
@@ -47,10 +47,10 @@ halo* find_halo_by_id(halo_list *halos, int id);
 void dump_region_around_halo(const char *filename, const halo *h, float size);
 
 /*
-//  Set cell_var(c,var) with the halo id for each halo, or 0 if belongs to 
+//  Set halos->map with the halo id for each halo, or 0 if belongs to 
 //  none; a cell belongs to a halo if it is inside its size_factor*Rtrunc, 
 //  and satellites are accounted for properly.
 */
-void map_halos(int var, int resolution_level, halo_list *halos, float size_factor);
+void map_halos(int resolution_level, halo_list *halos, float size_factor);
 
 #endif

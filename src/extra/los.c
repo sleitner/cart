@@ -64,9 +64,8 @@ void losTraverseSegment(int id, double pos0[3], double theta, double phi, double
 
 	  if(h > x) h = x;
 	}
-      if(h < 1.0e-5) h = 1.0e-5;
-
-      h *= (1.01*cell_size[level]);
+      h += 0.01;
+      h *= cell_size[level];
 
       if(cell>=0 && cell_is_local(cell))
 	{
@@ -110,14 +109,14 @@ void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCall
       line[0] = *segment;
       for(i=1; i<num_procs; i++)
 	{
-	  MPI_Recv(line+i,sizeof(losSegment),MPI_BYTE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	  MPI_Recv(line+i,sizeof(losSegment),MPI_BYTE,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 
 	  cart_assert(segment->Buffer.Size == line[i].Buffer.Size);
 
 	  if(segment->Buffer.Size > 0)
 	    {
 	      line[i].Buffer.Data = buf + segment->Buffer.Size*i;
-	      MPI_Recv(line[i].Buffer.Data,segment->Buffer.Size,MPI_BYTE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	      MPI_Recv(line[i].Buffer.Data,segment->Buffer.Size,MPI_BYTE,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	    }
 	}
       
@@ -131,20 +130,20 @@ void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCall
 
       if(result->Size > 0)
 	{
-	  MPI_Bcast(result->Data,result->Size,MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+	  MPI_Bcast(result->Data,result->Size,MPI_BYTE,MASTER_NODE,mpi.comm.run);
 	}
     }
   else
     {
-      MPI_Send(segment,sizeof(losSegment),MPI_BYTE,MASTER_NODE,0,MPI_COMM_WORLD);
+      MPI_Send(segment,sizeof(losSegment),MPI_BYTE,MASTER_NODE,0,mpi.comm.run);
       if(segment->Buffer.Size > 0)
 	{
-	  MPI_Send(segment->Buffer.Data,segment->Buffer.Size,MPI_BYTE,MASTER_NODE,0,MPI_COMM_WORLD);
+	  MPI_Send(segment->Buffer.Data,segment->Buffer.Size,MPI_BYTE,MASTER_NODE,0,mpi.comm.run);
 	}
 
       if(result->Size > 0)
 	{
-	  MPI_Bcast(result->Data,result->Size,MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+	  MPI_Bcast(result->Data,result->Size,MPI_BYTE,MASTER_NODE,mpi.comm.run);
 	}
     }
 }

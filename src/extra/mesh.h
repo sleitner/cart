@@ -10,7 +10,7 @@
 /*
 //  Dump mesh structure (parameter mode changes the file format)
 */
-void extDumpMeshStructure(const char *filename, int mode);
+void extDumpMeshStructure(const char *filename, int level_shift);
 
 #endif  /* __EXT_MESH_H__ */
 

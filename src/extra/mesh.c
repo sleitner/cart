@@ -25,9 +25,9 @@ MeshStructure;
 /*
 //  Recursive worker
 */
-void extCountRootCellWorker(int root_parent, int cell, MeshStructure mesh[])
+void extCountRootCellWorker(int top_level, int top_cell, int cell, MeshStructure mesh[])
 {
-  int j, level;
+  int j, l, level, top_neighbor;
   int children[num_children], neighbors[num_neighbors];
 #ifdef PARTICLES
   int part, num_parts;
@@ -54,7 +54,12 @@ void extCountRootCellWorker(int root_parent, int cell, MeshStructure mesh[])
 
   for(j=0; j<num_neighbors; j++)
     {
-      if(root_parent != cell_parent_root_cell(neighbors[j]))
+      for(l=cell_level(neighbors[j]), top_neighbor=neighbors[j]; l>top_level; l--) 
+	{
+	  top_neighbor = cell_parent_cell(top_neighbor);
+	}	  
+
+      if(top_cell != top_neighbor)
 	{
 	  mesh[level].NumBorderCells[j]++;
 	}
@@ -63,40 +68,40 @@ void extCountRootCellWorker(int root_parent, int cell, MeshStructure mesh[])
   if(cell_is_refined(cell))
     {
       cell_all_children(cell,children);
-      for(j=0; j<num_children; j++) extCountRootCellWorker(root_parent,children[j],mesh);
+      for(j=0; j<num_children; j++) extCountRootCellWorker(top_level,top_cell,children[j],mesh);
     }
 }
 
 /*
-//  Driver for rRecursive worker
+//  Driver for recursive worker
 */
-void extCountRootCell(int root_cell, MeshStructure mesh[])
+void extCountRootCell(int top_cell, MeshStructure mesh[])
 {
   int j, level;
+  int top_level = cell_level(top_cell);
 
-  cart_assert(cell_is_root_cell(root_cell)); 
-
-  for(level=min_level; level<=max_level; level++)
+  for(level=top_level; level<=max_level; level++)
     {
       mesh[level].NumCells = 0;
       mesh[level].NumParticles = 0;
       for(j=0; j<num_neighbors; j++) mesh[level].NumBorderCells[j] = 0;
     }
 
-  extCountRootCellWorker(root_cell,root_cell,mesh);
+  extCountRootCellWorker(top_level,top_cell,top_cell,mesh);
 }
 
 
-void extDumpMeshStructure(const char *filename, int mode)
+void extDumpMeshStructure(const char *filename, int level_shift)
 {
   FILE *f;
-  int j, level, coords[3];
-  int sfc, root_cell, floor_level, cell_floor_level;
+  int j, i, level, ijk[3], coords[3], shifts[3];
+  int sfc, root_cell, floor_level, cell_floor_level, subsample;
   DEFINE_LEVEL_ARRAY(MeshStructure,mesh);
-  DEFINE_LEVEL_ARRAY(int,ncells);
-  int nparts;
 
-  floor_level = max_level_now_global(MPI_COMM_WORLD);
+  cart_assert(level_shift>=0 && level_shift<=1);
+  subsample = 1<<level_shift;
+
+  floor_level = max_level_now_global(mpi.comm.run);
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -108,49 +113,72 @@ void extDumpMeshStructure(const char *filename, int mode)
         }
 
       fprintf(f,"# Root dimensions, floor level:\n");
-      fprintf(f,"%d %d %d %d\n",num_grid,num_grid,num_grid,floor_level);
+      fprintf(f,"%d %d %d %d\n",subsample*num_grid,subsample*num_grid,subsample*num_grid,floor_level-level_shift);
       fprintf(f,"# Format of each cell entry:\n");
-      switch(mode)
-	{
-	case 1:
-	  {
-	    fprintf(f,"#   Cell <I> <J> <K> <sfc index> <floor level>\n");
-	    fprintf(f,"#   Then, for each level between %d and <floor level>:\n",min_level);
-	    break;
-	  }
-	default:
-	  {
-	    fprintf(f,"#   Cell <I> <J> <K> <sfc index>\n");
-	    fprintf(f,"#   Then, for each level between %d and %d:\n",min_level,floor_level);
-	  }
-	}
+      fprintf(f,"#   Cell <I> <J> <K> <sfc index> <floor level>\n");
+      fprintf(f,"#   Then, for each level between %d and <floor level>:\n",min_level);
       fprintf(f,"#   <Number of cells at this level> <Number of particle at this level> <Number of boundary cells at this level for 6 directions (-X,+X,-Y,+Y,-Z,+Z)>\n");
     }
 
-  /*
-  //  This for internal checking
-  */
-  nparts = 0;
-  for(level=min_level; level<=floor_level; level++) ncells[level] = 0;
-
-  for(coords[2]=0; nDim>2 && coords[2]<num_grid; coords[2]++)
+  for(ijk[2]=0; nDim>2 && ijk[2]<subsample*num_grid; ijk[2]++)
     {
-      cart_debug("Doing Z-slice #%d...",coords[2]);
-      for(coords[1]=0; nDim>1 && coords[1]<num_grid; coords[1]++)
+      cart_debug("Doing Z-slice #%d...",ijk[2]);
+      coords[2] = ijk[2]/subsample;
+      shifts[2] = ijk[2]%subsample;
+      for(ijk[1]=0; nDim>1 && ijk[1]<subsample*num_grid; ijk[1]++)
 	{
-	  for(coords[0]=0; coords[0]<num_grid; coords[0]++)
+	  coords[1] = ijk[1]/subsample;
+	  shifts[1] = ijk[1]%subsample;
+	  for(ijk[0]=0; ijk[0]<subsample*num_grid; ijk[0]++)
 	    {
+	      coords[0] = ijk[0]/subsample;
+	      shifts[0] = ijk[0]%subsample;
+
 	      sfc = sfc_index(coords);
 
 	      if(root_cell_type(sfc) == CELL_TYPE_LOCAL)
 		{
 		  root_cell = root_cell_location(sfc);
-		  extCountRootCell(root_cell,mesh);
 
-		  for(level=min_level; level<=floor_level; level++)
+		  switch(level_shift)
 		    {
-		      nparts += mesh[level].NumParticles;
-		      ncells[level] += mesh[level].NumCells;
+		    case 0:
+		      {
+			extCountRootCell(root_cell,mesh);
+			break;
+		      }
+		    case 1:
+		      {
+			if(cell_is_refined(root_cell))
+			  {
+			    root_cell = cell_child(root_cell,shifts[0]+2*shifts[1]+4*shifts[2]);
+			    extCountRootCell(root_cell,mesh);
+			  }
+			else
+			  {
+			    extCountRootCell(root_cell,mesh);
+			    mesh[min_level+1].NumCells = 1;
+			    mesh[min_level+1].NumParticles = mesh[min_level].NumParticles;
+			    for(i=0; i<num_neighbors; i++)
+			      {
+				mesh[min_level+1].NumBorderCells[i] = 1;
+			      }
+			  }
+
+			/*
+			// Shift by one level
+			*/
+			for(level=min_level; level<floor_level; level++)
+			  {
+			    mesh[level] = mesh[level+1];
+			  }
+
+			break;
+		      }
+		    default:
+		      {
+			cart_error("Should not be here!");
+		      }
 		    }
 
 		  /*
@@ -158,47 +186,30 @@ void extDumpMeshStructure(const char *filename, int mode)
 		  */
 		  if(local_proc_id != MASTER_NODE)
 		    {
-		      MPI_Send(mesh+min_level,sizeof(MeshStructure)*(floor_level-min_level+1),MPI_BYTE,MASTER_NODE,0,MPI_COMM_WORLD);
+		      MPI_Send(mesh+min_level,sizeof(MeshStructure)*(floor_level-min_level+1-level_shift),MPI_BYTE,MASTER_NODE,0,mpi.comm.run);
 		    }
 		}
 	      else
 		{
 		  if(local_proc_id == MASTER_NODE)
 		    {
-		      MPI_Recv(mesh+min_level,sizeof(MeshStructure)*(floor_level-min_level+1),MPI_BYTE,processor_owner(sfc),0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+		      MPI_Recv(mesh+min_level,sizeof(MeshStructure)*(floor_level-min_level+1-level_shift),MPI_BYTE,processor_owner(sfc),0,mpi.comm.run,MPI_STATUS_IGNORE);
 		    }
 		}
 	      
 	      if(local_proc_id == MASTER_NODE)
 		{
-		  for(cell_floor_level=level=min_level; level<=floor_level; level++)
+		  for(cell_floor_level=level=min_level; level<=floor_level-level_shift; level++)
 		    {
 		      if(mesh[level].NumCells > 0) cell_floor_level = level;
 		    }
 
-		  switch(mode)
+		  fprintf(f,"%d %d %d %d %d\n",ijk[0],ijk[1],ijk[2],sfc,cell_floor_level);
+		  for(level=min_level; level<=cell_floor_level; level++)
 		    {
-		    case 1:
-		      {
-			fprintf(f,"%d %d %d %d %d\n",coords[0],coords[1],coords[2],sfc,cell_floor_level);
-			for(level=min_level; level<=cell_floor_level; level++)
-			  {
-			    fprintf(f,"%d %d",mesh[level].NumCells,mesh[level].NumParticles);
-			    for(j=0; j<num_neighbors; j++) fprintf(f," %d",mesh[level].NumBorderCells[j]); 
-			    fprintf(f,"\n");
-			  }
-			break;
-		      }
-		    default:
-		      {
-			fprintf(f,"%d %d %d %d\n",coords[0],coords[1],coords[2],sfc);
-			for(level=min_level; level<=floor_level; level++)
-			  {
-			    fprintf(f,"%d %d",mesh[level].NumCells,mesh[level].NumParticles);
-			    for(j=0; j<num_neighbors; j++) fprintf(f," %d",mesh[level].NumBorderCells[j]); 
-			    fprintf(f,"\n");
-			  }
-		      }
+		      fprintf(f,"%d %d",mesh[level].NumCells,mesh[level].NumParticles);
+		      for(j=0; j<num_neighbors; j++) fprintf(f," %d",mesh[level].NumBorderCells[j]); 
+		      fprintf(f,"\n");
 		    }
 		}		  
 	    }
@@ -208,17 +219,5 @@ void extDumpMeshStructure(const char *filename, int mode)
   if(local_proc_id == MASTER_NODE)
     {
       fclose(f);
-    }
-
-  /*
-  //  Internal check
-  */
-#ifdef PARTICLES 
-  cart_assert(nparts == num_local_particles);
-#endif /* PARTICLES */
-
-  for(level=min_level; level<=floor_level; level++)
-    {
-      cart_assert(ncells[level] == num_cells_per_level[level]);
     }
 }
