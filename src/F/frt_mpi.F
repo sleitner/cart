@@ -20,7 +20,7 @@ C
       endif
 
       if(ierr .ne. MPI_SUCCESS) then
-         write(0,*) 'RT_MPI: fatal error, ',
+         write(0,*) 'RT::GlobalAverage: fatal error, ',
      .        'MPI communication error #',ierr
          call frtAbort
       endif
@@ -48,7 +48,7 @@ C
 
       call MPI_COMM_RANK(MPI_COMM_WORLD,id,ierr)
       if(ierr .ne. MPI_SUCCESS) then
-         write(0,*) 'RT_MPI: fatal error, ',
+         write(0,*) 'RT::SetIONode: fatal error, ',
      .        'MPI communication error #',ierr
          call frtAbort
       endif

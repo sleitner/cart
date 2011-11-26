@@ -25,13 +25,13 @@ C
 #endif /* _OPENMP */
 
       if(iBuf .lt. 1) then
-         write(0,*) 'RT_Global: fatal error, ',
+         write(0,*) 'RT::IncrementGlobalFields: fatal error, ',
      .        'invalid buffer ID; buffer ID must be > 0.'
          call frtAbort
       endif
 
       if(iBuf .gt. RT_PARALLEL_NUM_OPENMP_BUFFERS) then
-         write(0,*) 'RT_Global: fatal error, ',
+         write(0,*) 'RT::IncrementGlobalFields: fatal error, ',
      .        'not enough global buffers. Set the variable ',
      .        'RT_PARALLEL_NUM_OPENMP_BUFFERS in rt_defs.h ',
      .        'to at least ', iBuf
@@ -107,7 +107,7 @@ C$OMP+SHARED(dBremBuf,dDataBuf,dInfoBuf)
 C
 C  Sum-up global contributions
 C
-      subroutine frtFinalizeGlobalFields(vol)
+      subroutine frtFinalizeGlobalFields(vol,dt)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_global.inc'
@@ -121,9 +121,14 @@ C
       real*8 dBremBufLoc(NRAD)
       real*8 dDataBufLoc(iavgMax2)
       real*8 dInfoBufLoc(infoDim)
+      real*8 dInfoBufLoc2(1)
       real*8 dBremBufGlob(NRAD)
       real*8 dDataBufGlob(iavgMax2)
       real*8 dInfoBufGlob(infoDim)
+      real*8 dInfoBufGlob2(1)
+
+      equivalence(dInfoBufLoc(infoNMax),dInfoBufLoc2(1))
+      equivalence(dInfoBufGlob(infoNMax),dInfoBufGlob2(1))
 C
 C  Bremstrahlung
 C
@@ -169,12 +174,11 @@ C
       call frtGlobalAverage(0,NRAD,dBremBufLoc,dBremBufGlob)
       call frtGlobalAverage(0,iavgMax2,dDataBufLoc,dDataBufGlob)
       call frtGlobalAverage(0,infoMax1,dInfoBufLoc,dInfoBufGlob)
-      call frtGlobalAverage(1,1,dInfoBufLoc(infoNMax),
-     .     dInfoBufGlob(infoNMax))
+      call frtGlobalAverage(1,1,dInfoBufLoc2,dInfoBufGlob2)
 C
 C  Normalization
 C
-      if(dDataBufGlob(iavgNorm) .gt. 1.0e-35) then
+      if(dDataBufGlob(iavgNorm) .gt. VSMALL) then
          weight = 1.0/dDataBufGlob(iavgNorm)
       else
          weight = 0.0
@@ -193,11 +197,11 @@ C
       enddo
 
       if(vol .gt. 0.0) then
-         w = vol*dtStep*weight
+         w = vol*dt*weight
 #ifdef RT_DEBUG
          if(ioNode) then
             write(6,*) 'RT: internal vol*dt = ', dDataBufGlob(iavgNorm)
-            write(6,*) 'RT: external vol*dt = ', vol*dtStep
+            write(6,*) 'RT: external vol*dt = ', vol*dt
          endif
 #endif
          if(abs(w-1.0) .gt. 1.0e-3) then

@@ -92,7 +92,7 @@ C$OMP+ itloc2,pTabSE,qTabSE,wpTabSE,facPhot,facLX)
 
          else
 
-            tauH1l = -1.0
+            tauH1l = 2*VLARGE
 
          endif
 
@@ -121,7 +121,7 @@ C$OMP+ itloc2,pTabSE,qTabSE,wpTabSE,facPhot,facLX)
 
             else
 
-               tauG1l = -1.0
+               tauG1l = 2*VLARGE
 
             endif
 
@@ -159,14 +159,14 @@ C
 #ifdef RT_INTERPOLLOG
 #ifdef RT_EXTERNAL_BACKGROUND
                   if(pG2(j) .gt. 0.0) then
-                     pTabSE(j,itind) = log(1.0e-35+facPhot*pG2(j))
+                     pTabSE(j,itind) = log(VSMALL+facPhot*pG2(j))
                   else
                      pTabSE(j,itind) = -1000.0
                   endif                  
 #endif
 #ifdef RT_TRANSFER
                   if(qG2(j) .gt. 0.0) then
-                     qTabSE(j,itind) = log(1.0e-35+facLX*facPhot*qG2(j))
+                     qTabSE(j,itind) = log(VSMALL+facLX*facPhot*qG2(j))
                   else
                      qTabSE(j,itind) = -1000.0
                   endif

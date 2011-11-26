@@ -3,20 +3,19 @@
 C
 C
 C
-      subroutine frtInitRun2(Ypl,Tminl,D2Gminl,ClumpH2l,CohLenH2l,
-     .     fGall,fQSOl,IPOPl,IRECl,IOUNITl)
+      subroutine frtInitRun2(y,tm,d2g,ch2,cl,fg,fq,ip,ir,io)
       include 'frt_f77.inc'
 C
-      Yp = Ypl
-      Tmin = Tminl
-      D2Gin = D2Gminl
-      ClumpH2 = ClumpH2l
-      CohLenH2 = CohLenH2l
-      fGal = fGall
-      fQSO = fQSOl
-      IPOP = IPOPl
-      IREC = IRECl
-      IOUNIT = IOUNITl
+      Yp = y
+      Tmin = tm
+      D2Gin = d2g
+      ClumpH2 = ch2
+      CohLenH2 = cl
+      fGal = fg
+      fQSO = fq
+      IPOP = ip
+      IREC = ir
+      IOUNIT = io
 C
       call frtInitRun
 C
@@ -41,7 +40,7 @@ C
       data IPOP /2/, IREC/0/, IOUNIT/81/
 C
       if(Yp.lt.1.0e-10 .or. Yp.gt.0.99) then
-         write(0,*) 'RT_Base: fatal error, ',
+         write(0,*) 'RT::InitRun: fatal error, ',
      .        'Yp must be between 1e-10 and 0.99.'
          call frtAbort
       endif
@@ -105,69 +104,53 @@ C
 C
 C
 C
-      subroutine frtStepBegin(uDenl,uLenl,uTimel,dtStepl,aExpl,Hubblel,
-     .     parAvg)
+      subroutine frtStepBegin(ud,ul,ut,a,h,da)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
-      dimension parAvg(*), guv(NRAD)
-C
-      common /RT_Base_Save1/ parBeg(3)
+      dimension guv(NRAD)
 C
       include 'frt_inline.inc'
 C
-      uDen = uDenl
-      uLen = uLenl
-      uTime = uTimel
-      dtStep = dtStepl
-      aExp = aExpl
-      Hubble = Hubblel
-C
-#ifdef RT_OUTPUT
-      if(ioNode) then
-         open(unit=IOUNIT, file='rt-run.log', access='append')
-         write(IOUNIT,*) 'Step:'
-         write(IOUNIT,*) '  aExp:   ', aExp
-         write(IOUNIT,*) '  uDen:   ', uDen
-         write(IOUNIT,*) '  uLen:   ', uLen
-         write(IOUNIT,*) '  uTime:  ', uTime
-         write(IOUNIT,*) '  Hubble: ', Hubble
-         write(IOUNIT,*) '  dtStep: ', dtStep
-         close(IOUNIT)
-      endif
-#endif /* RT_OUTPUT */
-
-      do i=1,3
-         parBeg(i) = parAvg(i)
-      enddo
-
-#ifdef RT_TEST
-      call frtTestStepBegin
-#endif
-C
-C  Some constants
-C
-C ----------------------------------------------------
+      uDen = ud
+      uLen = ul
+      uTime = ut
+      aExp = a
+      Hubble = h
+      daExp = da
 C
 C  Additional units (and conversions)
 C
       uRate = uDen*uTime
       uColumn = CSSTAR*uDen*uLen
-
-#ifdef RT_DEBUG
+C
+#ifdef RT_OUTPUT
       if(ioNode) then
-         write(6,*) 'RT_Base: uDen = ', uDen
-         write(6,*) 'RT_Base: uLen = ', uLen
-         write(6,*) 'RT_Base: uTime = ', uTime
-         write(6,*) 'RT_Base: aExp = ', aExp
-         write(6,*) 'RT_Base: Hubble = ', Hubble
-         write(6,*) 'RT_Base: dtStep = ', dtStep
-         write(6,*) 'RT_Base: uRate = ', uRate
-         write(6,*) 'RT_Base: uColumn = ', uColumn
+         open(unit=IOUNIT, file='rt-run.log', access='append')
+         write(IOUNIT,*) 'Step:'
+         write(IOUNIT,*) '  aExp:    ', aExp
+         write(IOUNIT,*) '  uDen:    ', uDen
+         write(IOUNIT,*) '  uLen:    ', uLen
+         write(IOUNIT,*) '  uTime:   ', uTime
+         write(IOUNIT,*) '  uRate:   ', uRate
+         write(IOUNIT,*) '  uColumn: ', uColumn
+         write(IOUNIT,*) '  Hubble:  ', Hubble
+         write(IOUNIT,*) '  daExp:   ', daExp
+         close(IOUNIT)
       endif
-#endif
+#endif /* RT_OUTPUT */
+
+      if(aExp .lt. 1.0e-10) then
+         write(0,*) 'RT::StepBegin: fatal error, ',
+     .        'aExp has to be positive.'
+         call frtAbort
+      endif
+C
+C  Some constants
+C
+C ----------------------------------------------------
 C
 C  CMB temperature (in K)
 C
@@ -238,10 +221,10 @@ C$OMP+SHARED(guvLW0,guvLWe,guvEff,lrLWtr)
       do lr=1,NRLW
          guvLWe(lr) = guvLW0(lr)*guvEff(lrLWtr)
       enddo
-C     
+C
 C  Call Massimo's function
-C         
-      call  frtLW_SigmaH2(Hubble,dtStep,csLWMH)
+C
+      call  frtLW_SigmaH2(daExp/aExp,csLWMH)
 C
 C  Renormalize
 C
@@ -297,12 +280,25 @@ C$OMP+SHARED(angLoc)
 #endif /* RT_EXTERNAL_BACKGROUND != RT_BACKGROUND_SELFCONSISTENT */
 #endif /* RT_EXTERNAL_BACKGROUND */
 
+#ifdef RT_DEBUG
+      if(ioNode) then
+         fac = 1.59e-17/aExp**3
+         write(6,*) 'RT: <PIR_HI> = ', 
+     .        angUni(lrH1tr)*csH1tr*facPhot, 
+     .        angLoc(lrH1tr)*csH1tr*facPhot
+         write(6,*) 'RT: <Jnu_HI> = ', 
+     .        angUni(lrH1tr)*fac, angLoc(lrH1tr)*fac
+         write(6,*) 'RT: <Jnu_LW> = ', 
+     .        angUni(lrH1tr-1)*fac, angLoc(lrH1tr-1)*fac
+      endif
+#endif
+
       return
       end
 C
 C
 C
-      subroutine frtSetGlobalRadiationFields(rfAvg,otAvg)
+      subroutine frtSetGlobalRadiationFields(rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension rfAvg(*)
@@ -310,7 +306,7 @@ C
       include 'frt_inline.inc'
 C
 #ifdef RT_TRANSFER
-      call frtSetGlobalRadiationFieldsTransfer(rfAvg,otAvg)
+      call frtSetGlobalRadiationFieldsTransfer(rfAvg)
 #endif
 
 C$OMP PARALLEL DO DEFAULT(NONE),
@@ -340,12 +336,12 @@ C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
 C
 C
 C
-      subroutine frtUpdateTables(rfAvg,otAvg)
+      subroutine frtUpdateTables(rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension rfAvg(*)
 
-      call frtSetGlobalRadiationFields(rfAvg,otAvg)
+      call frtSetGlobalRadiationFields(rfAvg)
       call frtFillRadiationTables
 
       return
@@ -353,21 +349,19 @@ C
 C
 C
 C
-      subroutine frtStepEnd(vol,parAvg)
+      subroutine frtStepEnd(dt,vol,par)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
       include 'frt_global.inc'
-      dimension parAvg(*)
+      dimension par(*)
 C
       dimension axi(NRAD), sxi(NRAD), xib(NRAD)
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
       dimension axiLW(NRLW), sxiLW(NRLW), xibLW(NRLW), anbLW(NRLW)
 #endif
-C
-      common /RT_Base_Save1/ parBeg(3)
 C
       common/RT_RT_UV/ duvin, axiH1tr, angH1tr
 C
@@ -415,15 +409,15 @@ C
 C  Unpack global quantities
 C
 #ifdef RT_CHEMISTRY
-      XH1_va = 0.5*(parBeg(2)+parAvg(2))
-      XMH_va = 0.5*(parBeg(3)+parAvg(3))
+      XH1_va = par(2)
+      XMH_va = par(3)
 #endif
 C
 C  This must be so for photon number conservation
 C
-      duvin = 1*parBeg(1) + 0*parAvg(1)
+      duvin = par(1)
 
-      call frtFinalizeGlobalFields(vol)
+      call frtFinalizeGlobalFields(vol,dt)
 C
 C  Coefficient for Bremstrahlung: 
 C     d\tilde{n}_xi/dt = 1/V e^{-h\nu/kT} 1/kT dE_tot/dt
@@ -486,7 +480,7 @@ C
 C
 C  Frequency shift
 C
-      shift = Hubble*dtStep
+      shift = Hubble*dt
       lshift = int(shift/XISTEP)
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
@@ -517,7 +511,7 @@ C
       sxi(lrG1rB) = sxi(lrG1rB) + CRAD1*gData(iavgRBG2)/XISTEP
       sxi(lrG2rB) = sxi(lrG2rB) + CRAD1*gData(iavgRBG3)/XISTEP
 C
-      call frtAdvanceBackground(lshift,xib,axi,sxi,angUni)
+      call frtAdvanceBackground(dt,lshift,xib,axi,sxi,angUni)
 C
 C  Step 2: background due to local sources
 C
@@ -529,7 +523,7 @@ C$OMP+SHARED(duvin,guvEff,sxi)
          sxi(lr) = duvin*guvEff(lr)
       enddo
 C
-      call frtAdvanceBackground(lshift,xib,axi,sxi,angLoc)
+      call frtAdvanceBackground(dt,lshift,xib,axi,sxi,angLoc)
 #endif
 C
 C  Do Lyman-Werner bands separately
@@ -539,14 +533,14 @@ C
       fMH = XMH_va*CRAD2/CSSTAR
       fH1 = XH1_va*CRAD2/CSSTAR
       call frtLW_ComputeLineShifts(Hubble,fMH)
-      call frtLW_ComputeAbs(Hubble,fH1,dtStep,0.0,axiLW)
-      call frtLW_ComputeSource(Hubble,fH1,dtStep,guvLWe,sxiLW)
+      call frtLW_ComputeAbs(Hubble,fH1,dt,0.0,axiLW)
+      call frtLW_ComputeSource(Hubble,fH1,dt,guvLWe,sxiLW)
 
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(anbLW,angLW,axiLW,duvin,sxiLW,dtStep)
+C$OMP+SHARED(anbLW,angLW,axiLW,duvin,sxiLW,dt)
       do lr=1,NRLW
-         anbLW(lr) = angLW(lr)*axiLW(lr) + duvin*sxiLW(lr)*dtStep
+         anbLW(lr) = angLW(lr)*axiLW(lr) + duvin*sxiLW(lr)*dt
       enddo
 C
       shift = 0  !!  already included 
@@ -623,7 +617,7 @@ C$OMP+SHARED(angUni,angLoc,angAvg)
 C
 C
 C
-      subroutine frtAdvanceBackground(lshift,xib,axi,sxi,ang)
+      subroutine frtAdvanceBackground(dt,lshift,xib,axi,sxi,ang)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension xib(NRAD), axi(NRAD), sxi(NRAD), ang(NRAD)
@@ -632,16 +626,16 @@ C
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,t12,p12,q12),
-C$OMP+SHARED(axi,dtStep,anb,ang,sxi)
+C$OMP+SHARED(axi,dt,anb,ang,sxi)
       do lr=1,NRAD
 
-         t12 = axi(lr)*dtStep
+         t12 = axi(lr)*dt
          if(t12 .gt. 20.0) then
             p12 = 0.0
             q12 = 1.0/axi(lr)
          else if(t12 .lt. 0.001) then
             p12 = 1.0-t12
-            q12 = dtStep
+            q12 = dt
          else
             p12 = exp(-t12)
             q12 = (1.0-p12)/axi(lr)
@@ -675,8 +669,8 @@ C$OMP+SHARED(lshift,ang,anb,xib,xig)
 #ifdef RT_DEBUG
       if(ioNode) then
          lr = lrH1tr
-         write(6,*) 'RT: Advance Background:', lr, ang(lr), axi(lr),
-     .        axi(lr)*dtStep, sxi(lr)
+         write(6,*) 'RT::Advance Background:', lr, ang(lr), axi(lr),
+     .        axi(lr)*dt, sxi(lr)
       endif
 #endif
 
@@ -763,7 +757,6 @@ C
       include 'frt_tables.inc'
       dimension var(*), rawrf(*)
       dimension wlen(nout), anxi(nout)
-      integer frtBinId
 #ifdef RT_TRANSFER
 #ifdef RT_UV
       include 'frt_transfer4.inc'
@@ -779,6 +772,8 @@ C
       dimension rf(1)
 #endif
       dimension itab(2)
+      integer frtBinId
+      external frtBinId
       include 'frt_inline.inc'
 
 #ifdef RT_TRANSFER
@@ -897,6 +892,8 @@ C
       include 'frt_tables.inc'
       dimension wlen(nout), anxi(nout)
       integer frtBinId
+      external frtBinId
+
       do iout=1,nout
 
          lr = frtBinId(wlen(iout))
@@ -914,11 +911,12 @@ C
 C
 C
 C
-      integer function frtBinId(wlen)
+      function frtBinId(wlen)
       include 'frt_base.inc'
       include 'frt_tables.inc'
+      integer frtBinId
 
-      if(wlen .lt. 1.0e-35) then
+      if(wlen .lt. VSMALL) then
          frtBinId = 0
          return
       endif
@@ -933,6 +931,30 @@ C
       endif
 
       frtBinId = lr
+
+      return
+      end
+C
+C  This is just for adding radiation pressure;
+C  rf2Prad is returned in K, 
+C  rho2mfp is in code units
+C     
+      subroutine frtGetRPFactors(rf2Prad,rho2abc)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      integer frtBinId
+      external frtBinId
+
+#ifdef RT_TRANSFER
+C
+C  n_xi is in comoving units, hence aExp
+C
+      rf2Prad = Txi(lrUVtr)*facLX*guvEff(lrUVtr)/aExp**3
+      rho2abc = uColumn*csUV(lrUVtr)
+#else
+      rf2Prad = 0.0
+      rho2abc = 0.0
+#endif
 
       return
       end
@@ -973,7 +995,7 @@ C
       CHECK(ivarDim,FRT_DIM)
 
       if(ierr .ne. 0) then
-         write(0,*) 'RT: Bug (interface error) ', ierr
+         write(0,*) 'RT: Internal Bug (interface error) ', ierr
          stop
       endif
 

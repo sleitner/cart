@@ -3,6 +3,7 @@ C  Sampling frequencies
 C
 	parameter(NSETS = 3)
 	common /RT_TRF_A/ LRSETS(NSETS)
+	common /RT_TRF_B/ WSETS(NSETS)
 C
 C  Radiation Field parameters (for internal packing)
 C

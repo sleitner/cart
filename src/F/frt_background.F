@@ -62,11 +62,11 @@ C
          open(unit=IOUNIT, file='drt_bkg_HM.dat', status='old')
          read(IOUNIT,*) np1, nw1, nz1
          if(np1.ne.NHMP .or. nw1.ne.NHMW .or. nz1.ne.NHMZ) then
-            write(0,*) 'RT_Background: fatal error, ',
+            write(0,*) 'RT::BackgroundHM: fatal error, ',
      .           'corrupted drt_bkg_HM.dat file:'
-            write(0,*) 'NP= in file: ', np1, ' in code: ', NHMP
-            write(0,*) 'NW= in file: ', nw1, ' in code: ', NHMW
-            write(0,*) 'NZ= in file: ', nz1, ' in code: ', NHMZ
+            write(0,*) '> NP= in file: ', np1, ' in code: ', NHMP
+            write(0,*) '> NW= in file: ', nw1, ' in code: ', NHMW
+            write(0,*) '> NZ= in file: ', nz1, ' in code: ', NHMZ
             close(IOUNIT)
             call frtAbort
          endif
@@ -81,9 +81,9 @@ C
                   uJnu = 1.5808e-17*(1.0+z1)**3
                else
                   if(abs((1.0+z1)/(1.0+z(k))-1.0) .gt. 1.0e-4) then
-                     write(0,*) 'RT_Background: fatal error, ',
+                     write(0,*) 'RT::BackgroundHM: fatal error, ',
      .                    'corrupted drt_bkg_HM.dat file:'
-                     write(0,*) 'Wrong z: ', k, j, z1, z(k)
+                     write(0,*) '> Wrong z: ', k, j, z1, z(k)
                      close(IOUNIT)
                      call frtAbort
                   endif
@@ -94,9 +94,9 @@ C
                   xiw(NHMW+1-j) = log(912.0/w1)
                else
                   if(abs(w1/w(NHMW+1-j)-1.0) .gt. 1.0e-4) then
-                     write(0,*) 'RT_Background: fatal error, ',
+                     write(0,*) 'RT::BackgroundHM: fatal error, ',
      .                    'corrupted drt_bkg_HM.dat file:'
-                     write(0,*) 'Wrong w: ', k, j, w1, w(NHMW+1-j)
+                     write(0,*) '> Wrong w: ', k, j, w1, w(NHMW+1-j)
                      close(IOUNIT)
                      call frtAbort
                   endif

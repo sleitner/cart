@@ -17,26 +17,26 @@ C  Set sampling points here (except the last point)
 C
 #ifdef RT_UV
       if(NSETS .ne. 4) then
-         write(0,*) 'RT_Transfer: fatal error, ',
+         write(0,*) 'RT::InitRunTransfer: fatal error, ',
      .        'only NSETS=4 is supported.'
          call frtAbort
       endif
 #else
       if(NSETS .ne. 3) then
-         write(0,*) 'RT_Transfer: fatal error, ',
+         write(0,*) 'RT::InitRunTransfer: fatal error, ',
      .        'only NSETS=3 is supported.'
          call frtAbort
       endif
 #endif
 
       if(nfreq .ne. NSETS) then
-         write(0,*) 'RT_Transfer: fatal error, ',
+         write(0,*) 'RT::InitRunTransfer: fatal error, ',
      .        'only nfreq=NSETS is supported.'
          call frtAbort
       endif
 
       if(ncomp .ne. 2) then
-         write(0,*) 'RT_Transfer: fatal error, ',
+         write(0,*) 'RT::InitRunTransfer: fatal error, ',
      .        'only ncomp=2 is supported.'
          call frtAbort
       endif
@@ -53,7 +53,7 @@ C
 C
 C
 C
-      subroutine frtSetGlobalRadiationFieldsTransfer(rfAvg,otAvg)
+      subroutine frtSetGlobalRadiationFieldsTransfer(rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_UV
@@ -61,7 +61,7 @@ C
 #else
       include 'frt_transfer3.inc'
 #endif
-      dimension w(NSETS), rfAvg(2*NSETS)
+      dimension rfAvg(2*NSETS)
       include 'frt_inline.inc'
 C
       do L=1,NSETS
@@ -77,21 +77,21 @@ C
             q = 0.0
          endif
 
-         w(L) = max(0.0,q)
+         WSETS(L) = max(0.0,q)
 
       enddo
 
-      tauH1 = QIuni(w(1))
+      tauH1 = QIuni(WSETS(1))
       do lr=1,NRAD
          tauLoc(lr) = tauH1*csH1n(lr)
       enddo
 
-      tauG1 = max(0.0,QIuni(w(2))-tauH1*csH1n(lrG1tr))
+      tauG1 = max(0.0,QIuni(WSETS(2))-tauH1*csH1n(lrG1tr))
       do lr=lrG1tr,NRAD
          tauLoc(lr) = tauLoc(lr) + tauG1*csG1n(lr)
       enddo
 
-      tauG2 = max(0.0,QIuni(w(3))-tauG1*csG1n(lrG2tr)- 
+      tauG2 = max(0.0,QIuni(WSETS(3))-tauG1*csG1n(lrG2tr)- 
      .     tauH1*csH1n(lrG2tr))
       do lr=lrG2tr,NRAD
          tauLoc(lr) = tauLoc(lr) + tauG2*csG2n(lr)
@@ -101,11 +101,16 @@ C
       if(ioNode) then
          open(unit=IOUNIT, file='rt-run.log', access='append')
          write(IOUNIT,*) '  Photon balance:'
-         write(IOUNIT,*) '    nu_H1: ', w(1), tauH1, tauLoc(lrH1tr)
-         write(IOUNIT,*) '    nu_G1: ', w(2), tauG1, tauLoc(lrG1tr)
-         write(IOUNIT,*) '    nu_G2: ', w(3), tauG2, tauLoc(lrG2tr)
+         do L=1,NSETS
+            lr = LRSETS(L)
+            aqbar = facLX*guvEff(lr)
+            ajbar = angLoc(lr)
+            write(IOUNIT,901) L, WSETS(L), rfAvg(L), 
+     .           aqbar*rfAvg(L), ajbar, tauLoc(lr)
+         enddo
          close(IOUNIT)
       endif
+ 901  format('  L=',I1,1X,F5.3,4(1X,E11.3))
 #endif /* RT_OUTPUT */
 
 #ifdef RT_UV
@@ -119,7 +124,7 @@ C
 C
 C
 C
-      subroutine frtStepBeginTransfer(abcAvg)
+      subroutine frtStepEndTransfer(abc)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_UV
@@ -127,28 +132,17 @@ C
 #else
       include 'frt_transfer3.inc'
 #endif
-      dimension abcAvg(*)
+      dimension abc(*)
 C
-      common /RT_Transfer_Save1/ abcBeg(NSETS)
+      common /RT_Transfer_Save/ abcAvg(NSETS)
 C
       do i=1,NSETS
-         abcBeg(i) = abcAvg(i)
+         abcAvg(i) = abc(i)
       enddo
-
-#ifdef RT_DEBUG
-      if(ioNode) then
-         abe1 = abcAvg(1)
-         abe2 = abcAvg(2) - abe1*csH1n(lrG1tr)
-         abe3 = abcAvg(3) - abe1*csH1n(lrG2tr) - abe2*csG1n(lrG2tr)
-         write(6,*) 'RT: <abcH1> = ', abcAvg(1), abe1/csH1tr/uColumn
-         write(6,*) 'RT: <abcG1> = ', abcAvg(2), abe2/csG1tr/uColumn
-         write(6,*) 'RT: <abcG2> = ', abcAvg(3), abe3/csG2tr/uColumn
-      endif
-#endif
 
       do i=1,NSETS
          if(abcAvg(i) .lt. 0.0) then
-            write(0,*) 'RT_Transfer: fatal error, ',
+            write(0,*) 'RT::StepEndTransfer: fatal error, ',
      .           'negative global absoprtion: ', i, abcAvg(i)
             call frtAbort
          endif
@@ -157,9 +151,9 @@ C
       return
       end
 C
+C  This is hard-coded for NSETS=3 or 4 case
 C
-C
-      subroutine frtStepEndTransfer(abcAvg)
+      function frtTransferGlobalAC(L,abc)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_UV
@@ -167,21 +161,10 @@ C
 #else
       include 'frt_transfer3.inc'
 #endif
-      dimension abcAvg(*)
-C
-      common /RT_Transfer_Save2/ abcEnd(NSETS)
-C
-      do i=1,NSETS
-         abcEnd(i) = abcAvg(i)
-      enddo
+      dimension abc(*)
 
-      do i=1,NSETS
-         if(abcAvg(i) .lt. 0.0) then
-            write(0,*) 'RT_Transfer: fatal error, ',
-     .           'negative global absoprtion: ', i, abcAvg(i)
-            call frtAbort
-         endif
-      enddo
+      frtTransferGlobalAC = abc(1)*(1.0-WSETS(L)) + WSETS(L)*abc(2)
+*      frtTransferGlobalAC = abc(2)
 
       return
       end
@@ -198,24 +181,19 @@ C
 #endif
       dimension axi(*)
 C
-      common /RT_Transfer_Save1/ abcBeg(NSETS)
-      common /RT_Transfer_Save2/ abcEnd(NSETS)
-C
-      do i=1,NSETS
-         abcEnd(i) = 0.5*(abcEnd(i)+abcBeg(i))
-      enddo
+      common /RT_Transfer_Save/ abcAvg(NSETS)
 
-      axiH1 = max(0.0,abcEnd(1)/facLX)
+      axiH1 = max(0.0,abcAvg(1)/facLX)
       do lr=lrH1tr,lrmax
          axi(lr) = axi(lr) + axiH1*csH1n(lr)
       enddo
 
-      axiG1 = max(0.0,abcEnd(2)/facLX-axiH1*csH1n(lrG1tr))
+      axiG1 = max(0.0,abcAvg(2)/facLX-axiH1*csH1n(lrG1tr))
       do lr=lrG1tr,lrmax
          axi(lr) = axi(lr) + axiG1*csG1n(lr)
       enddo
 
-      axiG2 = max(0.0,abcEnd(3)/facLX-axiG1*csG1n(lrG2tr)
+      axiG2 = max(0.0,abcAvg(3)/facLX-axiG1*csG1n(lrG2tr)
      .     -axiH1*csH1n(lrG2tr))
       do lr=lrG2tr,lrmax
          axi(lr) = axi(lr) + axiG2*csG2n(lr)
@@ -258,7 +236,7 @@ C
       call frtTransferPackHelper(1,var,rawrf,rf)
 #else
       do j=1,NSETS
-         rf(irfOgf+j) = -1.0
+         rf(irfOgf+j) = 2*VLARGE
       enddo
 #endif
 
@@ -276,19 +254,19 @@ C
 
       do j=1,NSETS
          q = 1.0/max(varLow(1+j),var(1+j))
-         if(rf(irfOlf+j) .lt. 0.0) then
-            rf(irfOlf+j) = -1.0
+         if(rf(irfOlf+j) .gt. VLARGE) then
+            rf(irfOlf+j) = 2*VLARGE
             rf(irfOlv+j) = 0.0
-         else
-            rf(irfOlf+j) = max(0.0,rf(irfOlf+j)-wFlux*tau(j))
+         else if(rf(irfOlf+j) .gt. 0.0) then
+            rf(irfOlf+j) = rf(irfOlf+j) - wFlux*tau(j)
             rf(irfOlv+j) = wFlux*tau(j)*q
          endif
 #ifdef RT_EXTERNAL_BACKGROUND
-         if(rf(irfOgf+j) .lt. 0.0) then
-            rf(irfOgf+j) = -1.0
+         if(rf(irfOgf+j) .gt. VLARGE) then
+            rf(irfOgf+j) = 2*VLARGE
             rf(irfOgv+j) = 0.0
-         else
-            rf(irfOgf+j) = max(0.0,rf(irfOgf+j)-wFlux*tau(j))
+         else if(rf(irfOgf+j) .gt. 0.0)
+            rf(irfOgf+j) = rf(irfOgf+j) - wFlux*tau(j)
             rf(irfOgv+j) = wFlux*tau(j)*q
          endif
 #endif
@@ -338,60 +316,60 @@ C
 C  Works only for the NSETS=3 or 4 case
 C
       w0 = var(ivarRF0l+k)
-      if(w0 .gt. 1.0e-35) then
+      if(w0 .gt. VSMALL) then
 
-         if(w(k*NSETS+1) .gt. 1.0e-35) then
-            t1 = min(1.0,w(k*NSETS+1)/w0)
+         if(w(k*NSETS+1) .gt. VSMALL) then
+            t1 = w(k*NSETS+1)/w0
             if(k .eq. 0) then
                ta1 = QIloc(t1)
             else
                ta1 = QIuni(t1)
             endif
          else
-            ta1 = -1.0
+            ta1 = 2*VLARGE
          endif
 
-         if(w(k*NSETS+2) .gt. 1.0e-35) then
-            t2 = min(1.0,w(k*NSETS+2)/w0)
+         if(w(k*NSETS+2) .gt. VSMALL) then
+            t2 = w(k*NSETS+2)/w0
             if(k .eq. 0) then
                ta2 = QIloc(t2)
             else
                ta2 = QIuni(t2)
             endif
-            if(ta1 .gt. 0.0) then
+            if(ta1 .lt. VLARGE) then
                ta2 = ta2 - ta1*csH1n(lrG1tr)
             endif
          else
-            ta2 = -1.0
+            ta2 = 2*VLARGE
          endif
 
-         if(w(k*NSETS+3) .gt. 1.0e-35) then
-            t3 = min(1.0,w(k*NSETS+3)/w0)
+         if(w(k*NSETS+3) .gt. VSMALL) then
+            t3 = w(k*NSETS+3)/w0
             if(k .eq. 0) then
                ta3 = QIloc(t3)
             else
                ta3 = QIuni(t3)
             endif
-            if(ta1 .gt. 0.0) then
-               ta3 = max(1.0e-10,ta3-ta1*csH1n(lrG2tr))
+            if(ta1 .lt. VLARGE) then
+               ta3 = ta3 - ta1*csH1n(lrG2tr)
             endif
-            if(ta2 .gt. 0.0) then
-               ta3 = max(1.0e-10,ta3-ta2*csG1n(lrG2tr))
+            if(ta2 .lt. VLARGE) then
+               ta3 = ta3 - ta2*csG1n(lrG2tr)
             endif
          else
-            ta3 = -1.0
+            ta3 = 2*VLARGE
          endif
 
 #ifdef RT_UV
-         if(w(k*NSETS+4) .gt. 1.0e-35) then
-            t4 = min(1.0,w(k*NSETS+4)/w0)
+         if(w(k*NSETS+4) .gt. VSMALL) then
+            t4 = w(k*NSETS+4)/w0
             if(k .eq. 0) then
                ta4 = QIloc(t4)
             else
                ta4 = QIuni(t4)
             endif
          else
-            ta4 = -1.0
+            ta4 = 2*VLARGE
          endif
 #endif
 
@@ -404,11 +382,11 @@ C
 
       else
 
-         rf(k*NSETS+irfH1lf) = -1.0
-         rf(k*NSETS+irfG1lf) = -1.0
-         rf(k*NSETS+irfG2lf) = -1.0
+         rf(k*NSETS+irfH1lf) = 2*VLARGE
+         rf(k*NSETS+irfG1lf) = 2*VLARGE
+         rf(k*NSETS+irfG2lf) = 2*VLARGE
 #ifdef RT_UV
-         rf(k*NSETS+irfUVlf) = -1.0
+         rf(k*NSETS+irfUVlf) = 2*VLARGE
 #endif
 
       endif
@@ -530,7 +508,7 @@ C
 #else
          abc(1) = uColumn*Zsol*csUV(lr)*denHd
 #endif
-         abc(1) = (1.0-exp(-abc(1)*2*dx))/(2*dx)
+         abc(1) = (1.0-exp(-abc(1)*dx))/dx
       else
          abc(1) = 0.0
       endif

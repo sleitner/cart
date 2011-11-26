@@ -16,6 +16,9 @@ C
 	parameter (TAUMAX = 23.0)
 	parameter (XVLOW = 1.0e-10)
 C
+	parameter (VSMALL = 1.0e-35)
+	parameter (VLARGE = 1.0e+35)
+C
 C  Variable indecies
 C
         parameter(ivarEin  =  1)
@@ -99,7 +102,7 @@ C
         common/RT_BASE_C/ facPhot, facCC, facH2CMB, facCool,
      .                    facLX, facLya, facRecB
         common/RT_BASE_D/ varMin(ivarDim), varLow(ivarDim)
-	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, dtStep
+	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, daExp
 C
 	logical ioNode
 	common/RT_BASE_F/ ioNode

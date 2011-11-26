@@ -135,8 +135,8 @@ C
          XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
          XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
          cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
-         sFact1 = exp(-0.3*d_sDUST*cdDUl)
-         fac = (1.0-sFact1)*var(ivarNumF)
+         sFact1 = exp(-0.25*d_sDUST*cdDUl)
+         fac = (1.0-sFact1)*var(ivarNumF)*tFin
          var(ivarEin) = var(ivarEin)/(1+fac*var(ivarEin)/30.0)
          var(ivarXH1) = var(ivarXH1)/(1+fac/max(1.0e-6,var(ivarXH1)/XH))
          var(ivarXH2) = var(ivarXH2)/(1+fac/max(1.0e-6,var(ivarXH2)/XH))
@@ -146,9 +146,8 @@ C
       call frtAdjust(nEqs,var)
 
 #ifdef RT_DEBUG
-      ideb1 = nint(var(ivarDeb))/10
-      ideb2 = mod(nint(var(ivarDeb)),10)
-      if(ideb1 .eq. 1) then
+      ideb = nint(abs(var(ivarDeb)))
+      if(ideb .eq. 1) then
          open(unit=IOUNIT, file='rt-debug.log', access='append')
          write(IOUNIT,*) 'In cell-level debug: ', uDen*var(ivarRho)
          write(6,*) 'In cell-level debug: ', uDen*var(ivarRho)
@@ -166,16 +165,21 @@ C
       info = 9999
 
 #ifdef RT_DEBUG
-      if(ideb1 .eq. 1) then
+      if(ideb .eq. 1) then
 #ifdef RT_VARIABLE_RF
          call frtPhotoRates(var,rf,itab,pRate)
 #endif
-         write(IOUNIT,*) 'Photo rates: ', 
+         write(IOUNIT,*) 'Cell photo rates: ', 
      .        pRate(iptabPiH1), pRate(iptabPiG1), pRate(iptabPiG2),
      .        pRate(iptabPhH1), pRate(iptabPhG1), pRate(iptabPhG2)
+         write(IOUNIT,*) 'Mean photo rates: ', 
+     .        pRate0(iptabPiH1), pRate0(iptabPiG1), pRate0(iptabPiG2),
+     .        pRate0(iptabPhH1), pRate0(iptabPhG1), pRate0(iptabPhG2)
 #ifdef RT_CHEMISTRY
-         write(IOUNIT,*) 'Chemistry rates:',
+         write(IOUNIT,*) 'Cell chemistry rates:',
      .        (pRate(j),j=iptabCi27,iptabCiLW)
+         write(IOUNIT,*) 'Mean chemistry rates:',
+     .        (pRate0(j),j=iptabCi27,iptabCiLW)
 #endif
          call frtDebugPrint1(IOUNIT,nStep,t,dt,tFin,var,1) 
       endif
@@ -194,7 +198,7 @@ C
 
  20   continue
 
-      if(nStep .lt. 300) then
+      if(nStep .lt. 100) then
          call frtCoolOffStepQS1(nEqs,dt,var,rf,itab,
      .        w0,a0,rs,d1,avg1,pRate)
       else
@@ -249,7 +253,7 @@ C
          call frtAdjust(nEqs,var)
 
 #ifdef RT_DEBUG
-         if(ideb1 .eq. 1) then
+         if(ideb .eq. 1) then
             call frtDebugPrint1(IOUNIT,nStep,t,dt,tFin,var,ivarmax) 
          endif
 #endif
@@ -263,9 +267,9 @@ C
       endif
 
 #ifdef RT_DEBUG
-      if(ideb1 .eq. 1) then
+      if(ideb .eq. 1) then
          close(IOUNIT)
-         if(ideb2 .gt. 0) call frtAbort
+         if(var(ivarDeb) .lt. 0) call frtAbort
       endif
 #endif
 
@@ -388,9 +392,12 @@ C
 #ifdef RT_CHEMISTRY
 C
 C  H2 dust-shielding model
+C  ------------------------------------------------
+C
+C  It seems that it is better to clump only XMHll, however that
+C  breaks the fast H2 formation paradigm whe H2 fraction is low.
 C
       Xdust = var(ivarDGas)*(XH1ll+2*XMHll)*ClumpH2
-*      Xdust = var(ivarDGas)*(XH1ll+2*XMHll*ClumpH2)
       cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
       sFact1 = exp(-d_sDUST*cdDUl)
 #ifdef RT_UV
@@ -401,12 +408,16 @@ C
 C
 C  H2 self-shielding model
 C
-      cdMHl = XMHll*CSSTAR*3.086e18*den*CohLenH2
-      sFact2 = max(1.0,cdMHl/(CSSTAR*1e14))**(-0.75)
-
-*      x = cdMHl/(CSSTAR*5e14)
-*      sFact2 = 0.965/(1+x)**2 + 
-*     .     0.035/(1+x)**0.5*exp(-8.5e-4*(1+x)**0.5)
+      cdMHl1 = XMHll*CSSTAR*3.086e18*den*CohLenH2
+      cdMHl2 = XMHll*var(ivarSobL)
+#ifdef RT_OLDSTYLE_H2_SHIELDING
+      sFact2 = max(1.0,cdMHl1/(CSSTAR*1e14))**(-0.75)
+#else  /* RT_OLDSTYLE_H2_SHIELDING */
+      x1 = cdMHl1/(CSSTAR*5e14)
+      x2 = cdMHl2/(CSSTAR*5e14)
+      sFact2 = 0.965/(1+x1)**2 + 
+     .     0.035/(1+x1)**0.5*exp(-8.5e-4*(1+x2)**0.5)
+#endif /* RT_OLDSTYLE_H2_SHIELDING */
 
 #else  /* RT_CHEMISTRY */
       sFact1 = 1.0
@@ -590,8 +601,7 @@ C
 C
 C  H-minus equilibrium
 C
-      XHmll = min(0.5*XH1ll,max(varMin(ivarXHm),
-     .     wXHml/(1.0e-35+aXHml)))
+      XHmll = min(0.5*XH1ll,max(varMin(ivarXHm),wXHml/(VSMALL+aXHml)))
 #endif
 C
 C  H2-plus rates
@@ -617,7 +627,7 @@ C
 C
 C  H2-plus equilibrium
 C
-      XHpll = min(0.5*XH1ll,max(varMin(ivarXHp),wXHpl/(1.0e-35+aXHpl)))
+      XHpll = min(0.5*XH1ll,max(varMin(ivarXHp),wXHpl/(VSMALL+aXHpl)))
 #endif
 C
 C  H2 ortho-to-para ratio
@@ -785,6 +795,9 @@ C
 C
 C  1. High temperature part (SD93 fit)
 C
+#ifdef RT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING
+      cfzHT = 0.0
+#else
       if(tem .gt. temZLT) then
          cfzHT = var(ivarSDp1)*(cRate(irateZHcTA)+var(ivarSDp2)*
      .        cRate(irateZHcTB))/(1.0+var(ivarSDp3)*cRate(irateZHcTC))*
@@ -792,6 +805,7 @@ C
       else
          cfzHT = 0.0
       endif
+#endif
 C
 C  2. Low temperature part (Preston, Dalgarno&McCray)
 C
@@ -951,22 +965,24 @@ C
          rfFrnt(irfNorm) = rf(irfNorm)
          rfBack(irfNorm) = rf(irfNorm)
          do j=1,NSETS
-            if(rf(irfOlf+j) .lt. 0.0) then
-               rfFrnt(irfOlf+j) = -1.0
-               rfBack(irfOlf+j) = -1.0
+            if(rf(irfOlf+j) .gt. VLARGE) then
+               rfFrnt(irfOlf+j) = 2*VLARGE
+               rfBack(irfOlf+j) = 2*VLARGE
             else
-               rfFrnt(irfOlf+j) = max(0.0,rf(irfOlf+j)+
-     .              var(1+j)*rf(irfOlv+j)-wFront*drf(j))
+               rfFrnt(irfOlf+j) = rf(irfOlf+j) +
+     .              var(1+j)*rf(irfOlv+j)-wFront*drf(j)
                rfBack(irfOlf+j) = rfFrnt(irfOlf+j) + drf(j)
             endif
-            if(rf(irfOgf+j) .lt. 0.0) then
-               rfFrnt(irfOgf+j) = -1.0
-               rfBack(irfOgf+j) = -1.0
+#ifdef RT_EXTERNAL_BACKGROUND
+            if(rf(irfOgf+j) .gt. VLARGE) then
+               rfFrnt(irfOgf+j) = 2*VLARGE
+               rfBack(irfOgf+j) = 2*VLARGE
             else
-               rfFrnt(irfOgf+j) = max(0.0,rf(irfOgf+j)+
-     .              var(1+j)*rf(irfOgv+j)-wFront*drf(j))
+               rfFrnt(irfOgf+j) = rf(irfOgf+j) +
+     .              var(1+j)*rf(irfOgv+j)-wFront*drf(j)
                rfBack(irfOgf+j) = rfFrnt(irfOgf+j) + drf(j)
             endif
+#endif /* RT_EXTERNAL_BACKGROUND */
          enddo
 
          call frtPhotoRatesTable(var,rfFrnt,itab,pRate,iptabMax)

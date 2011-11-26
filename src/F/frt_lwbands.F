@@ -232,28 +232,7 @@ c ... A_value=0.0449*A21/nu_l/4.3e-7
 C
 C
 C
-      subroutine frtLW_ComputeLineShifts(HUBBLE, CCC)
-      include 'frt_lwbands.inc'
-      integer il, tr, i_line, i_Hline, nlines, vH
-      parameter (nlines=24, vH=14)
-c ... lines
-      dimension i_line(0:nlines,3),alph_i(0:nlines,3),fdis(0:nlines,3),
-     +     i_Hline(0:vH), fsH(0:vH), aH(0:vH), fs(0:nlines,3)
-      common /RT_LW_RAD_TR/ alph_i, fs, fdis, fsH, aH, i_line, i_Hline
-c ... lines
-
-       do il=0,nlines
-         do tr=1,3
-            alph_i(il,tr)=exp(-CCC/HUBBLE*(1.-0.14)*fs(il,tr))
-         end do
-      end do
-
-      return
-      end
-C
-C
-C
-      subroutine frtLW_SigmaH2(HUBBLE, DELTA_t, SIG)
+      subroutine frtLW_SigmaH2(dLoga, SIG)
       include 'frt_lwbands.inc'
       integer i_line, i_Hline,i1,i2, nlines, vH
       integer i,il,tr,delta_i,delta_i1
@@ -273,8 +252,7 @@ C$OMP+SHARED(SIG)
          SIG(i)=0.
       end do
 
-      con=HUBBLE*DELTA_t
-      delta_i = int(HUBBLE*DELTA_t/XISH2 + 0.5)
+      delta_i = int(dLoga/XISH2 + 0.5)
       delta_i1 = 0
 
       do il=0,nlines
@@ -287,9 +265,30 @@ C$OMP+SHARED(SIG)
 
             do i=i1,i2
                
-               SIG(i)=SIG(i)+fdis(il,tr)/con
+               SIG(i)=SIG(i)+fdis(il,tr)/max(XISH2,dLoga)
 
             end do
+         end do
+      end do
+
+      return
+      end
+C
+C
+C
+      subroutine frtLW_ComputeLineShifts(HUBBLE, CCC)
+      include 'frt_lwbands.inc'
+      integer il, tr, i_line, i_Hline, nlines, vH
+      parameter (nlines=24, vH=14)
+c ... lines
+      dimension i_line(0:nlines,3),alph_i(0:nlines,3),fdis(0:nlines,3),
+     +     i_Hline(0:vH), fsH(0:vH), aH(0:vH), fs(0:nlines,3)
+      common /RT_LW_RAD_TR/ alph_i, fs, fdis, fsH, aH, i_line, i_Hline
+c ... lines
+
+       do il=0,nlines
+         do tr=1,3
+            alph_i(il,tr)=exp(-CCC/HUBBLE*(1.-0.14)*fs(il,tr))
          end do
       end do
 

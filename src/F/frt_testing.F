@@ -13,7 +13,7 @@ C  Check that Yp is set to 0
 C
       Yp = 4*XG
       if(Yp .gt. 1.0e-10) then
-         write(0,*) 'RT_Testing: fatal error, ',
+         write(0,*) 'RT::TestInitSourceSpectrum: fatal error, ',
      .        'supported tests only work with Yp<1e-10.'
          call frtAbort
       endif
@@ -76,33 +76,9 @@ C
 C
 C
 C
-      subroutine frtTestStepBegin
+      subroutine frtTestModifyTimeStep(dt,ns)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-C
-C  Test #0
-C
-#if (RT_TEST == -1)
-      tyr = uTime*dtStep/(365.25*86400)
-      if(tyr .gt. 0.99e5*(10**0.1-1.0)) then
-         do lr = 1,NRAD
-            angUni(lr) = 0.0
-         enddo
-      endif
-
-      write(6,*) 'angUni(lrH1tr): ', angUni(lrH1tr), tyr
-
-      if(tyr .gt. 4.0e7) then
-         call frtAbort
-      endif
-#endif
-
-      return
-      end
-C
-C
-C
-      subroutine frtTestModifyTimeStep(dt,ns)
 
 #if (RT_TEST == -1)
 C
@@ -114,6 +90,19 @@ C
          dt = dt*(10.0**0.1-1)
       else
          dt = dt*10.0**0.1
+      endif
+
+      tyr = uTime*dt/(365.25*86400)
+      if(tyr .gt. 0.99e5*(10**0.1-1.0)) then
+         do lr = 1,NRAD
+            angUni(lr) = 0.0
+         enddo
+      endif
+
+      write(6,*) 'angUni(lrH1tr): ', angUni(lrH1tr), tyr
+
+      if(tyr .gt. 4.0e7) then
+         call frtAbort
       endif
 #else
 C

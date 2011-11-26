@@ -41,7 +41,7 @@ C
 C  Start initialization
 C
       if(IPOP.ne.2 .and. IPOP.ne.3) then
-         write(0,*) 'RT_Spectrum: ',
+         write(0,*) 'RT::InitSourceSpectrum: ',
      .        'fatal error, invalid IPOP value: ', IPOP
          call frtAbort
       endif
@@ -144,13 +144,13 @@ C
          sum1_Q = sum1_Q + guv_Q(lr)*fnu
          sum1_G = sum1_G + guv_G(lr)*fnu
       enddo
-      EAvg_Q = sum1_Q/(1.0e-35+sum0_Q)
-      EAvg_G = sum1_G/(1.0e-35+sum0_G)
+      EAvg_Q = sum1_Q/(VSMALL+sum0_Q)
+      EAvg_G = sum1_G/(VSMALL+sum0_G)
 
       if(ioNode) then
          open(unit=IOUNIT, file='rt-run.log', access='append')
-         write(IOUNIT,*) 'Spectrum: <E>_G = ', EAvg_G
-         write(IOUNIT,*) 'Spectrum: <E>_Q = ', EAvg_Q
+         write(IOUNIT,*) 'Spectrum: <E>_G, eps_G = ', EAvg_G, EPSG_UV
+         write(IOUNIT,*) 'Spectrum: <E>_Q, eps_Q = ', EAvg_Q, EPSQ_UV
          close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */
