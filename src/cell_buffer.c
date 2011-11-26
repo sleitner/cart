@@ -1,8 +1,5 @@
 #include "config.h"
 
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
@@ -11,9 +8,7 @@
 #include "iterators.h"
 #include "pack.h"
 #include "parallel.h"
-#include "rt_solver.h"
 #include "sfc.h"
-#include "skiplist.h"
 #include "timing.h"
 #include "tree.h"
 
@@ -613,7 +608,7 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 			}
 
 			MPI_Irecv( &buffer[buffer_ptr], recv_count, MPI_FLOAT, proc, num_update_vars,
-				MPI_COMM_WORLD, &receives[proc] );
+				mpi.comm.run, &receives[proc] );
 
 			buffer_ptr += recv_count;
 		} else {
@@ -638,7 +633,7 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 				}
 
 				MPI_Isend( &buffer[buffer_ptr], num_remote_buffers[min_level][proc] * num_update_vars, 
-					MPI_FLOAT, proc, num_update_vars, MPI_COMM_WORLD, &requests[proc] );
+					MPI_FLOAT, proc, num_update_vars, mpi.comm.run, &requests[proc] );
 			} else {
 				for ( i = 0; i < num_remote_buffers[level][proc]; i++ ) {
 					for ( j = 0; j < num_children; j++ ) {
@@ -650,7 +645,7 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 				}
 			
 				MPI_Isend( &buffer[buffer_ptr], num_remote_buffers[level][proc] * num_update_vars * num_children, 
-					MPI_FLOAT, proc, num_update_vars, MPI_COMM_WORLD, &requests[proc] );
+					MPI_FLOAT, proc, num_update_vars, mpi.comm.run, &requests[proc] );
 			}
 
 			buffer_ptr = var_counter;
@@ -719,11 +714,11 @@ void merge_buffer_cell_densities( int level ) {
 #ifdef RT_VAR_SOURCE
 	const int vars_per_cell = 3;
 	const int density_vars_size = 2;
-	const int density_vars[2] = { VAR_DENSITY, RT_VAR_SOURCE };
+	const int density_vars[2] = { VAR_TOTAL_MASS, RT_VAR_SOURCE };
 #else
 	const int vars_per_cell = 2;
 	const int density_vars_size = 1;
-	const int density_vars[1] = { VAR_DENSITY };
+	const int density_vars[1] = { VAR_TOTAL_MASS };
 #endif
 
 	MPI_Request sends[MAX_PROCS];
@@ -772,7 +767,7 @@ void merge_buffer_cell_densities( int level ) {
 		if ( num_recv_vars[proc] > 0 ) {
 			recv_offset[proc] = recv_count;
 			MPI_Irecv( &recv_buffer[recv_count], num_recv_vars[proc], MPI_FLOAT,
-				proc, 0, MPI_COMM_WORLD, &receives[proc] );
+				proc, 0, mpi.comm.run, &receives[proc] );
 			recv_count += num_recv_vars[proc];
 		} else {
 			receives[proc] = MPI_REQUEST_NULL;
@@ -790,7 +785,7 @@ void merge_buffer_cell_densities( int level ) {
 				for ( i = 0; i < num_local_buffers[min_level][proc]; i++ ) {
 					icell = local_buffers[min_level][proc][i];
 
-					send_buffer[send_count++] = cell_density(icell);
+					send_buffer[send_count++] = cell_total_mass(icell);
 					send_buffer[send_count++] = cell_first_species_mass(icell); 
 #ifdef RT_VAR_SOURCE
 					send_buffer[send_count++] = cell_rt_source(icell);
@@ -810,7 +805,7 @@ void merge_buffer_cell_densities( int level ) {
 						cart_assert( icell >= 0 && icell < num_cells );
 						cart_assert( cell_level(icell) == level );
 
-						send_buffer[send_count++] = cell_density(icell);
+						send_buffer[send_count++] = cell_total_mass(icell);
 						send_buffer[send_count++] = cell_first_species_mass(icell);
 #ifdef RT_VAR_SOURCE
 						send_buffer[send_count++] = cell_rt_source(icell);
@@ -839,7 +834,7 @@ void merge_buffer_cell_densities( int level ) {
 			cart_assert( send_offset + num_send_vars[proc] == send_count );
 
 			MPI_Isend( &send_buffer[send_offset], num_send_vars[proc], MPI_FLOAT,
-				proc, 0, MPI_COMM_WORLD, &sends[proc] );
+				proc, 0, mpi.comm.run, &sends[proc] );
 
 			send_offset = send_count;
 		} else {
@@ -858,7 +853,7 @@ void merge_buffer_cell_densities( int level ) {
 				for ( i = 0; i < num_remote_buffers[min_level][proc]; i++ ) {
 					icell = root_cell_location( remote_buffers[min_level][proc][i] );
 
-					cell_density(icell) += recv_buffer[recv_count++];
+					cell_total_mass(icell) += recv_buffer[recv_count++];
 					cell_first_species_mass(icell) += recv_buffer[recv_count++];
 #ifdef RT_VAR_SOURCE
 					cell_rt_source(icell) += recv_buffer[recv_count++];
@@ -871,7 +866,7 @@ void merge_buffer_cell_densities( int level ) {
 					for ( child = 0; child < num_children; child++ ) {
 						icell = oct_child( index, child );
 
-						cell_density(icell) += recv_buffer[recv_count++];
+						cell_total_mass(icell) += recv_buffer[recv_count++];
 						cell_first_species_mass(icell) += recv_buffer[recv_count++];
 #ifdef RT_VAR_SOURCE
 						cell_rt_source(icell) += recv_buffer[recv_count++];
@@ -962,7 +957,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 			buffer_cells_to_split[proc] = cart_alloc(int, info_per_cell*buffer_size );
 
 			MPI_Irecv( buffer_cells_to_split[proc], info_per_cell*buffer_size, MPI_INT,
-					proc, 0, MPI_COMM_WORLD, &receives[proc] );
+					proc, 0, mpi.comm.run, &receives[proc] );
 		} else {
 			receives[proc] = MPI_REQUEST_NULL;
 		}			
@@ -1107,9 +1102,9 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 
 			/* send split cell arrays to other proc */
 			MPI_Isend( cells_split[proc], info_per_cell*num_cells_to_send, MPI_INT, 
-				proc, 0, MPI_COMM_WORLD, &sends[proc] );
+				proc, 0, mpi.comm.run, &sends[proc] );
 			MPI_Isend( new_cell_vars[proc], num_cell_vars, MPI_FLOAT, proc, 0, 
-				MPI_COMM_WORLD, &sends[num_procs+proc] );
+				mpi.comm.run, &sends[num_procs+proc] );
 
 			/* add all newly buffered octs to remote_buffers */
 			cell_buffer_add_remote_octs( level+1, proc, new_octs, num_new_octs );
@@ -1138,7 +1133,7 @@ void split_buffer_cells( int level, int *cells_to_split, int num_cells_to_split 
 			new_buffer_cell_vars = cart_alloc(float, num_children*num_vars*num_cells_to_recv );
 
 			MPI_Recv( new_buffer_cell_vars, num_children*num_vars*num_cells_to_recv, MPI_FLOAT,
-				proc, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				proc, 0, mpi.comm.run, MPI_STATUS_IGNORE );
 
 			num_new_octs = 0;
 			num_cell_vars = 0;
@@ -1254,7 +1249,7 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 		if ( num_local_buffers[level+1][i] > 0 ) {
 			buffer_octs_to_join[i] = cart_alloc(int, num_local_buffers[level+1][i] );
 			MPI_Irecv( buffer_octs_to_join[i], num_local_buffers[level+1][i], 
-					MPI_INT, i, 0, MPI_COMM_WORLD, &receives[i] );
+					MPI_INT, i, 0, mpi.comm.run, &receives[i] );
 		} else {
 			receives[i] = MPI_REQUEST_NULL;
 		}
@@ -1295,7 +1290,7 @@ void join_buffer_cells( int level, int *octs_to_join, int *parent_root_sfc, int 
 				}
 			}
 
-			MPI_Isend( octs_joined[i], num_octs_to_send, MPI_INT, i, 0, MPI_COMM_WORLD, &sends[i] );
+			MPI_Isend( octs_joined[i], num_octs_to_send, MPI_INT, i, 0, mpi.comm.run, &sends[i] );
 
 			cart_free( remote_buffer_list );
 

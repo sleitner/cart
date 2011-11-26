@@ -1,6 +1,6 @@
 #include "config.h"
 
-#include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -11,19 +11,25 @@
 #include "density.h"
 #include "gravity.h"
 #include "hydro.h"
+#include "hydro_tracer.h"
 #include "io.h"
 #include "load_balance.h"
 #include "parallel.h"
+#include "particle.h"
 #include "refinement.h"
-#include "rt_solver.h"
+#include "rt.h"
 #include "starformation.h"
 #include "system.h"
-#include "timestep.h"
+#include "times.h"
+#include "tree.h"
 #include "units.h"
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+
+
+extern int step;
 
 
 void config_verify();
@@ -145,8 +151,8 @@ void config_print_to_file(const char *filename, int append)
   system_get_host_name( hostname, 256 );
   local_pid = system_get_pid(); 
 
-  MPI_Gather( hostname, 256, MPI_CHAR, task_hostnames, 256, MPI_CHAR, MASTER_NODE, MPI_COMM_WORLD );
-  MPI_Gather( &local_pid, 1, MPI_INT, pid, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+  MPI_Gather( hostname, 256, MPI_CHAR, task_hostnames, 256, MPI_CHAR, MASTER_NODE, mpi.comm.run );
+  MPI_Gather( &local_pid, 1, MPI_INT, pid, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
   if(local_proc_id != MASTER_NODE) return;
 
@@ -350,8 +356,14 @@ void config_append_units_to_file(const char *filename)
 }
 
 
+void config_allocate_data(float memory_fraction_mesh);
+
 void config_init()
 {
+#ifndef STATIC_MESH_DATA
+  config_allocate_data(0.6);
+#endif /* STATIC_MESH_DATA */
+
   /* This MUST be the first call */
   config_init_units();
 
@@ -424,4 +436,182 @@ void config_verify()
 
   config_verify_parallel();
 }
+
+
+#ifndef STATIC_MESH_DATA
+extern int OCT_ARRAY(cells_to_refine);
+extern const int is_running;
+
+double config_allocate_mesh_helper(int mode, int nocts);
+
+/*
+//  Allocate data if we are running in a dynamic mode
+*/
+void config_allocate_data(float memory_fraction_mesh)
+{
+  const double GB = 1024.0*1024.0*1024.0;
+  double maxmem, taskmem, mem_per_oct, mem;
+  const char *str;
+  int min_octs = (num_root_cells >> nDim)/num_procs;
+  size_t max_octs;
+  int do_not_zero_data;
+
+  cart_assert(cell_vars == NULL);
+  cart_assert(num_octs == 0);
+
+  /*
+  //  Find max available (or requested) memory per task
+  */
+  taskmem = system_get_available_memory()/tasks_per_node;
+
+  str = extract_option1("max-memory","mm",NULL);
+  if(str != NULL)
+    {
+      if(sscanf(str,"%lg",&maxmem) != 1)
+        {
+          cart_error("A value for the max memory per task (in GB) must be specified.");
+        }
+
+      if(maxmem < 1.0e-3)
+        {
+          cart_error("A value of %lg for the max memory per task is not valid.",maxmem);
+        }
+    }
+  else maxmem = 1.0e30;
+
+  maxmem *= GB;
+  if(maxmem > taskmem) maxmem = taskmem;
+
+  /*
+  //  Specify how many octs we want.
+  */
+  str = extract_option1("num-octs","no",NULL);
+  if(str == NULL)
+    {
+      /*
+      //  Use max available memory.
+      */
+      num_octs = 0;
+    }
+  else
+    {
+      if(sscanf(str,"%d",&num_octs) != 1)
+        {
+          cart_error("A value for the number of octs MUST be specified.");
+        }
+
+      if(num_octs!=0 && num_octs<min_octs)
+        {
+          cart_error("There must be at least %d octs.",min_octs);
+        }
+    }
+
+  mem_per_oct = config_allocate_mesh_helper(0,1);
+
+  cart_debug("Memory per oct: %lg bytes",mem_per_oct);
+
+  max_octs = (size_t)(0.5+memory_fraction_mesh*maxmem/mem_per_oct);
+
+  /*
+  //  Check that we do not wrap an int
+  */
+  if(max_octs > (INT_MAX >> nDim))
+    {
+      cart_debug("WARNING: Maximum available number of octs would result in wrapping of an int!!!");
+      max_octs = (INT_MAX >> nDim) - 100;
+    }
+
+  if(num_octs == 0) num_octs = max_octs;
+
+  if(num_octs > max_octs)
+    {
+      cart_error("The requested number of octs (%d) is too large; only %d octs are available.",num_octs,max_octs);
+    }
+
+  num_cells = (num_octs << nDim);
+
+  cart_debug("Allocating mesh: num_octs=%d, num_cells=%d",num_octs,num_cells);
+
+
+  do_not_zero_data = is_option_present("fast","f",0);
+  mem = config_allocate_mesh_helper(do_not_zero_data?1:2,num_octs);
+
+  cart_debug("Total allocated memory for global data: %5.2lfGB (out of %5.2lfGB)",mem/GB,taskmem/GB);
+}
+
+
+#define ALLOC(array,type,dim,dim2) \
+  mem += sizeof(type)*(size_t)dim*dim2; \
+  if(mode > 0) array = cart_alloc(type,(size_t)dim*dim2);	\
+  if(mode > 1) memset(array,0,sizeof(type)*(size_t)dim*dim2)
+
+double config_allocate_mesh_helper(int mode, int nocts)
+{
+  int i;
+  int *tmpi;
+  double *tmpd;
+  double mem = 0.0;
+  int ncells;
+
+  cart_assert(nocts > 0);
+  ncells = (nocts << nDim);
+
+  ALLOC(cell_vars,float,ncells,num_vars);
+
+#ifdef HYDRO
+  if(is_running)
+    {
+      mem += sizeof(float)*ncells*(num_hydro_vars-2+1);
+    }
+#endif
+
+  ALLOC(cell_child_oct,int,ncells,1);
+
+  ALLOC(oct_parent_cell,int,nocts,1);
+
+  ALLOC(oct_level,int,nocts,1);
+
+  ALLOC(oct_parent_root_sfc,int,nocts,1);
+
+  ALLOC(oct_next,int,nocts,1);
+
+  ALLOC(oct_prev,int,nocts,1);
+
+  ALLOC(oct_neighbors,int*,nocts,1);
+  ALLOC(tmpi,int,nocts,num_neighbors);
+  if(mode > 0)
+    {
+      for(i=0; i<nocts; i++)
+	{
+	  oct_neighbors[i] = tmpi + i*num_neighbors;
+	}
+    }
+
+  ALLOC(oct_pos,double*,nocts,1);
+  ALLOC(tmpd,double,nocts,nDim);
+  if(mode > 0)
+    {
+      for(i=0; i<nocts; i++)
+	{
+	  oct_pos[i] = tmpd + i*nDim;
+	}
+    }
+
+#ifdef PARTICLES
+  ALLOC(cell_particle_list,int,ncells,1);
+#endif /* PARTICLES */
+
+#ifdef REFINEMENT
+  ALLOC(cells_to_refine,int,ncells,1);
+#endif /* REFINEMENT */
+
+#if defined(HYDRO) && defined(HYDRO_TRACERS)
+  ALLOC(cell_tracer_list,int,ncells,1);
+#endif /* HYDRO && HYDRO_TRACERS */
+
+  return mem;
+}
+
+
+#endif /* STATIC_MESH_DATA */
 

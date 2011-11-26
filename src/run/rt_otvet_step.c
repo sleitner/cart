@@ -171,8 +171,7 @@ void rtLevelUpdateTransferOtvet(int level)
       //  Find all leaves (if we solve levels separately, we can never insure that 
       //  light fronts on both levels propagate at the same speed, even if I-fronts do.)
       */
-      select_level_with_condition(1,level,&num_level_cells,&info);
-
+      select_level(level,CELL_TYPE_LOCAL | CELL_TYPE_LEAF,&num_level_cells,&info);
       /*
       // Allocate the rest of arrays
       */

@@ -17,7 +17,7 @@
 #include "parallel.h"
 #include "particle.h"
 #include "sfc.h"
-#include "timestep.h"
+#include "times.h"
 #include "timing.h"
 #include "tree.h"
 #include "tree_linkedlist.h"
@@ -764,7 +764,7 @@ void load_balance() {
 	start_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 	MPI_Gatherv( local_work, num_cells_per_level[min_level], MPI_FLOAT,
 		global_work, receive_counts, proc_sfc_index, MPI_FLOAT,
-		MASTER_NODE, MPI_COMM_WORLD );
+		MASTER_NODE, mpi.comm.run );
 	end_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 
 	if ( local_proc_id == MASTER_NODE ) {
@@ -777,7 +777,7 @@ void load_balance() {
 	start_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 	MPI_Gatherv( local_constraints, num_constraints*num_cells_per_level[min_level], MPI_INT,
 		global_constraints, receive_counts, receive_displacements, MPI_INT,
-		MASTER_NODE, MPI_COMM_WORLD );
+		MASTER_NODE, mpi.comm.run );
 	end_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 
 	cart_free( local_work );
@@ -793,7 +793,7 @@ void load_balance() {
 
 	/* tell other processors which cells to expect */
 	start_time( LOAD_BALANCE_COMMUNICATION_TIMER );	
-	MPI_Bcast( &new_proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &new_proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 	end_time( LOAD_BALANCE_COMMUNICATION_TIMER );
 
 	/* how many do we have now? */

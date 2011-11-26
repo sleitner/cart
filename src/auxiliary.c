@@ -6,11 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_math.h>
-#include <gsl/gsl_roots.h>
+#include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h>
+#include <gsl/gsl_roots.h>
 
 #include "auxiliary.h"
 #include "parallel.h"
@@ -25,7 +30,7 @@ extern int current_step_level;
 
 
 int num_options = 0;
-char **options = NULL;
+const char **options = NULL;
 
 
 void init_auxiliary() {
@@ -82,7 +87,7 @@ double integrate( double (*f)(double), double a, double b, double epsrel, double
 
 	gsl_integration_qag(&F, a, b, epsrel, epsabs, 1000, 6,
                 w, &result, &error);
-                                                                                                                                                            
+
 	gsl_integration_workspace_free(w);
 
 	return result;
@@ -177,8 +182,29 @@ double cart_rand() {
 
 	return ret;
 }
-	
 
+double cart_rand_lognormal(double sigma) {
+	double ret;
+	double zeta = -0.5*sigma*sigma;
+
+#ifdef UNIQUE_RAND
+	int proc;
+
+	/* ensure unique random number sequence generated on each proc */
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( proc == local_proc_id ) {
+		  ret = gsl_ran_lognormal( cart_random_generator, zeta, sigma );
+		} else {
+			gsl_ran_lognormal( cart_random_generator, zeta, sigma );
+		}
+	}
+#else
+	ret = gsl_ran_lognormal( cart_random_generator, zeta, sigma );
+#endif /* UNIQUE_RAND */
+
+	return ret;
+}
+	
 void cart_error( const char *fmt, ... ) {
 	char message[256];
 	char filename[256];
@@ -199,7 +225,7 @@ void cart_error( const char *fmt, ... ) {
 		fclose(f);
 	}
 
-	MPI_Abort( MPI_COMM_WORLD, 1 );
+	MPI_Abort( mpi.comm.world, 1 );
 }
 
 #ifndef NDEBUG
@@ -401,49 +427,218 @@ void qss_solve( qss_system *sys, double t_begin, double t_end, double y[], const
 }
 
 
-const char* check_option0(const char* option, const char* name)
+int is_option_present(const char* full_name, const char* short_name, int with_argument)
+{
+  int i, len;
+  const char *str;
+
+  /*
+  //  Search all options for -short_name or --full_name forms.
+  */
+  for(i=0; i<num_options; i++)
+    {
+      len = strlen(short_name);
+      if(options[i][0]=='-' && strncmp(options[i]+1,short_name,len)==0)
+	{
+	  str = options[i] + 1 + len;
+	  if(strlen(str)==0 || (with_argument && str[0]=='=')) return 1;
+	}
+      len = strlen(full_name);
+      if(options[i][0]=='-' && options[i][1]=='-' && strncmp(options[i]+2,full_name,len)==0)
+	{
+	  str = options[i] + 2 + len;
+	  if(strlen(str)==0 || (with_argument && str[0]=='=')) return 1;
+	}
+    }
+
+  return 0;
+}
+
+
+const char* extract_option0(const char* full_name, const char* short_name)
 {
   static const char *empty = "";
+  int i;
 
-  int len = strlen(name);
+  /*
+  //  Search all options for -short_name or --full_name forms.
+  */
+  for(i=0; i<num_options; i++)
+    {
+      if(options[i][0]=='-' && strcmp(options[i]+1,short_name)==0) break;
+      if(options[i][0]=='-' && options[i][1]=='-' && strcmp(options[i]+2,full_name)==0) break;
+    }
 
-  if(option[0]!='-' || strcmp(option+1,name)!=0) return NULL;
+  /*
+  //  Option not found.
+  */
+  if(i == num_options) return NULL;
 
+  /*
+  //  Eat out the option and return an empty string.
+  */
+  num_options--;
+  for(; i<num_options; i++) options[i] = options[i+1];
   return empty;
 }
 
 
-const char* check_option1(const char* option, const char* name, const char *default_value)
+const char* extract_option1(const char* full_name, const char* short_name, const char *default_value)
 {
-  int len = strlen(name);
+  int i, len;
+  const char *str;
 
-  if(option[0]!='-' || strncmp(option+1,name,len)!=0) return NULL;
+  /*
+  //  Search all options for -short_name or --full_name forms.
+  */
+  for(i=0; i<num_options; i++)
+    {
+      len = strlen(short_name);
+      if(options[i][0]=='-' && strncmp(options[i]+1,short_name,len)==0)
+	{
+	  str = options[i] + 1 + len;
+	  if(strlen(str)==0 || str[0]=='=') break;
+	}
+      len = strlen(full_name);
+      if(options[i][0]=='-' && options[i][1]=='-' && strncmp(options[i]+2,full_name,len)==0)
+	{
+	  str = options[i] + 2 + len;
+	  if(strlen(str)==0 || str[0]=='=') break;
+	}
+    }
 
-  if(strlen(option+1) == len)
+  /*
+  //  Option not found.
+  */
+  if(i == num_options) return NULL;
+
+  /*
+  //  Eat out the option and return the value (if present)
+  */
+  num_options--;
+  for(; i<num_options; i++) options[i] = options[i+1];
+
+  if(strlen(str) == 0)
     {
       if(default_value == NULL)
 	{
-	  cart_error("Option %s has no default value; a value must be set as -%s=<value>",name,name);
+	  cart_error("Option %s has no default value; a value must be set as --%s=<value>",full_name,full_name);
 	  return NULL;
 	}
       return default_value;
     }
 
-  if(option[len+1]!='=' || strlen(option)<len+3)
+  if(str[0]!='=' || strlen(str)<2)
     {
       if(default_value == NULL)
 	{
-	  cart_error("Valid format for option %s is: -%s=<value>",name,name);
+	  cart_error("Valid format for option %s is: --%s=<value>",full_name,full_name);
 	}
       else
 	{
-	  cart_error("Valid format for option %s is: -%s[=<value>]",name,name);
+	  cart_error("Valid format for option %s is: --%s[=<value>]",full_name,full_name);
 	}
       return NULL;
     }
   else
     {
-      return option + len + 2;
+      /*
+      //  It is safe to return str as it actually points to one of argv[] strings.
+      */
+      return str + 1;
+    }
+}
+
+
+/*
+//  Compute the maxium and minimum of a (cached) 1-component array.
+*/
+void linear_array_maxmin(int n, float *arr, float *max, float *min)
+{
+  int j, i, ibeg, iend;
+  float *vmax, *vmin;
+#ifdef _OPENMP
+  int num_pieces = omp_get_num_threads();
+#else
+  int num_pieces = 1;
+#endif 
+  int len_piece = (n+num_pieces-1)/num_pieces;
+  
+  vmax = cart_alloc(float, num_pieces );
+  vmin = cart_alloc(float, num_pieces );
+
+#pragma omp parallel for default(none), private(j,i,ibeg,iend), shared(arr,vmin,vmax,n,len_piece,num_pieces)
+  for(j=0; j<num_pieces; j++)
+    {
+      ibeg = j*len_piece;
+      iend = ibeg + len_piece;
+      if(iend > n) iend = n;
+  
+      vmin[j] = vmax[j] = arr[ibeg];
+
+      for(i=ibeg+1; i<iend; i++)
+	{
+	  if(arr[i] > vmax[j]) vmax[j] = arr[i];
+	  if(arr[i] < vmin[j]) vmin[j] = arr[i];
+	}
+    }
+
+
+  *min = vmin[0];
+  *max = vmax[0];
+  for(j=1; j<num_pieces; j++)
+    {
+      if(*max < vmax[j]) *max = vmax[j];
+      if(*min > vmin[j]) *min = vmin[j];
+    }
+
+  cart_free(vmax);
+  cart_free(vmin);
+}
+
+
+void linear_array_copy_int(int *dest, int *src, int size)
+{
+  int i;
+
+  /*
+  // Hard-code memcpy for now, but in general we need to check whether
+  // doing an OpenMP-parallel loop is faster.
+  */
+  if(1)
+    {
+      memcpy(dest,src,sizeof(int)*size);
+    }
+  else
+    {
+#pragma omp parallel for default(none), private(i), shared(dest,src,size)
+      for(i=0; i<size; i++)
+	{
+	  dest[i] = src[i];
+	}
+    }
+}
+
+
+void linear_array_copy_float(float *dest, float *src, int size)
+{
+  int i;
+
+  /*
+  // Hard-code memcpy for now, but in general we need to check whether
+  // doing an OpenMP-parallel loop is faster.
+  */
+  if(1)
+    {
+      memcpy(dest,src,sizeof(float)*size);
+    }
+  else
+    {
+#pragma omp parallel for default(none), private(i), shared(dest,src,size)
+      for(i=0; i<size; i++)
+	{
+	  dest[i] = src[i];
+	}
     }
 }
 
@@ -453,7 +648,7 @@ const char* check_option1(const char* option, const char* name, const char *defa
 */
 
 #ifdef DEBUG_MEMORY_USE
-void dmuRegister(void *ptr, unsigned long size, const char *file, int line);
+void dmuRegister(void *ptr, size_t size, const char *file, int line);
 void dmuUnRegister(void *ptr, const char *file, int line);
 void dmuPrintRegistryContents();
 #endif
@@ -472,7 +667,7 @@ void* cart_alloc_worker(size_t size, const char *file, int line)
 #ifdef DEBUG_MEMORY_USE
 	  dmuPrintRegistryContents();
 #endif
-	  cart_error( "Failure allocating %d bytes in file %s, line %d", size, file, line );
+	  cart_error( "Failure allocating %ld bytes in file %s, line %d", size, file, line );
 	}
 
 #ifdef DEBUG_MEMORY_USE
@@ -482,7 +677,7 @@ void* cart_alloc_worker(size_t size, const char *file, int line)
       /* if allocating significant chunk (i.e. not skiplist nodes, report it */
       if( size > 65536)
 	{
-	  cart_debug("allocated %d bytes, %ld total",size,dmuReportAllocatedMemory() );
+	  cart_debug("allocated %ld bytes, %ld total",size,dmuReportAllocatedMemory() );
 	}
 #endif
 #endif
@@ -513,7 +708,7 @@ void cart_free_worker(void *ptr, const char *file, int line)
 struct dmuItem
 {
   void *Ptr;
-  unsigned long Size;
+  size_t Size;
   const char *File;
   int Line;
 };
@@ -528,7 +723,7 @@ struct dmuRegistry
 
 int dmuSmallLimit = 100;
 int dmuMaxSmallChunk = 0;
-unsigned long dmuNumChunks[2] = { 0UL, 0UL };
+size_t dmuNumChunks[2] = { 0, 0 };
 
 struct dmuRegistry dmuSmall = { 0, 0, NULL};
 struct dmuRegistry dmuLarge = { 0, 0, NULL};
@@ -569,7 +764,7 @@ void dmuCheckRegistry(struct dmuRegistry *registry)
 }
 
       
-void dmuRegister(void *ptr, unsigned long size, const char *file, int line)
+void dmuRegister(void *ptr, size_t size, const char *file, int line)
 {
   int i;
 
@@ -652,11 +847,22 @@ void dmuUnRegister(void *ptr, const char *file, int line)
 }
 
 
+#include "particle.h"
+#include "starformation.h"
+#include "tree.h"
+
 void dmuPrintRegistryContents()
 {
   int i;
-  unsigned long tot = dmuLarge.Size*sizeof(struct dmuItem) + dmuSmall.Size*sizeof(struct dmuItem);
+  size_t tot = dmuLarge.Size*sizeof(struct dmuItem) + dmuSmall.Size*sizeof(struct dmuItem);
 
+  cart_debug("DMU: num_octs=%d",num_octs);
+#ifdef PARTICLES
+  cart_debug("DMU: num_particles=%d",num_particles);
+#ifdef STARFORM
+  cart_debug("DMU: num_star_particles=%d",num_star_particles);
+#endif
+#endif
   cart_debug("DMU: Large allocated chunks:");
   for(i=0; i<dmuLarge.NumItems; i++)
     {
@@ -682,10 +888,10 @@ void dmuPrintRegistryContents()
 }
 
 
-unsigned long dmuReportAllocatedMemory()
+size_t dmuReportAllocatedMemory()
 {
   int i;
-  unsigned long tot = dmuLarge.Size*sizeof(struct dmuItem) + dmuSmall.Size*sizeof(struct dmuItem);
+  size_t tot = dmuLarge.Size*sizeof(struct dmuItem) + dmuSmall.Size*sizeof(struct dmuItem);
 
   for(i=0; i<dmuLarge.NumItems; i++)
     {

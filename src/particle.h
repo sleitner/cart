@@ -18,13 +18,13 @@
 
 extern int num_row;
 
-extern double particle_t[num_particles];
-extern double particle_dt[num_particles];
-extern double particle_x[num_particles][nDim];
-extern double particle_v[num_particles][nDim];
+extern double particle_t[/* num_particles */];
+extern double particle_dt[/* num_particles */];
+extern double particle_x[/* num_particles */][nDim];
+extern double particle_v[/* num_particles */][nDim];
 
 #ifdef GRAVITY
-extern float particle_pot[num_particles];
+extern float particle_pot[/* num_particles */];
 #endif /* GRAVITY */
 
 /* variables for monitoring energy */
@@ -43,13 +43,15 @@ extern float particle_species_mass[MAX_PARTICLE_SPECIES];
 extern int particle_species_num[MAX_PARTICLE_SPECIES];
 extern int particle_species_indices[MAX_PARTICLE_SPECIES+1];
 
-extern int particle_level[num_particles];
-extern float particle_mass[num_particles];
-extern int particle_id[num_particles];
-extern int particle_list_next[num_particles];
-extern int particle_list_prev[num_particles];
+extern int particle_level[/* num_particles */];
+extern float particle_mass[/* num_particles */];
+extern int particle_id[/* num_particles */];
+extern int particle_list_next[/* num_particles */];
+extern int particle_list_prev[/* num_particles */];
 
-extern int cell_particle_list[num_cells];
+/* extern int cell_particle_list[num_cells]; */
+extern int CELL_ARRAY(cell_particle_list);
+
 extern int num_local_particles;
 extern long num_particles_total;
 extern int next_free_particle;
@@ -69,10 +71,6 @@ void particle_move( int ipart_old, int ipart_new );
 void init_particles();
 void build_mesh();
 
-#ifdef GRAVITY 
-void accelerate_particles( int level );
-#endif /* GRAVITY */
-void move_particles( int level );
 void update_particle_list( int level );
 void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_to_send[MAX_PROCS], int trade_level, int free_particle_flag );
 void build_particle_list();

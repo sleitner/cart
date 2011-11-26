@@ -285,6 +285,10 @@ void mark_refinement_indicators( int cell, int level ) {
 	if ( refinement_indicator[SPATIAL_INDICATOR].use[level] ) {
 		indicator = max( spatial_indicator(cell,level), indicator );
         }
+
+	if ( refinement_indicator[JEANS_LENGTH_INDICATOR].use[level] ) {
+		indicator = max( jeans_length_indicator(cell,level), indicator );
+	}
 #endif /* HYDRO */
 
         refinement_indicator(cell, 0) = indicator;
@@ -314,7 +318,7 @@ float spatial_indicator( int cell, int level ) {
         if(refinement_indicator[SPATIAL_INDICATOR].threshold[level] > compute_distance_periodic(pos,central_cell)){
             in_region = refinement_indicator[SPATIAL_INDICATOR].weight;
         }
-return in_region ;
+	return in_region ;
 }
 
 float gas_mass_indicator( int cell, int level ) {
@@ -427,8 +431,51 @@ float pressure_gradient_indicator( int cell, int level, int neighbors[] ) {
 
 }
 
+
+extern double G_code;
+
 float entropy_gradient_indicator( int cell, int level, int neighbors[] ) {
 	return 0.0;
+}
+
+float jeans_length_indicator(int cell, int level)
+{
+  int i, j, nb[num_neighbors];
+  float s, d, q, dv2, cs2, ljeans;
+  float vc[nDim];
+
+  if(cell_gas_density(cell) < 1.0e-30) return 0.0;
+
+  /*
+  //  Sound speed squared
+  */
+  cs2 = cell_gas_gamma(cell)*max((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0)/cell_gas_density(cell);
+
+  /*
+  //  Local velocity dispersion squared
+  */
+  cell_all_neighbors(cell,nb);
+  for(i=0; i<nDim; i++)
+    {
+      vc[i] = cell_var(cell,HVAR_MOMENTUM+i)/cell_gas_density(cell);
+    }
+
+  s = 0.0;
+  for(j=0; j<num_neighbors; j++) if(cell_gas_density(nb[j]) > 0.0)
+    {
+      for(i=0; i<nDim; i++)
+	{
+	  d = cell_var(nb[j],HVAR_MOMENTUM+i)/cell_gas_density(nb[j]) - vc[i];
+	  s += d*d;
+	}
+    }
+  dv2 = s/num_neighbors;
+
+  ljeans = sqrt(3.1415927*(cs2+dv2)/(G_code*cell_gas_density(cell)));
+
+  q = cell_size[level]*refinement_indicator[JEANS_LENGTH_INDICATOR].threshold[level]/ljeans;
+
+  return min( q, refinement_indicator[JEANS_LENGTH_INDICATOR].weight );
 }
 
 #endif /* HYDRO */

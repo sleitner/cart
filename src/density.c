@@ -11,8 +11,8 @@
 #include "density.h"
 #include "iterators.h"
 #include "particle.h"
-#include "rt_solver.h"
-#include "timestep.h"
+#include "rt.h"
+#include "times.h"
 #include "timing.h"
 #include "tree.h"
 
@@ -23,7 +23,7 @@
 
 
 int max_dark_matter_level = max_level;
-
+int max_first_species_id = -1;
 
 void assign_particle_density_smoothed( int level );
 
@@ -57,7 +57,7 @@ void initialize_density( int level ) {
 #pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
-		cell_density(icell) = -cell_volume[level]; 
+		cell_total_mass(icell) = -cell_volume[level]; 
 		cell_first_species_mass(icell) = 0.0;
 #ifdef RT_VAR_SOURCE
 		cell_rt_source(icell) = 0.0;
@@ -70,7 +70,7 @@ void initialize_density( int level ) {
 #pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars)
         for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
-		cell_density(icell) = 0.0; 
+		cell_total_mass(icell) = 0.0; 
 		cell_first_species_mass(icell) = 0.0;
 #ifdef RT_VAR_SOURCE
 		cell_rt_source(icell) = 0.0;
@@ -80,11 +80,11 @@ void initialize_density( int level ) {
 	cart_free( level_cells );
 #else
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level,cell_volume)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 #ifdef GRAVITY
-		cell_density(icell) = -cell_volume[level];
+		cell_total_mass(icell) = -cell_volume[level];
 #endif
 #ifdef RT_VAR_SOURCE
 		cell_rt_source(icell) = 0.0;
@@ -104,6 +104,8 @@ void assign_density( int level ) {
 	initialize_density(level);
 
 #ifdef PARTICLES
+	if(max_first_species_id < 0) max_first_species_id = particle_species_indices[1];
+
 	if ( level <= max_dark_matter_level ) {
 		assign_particle_density( level );
 	} else {
@@ -134,7 +136,7 @@ void assign_hydro_density( int level ) {
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 #ifdef GRAVITY
-		cell_density(icell) += cell_gas_density(icell)*cell_volume[level];
+		cell_total_mass(icell) += cell_gas_density(icell)*cell_volume[level];
 #endif
 	}
 
@@ -292,9 +294,9 @@ void assign_particle_density( int level ) {
 				ipart = particle_list[j];
 
 #ifdef STARFORM
-				is_first = ( particle_id[ipart] < particle_species_indices[1] || particle_is_star(ipart) );
+				is_first = ( particle_id[ipart] < max_first_species_id || particle_is_star(ipart) );
 #else
-				is_first = ( particle_id[ipart] < particle_species_indices[1] );
+				is_first = ( particle_id[ipart] < max_first_species_id );
 #endif /* STARFORM */
 
 #ifdef RT_VAR_SOURCE
@@ -306,7 +308,7 @@ void assign_particle_density( int level ) {
 						icell = cell_list[num_children*j+k];
 
 						if ( icell != -1 ) {
-							cell_density(icell) += mass_assigned[num_children*j+k];
+							cell_total_mass(icell) += mass_assigned[num_children*j+k];
 							cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
 #ifdef RT_VAR_SOURCE
 							cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
@@ -318,7 +320,7 @@ void assign_particle_density( int level ) {
 						icell = cell_list[num_children*j+k];
 
 						if ( icell != -1 ) {
-							cell_density(icell) += mass_assigned[num_children*j+k];
+							cell_total_mass(icell) += mass_assigned[num_children*j+k];
 #ifdef RT_VAR_SOURCE
 							cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
 #endif
@@ -407,7 +409,7 @@ void assign_particle_density_smoothed( int level ) {
 			for ( j =  0; j < count; j++ ) {
 				ipart = particle_list[j];
 
-				is_first = ( particle_id[ipart] < particle_species_indices[1] );
+				is_first = ( particle_id[ipart] < max_first_species_id );
 #ifdef STARFORM				
 				is_star =  particle_is_star(ipart);
 #else 
@@ -423,7 +425,7 @@ void assign_particle_density_smoothed( int level ) {
 						icell = cell_list[num_children*j+k];
 
 						if ( icell != -1 ) {
-							cell_density(icell) += mass_assigned[num_children*j+k] ;
+							cell_total_mass(icell) += mass_assigned[num_children*j+k] ;
 							cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
 #ifdef RT_VAR_SOURCE
 							cell_rt_source(icell) += sor*mass_assigned[num_children*j+k];
@@ -439,7 +441,7 @@ void assign_particle_density_smoothed( int level ) {
 							mass_assigned[num_children*j+k] /= children_at_level;
 						  
 							/* now find all youngest relatives of these cells to level "level" and give the fraction of mass_assigned to
-							 * cell_density[icell] to cells that are refined at or below the particle level =level */
+							 * cell_total_mass[icell] to cells that are refined at or below the particle level =level */
 							ic = 0;
 							while ( ic < children_at_level ) {
 								icid = ic;
@@ -455,7 +457,7 @@ void assign_particle_density_smoothed( int level ) {
 								}
 
 								if ( icell != -1 ) {
-									cell_density(icell) += mass_assigned[num_children*j+k] ;
+									cell_total_mass(icell) += mass_assigned[num_children*j+k] ;
 									if(is_first){
 										cell_first_species_mass(icell) += mass_assigned[num_children*j+k];
 									}

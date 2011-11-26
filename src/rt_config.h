@@ -16,8 +16,9 @@
 /*
 //  Currently implemented external backgrounds
 */
-#define RT_BACKGROUND_SELFCONSISTENT         1
-#define RT_BACKGROUND_HAARDT_MADAU           2
+#define RT_BACKGROUND_HAARDT_MADAU             1
+#define RT_BACKGROUND_SELFCONSISTENT           2
+#define RT_BACKGROUND_SELFCONSISTENT_AND_QSO   3
 
 
 /* 

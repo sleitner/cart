@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "auxiliary.h"
+#include "hydro.h"
 #include "tree.h"
 #include "hydro.h"
 
@@ -133,7 +134,7 @@ int split ( int cell ) {
 #endif /* HYDRO */
 
 #ifdef GRAVITY
-			cell_density(child_cell) = cell_interpolate_with_neighbors( cell, VAR_DENSITY, neighbors );
+			cell_total_mass(child_cell) = cell_interpolate_with_neighbors( cell, VAR_TOTAL_MASS, neighbors );
 			cell_potential(child_cell) = cell_interpolate_with_neighbors( cell, VAR_POTENTIAL, neighbors );
 #ifdef PARTICLES
 			cell_first_species_mass(child_cell) = 0.0;

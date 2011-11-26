@@ -17,10 +17,14 @@ extern float refinement_volume_max[nDim];
 
 #ifdef REFINEMENT
 
+#define OP_REFINE           1024
+#define OP_DEREFINE         2048
+#define OP_FORCE_DEREFINE   4096
+
 void config_init_refinement();
 void config_verify_refinement();
 
-void modify( int level, int derefine );
+void modify( int level, int op );
 void add_reaction( int icell );
 void diffusion_step( int level, int icell );
 void refine( int level );

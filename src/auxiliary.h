@@ -16,6 +16,7 @@ int compare_floats( const void *a, const void *b );
 int nearest_int( double x );
 
 double cart_rand();
+double cart_rand_lognormal(double sigma);
 
 void cart_error( const char *fmt, ... );
 
@@ -58,10 +59,18 @@ void qsn_step( qss_system *sys, double t, double dt, double yf[], void *params )
 void qss_solve( qss_system *sys, double t_begin, double delta_t, double y[], const double err[], void *params );
 
 extern int num_options;
-extern char **options;
+extern const char **options;
 
-const char* check_option0(const char* option, const char* name);
-const char* check_option1(const char* option, const char* name, const char *default_value);
+int is_option_present(const char* full_name, const char* short_name, int with_argument);
+const char* extract_option0(const char* full_name, const char* short_name);
+const char* extract_option1(const char* full_name, const char* short_name, const char *default_value);
+
+/*
+// Helper functions
+*/
+void linear_array_maxmin(int n, float *arr, float *max, float *min);
+void linear_array_copy_int(int *dest, int *src, int size);
+void linear_array_copy_float(float *dest, float *src, int size);
 
 /*
 //  Useful macros
@@ -86,7 +95,7 @@ void cart_free_worker(void *ptr, const char *file, int line);
 
 #ifdef DEBUG_MEMORY_USE
 void dmuPrintRegistryContents();
-unsigned long dmuReportAllocatedMemory();
+size_t dmuReportAllocatedMemory();
 #endif
 
 #endif

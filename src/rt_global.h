@@ -19,14 +19,13 @@
 struct rtGlobalValue
 {
   float Value;
-  float lb[num_refinement_levels+1];
-  float gb[num_refinement_levels+1];
+  float buffer[num_refinement_levels+1];
 };
 
 
 void rtGlobalValueInit(struct rtGlobalValue *v, float val); 
-void rtGlobalValueChange(struct rtGlobalValue *v, int level, float val);
-void rtGlobalValueUpdate(struct rtGlobalValue *v, int level_begin, int level_end, MPI_Op op, MPI_Comm level_com);
+void rtGlobalValueUpdate(struct rtGlobalValue *v, int level, float val);
+void rtGlobalValueCommunicate(struct rtGlobalValue *v, MPI_Op op, MPI_Comm level_com);
 
 
 #endif /* RADIATIVE_TRANSFER */

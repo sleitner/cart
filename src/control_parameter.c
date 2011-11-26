@@ -131,6 +131,13 @@ void control_parameter_add3(ControlParameterOps ops, void *ptr, const char *name
 }
 
 
+void control_parameter_add4(ControlParameterOps ops, void *ptr, const char *name1, const char *name2, const char *name3, const char *name4, const char *help)
+{
+  const char *names[4] = { name1, name2, name3, name4 };
+  control_parameter_add_worker(ops.setter,ops.lister,ptr,4,names,help);
+}
+
+
 void control_parameter_print_name(FILE *f, const char *name)
 {
   const int tab = 40;

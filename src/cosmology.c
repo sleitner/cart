@@ -196,6 +196,8 @@ double cosmology_dc_factor(double dPlus)
 {
   double dc = 1.0 + dPlus*c.DeltaDC;
   return 1.0/pow((dc>0.001)?dc:0.001,1.0/3.0);
+  //double dc = 1.0 - dPlus*c.DeltaDC/3;
+  //return (dc > 0.001) ? dc : 0.001;
 }
 
 

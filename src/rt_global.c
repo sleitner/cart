@@ -11,61 +11,55 @@
 
 void rtGlobalValueInit(struct rtGlobalValue *v, float val)
 {
-  int l;
+  int level;
 
   cart_assert(v != NULL);
 
   v->Value = val;
 
-  for(l=0; l<=max_level-min_level; l++)
+  for(level=min_level; level<=max_level; level++)
     {
-      v->lb[l] = v->gb[l] = val;
+      v->buffer[level-min_level] = val;
     }
 }
 
 
-void rtGlobalValueChange(struct rtGlobalValue *v, int level, float val)
+void rtGlobalValueUpdate(struct rtGlobalValue *v, int level, float val)
 {
   cart_assert(min_level<=level && level<=max_level);
   cart_assert(v != NULL);
 
-  v->lb[level-min_level] = val;
+  v->buffer[level-min_level] = val;
 }
 
 
-void rtGlobalValueUpdate(struct rtGlobalValue *v, int level1, int level2, MPI_Op op, MPI_Comm level_com)
+void rtGlobalValueCommunicate(struct rtGlobalValue *v, MPI_Op op, MPI_Comm level_com)
 {
-  int l;
+  int level;
+  float val;
 
-  cart_assert(min_level<=level1 && level1<=level2 && level2<=max_level);
   cart_assert(v != NULL);
-
-  /*
-  //  Reduce local values
-  */
-  start_time( COMMUNICATION_TIMER );
-  MPI_Allreduce(v->lb+level1-min_level,v->gb+level1-min_level,level2-level1+1,MPI_FLOAT,op,level_com);
-  end_time( COMMUNICATION_TIMER );
 
   /*
   //  Update global average
   */
   start_time(WORK_TIMER);
 
+  /* Cannot use switch as MPI_Op may not be a simple type */
   if(op == MPI_SUM)
     {
-      v->Value = 0.0;
-      for(l=0; l<=max_level-min_level; l++)
+      val = 0.0;
+      for(level=min_level; level<=max_level; level++)
 	{
-	  v->Value += v->gb[l];
+	  val += v->buffer[level-min_level];
 	}
     }
   else if(op == MPI_MAX)
     {
-      v->Value = v->gb[0];
-      for(l=1; l<=max_level-min_level; l++)
+      val = v->buffer[0];
+      for(level=min_level+1; level<=max_level; level++)
 	{
-	  v->Value = max(v->Value,v->gb[l]);
+	  val = max(val,v->buffer[level-min_level]);
 	}
     }
   else
@@ -74,6 +68,13 @@ void rtGlobalValueUpdate(struct rtGlobalValue *v, int level1, int level2, MPI_Op
     }
 
   end_time(WORK_TIMER);
+
+  /*
+  //  Reduce local values
+  */
+  start_time( COMMUNICATION_TIMER );
+  MPI_Allreduce(&val,&v->Value,1,MPI_FLOAT,op,level_com);
+  end_time( COMMUNICATION_TIMER );
 }
 
 #endif /* RADIATIVE_TRANSFER */

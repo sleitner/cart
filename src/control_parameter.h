@@ -49,6 +49,7 @@ extern ControlParameterOps control_parameter_string;
 void control_parameter_add(ControlParameterOps ops, void *ptr, const char *name, const char *help);
 void control_parameter_add2(ControlParameterOps ops, void *ptr, const char *name1, const char *name2, const char *help);
 void control_parameter_add3(ControlParameterOps ops, void *ptr, const char *name1, const char *name2, const char *name3, const char *help);
+void control_parameter_add4(ControlParameterOps ops, void *ptr, const char *name1, const char *name2, const char *name3, const char *name4, const char *help);
 
 int control_parameter_is_set(const char *name);
 

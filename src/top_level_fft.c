@@ -82,7 +82,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 		start_time( FFT_COMMUNICATION_TIMER );
 
 		for ( p = 1; p < num_procs; p++ ) {
-			MPI_Recv( buffer, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT, p, 0, MPI_COMM_WORLD, &status );
+			MPI_Recv( buffer, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT, p, 0, mpi.comm.run, &status );
 
 #pragma omp parallel for default(none), private(i,coords,index), shared(proc_sfc_index,p,data,buffer)
 			for ( i = 0; i < proc_sfc_index[p+1]-proc_sfc_index[p]; i++ ) {
@@ -179,7 +179,7 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 					buffer[i] = data[index];
 				}
 
-				MPI_Send( buffer, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT, p, 1, MPI_COMM_WORLD );
+				MPI_Send( buffer, proc_sfc_index[p+1]-proc_sfc_index[p], MPI_TYPE_FFT, p, 1, mpi.comm.run );
 			}
 			end_time( FFT_COMMUNICATION_TIMER );
 			end_time( COMMUNICATION_TIMER );
@@ -219,10 +219,10 @@ void top_level_fft(int in_var, int num_out_vars, const int *out_vars, top_level_
 			buffer[i] = cell_var(i,in_var);
 		}
 		
-		MPI_Send( buffer, num_cells_per_level[min_level], MPI_TYPE_FFT, MASTER_NODE, 0, MPI_COMM_WORLD );
+		MPI_Send( buffer, num_cells_per_level[min_level], MPI_TYPE_FFT, MASTER_NODE, 0, mpi.comm.run );
 
 		for(var=0; var<num_out_vars; var++) {
-			MPI_Recv( buffer, num_cells_per_level[min_level], MPI_TYPE_FFT, MASTER_NODE, 1, MPI_COMM_WORLD, &status );
+			MPI_Recv( buffer, num_cells_per_level[min_level], MPI_TYPE_FFT, MASTER_NODE, 1, mpi.comm.run, &status );
 
 #pragma omp parallel for default(none), private(i), shared(cell_vars,buffer,var,out_vars)
 			for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {

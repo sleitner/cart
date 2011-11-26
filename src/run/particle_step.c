@@ -14,7 +14,8 @@
 #include "step.h"
 
 
-void move_particles( int level ) {
+#ifdef GRAVITY
+void accelerate_particles( int level ) {
 	int i, m;
 	int ipart;
 	int iter_cell;
@@ -31,50 +32,25 @@ void move_particles( int level ) {
 	double pt3, pd3;
 	double t1,t2,t3,d1,d2,d3;
 	double t2t1, t2d1, d2t1, d2d1;
-	double x, y, z, vx, vy, vz, ax, ay, az;
+	double x, y, z, ax, ay, az;
 	double t3t2t1, t3t2d1, t3d2t1, t3d2d1;
 	double d3t2t1, d3t2d1, d3d2t1, d3d2d1;
 	double pconst;
-	double delta_t;
 
 	cart_assert( level >= min_level && level <= max_level );
         
-	start_time( MOVE_PARTS_TIMER );
+	start_time( ACCEL_PARTS_TIMER );
 	start_time( WORK_TIMER ); 
-
-#ifdef STARFORM
-	setup_star_formation_feedback(level);
-#endif /* STARFORM */
 
 	t_next = tl[level] + dtl[level];
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-
-#ifdef OPENMP_DECLARE_CONST
-
-#ifdef GRAVITY
-#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t,t2t1,t2d1,d2t1,d2d1), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,particle_list_next,particle_pot,particle_mass,cell_vars), schedule(dynamic), shared(neighbor_moves)
-#else
-#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,particle_list_next), shared(neighbor_moves)
-#endif
-
-#else  /* OPENMP_DECLARE_CONST */
-
-#ifdef GRAVITY
-#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t,t2t1,t2d1,d2t1,d2d1), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,particle_list_next,particle_pot,particle_mass,cell_vars), schedule(dynamic)
-#else
-#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,vx,vy,vz,delta_t), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,particle_list_next)
-#endif
-
-#endif /* OPENMP_DECLARE_CONST */
+#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,icell,level1,found,icell_orig,pos,child,i,c,diff1,diff2,diff3,d1,d2,d3,t1,t2,t3,pconst,pt3,pd3,t3t2t1,t3t2d1,t3d2t1,t3d2d1,d3t2t1,d3t2d1,d3d2t1,d3d2d1,ax,ay,az,t2t1,t2d1,d2t1,d2d1), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next,cell_size_inverse,tl,particle_pot,particle_mass,cell_vars,neighbor_moves), schedule(dynamic)
 	for ( m = 0; m < num_level_cells; m++ ) {
 		iter_cell = level_cells[m];
 
 		ipart = cell_particle_list[iter_cell];
 		while ( ipart != NULL_PARTICLE ) {
-			cart_assert( ipart >= 0 && ipart < num_particles );
-			cart_assert( particle_level[ipart] == level );
-		
 			if ( particle_t[ipart] < t_next - 0.5*dtl[max_level] ) {
 				x = particle_x[ipart][0];
 				y = particle_x[ipart][1];
@@ -85,8 +61,6 @@ void move_particles( int level ) {
 				do {
 					found = 1;
 					icell_orig = icell;
-					cart_assert( icell != NULL_OCT );
-
 					cell_center_position( icell, pos );
 
 					/* find lower leftmost cell */
@@ -96,7 +70,6 @@ void move_particles( int level ) {
 							child += (1<<i);
 						}
 					}
-					cart_assert( child >= 0 && child < num_children );
 
 					for ( i = 0; i < nDim; i++ ) {
 						if ( neighbor_moves[child][i] == -1 ) {
@@ -129,7 +102,6 @@ void move_particles( int level ) {
 							if ( cell_level(c[i]) != level1 ) {
 								icell = cell_parent_cell(icell_orig);
 								level1 = level1 - 1;
-								cart_assert( icell != NULL_OCT );
 								found = 0;
 								break;
 							}
@@ -137,14 +109,8 @@ void move_particles( int level ) {
 					}
 				} while ( !found );
 	
-				for ( i = 0; i < num_children; i++ ) {
-					cart_assert( cell_level(c[i]) == level1 );
-				}
-
-				cart_assert( c[0] != NULL_OCT );
 				cell_center_position( c[0], pos );
 
-#ifdef GRAVITY
 				/* now we have the level on which this particle will move */
 				diff1 = pos[0] - x;
 				if ( fabs(diff1) > (double)(num_grid/2) ) {
@@ -194,8 +160,15 @@ void move_particles( int level ) {
 				d2t1 = d2 * t1;
 				d2d1 = d2 * d1;
 
-				/* a2cs term in HART is computed in accel */
-				pconst = tl[level] - particle_t[ipart] + 0.5*( dtl[level] + particle_dt[ipart] );
+				/* Use to kick-steps to advance particle velocity (note, this may result in a negative step):
+				 *   v(t - dt/2) = v(tp-dtp/2) + g(t)*(t - dt/2 - tp + dtp/2)
+				 *   v(t + dt/2) = v(t-dt/2) + g(t)*(dt/2)
+				 *
+				 * v(t+dt/2) = v(tp-dtp/2) + g(t)*( t - tp + 0.5*(dtp+dp) ) 
+				 *
+				 * Also note, the a2cs term in HART is computed in compute_accelerations_particles
+				 */
+				pconst = tl[level] - particle_t[ipart] + 0.5*( dtl[level] + particle_dt[ipart] ) + 1e-30;
 
 				pt3 = pconst * t3;
 				pd3 = pconst * d3;
@@ -246,27 +219,54 @@ void move_particles( int level ) {
 					d3d2t1 * cell_accel(c[6], 2) +
 					d3d2d1 * cell_accel(c[7], 2);
 
-				vx = particle_v[ipart][0] + ax;
-				vy = particle_v[ipart][1] + ay;
-				vz = particle_v[ipart][2] + az;
-#else
-				vx = particle_v[ipart][0];
-				vy = particle_v[ipart][1];
-				vz = particle_v[ipart][2];
+				particle_v[ipart][0] += ax;
+				particle_v[ipart][1] += ay;
+				particle_v[ipart][2] += az;
+			}
+
+			ipart = particle_list_next[ipart];
+		}
+	}
+	cart_free( level_cells );
+
+	end_time( WORK_TIMER );
+	end_time( ACCEL_PARTS_TIMER );
+}
 #endif /* GRAVITY */
+
+void move_particles( int level ) {
+	int m;
+	int iter_cell;
+	int ipart;
+	double x, y, z;
+	int num_level_cells;
+	int *level_cells;
+	double t_next, delta_t;
+
+    cart_assert( level >= min_level && level <= max_level );
+        
+    start_time( MOVE_PARTS_TIMER );
+    start_time( WORK_TIMER ); 
+
+    t_next = tl[level] + dtl[level];
+
+    select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(iter_cell,ipart,x,y,z,delta_t), shared(num_level_cells,level_cells,cell_particle_list,level,particle_t,particle_x,t_next,particle_dt,particle_v,particle_list_next)
+    for ( m = 0; m < num_level_cells; m++ ) {
+        iter_cell = level_cells[m];
+
+        ipart = cell_particle_list[iter_cell];
+        while ( ipart != NULL_PARTICLE ) {
+            if ( particle_t[ipart] < t_next - 0.5*dtl[max_level] ) {
+                x = particle_x[ipart][0];
+                y = particle_x[ipart][1];
+                z = particle_x[ipart][2];
 	
 				delta_t = t_next - particle_t[ipart];
 
-#ifdef STARFORM
-				/* do feedback, enrichment, etc */
-				if ( particle_is_star(ipart) ) {
-				    stellar_feedback(level,iter_cell,ipart,delta_t,t_next,vx,vy,vz);
-				}
-#endif /* STARFORM */
-
-				x += vx * delta_t;
-				y += vy * delta_t;
-				z += vz * delta_t;
+				x += particle_v[ipart][0] * delta_t;
+				y += particle_v[ipart][1] * delta_t;
+				z += particle_v[ipart][2] * delta_t;
 	
 				if ( x < 0.0 ) {
 					x += (double)(num_grid);		
@@ -289,10 +289,6 @@ void move_particles( int level ) {
 				particle_x[ipart][0] = x;
 				particle_x[ipart][1] = y;
 				particle_x[ipart][2] = z;
-	
-				particle_v[ipart][0] = vx;
-				particle_v[ipart][1] = vy;
-				particle_v[ipart][2] = vz;
 	
 				particle_t[ipart] = t_next;
 				particle_dt[ipart] = dtl[level];

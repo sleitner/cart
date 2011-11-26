@@ -22,15 +22,6 @@
 #endif
 
 
-#ifndef STARFORM
-
-#ifdef ENRICH
-#error "ENRICH cannot be defined without STARFORM"
-#endif
-
-#endif /* STARFORM */
-
-
 #if defined(ENRICH_SNIa) && !defined(ENRICH)
 #error "ENRICH_SNIa cannot be defined without ENRICH"
 #endif
@@ -87,6 +78,15 @@
 #error "The OLDSTYLE_PARTICLE_FILE_SINGLE_PRECISION define is now obsolete; -pfm=1: read files with double positions but single times;-pfm=2: single-precision both. "
 #endif
 
+
+/*
+//  Check that minimum settings are actually set.
+*/
+#ifndef num_root_grid_refinements
+#error "num_root_grid_refinements must be set."
+#endif
+
+
 /*
 //  Maximum number of processors
 */
@@ -96,14 +96,66 @@
 
 
 /*
+//  Default to 25 levels if the number of levels is not set.
+*/
+#ifndef num_refinement_levels 
+#define num_refinement_levels 25
+#endif
+
+
+/*
+//  Default to num_star_particles = num_particles if not set.
+*/
+#ifdef STARFORM
+#if defined(num_particles) && !defined(num_star_particles)
+#define num_star_particles num_particles
+#endif
+#endif /* STARFORM */
+
+
+/*
 //  Computational domain setup
 */
-#define nDim			3
-#define num_grid		(1<<num_root_grid_refinements)          /* number of grid spaces in 1-d */
+#define nDim		3
+#define num_grid	(1<<num_root_grid_refinements)          /* number of grid spaces in 1-d */
 #define num_root_cells	(1<<(nDim*num_root_grid_refinements))   /* total number of root cells */
-#define num_cells		(num_octs<<nDim)                        /* number of cells in buffer */
 #define num_children    (1<<nDim)		
 #define num_neighbors   (2*nDim)
+
+#ifdef num_octs
+
+#define num_cells	(num_octs<<nDim)                        /* number of cells in buffer */
+#define STATIC_MESH_DATA
+#define STATIC_INIT      
+
+#else
+
+#define num_octs         size_oct_array
+#define num_cells        size_cell_array
+#ifdef STATIC_MESH_DATA
+#undef STATIC_MESH_DATA
+#endif
+
+#define STATIC_INIT      = NULL
+
+#endif
+
+
+#ifdef STATIC_MESH_DATA
+
+#define OCT_ARRAY(name)   name[num_octs]
+#define CELL_ARRAY(name)  name[num_cells]
+#define OCT_ARRAY2D(name,dim2)   name[num_octs][dim2]
+#define CELL_VAR_ARRAY(name,nvars)  name[num_cells][nvars]
+
+#else  /* STATIC_MESH_DATA */
+
+#define OCT_ARRAY(name)   *name
+#define CELL_ARRAY(name)  *name
+#define OCT_ARRAY2D(name,dim2)   **name
+#define CELL_VAR_ARRAY(name,nvars)  *name
+
+#endif /* STATIC_MESH_DATA */
 
 
 #if (nDim == 3)
@@ -130,5 +182,13 @@ extern type *const name
 #ifdef RADIATIVE_TRANSFER
 #include "rt_config.h"
 #endif
+
+/*
+//  Some compiler-dependent switches
+*/
+#ifndef COMPILER_GCC
+#define OPENMP_DECLARE_CONST
+#endif
+
 
 #endif

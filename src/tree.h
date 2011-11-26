@@ -9,9 +9,13 @@
 #include <mpi.h>
 
 
-#define		UNREFINED_CELL	-1
+extern int size_oct_array;
+extern int size_cell_array;
+
+
+#define		UNREFINED_CELL		-1
 #define		NULL_OCT		-1
-#define		FREE_OCT_LEVEL	-1
+#define		FREE_OCT_LEVEL		-1
 
 #define		CELL_TYPE_NONLOCAL	0
 #define		CELL_TYPE_LOCAL		1
@@ -47,12 +51,12 @@
     #endif /* PARTICLES */
   #endif /* HYDRO */
 
-  #define VAR_DENSITY			0
+  #define VAR_TOTAL_MASS		0
 
   #ifdef PARTICLES
     #define VAR_FIRST_SPECIES_MASS	1
     #define VAR_POTENTIAL		2
-    #define cell_first_species_mass(c)	(cell_vars[c][VAR_FIRST_SPECIES_MASS])
+    #define cell_first_species_mass(c)	(cell_var(c,VAR_FIRST_SPECIES_MASS))
   #else
     #define VAR_POTENTIAL		1
   #endif /* PARTICLES */
@@ -64,23 +68,23 @@
     #define VAR_ACCEL			(VAR_POTENTIAL+1)
   #endif /* HYDRO */
 
-  #define cell_density(c) 		(cell_vars[c][VAR_DENSITY])
-  #define cell_potential(c)		(cell_vars[c][VAR_POTENTIAL])
+  #define cell_total_mass(c) 		(cell_var(c,VAR_TOTAL_MASS))
+  #define cell_potential(c)		(cell_var(c,VAR_POTENTIAL))
 
   #ifdef HYDRO
-    #define cell_potential_hydro(c)	(cell_vars[c][VAR_POTENTIAL_HYDRO])
+    #define cell_potential_hydro(c)	(cell_var(c,VAR_POTENTIAL_HYDRO))
   #endif /* HYDRO */
 
-  #define cell_accel(c,d)		(cell_vars[c][VAR_ACCEL+d])
+  #define cell_accel(c,d)		(cell_var(c,VAR_ACCEL+d))
 
 #else /* GRAVITY */
 
   #ifdef PARTICLES
     #define num_grav_vars		2
-    #define VAR_DENSITY			0
+    #define VAR_TOTAL_MASS		0
     #define VAR_FIRST_SPECIES_MASS	1
-    #define cell_density(c)		(cell_vars[c][VAR_DENSITY])
-    #define cell_first_species_mass(c)	(cell_vars[c][VAR_FIRST_SPECIES_MASS])
+    #define cell_total_mass(c) 		(cell_var(c,VAR_TOTAL_MASS))
+    #define cell_first_species_mass(c)	(cell_var(c,VAR_FIRST_SPECIES_MASS))
   #else
     #define num_grav_vars		0
   #endif /* PARTICLES */
@@ -92,7 +96,7 @@
   #define rt_grav_vars_offset       (num_grav_vars)
   #if (rt_num_vars > 0)
     #define RT_VAR_SOURCE           (rt_grav_vars_offset)
-    #define cell_rt_source(c)       (cell_vars[c][RT_VAR_SOURCE])
+    #define cell_rt_source(c)       (cell_var(c,RT_VAR_SOURCE))
   #endif
 #endif /* RADIATIVE_TRANSFER */
 
@@ -107,54 +111,60 @@
   #define HVAR_INTERNAL_ENERGY			(num_grav_vars+rt_num_vars+4)
   #define HVAR_MOMENTUM				(num_grav_vars+rt_num_vars+5)
 
-  #define cell_hydro_variable(c,v)		(cell_vars[c][num_grav_vars+rt_num_vars+v])
-  #define cell_gas_density(c)			(cell_vars[c][HVAR_GAS_DENSITY])
-  #define cell_gas_energy(c)			(cell_vars[c][HVAR_GAS_ENERGY])
-  #define cell_gas_pressure(c)			(cell_vars[c][HVAR_PRESSURE])
-  #define cell_gas_gamma(c)			(cell_vars[c][HVAR_GAMMA])
-  #define cell_gas_internal_energy(c)		(cell_vars[c][HVAR_INTERNAL_ENERGY])
-  #define cell_momentum(c,d)			(cell_vars[c][HVAR_MOMENTUM+d])
+  #define cell_hydro_variable(c,v)		(cell_var(c,num_grav_vars+rt_num_vars+v))
+  #define cell_gas_density(c)			(cell_var(c,HVAR_GAS_DENSITY))
+  #define cell_gas_energy(c)			(cell_var(c,HVAR_GAS_ENERGY))
+  #define cell_gas_pressure(c)			(cell_var(c,HVAR_PRESSURE))
+  #define cell_gas_gamma(c)			(cell_var(c,HVAR_GAMMA))
+  #define cell_gas_internal_energy(c)		(cell_var(c,HVAR_INTERNAL_ENERGY))
+  #define cell_momentum(c,d)			(cell_var(c,HVAR_MOMENTUM+d))
 
   #define num_basic_hydro_vars      (5+nDim)
 
   #ifdef ELECTRON_ION_NONEQUILIBRIUM
     #define num_extra_hydro_vars   1
     #define HVAR_ELECTRON_INTERNAL_ENERGY	(num_grav_vars+rt_num_vars+num_basic_hydro_vars)
-    #define cell_electron_internal_energy(c)	(cell_vars[c][HVAR_ELECTRON_INTERNAL_ENERGY])
+    #define cell_electron_internal_energy(c)	(cell_var(c,HVAR_ELECTRON_INTERNAL_ENERGY))
   #else
     #define num_extra_hydro_vars   0
   #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
   #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
-  #define cell_advected_variable(c,v)		(cell_vars[c][HVAR_ADVECTED_VARIABLES+v])
+  #define cell_advected_variable(c,v)		(cell_var(c,HVAR_ADVECTED_VARIABLES+v))
 
   #ifdef RADIATIVE_TRANSFER /* radiative transfer block */
     #define rt_num_chem_species		6
     #define RT_HVAR_OFFSET			(HVAR_ADVECTED_VARIABLES)
-    #define cell_HI_density(c)			(cell_vars[c][RT_HVAR_OFFSET+0])
-    #define cell_HII_density(c)			(cell_vars[c][RT_HVAR_OFFSET+1])
-    #define cell_HeI_density(c)			(cell_vars[c][RT_HVAR_OFFSET+2])
-    #define cell_HeII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+3])
-    #define cell_HeIII_density(c)		(cell_vars[c][RT_HVAR_OFFSET+4])
-    #define cell_H2_density(c)			(cell_vars[c][RT_HVAR_OFFSET+5])
-    #define cell_HI_fraction(c)			(cell_vars[c][RT_HVAR_OFFSET+0]/cell_gas_density(c)/constants->XH)
-    #define cell_HII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+1]/cell_gas_density(c)/constants->XH)
-    #define cell_HeI_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+2]/cell_gas_density(c)/constants->XHe)
-    #define cell_HeII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+3]/cell_gas_density(c)/constants->XHe)
-    #define cell_HeIII_fraction(c)		(cell_vars[c][RT_HVAR_OFFSET+4]/cell_gas_density(c)/constants->XHe)
-    #define cell_H2_fraction(c)			(cell_vars[c][RT_HVAR_OFFSET+5]/cell_gas_density(c)/(0.5*constants->XH))
+    #define RT_HVAR_HI_DENSITY			(RT_HVAR_OFFSET+0)
+    #define RT_HVAR_HII_DENSITY			(RT_HVAR_OFFSET+1)
+    #define RT_HVAR_HeI_DENSITY			(RT_HVAR_OFFSET+2)
+    #define RT_HVAR_HeII_DENSITY		(RT_HVAR_OFFSET+3)
+    #define RT_HVAR_HeIII_DENSITY		(RT_HVAR_OFFSET+4)
+    #define RT_HVAR_H2_DENSITY			(RT_HVAR_OFFSET+5)
+    #define cell_HI_density(c)			(cell_var(c,RT_HVAR_OFFSET+0))
+    #define cell_HII_density(c)			(cell_var(c,RT_HVAR_OFFSET+1))
+    #define cell_HeI_density(c)			(cell_var(c,RT_HVAR_OFFSET+2))
+    #define cell_HeII_density(c)		(cell_var(c,RT_HVAR_OFFSET+3))
+    #define cell_HeIII_density(c)		(cell_var(c,RT_HVAR_OFFSET+4))
+    #define cell_H2_density(c)			(cell_var(c,RT_HVAR_OFFSET+5))
+    #define cell_HI_fraction(c)			(cell_var(c,RT_HVAR_OFFSET+0)/cell_gas_density(c)/constants->XH)
+    #define cell_HII_fraction(c)		(cell_var(c,RT_HVAR_OFFSET+1)/cell_gas_density(c)/constants->XH)
+    #define cell_HeI_fraction(c)		(cell_var(c,RT_HVAR_OFFSET+2)/cell_gas_density(c)/constants->XHe)
+    #define cell_HeII_fraction(c)		(cell_var(c,RT_HVAR_OFFSET+3)/cell_gas_density(c)/constants->XHe)
+    #define cell_HeIII_fraction(c)		(cell_var(c,RT_HVAR_OFFSET+4)/cell_gas_density(c)/constants->XHe)
+    #define cell_H2_fraction(c)			(cell_var(c,RT_HVAR_OFFSET+5)/cell_gas_density(c)/(0.5*constants->XH))
   #else
     #define rt_num_chem_species			0
   #endif /* RADIATIVE_TRANSFER */
 
   #ifdef ENRICH /* turn on enrichment by stars */
     #define HVAR_METAL_DENSITY_II		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species)
-    #define cell_gas_metal_density_II(c)	(cell_vars[c][HVAR_METAL_DENSITY_II])
+    #define cell_gas_metal_density_II(c)	(cell_var(c,HVAR_METAL_DENSITY_II))
 
     #ifdef ENRICH_SNIa
       #define num_enrichment_species		2
       #define HVAR_METAL_DENSITY_Ia		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
-      #define cell_gas_metal_density_Ia(c)	(cell_vars[c][HVAR_METAL_DENSITY_Ia])
+      #define cell_gas_metal_density_Ia(c)	(cell_var(c,HVAR_METAL_DENSITY_Ia))
       #define cell_gas_metal_density(c)		(cell_gas_metal_density_II(c)+cell_gas_metal_density_Ia(c))
     #else
       #define num_enrichment_species		1
@@ -166,7 +176,7 @@
 
   #ifdef BLASTWAVE_FEEDBACK
     #define HVAR_BLASTWAVE_TIME			(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+num_enrichment_species)
-    #define cell_blastwave_time(c)		(cell_vars[c][HVAR_BLASTWAVE_TIME])
+    #define cell_blastwave_time(c)		(cell_var(c,HVAR_BLASTWAVE_TIME))
     #define num_feedback_species	        1
   #else
     #define num_feedback_species		0
@@ -186,12 +196,12 @@
   #define num_refinement_vars			0
   #define VAR_REFINEMENT_INDICATOR		(VAR_ACCEL)
   #define VAR_REFINEMENT_DIFFUSION		(VAR_ACCEL+1)
-  #define refinement_indicator(c,x)		(cell_vars[c][VAR_ACCEL+x])
+  #define refinement_indicator(c,x)		(cell_var(c,VAR_ACCEL+x))
 #else
   #define num_refinement_vars			2
   #define VAR_REFINEMENT_INDICATOR	        (num_grav_vars+rt_num_vars+num_hydro_vars)
   #define VAR_REFINEMENT_DIFFUSION		(num_grav_vars+rt_num_vars+num_hydro_vars+1)
-  #define refinement_indicator(c,x)		(cell_vars[c][num_grav_vars+rt_num_vars+num_hydro_vars+x])
+  #define refinement_indicator(c,x)		(cell_var(c,num_grav_vars+rt_num_vars+num_hydro_vars+x))
 #endif /* GRAVITY */
 
 #define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
@@ -201,18 +211,23 @@ extern int all_vars[num_vars];
 extern int all_hydro_vars[num_hydro_vars];
 #endif /* HYDRO */
 
+
+#ifdef STATIC_MESH_DATA
 #define cell_var(c,v)	(cell_vars[c][v])
+#else  /* STATIC_MESH_DATA */
+#define cell_var(c,v)	(cell_vars[(c)*num_vars+(v)])
+#endif /* STATIC_MESH_DATA */
 
-extern float cell_vars[num_cells][num_vars];
-extern int cell_child_oct[num_cells];
+extern float CELL_VAR_ARRAY(cell_vars,num_vars);
+extern int CELL_ARRAY(cell_child_oct);
 
-extern int oct_parent_cell[num_octs];
-extern int oct_level[num_octs];
-extern int oct_neighbors[num_octs][num_neighbors];
-extern int oct_parent_root_sfc[num_octs];
-extern int oct_next[num_octs];
-extern int oct_prev[num_octs];
-extern double oct_pos[num_octs][nDim];
+extern int OCT_ARRAY(oct_parent_cell);
+extern int OCT_ARRAY(oct_level);
+extern int OCT_ARRAY2D(oct_neighbors,num_neighbors);
+extern int OCT_ARRAY(oct_parent_root_sfc);
+extern int OCT_ARRAY(oct_next);
+extern int OCT_ARRAY(oct_prev);
+extern double OCT_ARRAY2D(oct_pos,nDim);
 
 extern int next_free_oct;
 extern int free_oct_list;
@@ -264,6 +279,7 @@ int cell_contains_position( int cell, double position[nDim] );
 double compute_distance_periodic( const double *pos1, const double *pos2 );
 double compute_distance_periodic_1d( const double pos1, const double pos2 );
 double compute_displacement_periodic_1d( const double pos1, const double pos2 );
+void compute_displacement_periodic( const double *pos1, const double *pos2, double *dx12 );
 int cell_child( int c, int j );
 void oct_all_children( int oct, int child_octs[num_children] );
 void cell_all_children( int c, int child_octs[num_children] );
@@ -290,7 +306,6 @@ int tree_num_cells( int c, int level );
 #define cell_child_number(c)		((c) % num_children)
 
 /* public constant arrays (precomputed tables) */
-#ifndef GCC_COMPILER
 extern const int external_direction[num_children][nDim];
 extern const int uniform_stencil[num_stencil][nDim];
 extern const int secondary_neighbors[num_secondary_neighbors][2];
@@ -303,20 +318,5 @@ extern const int ishift[num_neighbors][nDim];
 extern const double cell_delta[num_children][nDim];
 extern const int reverse_direction[num_neighbors];
 extern const int neighbor_moves[num_children][nDim];
-#else /* GCC_COMPILER*/
-extern int external_direction[num_children][nDim];
-extern int uniform_stencil[num_stencil][nDim];
-extern int secondary_neighbors[num_secondary_neighbors][2];
-extern int tertiary_neighbors[num_tertiary_neighbors][2];
-extern int secondary_external_neighbors[num_children][nDim];
-extern int pyramid_vertices[num_children][nDim];
-extern int local[num_children][num_neighbors];
-extern int in_local_oct[num_children][num_neighbors];
-extern int ishift[num_neighbors][nDim];
-extern double cell_delta[num_children][nDim];
-extern int reverse_direction[num_neighbors];
-extern int neighbor_moves[num_children][nDim];
-#endif  /* GCC_COMPILER*/
-
 
 #endif

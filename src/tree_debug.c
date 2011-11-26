@@ -48,7 +48,7 @@ void check_map() {
 	cart_assert( proc_sfc_index[0] == 0 );
 	cart_assert( proc_sfc_index[num_procs] == num_root_cells );
 
-	MPI_Allreduce( &num_cells_per_level[min_level], &total_root_cells, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
+	MPI_Allreduce( &num_cells_per_level[min_level], &total_root_cells, 1, MPI_INT, MPI_SUM, mpi.comm.run );
 
 	cart_assert( total_root_cells == num_root_cells );
 
@@ -76,7 +76,11 @@ void check_map() {
 	/* check neighbors */
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,j,icell,sfc,neighbors,pos,ioct), shared(num_level_cells,level_cells,level,proc_sfc_index,local_proc_id,cell_child_oct,oct_neighbors,oct_level,oct_parent_cell,oct_parent_root_sfc,oct_pos,reverse_direction)
+#ifdef OPENMP_DECLARE_CONST
+#pragma omp parallel for default(none), private(i,j,icell,sfc,neighbors,pos,ioct), shared(num_level_cells,level_cells,level,proc_sfc_index,local_proc_id,cell_child_oct,oct_neighbors,oct_level,oct_parent_cell,oct_parent_root_sfc,oct_pos,size_cell_array,size_oct_array), shared(reverse_direction)
+#else  /* OPENMP_DECLARE_CONST */
+#pragma omp parallel for default(none), private(i,j,icell,sfc,neighbors,pos,ioct), shared(num_level_cells,level_cells,level,proc_sfc_index,local_proc_id,cell_child_oct,oct_neighbors,oct_level,oct_parent_cell,oct_parent_root_sfc,oct_pos,size_cell_array,size_oct_array)
+#endif /* OPENMP_DECLARE_CONST */
 		for ( k = 0; k < num_level_cells; k++ ) {
 			icell = level_cells[k];
 
@@ -162,8 +166,8 @@ void check_map() {
 			icell = level_cells[i];
 
 			for ( j = 0; j < num_vars; j++ ) {
-				max_var[j] = max( max_var[j], cell_vars[icell][j] );
-				min_var[j] = min( min_var[j], cell_vars[icell][j] );
+				max_var[j] = max( max_var[j], cell_var(icell,j) );
+				min_var[j] = min( min_var[j], cell_var(icell,j) );
 			}
 		}
 
@@ -195,7 +199,7 @@ void check_map() {
 	}
 	cart_assert( count == num_local_particles );
 
-	MPI_Allreduce( specie_count, specie_count_total, num_particle_species, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
+	MPI_Allreduce( specie_count, specie_count_total, num_particle_species, MPI_INT, MPI_SUM, mpi.comm.run );
 
 	for ( i = 0; i < num_particle_species; i++ ) {
 		cart_assert( specie_count_total[i] == particle_species_num[i] );
@@ -228,7 +232,7 @@ void check_map() {
 	}
 	cart_assert( count == num_local_particles );
 
-	MPI_Allreduce( &num_local_particles, &total_particles, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );	
+	MPI_Allreduce( &num_local_particles, &total_particles, 1, MPI_INT, MPI_SUM, mpi.comm.run );	
 
 	cart_assert( total_particles == num_particles_total );
 
@@ -246,7 +250,7 @@ void check_map() {
 	}
 	cart_assert( count == num_local_star_particles );
 
-	MPI_Allreduce( &count, &total_particles, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
+	MPI_Allreduce( &count, &total_particles, 1, MPI_INT, MPI_SUM, mpi.comm.run );
 
 	cart_assert( total_particles == particle_species_num[num_particle_species-1] );
 
@@ -337,12 +341,12 @@ void print_cell_values(int level) {
 		icell = level_cells[i];
 
 		for ( j = 0; j < num_vars; j++ ) {
-			if ( isnan(cell_vars[icell][j]) ) {
+			if ( isnan(cell_var(icell,j)) ) {
 				cart_debug("NaN found in level %u, cell %u, var %u", level, icell, j );
 			}
 
-			max_var[j] = max( max_var[j], cell_vars[icell][j] );
-			min_var[j] = min( min_var[j], cell_vars[icell][j] );
+			max_var[j] = max( max_var[j], cell_var(icell,j) );
+			min_var[j] = min( min_var[j], cell_var(icell,j) );
 		}
 	}
 

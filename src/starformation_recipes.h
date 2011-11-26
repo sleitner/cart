@@ -7,17 +7,21 @@
 #endif
 
 
-#ifdef STARFORM
+#if defined(HYDRO) && defined(STARFORM)
 
-typedef double (*StarFormationRate)(int cell);
+struct StarFormationRecipe
+{
+  void (*setup)(int level);
+  double (*rate)(int cell);
+  int id;
+  const char *name;
+};
 
-extern StarFormationRate sf_rate;
+extern const struct StarFormationRecipe *sf_recipe;
 
 void config_init_star_formation_recipes();
 void config_verify_star_formation_recipes();
 
-void setup_star_formation_recipes(int level);
-
-#endif /* STARFORM */
+#endif /* HYDRO && STARFORM */
 
 #endif

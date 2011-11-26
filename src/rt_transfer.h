@@ -21,13 +21,17 @@
 
 
 void rtInitRunTransfer();
-void rtStepBeginTransfer();
-void rtStepEndTransfer();
-void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells);
-void rtLevelUpdateTransfer(int level);
-void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com);
 
-void rtComputeAbsLevel(int level, int ncells, int *cells, int ifreq, float **abc);
+/*
+//  Initialization helper for the analysis mode
+*/
+void rtInitStepTransfer();
+
+void rtAfterAssignDensityTransfer(int level, int num_level_cells, int *level_cells);
+
+void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com);
+void rtComputeAbsLevel(int level, int num_level_cells, int *level_cells, int freq, float **abc);
+
 
 #ifdef RT_SINGLE_SOURCE
 extern int rtSingleSourceLevel;
@@ -38,6 +42,7 @@ extern double rtSingleSourcePos[nDim];
 
 struct rtGlobalValue;
 extern struct rtGlobalValue rtAvgRF[];
+extern float rtGlobalAC[];
 
 
 #endif /* RT_TRANSFER */

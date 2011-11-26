@@ -11,7 +11,7 @@
 #include "parallel.h"
 #include "particle.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -429,11 +429,6 @@ void init_blastwave(int icell)
 {
   cell_blastwave_time(icell) =  cell_gas_density(icell) * fbp_bw_phys.dt;
 }
-void check_bwtime_precision(int level)
-{
-  /* unlikely but tl and dtl are double */
-  cart_assert( (dtl[level]*units->time/constants->yr) / fbp_bw_phys.dt > 1e-6 ); 
-}
 #endif /* BLASTWAVE_FEEDBACK */
 
 double dUfact;  /* must be here to simplify OpenMP directives */
@@ -443,8 +438,9 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 {
   double dteff, phi, dU;
   double dmloss, rhor, e_old, rhofact;
-  int i;
   double delta_t = t_next - particle_t[ipart];
+  float thermal_pressure;
+  int i;
 
   /* do feedback, enrichment, etc */
   if(fbp_snII_phys.energy>0.0 || fbp_snII_phys.metals>0.0)
@@ -529,8 +525,15 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
 		cell_momentum(cell,1)*cell_momentum(cell,1) +
 		cell_momentum(cell,2)*cell_momentum(cell,2) ) /
 	cell_gas_density(cell);
+
+      /*
+      // NG: this is to allow non-thermal pressure contribution
+      */
+      thermal_pressure = max((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0);
+      cell_gas_pressure(cell) = max(0.0,cell_gas_pressure(cell)-thermal_pressure);
+
       cell_gas_internal_energy(cell) *= rhofact;
-      cell_gas_pressure(cell) *= rhofact;
+      cell_gas_pressure(cell) += thermal_pressure*rhofact;
 
 #ifdef ENRICH
       cell_gas_metal_density_II(cell) += dmloss*star_metallicity_II[ipart];

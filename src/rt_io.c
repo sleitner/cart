@@ -7,9 +7,8 @@
 
 #include "auxiliary.h"
 #include "parallel.h"
-
+#include "rt_global.h"
 #include "rt_transfer.h"
-#include "rt_utilities.h"
 
 #include "F/frt_c.h"
 
@@ -137,7 +136,7 @@ void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
 
   if(sizeof(frt_real) == sizeof(float))
     {
-      MPI_Bcast(data,n,MPI_FLOAT,MASTER_NODE,MPI_COMM_WORLD);
+      MPI_Bcast(data,n,MPI_FLOAT,MASTER_NODE,mpi.comm.run);
     }
   else
     {
@@ -154,9 +153,9 @@ void rtReadRadiationFieldData(const char *fileroot, int fortran_style)
     }
 
 #ifdef RT_SINGLE_SOURCE
-  MPI_Bcast(&rtSingleSourceLevel,1,MPI_INT,MASTER_NODE,MPI_COMM_WORLD);
-  MPI_Bcast(&rtSingleSourceValue,1,MPI_FLOAT,MASTER_NODE,MPI_COMM_WORLD);
-  MPI_Bcast(rtSingleSourcePos,nDim,MPI_DOUBLE,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(&rtSingleSourceLevel,1,MPI_INT,MASTER_NODE,mpi.comm.run);
+  MPI_Bcast(&rtSingleSourceValue,1,MPI_FLOAT,MASTER_NODE,mpi.comm.run);
+  MPI_Bcast(rtSingleSourcePos,nDim,MPI_DOUBLE,MASTER_NODE,mpi.comm.run);
 #endif
 }
 

@@ -14,7 +14,7 @@
 #include "particle.h"
 #include "timing.h"
 #include "sfc.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 #include "cell_buffer.h"
@@ -25,7 +25,7 @@ int tracer_id[num_tracers];
 int tracer_list_next[num_tracers];
 int tracer_list_prev[num_tracers];
 
-int cell_tracer_list[num_cells];
+int CELL_ARRAY(cell_tracer_list) STATIC_INIT;
 
 int num_tracer_row    = 256;
 int num_local_tracers = 0;
@@ -68,7 +68,7 @@ void init_hydro_tracers() {
 		tracer_id[i] = NULL_TRACER;
 	}
 
-#pragma omp parallel for default(none), private(i), shared(cell_tracer_list)
+#pragma omp parallel for default(none), private(i), shared(cell_tracer_list,size_cell_array)
 	for ( i = 0; i < num_cells; i++ ) {
 		cell_tracer_list[i] = NULL_TRACER;
 	}
@@ -109,7 +109,7 @@ void set_hydro_tracers( int min_tracer_level ) {
 		cart_error("num_tracers < num_leafs in set_hydro_tracers, increase num_tracers" );
 	}
 
-	MPI_Allgather( &num_leafs, 1, MPI_INT, proc_num_leafs, 1, MPI_INT, MPI_COMM_WORLD );
+	MPI_Allgather( &num_leafs, 1, MPI_INT, proc_num_leafs, 1, MPI_INT, mpi.comm.run );
 
 	id = 0;
 	for ( proc = 0; proc < local_proc_id; proc++ ) {
@@ -165,7 +165,7 @@ void set_hydro_tracers_to_particles() {
 		}
 	}
 
-	MPI_Allreduce( &num_local_tracers, &num_tracers_total, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD );
+	MPI_Allreduce( &num_local_tracers, &num_tracers_total, 1, MPI_INT, MPI_SUM, mpi.comm.run );
 
 	cart_debug("num_local_tracers = %u", num_local_tracers );
 	cart_debug("num_tracers_total = %u", num_tracers_total );
@@ -173,217 +173,9 @@ void set_hydro_tracers_to_particles() {
 }
 #endif /* PARTICLES */
 
-void move_hydro_tracers( int level ) {
-	int i, j;
-	int tracer;
-	int iter_cell;
-	int num_level_cells;
-	int *level_cells;
-	double vdt[nDim];
-	int icell, icell_orig;
-	int level1;
-	int child;
-	double pos[nDim];
-	int found;
-	int c[num_children];
-	double diff1, diff2, diff3;
-	double pt3, pd3;
-	double t1,t2,t3,d1,d2,d3;
-	double t2t1, t2d1, d2t1, d2d1;
-	double t3t2t1, t3t2d1, t3d2t1, t3d2d1;
-	double d3t2t1, d3t2d1, d3d2t1, d3d2d1;
-
-	start_time( WORK_TIMER ); 
-
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-	for ( i = 0; i < num_level_cells; i++ ) {
-		iter_cell = level_cells[i];
-
-#ifdef HYDRO_TRACERS_NGP
-		for ( j = 0; j < nDim; j++ ) {
-			vdt[j] = cell_momentum(iter_cell,j)/cell_gas_density(iter_cell) * dtl[level];
-		}
-#endif /* HYDRO_TRACERS_NGP */
-
-		tracer = cell_tracer_list[iter_cell];
-		while ( tracer != NULL_TRACER ) {
-			cart_assert( tracer >= 0 && tracer < num_tracers );
-
-#ifndef HYDRO_TRACERS_NGP
-			icell = iter_cell;
-			level1 = level;
-
-			do {
-				found = 1;
-				icell_orig = icell;
-				cart_assert( icell != NULL_OCT );
-
-				cell_center_position( icell, pos );
-
-				/* find lower leftmost cell */
-				child = 0;
-				for ( j = 0; j < nDim; j++ ) {
-					if ( tracer_x[tracer][j] >= pos[j] ) {
-						child += (1<<j);
-					}
-				}
-
-				cart_assert( child >= 0 && child < num_children );
-
-				for ( j = 0; j < nDim; j++ ) {
-					if ( neighbor_moves[child][j] == -1 ) {
-						break;
-					} else {
-						icell = cell_neighbor(icell, neighbor_moves[child][j] );
-						cart_assert( icell != NULL_OCT );
-
-						if ( cell_level(icell) != level1 ) {
-							icell = cell_parent_cell(icell_orig);
-							cart_assert( icell != NULL_OCT );
-							level1 = level1 - 1;
-							found = 0;
-							break;
-						}
-					}
-				}
-
-				if ( found ) {
-					c[0] = icell;
-					c[1] = cell_neighbor(icell,1);
-					c[2] = cell_neighbor(icell,3);
-					c[3] = cell_neighbor(c[1],3);
-					c[4] = cell_neighbor(icell,5);
-					c[5] = cell_neighbor(c[1],5);
-					c[6] = cell_neighbor(c[2],5);
-					c[7] = cell_neighbor(c[3],5);
-
-					for ( j = 1; j < num_children; j++ ) {
-						if ( cell_level(c[j]) != level1 ) {
-							icell = cell_parent_cell(icell_orig);
-							level1 = level1 - 1;
-							cart_assert( icell != NULL_OCT );
-							found = 0;
-							break;
-						}
-					}
-				}
-			} while ( !found );
-
-			cell_center_position( c[0], pos );
-
-			/* now we have the level on which this particle will move */
-			diff1 = pos[0] - tracer_x[tracer][0];
-			if ( fabs(diff1) > (double)(num_grid/2) ) {
-				if ( diff1 > 0.0 ) {
-					diff1 -= (double)(num_grid);
-				} else {
-					diff1 += (double)(num_grid);
-				}
-			}
-			d1 = fabs(diff1) * cell_size_inverse[level1];
-			cart_assert( d1 >= 0.0 && d1 <= 1.0 );
-
-			diff2 = pos[1] - tracer_x[tracer][1];
-			if ( fabs(diff2) > (double)(num_grid/2) ) {
-				if ( diff2 > 0.0 ) {
-					diff2 -= (double)(num_grid);
-				} else {
-					diff2 += (double)(num_grid);
-				}
-			}
-			d2 = fabs(diff2) * cell_size_inverse[level1];
-
-			diff3 = pos[2] - tracer_x[tracer][2];
-			if ( fabs(diff3) > (double)(num_grid/2) ) {
-				if ( diff3 > 0.0 ) {
-					diff3 -= (double)(num_grid);
-				} else {
-					diff3 += (double)(num_grid);
-				}
-			}
-			d3 = fabs(diff3) * cell_size_inverse[level1];
-
-			cart_assert( d1 >= 0.0 && d1 <= 1.0 );
-			cart_assert( d2 >= 0.0 && d2 <= 1.0 );
-			cart_assert( d3 >= 0.0 && d3 <= 1.0 );
-
-			t1   = 1.0 - d1;
-			t2   = 1.0 - d2;
-			t3   = 1.0 - d3;
-
-			cart_assert( t1 >= 0.0 && t1 <= 1.0 );
-			cart_assert( t2 >= 0.0 && t2 <= 1.0 );
-			cart_assert( t3 >= 0.0 && t3 <= 1.0 );
-
-			t2t1 = t2 * t1;
-			t2d1 = t2 * d1;
-			d2t1 = d2 * t1;
-			d2d1 = d2 * d1;
-
-			pt3 = t3*dtl[level];
-			pd3 = d3*dtl[level];
-
-			t3t2t1 = pt3 * t2t1;
-			t3t2d1 = pt3 * t2d1;
-			t3d2t1 = pt3 * d2t1;
-			t3d2d1 = pt3 * d2d1;
-			d3t2t1 = pd3 * t2t1;
-			d3t2d1 = pd3 * t2d1;
-			d3d2t1 = pd3 * d2t1;
-			d3d2d1 = pd3 * d2d1;
-
-			for ( j = 0; j < nDim; j++ ) {
-				vdt[j] =t3t2t1 * cell_momentum(c[0], j) / cell_gas_density(c[0]) +
-					t3t2d1 * cell_momentum(c[1], j) / cell_gas_density(c[1]) +
-					t3d2t1 * cell_momentum(c[2], j) / cell_gas_density(c[2]) +
-					t3d2d1 * cell_momentum(c[3], j) / cell_gas_density(c[3]) +
-					d3t2t1 * cell_momentum(c[4], j) / cell_gas_density(c[4]) +
-					d3t2d1 * cell_momentum(c[5], j) / cell_gas_density(c[5]) +
-					d3d2t1 * cell_momentum(c[6], j) / cell_gas_density(c[6]) +
-					d3d2d1 * cell_momentum(c[7], j) / cell_gas_density(c[7]);
-			}
-#endif /* HYDRO_TRACERS_NGP */
-
-			tracer_x[tracer][0] += vdt[0];
-			tracer_x[tracer][1] += vdt[1];
-			tracer_x[tracer][2] += vdt[2];
-
-			/* enforce periodic boundaries */
-			if ( tracer_x[tracer][0] < 0.0 ) {
-				tracer_x[tracer][0] += (double)(num_grid);		
-			}
-				
-			if ( tracer_x[tracer][0] >= (double)(num_grid) ) {
-				tracer_x[tracer][0] -= (double)(num_grid);
-			}
-
-			if ( tracer_x[tracer][1] < 0.0 ) {
-				tracer_x[tracer][1] += (double)(num_grid);
-			}
-
-			if ( tracer_x[tracer][1] >= (double)(num_grid) ) {
-				tracer_x[tracer][1] -= (double)(num_grid);
-			}
-
-			if ( tracer_x[tracer][2] < 0.0 ) {
-				tracer_x[tracer][2] += (double)(num_grid);
-			}
-
-			if ( tracer_x[tracer][2] >= (double)(num_grid) ) {
-				tracer_x[tracer][2] -= (double)(num_grid);
-			}
-
-			tracer = tracer_list_next[tracer];
-		}
-	}
-	cart_free( level_cells );
-
-	end_time( WORK_TIMER );
-}
-
 void update_tracer_list( int level ) {
-	int i, j, k;
-	int tracer, icell;
+	int i, k;
+	int tracer;
 	int iter_cell;
 	int num_level_cells;
 	int *level_cells;
@@ -517,9 +309,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 			recv_tracers[proc] = cart_alloc(double, tracers_page_size );
 
 			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0, 
-					MPI_COMM_WORLD, &recv_id_requests[proc] );
+					mpi.comm.run, &recv_id_requests[proc] );
 			MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, 
-					proc, 0, MPI_COMM_WORLD, &recv_tracer_requests[proc] );
+					proc, 0, mpi.comm.run, &recv_tracer_requests[proc] );
 
 			page_count[proc] = 0;
 		} else {
@@ -575,9 +367,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 
 					if ( id_count == page_size ) {
 						MPI_Isend( &send_id[num_pages_sent*page_size], page_size, MPI_INT, proc, 
-							proc_pages_sent, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+							proc_pages_sent, mpi.comm.run, &send_requests[num_send_requests++] );
 						MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracers_page_size, 
-							MPI_DOUBLE, proc, proc_pages_sent, MPI_COMM_WORLD, 
+							MPI_DOUBLE, proc, proc_pages_sent, mpi.comm.run, 
 							&send_requests[num_send_requests++] );
 
 						proc_pages_sent++;
@@ -590,19 +382,19 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 				tracer_list_free( tracer_list_to_send[proc] );
 	
 				MPI_Isend( &send_id[num_pages_sent*page_size], id_count, MPI_INT, proc, proc_pages_sent, 
-					MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					mpi.comm.run, &send_requests[num_send_requests++] );
 				MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracer_count, MPI_DOUBLE, proc, 
-					proc_pages_sent, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					proc_pages_sent, mpi.comm.run, &send_requests[num_send_requests++] );
 
 				num_pages_sent++;
 				proc_pages_sent++;
 
 			} else {
 				/* send a single empty page */
-				MPI_Isend( &send_id[page_size*num_pages_sent], 0, MPI_INT, proc, 0, MPI_COMM_WORLD, 
+				MPI_Isend( &send_id[page_size*num_pages_sent], 0, MPI_INT, proc, 0, mpi.comm.run, 
 					&send_requests[num_send_requests++] );
 				MPI_Isend( &send_tracers[tracers_page_size*num_pages_sent], 0, MPI_DOUBLE, proc, 0, 
-					MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					mpi.comm.run, &send_requests[num_send_requests++] );
 
 				num_pages_sent++;
 			}
@@ -643,9 +435,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 			if ( id_count == page_size ) {
 				page_count[proc]++;
 				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, page_count[proc], 
-						MPI_COMM_WORLD, &recv_id_requests[proc] );
+						mpi.comm.run, &recv_id_requests[proc] );
 				MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, proc, 
-						page_count[proc], MPI_COMM_WORLD, &recv_tracer_requests[proc] );
+						page_count[proc], mpi.comm.run, &recv_tracer_requests[proc] );
 			} else {
 				cart_free( recv_id[proc] );
 				cart_free( recv_tracers[proc] );
@@ -665,7 +457,6 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 void build_tracer_list() {
 	int i;
 	int icell;
-	double pos[nDim];
 
 	cart_debug("build_tracer_list()");
 
@@ -682,7 +473,6 @@ void build_tracer_list() {
 
 int tracer_alloc( int id ) {
 	int tracer;
-	int i;
 
 	if ( free_tracer_list == NULL_TRACER ) {
 		if ( num_local_tracers >= num_tracers ) {

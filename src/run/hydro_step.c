@@ -52,6 +52,7 @@ extern double blastwave_time_cut;
 
 float CELL_VAR_ARRAY(backup_hvars,num_hydro_vars-2) STATIC_INIT;
 float CELL_ARRAY(ref) STATIC_INIT;
+int CELL_ARRAY(backup_dirty) STATIC_INIT;
 
 #ifdef GRAVITY_IN_RIEMANN
 void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double g[2], double c[2], double f[num_hydro_vars-1] );
@@ -121,14 +122,7 @@ void hydro_step( int level ) {
 
 	start_time( HYDRO_TIMER );
 
-	/* zero ref's of cells on level with NO_SPLIT_NEIGHBORS */
-	hydro_copy_vars( level, COPY_ZERO_REF, COPY_NO_SPLIT_NEIGHBORS );
-
 	for ( dir = 0; dir < nDim; dir++ ) {
-		/* H_Old_to_New( Level, 2 ) in Fortran ver */
-
-		hydro_copy_vars( level, COPY, COPY_NO_SPLIT_NEIGHBORS );
-
 		start_time( WORK_TIMER );
 
 		sweep_direction = sweep_dir[level_sweep_dir[level]][dir];
@@ -152,10 +146,10 @@ void hydro_step( int level ) {
 		end_time( WORK_TIMER );
 
 		if ( dir == nDim - 1 ) {
-			hydro_copy_vars( level, RESTORE, COPY_ALL_LEAFS );
+			hydro_copy_vars( level, HYDRO_RESTORE_ALL );
 		} else {
 
-			hydro_copy_vars( level, RESTORE, COPY_NO_SPLIT_NEIGHBORS );
+			hydro_copy_vars( level, HYDRO_RESTORE_CLEAN );
 					
 			hydro_magic( level );
 			hydro_eos( level );
@@ -196,43 +190,41 @@ void hydro_sweep_1d( int level ) {
 	count = 0;
 
 	if ( level == min_level ) {
-		select_level( min_level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+		select_level( min_level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 	} else {
-		select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
+		select_level( level, CELL_TYPE_ANY_LEAF, &num_level_cells, &level_cells );
 	}
 
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_leaf( icell ) ) {
-			/* calculate neighbors */
-			L1 = cell_neighbor( icell, reverse_direction[sweep_direction]);
-			R1 = cell_neighbor( icell, sweep_direction );
+		/* calculate neighbors */
+		L1 = cell_neighbor( icell, reverse_direction[sweep_direction]);
+		R1 = cell_neighbor( icell, sweep_direction );
 
-			if ( ( cell_is_local(icell) && cell_is_leaf(R1) ) ||
-					(!cell_is_local(icell) && R1 != -1 && cell_is_local(R1) && cell_is_leaf(R1) ) ) {
+		if ( ( cell_is_local(icell) && cell_is_leaf(R1) ) ||
+				(!cell_is_local(icell) && R1 != -1 && cell_is_local(R1) && cell_is_leaf(R1) ) ) {
 
-				R2 = cell_neighbor( R1, sweep_direction );
+			R2 = cell_neighbor( R1, sweep_direction );
 
-				cell_list[count][0] = L1;
-				cell_list[count][1] = icell;
-				cell_list[count][2] = R1;
-				cell_list[count][3] = R2;
-				count++;
-			}
+			cell_list[count][0] = L1;
+			cell_list[count][1] = icell;
+			cell_list[count][2] = R1;
+			cell_list[count][3] = R2;
+			count++;
+		}
 
-			if ( ( level == min_level && !cell_is_local(L1) && cell_is_leaf(L1) ) || 
-					( L1 != -1 && cell_level(L1) == level - 1 && 
-					( cell_is_local(icell) || cell_is_local(L1) ) ) ) {
+		if ( ( level == min_level && !cell_is_local(L1) && cell_is_leaf(L1) ) || 
+				( L1 != -1 && cell_level(L1) == level - 1 && 
+				( cell_is_local(icell) || cell_is_local(L1) ) ) ) {
 
-				L2 = cell_neighbor( L1, reverse_direction[sweep_direction] );
+			L2 = cell_neighbor( L1, reverse_direction[sweep_direction] );
 
-				cell_list[count][0] = L2;
-				cell_list[count][1] = L1;
-				cell_list[count][2] = icell;
-				cell_list[count][3] = R1;
-				count++;
-			}
+			cell_list[count][0] = L2;
+			cell_list[count][1] = L1;
+			cell_list[count][2] = icell;
+			cell_list[count][3] = R1;
+			count++;
 		}
 
 		/* must be HYDRO_CHUNK_SIZE-1 since each cell can add 2 interfaces */
@@ -268,11 +260,13 @@ void hydro_sweep_1d( int level ) {
 
 				if ( cell_is_local(icell) && cell_level(icell) < level ) {
 					apply_hydro_fluxes( icell, -0.125, dxi2, f[j] );
+					backup_dirty[icell] = 1;
 				}
 
 				icell = cell_list[j][2];
 				if ( cell_is_local(icell) && cell_level(icell) < level ) {
 					apply_hydro_fluxes( icell, 0.125, dxi2, f[j] );
+					backup_dirty[icell] = 1;
 				}
 			}
 
@@ -291,94 +285,98 @@ void hydro_apply_gravity( int level ) {
 	double gravadd;
 
 	/* now we need to apply a gravity correction */
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(icell,gravadd), shared(num_level_cells,level_cells,cell_child_oct,backup_hvars,cell_vars,sweep_dimension,mj3)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_leaf(icell) ) {
-			gravadd = backup_hvar(icell,0) * cell_accel(icell,sweep_dimension);
-			backup_hvar(icell,1) += cell_accel(icell,sweep_dimension) *
-				( backup_hvar(icell,mj3) + 0.5 * gravadd );
-			backup_hvar(icell,mj3) += gravadd;
-		}
+		gravadd = backup_hvar(icell,0) * cell_accel(icell,sweep_dimension);
+		backup_hvar(icell,1) += cell_accel(icell,sweep_dimension) *
+		  ( backup_hvar(icell,mj3) + 0.5 * gravadd );
+		backup_hvar(icell,mj3) += gravadd;
 	}
 
 	cart_free( level_cells );
 }
 #endif /* GRAVITY && !GRAVITY_IN_RIEMANN */
 
-void hydro_magic( int level ) {
-	int failed = 0;
-	int i, j;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
+void hydro_magic_one_cell( int icell ) {
+	int j;
 	float average_density;
 	int neighbors[num_neighbors];
+	static int failed = 0;
 
 	double kinetic_energy;
 	double thermal_energy;
 
-	start_time( WORK_TIMER );
+	/* do density floor stuff */
+	if ( cell_gas_density(icell) < gas_density_floor ) {
+		average_density = 0.0;
+		cell_all_neighbors( icell, neighbors );
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,j,kinetic_energy,thermal_energy,average_density,neighbors), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,gas_density_floor,constants,units,failed)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
+		for ( j = 0; j < num_neighbors; j++ ) {
+			average_density += cell_gas_density( neighbors[j] );
+		}
 
-		if ( cell_is_leaf(icell) ) {
-			/* do density floor stuff */
-			if ( cell_gas_density(icell) < gas_density_floor ) {
-				average_density = 0.0;
-				cell_all_neighbors( icell, neighbors );
-	
-				for ( j = 0; j < num_neighbors; j++ ) {
-					average_density += cell_gas_density( neighbors[j] );
-				}
+		if(!failed) {
+			cart_debug("---------------------------------------------------------");
+			cart_debug("HIT DENSITY FLOOR:");
+			cart_debug("old density = %e g/cc", cell_gas_density(icell)*units->density/constants->gpercc );
+			cart_debug("new density = %e g/cc", max( average_density/(float)num_neighbors, gas_density_floor ) );
+			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature/constants->K );
+			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density/constants->barye );
+			cart_debug("v  = %e %e %e cm/s",
+					cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity/constants->cms );
+			cart_debug("---------------------------------------------------------");
+		}	
 
-				if(!failed) {
-					cart_debug("cell %u hit density floor, old density %e, new density = %e",
-					icell, cell_gas_density(icell), max( average_density/(float)num_neighbors,
-					gas_density_floor ) );
-					for ( j = 0; j < num_hydro_vars; j++ ) {
-						cart_debug("hydro var %u: %e", j, cell_hydro_variable( icell, j ) );
-					}
-				}	
+		failed = 1;
 
-				failed = 1;
+		cell_gas_density(icell) = max( average_density/(float)num_neighbors, gas_density_floor );
+	}
 
-				cell_gas_density(icell) = max( average_density/(float)num_neighbors, 
-								gas_density_floor );
-			}
+	kinetic_energy = cell_gas_kinetic_energy(icell);
+	thermal_energy = units->Emin * cell_gas_density(icell);
 
-			kinetic_energy = cell_gas_kinetic_energy(icell);
-			thermal_energy = units->Emin * cell_gas_density(icell);
-
-			cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
-			cell_gas_energy(icell) = max( cell_gas_energy(icell), thermal_energy+kinetic_energy );
+	cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
+	cell_gas_energy(icell) = max( cell_gas_energy(icell), thermal_energy+kinetic_energy );
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-			cell_electron_internal_energy(icell) = max( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
+	cell_electron_internal_energy(icell) = max( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-			for ( j = 0; j < num_chem_species; j++ ) {
-			  /* 
-			     1e-15 may be too large a number for ionic species;
-			     at least let's scale them with density and make 1e-20;
-                             Gnedin: 1e-20 is not small enough for chemistry, making it 1e-30
-			  */
-				cell_advected_variable(icell,j) = max( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
-				/* Doug had it like that:
-				cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
-				*/
-			}
-		}
+	for ( j = 0; j < num_chem_species; j++ ) {
+		/* 
+		   1e-15 may be too large a number for ionic species;
+		   at least let's scale them with density and make 1e-20;
+Gnedin: 1e-20 is not small enough for chemistry, making it 1e-30
+		 */
+		cell_advected_variable(icell,j) = max( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
+		/* Doug had it like that:
+		   cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
+		 */
 	}
-	cart_free( level_cells );
-
-	end_time( WORK_TIMER );
 }
+
+void hydro_magic( int level ) {
+    int i;
+    int icell;
+    int num_level_cells;
+    int *level_cells;
+
+    start_time( WORK_TIMER );
+
+    select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_child_oct)
+    for ( i = 0; i < num_level_cells; i++ ) {
+		hydro_magic_one_cell(level_cells[i]);
+	}
+    cart_free( level_cells );
+
+    end_time( WORK_TIMER );
+} 
 
 void hydro_eos( int level ) {
 	int i;
@@ -389,42 +387,40 @@ void hydro_eos( int level ) {
 
 	start_time( WORK_TIMER );
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants,pressureless_fluid_eos,radiation_pressure_factor)
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(i,icell,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants,pressureless_fluid_eos)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_leaf( icell) ) {
-			kinetic_energy = cell_gas_kinetic_energy(icell);
+		kinetic_energy = cell_gas_kinetic_energy(icell);
 
-			if(pressureless_fluid_eos)
-			  {
-			    cell_gas_pressure(icell) = 1e-20;
-			    cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (constants->gamma-1.0);
-			    cell_gas_energy(icell) = cell_gas_internal_energy(icell) + kinetic_energy;
-			  }
-			else
-			  {
-			    cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), 0.0 );
-			    cell_gas_energy(icell) = max( kinetic_energy, cell_gas_energy(icell) );
-			    cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
+		if(pressureless_fluid_eos)
+		  {
+		    cell_gas_pressure(icell) = 1e-20;
+		    cell_gas_internal_energy(icell) = cell_gas_pressure(icell) / (constants->gamma-1.0);
+		    cell_gas_energy(icell) = cell_gas_internal_energy(icell) + kinetic_energy;
+		  }
+		else
+		  {
+		    cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), 0.0 );
+		    cell_gas_energy(icell) = max( kinetic_energy, cell_gas_energy(icell) );
+		    cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
 
-			    /*
-			    // NG: this is done this way to ensure that 
-			    // cell_radiation_pressure(...) is not called 
-			    // at all when RP is off, since it may not be
-			    // implemented yet.
-			    */
-			    if(radiation_pressure_factor > 0.0)
-			      {
-				cell_gas_pressure(icell) += radiation_pressure_factor*cell_radiation_pressure(icell);
-			      }
+		    /*
+		    // NG: this is done this way to ensure that 
+		    // cell_radiation_pressure(...) is not called 
+		    // at all when RP is off, since it may not be
+		    // implemented yet.
+		    */
+		    if(radiation_pressure_factor > 0.0)
+		      {
+			cell_gas_pressure(icell) += radiation_pressure_factor*cell_radiation_pressure(icell);
+		      }
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-			    cell_electron_internal_energy(icell) = min( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );
+		    cell_electron_internal_energy(icell) = min( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-			  }
-		}
+		  }
 	}
 
 	cart_free( level_cells );
@@ -456,9 +452,7 @@ void qss_getcooling ( double t, double *y, void *params, double *w, double *a) {
 void adjust_internalenergy( double t, double *y, void *params ) {
   /* RL: put temperature/internal energy floor in here??? */
 	double Emin_cell = ((double *)params)[5];
-
 	if (y[0] < Emin_cell) y[0] = Emin_cell;
-
 }
 
 void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
@@ -466,16 +460,13 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	int icell;
 	double t_begin, t_end;
 	double Zlog, Hdum;
-	double Tfac, Tfac_cell, Emin_cell;
+	double Tfac, Tfac_cell, Emin_cell, blastwave_time;
 	double rhog2, nHlog;
 	double e_curr;
 	double unit_cl = units->time*pow(constants->XH*units->number_density,2.0)/units->energy_density;
 	double err[1] = { 1e-2 };
 	double params[9];
 	qss_system *sys;
-#ifdef BLASTWAVE_FEEDBACK
-	double blastwave_time;
-#endif
 
 	t_begin	= tl[level];
 	t_end = tl[level] + dtl[level];
@@ -486,7 +477,8 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	Hdum = 0.0;
 #endif
 
-	Tfac = units->temperature*constants->wmu*( constants->gamma-1 )/1.0e4;
+	/* Note: removed 10^4 K normalization since it wasn't used - DHR */
+	Tfac = units->temperature*constants->wmu*( constants->gamma-1 )/constants->K;
 
 #ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
@@ -508,7 +500,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 		    cell_gas_gamma(icell) = constants->gamma;
 		    rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 		    /* take code density -> log10(n_H [cm^-3]) */
-		    nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell));
+		    nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
 #ifdef ENRICH
 		    Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
 #else
@@ -613,7 +605,9 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	Hdum = 0.0;
 #endif
 
-	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/1.0e4;
+	/* Note: removed 10^4 K term since it isn't used - DHR */
+	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/constants->K;
+
 #ifdef BLASTWAVE_FEEDBACK
 #pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
 #else
@@ -630,7 +624,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 			cell_gas_gamma(icell) = constants->gamma;
 			rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 			/* take code density -> log10(n_H [cm^-3]) */
-			nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell));
+			nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
 
 #ifdef ENRICH
 			Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
@@ -706,9 +700,9 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	Hdum = 0.0;
 #endif
 
-	nfact = 1.0e5*units->number_density*(1.0/constants->wmu - 1.0/constants->wmu_e);
-	Tefact = units->temperature*constants->wmu_e*(constants->gamma-1)/1.0e7;
-	dEfact = pow(Tefact,-1.5)*units->time/(constants->yr*6.3e8)/40.0/(1.0-constants->wmu/constants->wmu_e);  
+	nfact = 1.0e5*units->number_density*(1.0/constants->wmu - 1.0/constants->wmu_e)/constants->cc;
+	Tefact = units->temperature*constants->wmu_e*(constants->gamma-1)/1.0e7/constants->K;
+	dEfact = pow(Tefact,-1.5)*units->time/(constants->yr*6.3e8)/40.0/(1.0-constants->wmu/constants->wmu_e)/constants->erg; 
 
 #pragma omp parallel default(none), shared(nfact,Tefact,dEfact,Hdum,cell_vars,t_begin,t_end,num_level_cells,level_cells,cell_child_oct,err,constants), private(i,icell,e_equil,e_curr,Te7,n_5,logcoulomb,dEfact_cell,params,sys)
 	{
@@ -757,32 +751,30 @@ void hydro_advance_internalenergy( int level ) {
 
 	div_dt = dtl[level] / 3.0;
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(icell,i,kinetic_energy,energy,gamma1,div), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,ref,div_dt)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		if ( cell_is_leaf(icell) ) {
-			/* P dV term */
-			gamma1 = cell_gas_gamma(icell) - 1.0;
-			div = 1.0 + gamma1 * ref[icell] * div_dt;
-			cell_gas_internal_energy(icell) = max( 1.0e-30, cell_gas_internal_energy(icell)*div*div*div);
+		/* P dV term */
+		gamma1 = cell_gas_gamma(icell) - 1.0;
+		div = 1.0 + gamma1 * ref[icell] * div_dt;
+		cell_gas_internal_energy(icell) = max( 1.0e-30, cell_gas_internal_energy(icell)*div*div*div);
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-			cell_electron_internal_energy(icell) = max( 1.0e-30, cell_electron_internal_energy(icell)*div*div*div );
+		cell_electron_internal_energy(icell) = max( 1.0e-30, cell_electron_internal_energy(icell)*div*div*div );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-			/* synchronize internal and total energy */
-			kinetic_energy = cell_gas_kinetic_energy(icell);
-			energy = cell_gas_energy(icell);
+		/* synchronize internal and total energy */
+		kinetic_energy = cell_gas_kinetic_energy(icell);
+		energy = cell_gas_energy(icell);
 
-			/* we trust energy over internal energy since it's computed using
-			 * the riemann solver rather than just advection equation, so if
-			 * internal energy is sufficiently large then compute it from 
-			 * e = E - rho * v**2 /2 */
-			if ( ( energy - kinetic_energy) / energy > 1e-3 ) {
-				cell_gas_internal_energy(icell) = energy - kinetic_energy;
-			}
+		/* we trust energy over internal energy since it's computed using
+		 * the riemann solver rather than just advection equation, so if
+		 * internal energy is sufficiently large then compute it from 
+		 * e = E - rho * v**2 /2 */
+		if ( ( energy - kinetic_energy) / energy > 1e-3 ) {
+			cell_gas_internal_energy(icell) = energy - kinetic_energy;
 		}
 	}
 
@@ -821,23 +813,21 @@ void hydro_split_update( int level ) {
 	if ( level < max_level ) {
 		start_time( WORK_TIMER );
 
-		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+		select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_REFINED, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell,j,k,children,new_var), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
-			if ( cell_is_refined(icell) ) {
-				/* average over children */
-				cell_all_children( icell, children );
+			/* average over children */
+			cell_all_children( icell, children );
 
-				for ( j = 0; j < num_hydro_vars; j++ ) {
-					new_var = 0.0;
-					for ( k = 0; k < num_children; k++ ) {
-						new_var += cell_hydro_variable(children[k], j);
-					}
-
-					cell_hydro_variable(icell, j) = new_var*factor;	
+			for ( j = 0; j < num_hydro_vars; j++ ) {
+				new_var = 0.0;
+				for ( k = 0; k < num_children; k++ ) {
+					new_var += cell_hydro_variable(children[k], j);
 				}
+
+				cell_hydro_variable(icell, j) = new_var*factor;	
 			}
 		}
 		cart_free( level_cells );
@@ -849,20 +839,20 @@ void hydro_split_update( int level ) {
 void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[num_hydro_vars-1] ) {
 	int j;
 
-	backup_hvar(icell,0) += factor*f[0];
-	backup_hvar(icell,1) += factor*f[4];
-	backup_hvar(icell,mj3) += factor*f[1];
-	backup_hvar(icell,mj4) += factor*f[2];
-	backup_hvar(icell,mj5) += factor*f[3];
-	backup_hvar(icell,5) += factor*f[5];
+        backup_hvar(icell,0) += factor*f[0];
+        backup_hvar(icell,1) += factor*f[4];
+        backup_hvar(icell,mj3) += factor*f[1];
+        backup_hvar(icell,mj4) += factor*f[2];
+        backup_hvar(icell,mj5) += factor*f[3];
+        backup_hvar(icell,5) += factor*f[5];
 	ref[icell] += factor*f[6]*dxi_factor;
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-	backup_hvar(icell,6) += factor*f[7];
+        backup_hvar(icell,6) += factor*f[7];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 	for ( j = num_hydro_vars-num_chem_species-2; j < num_hydro_vars-2; j++ ) {
-		backup_hvar(icell,j) += factor*f[j+1];
+                backup_hvar(icell,j) += factor*f[j+1];
 	}
 }
 
@@ -983,10 +973,9 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
 	
-void hydro_copy_vars( int level, int direction, int copy_cells ) {
+void hydro_copy_vars( int level, int direction ) {
 	int i, j;
 	int neighbors[num_neighbors];
-	int do_copy;
 	int icell;
 	int num_level_cells;
 	int *level_cells;
@@ -997,75 +986,76 @@ void hydro_copy_vars( int level, int direction, int copy_cells ) {
 
 	start_time( WORK_TIMER );
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,j,neighbors,do_copy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,copy_cells,direction,backup_hvars,ref)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 
-		if ( cell_is_leaf(icell) ) {
-		  do_copy = 1;
+	if ( direction == HYDRO_COPY_ALL ) {
+#pragma omp parallel for default(none), private(i,icell,j,neighbors), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,direction,backup_hvars,backup_dirty,ref)
+		for ( i = 0; i < num_level_cells; i++ ) {
+			icell = level_cells[i];
 
-			if ( copy_cells != COPY_ALL_LEAFS ) {
-				cell_all_neighbors( icell, neighbors );
-	
-				if ( copy_cells == COPY_SPLIT_NEIGHBORS ) {
-					do_copy = 0;
-					for ( j = 0; j < num_neighbors; j++ ) {
-						if ( cell_is_refined(neighbors[j]) ) {
-							do_copy = 1;
-							break;
-						}
-					}
-				} else if ( copy_cells == COPY_NO_SPLIT_NEIGHBORS ) {
-					for ( j = 0; j < num_neighbors; j++ ) {
-						if ( cell_is_refined(neighbors[j]) ) {
-							do_copy = 0;
-							break;
-						}
-					}
-				}
+			backup_hvar(icell,0) = cell_gas_density(icell);
+			backup_hvar(icell,1) = cell_gas_energy(icell);
+			backup_hvar(icell,2) = cell_momentum(icell,0);
+			backup_hvar(icell,3) = cell_momentum(icell,1);
+			backup_hvar(icell,4) = cell_momentum(icell,2);
+			backup_hvar(icell,5) = cell_gas_internal_energy(icell);
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+			backup_hvar(icell,6) = cell_electron_internal_energy(icell);
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
+			for ( j = 0; j < num_chem_species; j++ ) {
+			  backup_hvar(icell,num_hydro_vars-num_chem_species-2+j) = cell_advected_variable(icell,j);
 			}
 
-			if ( do_copy ) {
-				if ( direction == COPY || direction == COPY_ZERO_REF ) {
-					backup_hvar(icell,0) = cell_gas_density(icell);
-					backup_hvar(icell,1) = cell_gas_energy(icell);
-					backup_hvar(icell,2) = cell_momentum(icell,0);
-					backup_hvar(icell,3) = cell_momentum(icell,1);
-					backup_hvar(icell,4) = cell_momentum(icell,2);
-					backup_hvar(icell,5) = cell_gas_internal_energy(icell);
+			ref[icell] = 0.0;
+			backup_dirty[icell] = 0;
+		}
+	} else if ( direction == HYDRO_RESTORE_ALL ) {
+#pragma omp parallel for default(none), private(i,icell,j), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,direction,backup_hvars,ref)
+		for ( i = 0; i < num_level_cells; i++ ) {
+			icell = level_cells[i];
 
+			cell_gas_density(icell) = max( 1.0e-30, backup_hvar(icell,0) );
+			cell_gas_energy(icell) = max( 1.0e-30, backup_hvar(icell,1) );
+			cell_momentum(icell,0) = backup_hvar(icell,2);
+			cell_momentum(icell,1) = backup_hvar(icell,3);
+			cell_momentum(icell,2) = backup_hvar(icell,4);
+			cell_gas_internal_energy(icell) = max( 1.0e-30, backup_hvar(icell,5) );
+                                        
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-					backup_hvar(icell,6) = cell_electron_internal_energy(icell);
+			cell_electron_internal_energy(icell) = backup_hvar(icell,6);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-					for ( j = 0; j < num_chem_species; j++ ) {
-						backup_hvar(icell,num_hydro_vars-num_chem_species-2+j) = cell_advected_variable(icell,j);
-					}
-		
-					if ( direction == COPY_ZERO_REF ) {
-						ref[icell] = 0.0;
-					}
-				} else {
-					cell_gas_density(icell) = max( 1.0e-30, backup_hvar(icell,0) );
-					cell_gas_energy(icell) = max( 1.0e-30, backup_hvar(icell,1) );
-					cell_momentum(icell,0) = backup_hvar(icell,2);
-					cell_momentum(icell,1) = backup_hvar(icell,3);
-					cell_momentum(icell,2) = backup_hvar(icell,4);
-					cell_gas_internal_energy(icell) = max( 1.0e-30, backup_hvar(icell,5) );
-					
+			for ( j = 0; j < num_chem_species; j++ ) {
+				cell_advected_variable(icell,j) = max( 1.0e-30, 
+						backup_hvar(icell,num_hydro_vars-num_chem_species-2+j) );
+			}
+		}
+	} else if ( direction == HYDRO_RESTORE_CLEAN ) {
+#pragma omp parallel for default(none), private(i,icell,j), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,direction,backup_hvars,ref,backup_dirty)
+		for ( i = 0; i < num_level_cells; i++ ) {
+			icell = level_cells[i];
+
+			if ( !backup_dirty[icell] ) {                                                                                                           
+				cell_gas_density(icell) = max( 1.0e-30, backup_hvar(icell,0) );
+				cell_gas_energy(icell) = max( 1.0e-30, backup_hvar(icell,1) );
+				cell_momentum(icell,0) = backup_hvar(icell,2);
+				cell_momentum(icell,1) = backup_hvar(icell,3);
+				cell_momentum(icell,2) = backup_hvar(icell,4);
+				cell_gas_internal_energy(icell) = max( 1.0e-30, backup_hvar(icell,5) );
+                                        
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-					cell_electron_internal_energy(icell) = backup_hvar(icell,6);
+				cell_electron_internal_energy(icell) = backup_hvar(icell,6);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
-					for ( j = 0; j < num_chem_species; j++ ) {
-						cell_advected_variable(icell,j) = max( 1.0e-30, 
-											backup_hvar(icell,num_hydro_vars-num_chem_species-2+j) );
-					}
+				for ( j = 0; j < num_chem_species; j++ ) {
+					cell_advected_variable(icell,j) = max( 1.0e-30, 
+							backup_hvar(icell,num_hydro_vars-num_chem_species-2+j) );
 				}
 			}
 		}
-	}
+	}		
 
 	cart_free( level_cells );
 

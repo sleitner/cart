@@ -1,15 +1,14 @@
 #include "config.h"
 
-#include <mpi.h>
+
+#include "auxiliary.h"
+#include "parallel.h"
+#include "timing.h"
 
 #ifdef MPE_LOG
 #include <mpe.h>
 #endif
 
-#include "parallel.h"
-#include "auxiliary.h"
-#include "logging.h"
-#include "timing.h"
 
 timer timers[num_refinement_levels+2][NUM_TIMERS];
 int current_timer_level;
@@ -130,7 +129,7 @@ void init_timers() {
 			MPE_Describe_state( event[2*i], event[2*i+1], timer_name[i][0], timer_name[i][1] );
 		}
 	}
-	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Barrier(mpi.comm.run);
 	MPE_Start_log();
 #endif /* MPE_LOG */
 }
@@ -280,3 +279,51 @@ void end_timing_level( int level ) {
 	current_timer_level = level-1;
 }
 
+
+#ifdef DEBUG
+
+#include <stdio.h>
+#include "io.h"
+
+double offset = 0.0;
+unsigned long record = 0;
+extern int current_step_level;
+
+void debug_breakpoint(int timerid, int start, const char *file, int line)
+{
+  char filename[256];
+  FILE *f = 0;
+  
+  sprintf(filename,"%s/debug.%03u.log",logfile_directory,local_proc_id);
+  if(timerid < 0)
+    {
+      offset = MPI_Wtime();
+      f = fopen(filename,"w");
+      if(f != 0) fclose(f);
+      return;
+    }
+  
+  f = fopen(filename,"a");
+  if(f != 0)
+    {
+      switch(start)
+	{
+	case 0:
+	  {
+	    fprintf(f,"%10lu/L=%2d: %s @ %d: %s done at %f sec.\n",record++,current_step_level,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
+	    break;
+	  }
+	case 1:
+	  {
+	    fprintf(f,"%10lu/L=%2d: %s @ %d: %s started at %f sec.\n",record++,current_step_level,file,line,timer_name[timerid][0],MPI_Wtime()-offset);
+	    break;
+	  }
+	default:
+	  {
+	    fprintf(f,"%10lu/L=%2d: %s @ %d: marker #%d set at %f sec.\n",record++,current_step_level,file,line,timerid,MPI_Wtime()-offset);
+	  }
+	}
+      fclose(f);
+    }
+}
+#endif

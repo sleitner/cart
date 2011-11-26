@@ -131,6 +131,13 @@ double inv_dPlus(double dplus);
 #define tphys_from_tcode(tcode)  tPhys(inv_tCode(tcode))
 #define dplus_from_tcode(tcode)  dPlus(inv_tCode(tcode))
 
+/*
+//  Hubble parameter in km/s/Mpc; defined as macro so that it can be
+//  undefined if needed to avoid the name clash.
+*/
+double cosmology_mu(double a);
+#define Hubble(a) (100*cosmology->h*cosmology_mu(a)/(a*a))
+
 #endif /* COSMOLOGY */
 
 #endif /* __COSMOLOGY_H__ */

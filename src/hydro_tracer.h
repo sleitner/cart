@@ -15,7 +15,7 @@ extern int tracer_id[num_tracers];
 extern int tracer_list_next[num_tracers];
 extern int tracer_list_prev[num_tracers];
 
-extern int cell_tracer_list[num_cells];
+extern int CELL_ARRAY(cell_tracer_list);
 
 extern int num_tracer_row;
 extern int num_local_tracers;
@@ -39,7 +39,6 @@ void set_hydro_tracers( int min_tracer_level );
 void set_hydro_tracers_to_particles();
 #endif /* PARTICLES */
 
-void move_hydro_tracers( int level );
 void update_tracer_list( int level );
 void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int trade_level );
 void build_tracer_list();

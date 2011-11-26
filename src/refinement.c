@@ -7,21 +7,24 @@ float refinement_volume_max[nDim] = { num_grid, num_grid, num_grid };
 
 #ifdef REFINEMENT
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "control_parameter.h"
+#include "hydro.h"
 #include "iterators.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
 #include "timing.h"
 #include "tree.h"
+#include "units.h"
 
 
-int cells_to_refine[num_octs];
+int OCT_ARRAY(cells_to_refine) STATIC_INIT;
 int num_cells_to_refine;
 
 int refinement_is_static        = 0;
@@ -38,6 +41,12 @@ float reaction_increment	= 0.1;
 #ifdef MOMENTUM_DIFFUSION 
 float momentum_increment	= 0.4;
 #endif /* MOMENTUM_DIFFUSION */
+
+#ifdef COSMOLOGY
+double fixed_proper_resolution = 0.0;
+#endif /* COSMOLOGY */
+
+double G_code;
 
 void config_init_refinement()
 {
@@ -60,6 +69,10 @@ void config_init_refinement()
 #ifdef MOMENTUM_DIFFUSION
   control_parameter_add2(control_parameter_float,&momentum_increment,"ref:momentum-increment","momentum_increment","--ask Doug--.");
 #endif /* MOMENTUM_DIFFUSION */
+
+#ifdef COSMOLOGY
+  control_parameter_add2(control_parameter_double,&fixed_proper_resolution,"fixed-proper-resolution","fixed_proper_resolution","if set to a non-zero value, this parameter sets spatial resolution (in physical kpc, no h-ies) to be (approximately) fixed in proper units; refinement and de-refinement are adjusted to ensure that the cell size of finest resolved level is within a factor of 2 of this value, irrespectively of the values of refinement indicators.");
+#endif /* COSMOLOGY */
 
   config_init_refinement_indicators();
 }
@@ -87,6 +100,10 @@ void config_verify_refinement()
   cart_assert(momentum_increment > 0.0);
 #endif 
 
+#ifdef COSMOLOGY
+  cart_assert(!(fixed_proper_resolution < 0.0));
+#endif /* COSMOLOGY */
+
   config_verify_refinement_indicators();
 }
 
@@ -98,6 +115,7 @@ void modify( int level, int op ) {
 	int icell;
 	int num_level_cells;
 	int *level_cells;
+	float saved_join_tolerance;
 
 	const int diffuse_vars[1] = { VAR_REFINEMENT_DIFFUSION };
 	const int indicator_var[1] = { VAR_REFINEMENT_INDICATOR };
@@ -110,9 +128,46 @@ void modify( int level, int op ) {
 		return;
 	}
 
+	if ( op!=OP_REFINE && op!=OP_DEREFINE && op!=OP_FORCE_DEREFINE && op!=(OP_REFINE|OP_DEREFINE) ) {
+		cart_error("Obsolete usage for modify(...); parameter <op> should be a combination of switches OP_REFINE and/or OP_DEREFINE");
+	}
+
+#ifdef COSMOLOGY
+	if(op&OP_REFINE && fixed_proper_resolution>1.0e-100)
+	  {
+	    /*
+	    //  First check that we can do that at all
+	    */
+	    if(units->length*cell_size[min_level]/constants->kpc < fixed_proper_resolution)
+	      {
+		cart_error("The size of the top grid is too small to maintain the fixed proper resolution of %le kpc",fixed_proper_resolution);
+	      }
+	    if(units->length*cell_size[max_level]/constants->kpc > fixed_proper_resolution)
+	      {
+		cart_error("The max_level is too small to maintain the fixed proper resolution of %le kpc",fixed_proper_resolution);
+	      }
+	    /*
+	    //  If we are trying to refine below the resolution limit, 
+	    //  unset the refinement flag
+	    */
+	    if(units->length*cell_size[level]/constants->kpc < fixed_proper_resolution)
+	      {
+		op = OP_FORCE_DEREFINE; /* if we, say, started with the over-refined restart... */
+#ifdef HYDRO
+		if(pressure_floor_min_level>-1) pressure_floor_min_level = level;
+#endif /* HYDRO */
+	      }
+	  }
+#endif /* COSMOLOGY */
+
 	start_time( REFINEMENT_TIMER );
 
 	start_time( WORK_TIMER );
+
+	/*
+	//  Gravitational constant in code units
+	*/
+	G_code = constants->G*units->mass*pow(units->time,2.0)/pow(units->length,3.0);
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 #pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,level)
@@ -171,11 +226,15 @@ void modify( int level, int op ) {
 	end_time( MODIFY_UPDATE_TIMER );
 
 	/* do rest serially */
-	refine( level );
-	
-	if ( op ) {
-		derefine( level );
-	}
+	if ( op & OP_REFINE ) refine( level );
+	if ( op & OP_DEREFINE ) derefine( level );
+	if ( op & OP_FORCE_DEREFINE )
+	  {
+	    saved_join_tolerance = join_tolerance;
+	    join_tolerance = 1.1;
+	    derefine( level );
+	    join_tolerance = saved_join_tolerance;
+	  }
 
 	end_time( REFINEMENT_TIMER );
 }

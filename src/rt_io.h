@@ -5,7 +5,6 @@
 #error "Missing config.h include."
 #endif
 
-
 #ifdef RADIATIVE_TRANSFER
 
 #ifndef RT_CONFIGURED

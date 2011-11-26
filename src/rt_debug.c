@@ -10,7 +10,7 @@
 //
 */
 
-struct rtDebugData rt_debug = { 0, 0, { 0.0, 0.0, 0.0 } };
+struct rtDebugData rt_debug = { 0, { 0.0, 0.0, 0.0 } };
 
 
 #endif /* RADIATIVE_TRANSFER && RT_DEBUG */

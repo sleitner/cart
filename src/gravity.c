@@ -12,16 +12,22 @@
 #include "gravity.h"
 #include "iterators.h"
 #include "parallel.h"
-#include "poisson.h"
 #include "sfc.h"
-#include "timestep.h"
+#include "root_grid_fft.h"
+#include "times.h"
 #include "timing.h"
 #include "tree.h"
 #include "units.h"
 
+#include "fft/fft3.h"
+
 
 int num_smooth_iterations = 60;   // used to be called MAX_SOR_ITER
 float spectral_radius = 0.95;     // used to be called rhoJ
+
+
+void root_grid_fft_get_cell_ijk(int cell, int ijk[nDim]);
+void root_grid_fft_gravity_worker(const root_grid_fft_t *config, int id, fft_t *fft_source, fft_t *fft_output, int flags);
 
 
 void config_init_gravity()
@@ -36,85 +42,24 @@ void config_verify_gravity()
   cart_assert(num_smooth_iterations > 0); 
 
   cart_assert(spectral_radius>0.0 && spectral_radius<1.0);
-
 }
 
 
 void solve_poisson( int level, int flag ) {
+	const int potential_vars[1] = { VAR_POTENTIAL };
 
 	cart_assert( level >= min_level && level <= max_level );
 
 	start_time( GRAVITY_TIMER );
 
 	if ( level == min_level ) {
-		potential();
+		root_grid_fft_exec(VAR_TOTAL_MASS,1,potential_vars,root_grid_fft_gravity_worker);
 	} else {
 		relax( level, flag );
 	}
 
 	end_time( GRAVITY_TIMER );
 }
-
-#ifdef HYDRO
-
-void copy_potential( int level ) {
-	int i;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
-
-	start_time( GRAVITY_TIMER );
-	start_time( WORK_TIMER );
-
-	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
-		cell_potential_hydro(icell) = cell_potential(icell);
-	}
-	cart_free( level_cells );
-
-	end_time( WORK_TIMER );
-	end_time( GRAVITY_TIMER );
-}
-
-void interpolate_potential( int level ) {
-	int i;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
-	double dtdt2;
-
-	start_time( GRAVITY_TIMER );
-	start_time( WORK_TIMER );
-
-	/*
-	//  NG: dtl_old may not be set in the first time-step, but then
-	//  cell_potential = cell_potential_hydro
-	*/
-	if(dtl_old[level] > 0.1*dtl[level])
-	  {
-	    dtdt2 = 0.5 * dtl[level]/dtl_old[level];
-	  }
-	else
-	  {
-	    dtdt2 = 0;
-	  }
-
-	select_level( level, CELL_TYPE_ANY, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,dtdt2)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
-
-		cell_potential_hydro(icell) = cell_potential(icell) +
-			( cell_potential(icell) - cell_potential_hydro(icell) ) * dtdt2;
-	}
-	cart_free( level_cells );
-
-	end_time( WORK_TIMER );
-	end_time( GRAVITY_TIMER );
-}
-#endif /* HYDRO */
 
 void relax( int level, int flag ) {
 
@@ -243,7 +188,7 @@ void smooth( int level ) {
 			send_indices[proc] = cart_alloc(int, num_send_octs[proc] );
 
 			MPI_Irecv( send_indices[proc], num_send_octs[proc], MPI_INT,
-				proc, 0, MPI_COMM_WORLD, &requests[proc] );
+				proc, 0, mpi.comm.run, &requests[proc] );
 		} else {
 			requests[proc] = MPI_REQUEST_NULL;
 		}
@@ -251,7 +196,7 @@ void smooth( int level ) {
 
 	ind = cart_alloc(int, num_octs );
 
-#pragma omp parallel for default(none), private(i), shared(ind)
+#pragma omp parallel for default(none), private(i), shared(ind,size_oct_array)
 	for ( i = 0; i < num_octs; i++ ) {
 		ind[i] = -1;
 	}
@@ -339,7 +284,7 @@ void smooth( int level ) {
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_recv_octs[proc] > 0 ) {
 			MPI_Isend( send_recv_indices[proc], num_recv_octs[proc], MPI_INT,
-				proc, 0, MPI_COMM_WORLD, &requests[num_procs+proc] );
+				proc, 0, mpi.comm.run, &requests[num_procs+proc] );
 		} else {
 			requests[num_procs+proc] = MPI_REQUEST_NULL;
 		}
@@ -543,35 +488,35 @@ void smooth( int level ) {
 
 		/* child 0 (red) */
 		phi_red[j]              = cell_potential(child);
-		rho_red[j]              = cell_density(child);
+		rho_red[j]              = cell_total_mass(child);
 
 		/* child 1 (black) */
 		phi_black[j]            = cell_potential(child+1);
-		rho_black[j]		= cell_density(child+1);
+		rho_black[j]		= cell_total_mass(child+1);
 
 		/* child 2 (black) */
 		phi_black[j+1]          = cell_potential(child+2);
-		rho_black[j+1]          = cell_density(child+2);
+		rho_black[j+1]          = cell_total_mass(child+2);
 
 		/* child 3 (red) */
 		phi_red[j+1]            = cell_potential(child+3);
-		rho_red[j+1]            = cell_density(child+3);
+		rho_red[j+1]            = cell_total_mass(child+3);
 
 		/* child 4 (black) */
 		phi_black[j+2]          = cell_potential(child+4);
-		rho_black[j+2]          = cell_density(child+4);
+		rho_black[j+2]          = cell_total_mass(child+4);
 
 		/* child 5 (red) */
 		phi_red[j+2]            = cell_potential(child+5);
-		rho_red[j+2]            = cell_density(child+5);
+		rho_red[j+2]            = cell_total_mass(child+5);
 
 		/* child 6 (red) */
 		phi_red[j+3]            = cell_potential(child+6);
-		rho_red[j+3]            = cell_density(child+6);
+		rho_red[j+3]            = cell_total_mass(child+6);
 
 		/* child 7 (black) */
 		phi_black[j+3]          = cell_potential(child+7);
-		rho_black[j+3]          = cell_density(child+7);
+		rho_black[j+3]          = cell_total_mass(child+7);
 	}
 
 	end_time( WORK_TIMER );
@@ -616,9 +561,9 @@ void smooth( int level ) {
 			packed_black[proc] = cart_alloc(double, (num_children/2)*num_send_octs[proc] );
 
 			MPI_Send_init( packed_red[proc], (num_children/2)*num_send_octs[proc], MPI_DOUBLE, proc, 0,
-					MPI_COMM_WORLD, &send_requests[num_sendrequests++] );
+					mpi.comm.run, &send_requests[num_sendrequests++] );
 			MPI_Send_init( packed_black[proc], (num_children/2)*num_send_octs[proc], MPI_DOUBLE, proc, 1, 
-					MPI_COMM_WORLD, &send_requests[num_sendrequests++]);
+					mpi.comm.run, &send_requests[num_sendrequests++]);
 		}
                                                                                                                                                             
 		if ( num_recv_octs[proc] > 0 ) {
@@ -626,9 +571,9 @@ void smooth( int level ) {
 			buffer_black[proc] = cart_alloc(double, (num_children/2)*num_recv_octs[proc] );
 			
 			MPI_Recv_init( buffer_red[proc], (num_children/2)*num_recv_octs[proc], MPI_DOUBLE,
-					proc, 0, MPI_COMM_WORLD, &recv_requests[num_recvrequests++] );
+					proc, 0, mpi.comm.run, &recv_requests[num_recvrequests++] );
 			MPI_Recv_init( buffer_black[proc], (num_children/2)*num_recv_octs[proc], MPI_DOUBLE,
-					proc, 1, MPI_COMM_WORLD, &recv_requests[num_recvrequests++] );
+					proc, 1, mpi.comm.run, &recv_requests[num_recvrequests++] );
 		}
 	}
 
@@ -816,7 +761,7 @@ void smooth( int level ) {
 	/* write back to cell array */
 	start_time( WORK_TIMER );
 
-#pragma omp parallel for default(none), private(i,j,child), shared(num_local_blocks,oct_list,cell_vars,phi_red,phi_black)
+#pragma omp parallel for default(none), private(i,j,child), shared(num_local_blocks,oct_list,cell_vars,phi_red,phi_black,size_oct_array,size_cell_array)
 	for ( i = 0; i < num_local_blocks; i++ ) {
 		j = 4*i;
 		cart_assert( oct_list[i] >= 0 && oct_list[i] < num_octs );
@@ -926,141 +871,56 @@ void restrict_to_level( int level ) {
 	end_time( GRAVITY_TIMER );
 }
 
-/* compute potential on min_level */
-void potential() {
-	const int potential_vars[1] = { VAR_POTENTIAL };
-	
-	top_level_fft(VAR_DENSITY,1,potential_vars,poisson);
-}
 
-#ifdef HYDRO 
-void compute_accelerations_hydro( int level ) {
-	int i, j;
-	double a2half;
-	int neighbors[num_neighbors];
-	int L1, R1;
-	double phi_l, phi_r;
-#ifdef GRAVITY_IN_RIEMANN
-	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
-#endif
+void root_grid_fft_gravity_worker(const root_grid_fft_t *config, int id, fft_t *fft_source, fft_t *fft_output, int flags)
+{
+  int i, j, k, jk[2];
+  double G, G_jk;
+  double green[num_grid];
+  double lambda;
+  double trphi;
+  size_t offset;
 
-	int icell;
-	int num_level_cells;
-	int *level_cells;
+  cart_assert(config->bbox[0]==0 && config->bbox[1]==num_grid);
 
-	start_time( GRAVITY_TIMER );
-	start_time( HYDRO_ACCEL_TIMER );
-	start_time( WORK_TIMER );
+  trphi = -1.5*units->potential/(num_grid*num_grid*num_grid);
 
-#ifdef COSMOLOGY
-	a2half = abox_from_tcode( tl[level] + 0.5*dtl[level] );
-	a2half = -0.5*dtl[level]*cell_size_inverse[level]*a2half*a2half;
-#else
-	a2half = -0.5*dtl[level]*cell_size_inverse[level];
-#endif 
+  /* precompute G(k) */
+  lambda = M_PI/num_grid;
+#pragma omp parallel for default(none), private(i), shared(green,lambda)
+  for(i=0; i<num_grid; i++)
+    {
+      green[i] = sin(lambda*i)*sin(lambda*i);
+    }
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half, local)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
+#pragma omp parallel for default(none), private(i,j,k,G,G_jk,offset,jk), shared(config,green,fft_source,fft_output,flags,trphi)
+  for(k=0; k<config->dims[2]; k++)
+    {
+      for(j=0; j<config->dims[1]; j++)
+	{
+	  offset = fft3_jk_index(j,k,jk,flags);
+	  if(offset == -1) continue;
 
-		cell_all_neighbors( icell, neighbors );
-		for ( j = 0; j < nDim; j++ ) {
-			L1 = neighbors[2*j];
-			R1 = neighbors[2*j+1];
+	  G_jk = green[jk[0]] + green[jk[1]];
+	  offset *= config->dims[0];
 
-			if ( cell_level(L1) == level && cell_level(R1) == level ) {
-				phi_l = cell_potential_hydro(L1);
-				phi_r = cell_potential_hydro(R1);
-			} else {
-				if ( cell_level(L1) < level ) {
-					phi_l = cell_interpolate( L1, local[cell_child_number(icell)][2*j], VAR_POTENTIAL );
-					phi_r = cell_potential(R1);
-				} else {
-					phi_l = cell_potential(L1);
-					phi_r = cell_interpolate( R1, local[cell_child_number(icell)][2*j], VAR_POTENTIAL );
-				}
-			}
-
-			cell_accel( icell, j ) = (float)(a2half * ( phi_r - phi_l ) );
+	  for(i=0; i<=num_grid/2; i++)
+	    {
+	      if(i==0 && jk[0]==0 && jk[1]==0)
+		{
+		  G = 0.0;
 		}
-	}
-	cart_free( level_cells );
-
-	end_time( WORK_TIMER );
-
-#ifdef GRAVITY_IN_RIEMANN
-	/* this only gets called if we pass gravity on to Riemann solver (and thus need accel in buffer cells) */
-	start_time( HYDRO_ACCEL_UPDATE_TIMER );
-	update_buffer_level( level, accel_vars, nDim );
-	end_time( HYDRO_ACCEL_UPDATE_TIMER );
-#endif
-
-	end_time( HYDRO_ACCEL_TIMER );
-	end_time( GRAVITY_TIMER );
-}
-#endif /* HYDRO */
-
-#ifdef PARTICLES
-
-void compute_accelerations_particles( int level ) {
-	int i, j;
-	double a2half;
-	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
-	int neighbors[num_neighbors];
-	int L1, R1;
-	double phi_l, phi_r;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
-
-	start_time( GRAVITY_TIMER );
-	start_time( PARTICLE_ACCEL_TIMER );
-	start_time( WORK_TIMER );
-
-#ifdef COSMOLOGY
-	a2half = -0.5*abox[level]*abox[level]*cell_size_inverse[level];
-#else
-	a2half = -0.5 * cell_size_inverse[level];
-#endif
-
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(icell,j,neighbors,L1,R1,phi_l,phi_r), shared(num_level_cells,level_cells,level,cell_vars,a2half)
-	for ( i = 0; i < num_level_cells; i++ ) {
-		icell = level_cells[i];
-
-		cell_all_neighbors( icell, neighbors );
-		for ( j = 0; j < nDim; j++ ) {
-			L1 = neighbors[2*j];
-			R1 = neighbors[2*j+1];
-
-			if ( cell_level(L1) < level ) {
-				phi_l = 0.8*cell_potential(L1) + 0.2*cell_potential(icell);
-			} else {
-				phi_l = cell_potential(L1);
-			}
-
-			if ( cell_level(R1) < level ) {
-				phi_r = 0.8*cell_potential(R1)+0.2*cell_potential(icell);
-			} else {
-				phi_r = cell_potential(R1);
-			}
-
-			cell_accel( icell, j ) = (float)(a2half * ( phi_r - phi_l ) );
+	      else
+		{
+		  G = trphi/(G_jk+green[i]);
 		}
+
+	      fft_output[2*i+0+offset] = G*fft_source[2*i+0+offset];
+	      fft_output[2*i+1+offset] = G*fft_source[2*i+1+offset];
+	    }
 	}
-	cart_free( level_cells );
-
-	end_time( WORK_TIMER );
-
-	/* update accelerations */
-	start_time( PARTICLE_ACCEL_UPDATE_TIMER );
-	update_buffer_level( level, accel_vars, nDim );
-	end_time( PARTICLE_ACCEL_UPDATE_TIMER );
-
-	end_time( PARTICLE_ACCEL_TIMER );
-	end_time( GRAVITY_TIMER );
+    }
 }
-#endif /* PARTICLES */
 
 #endif /* GRAVITY */
+

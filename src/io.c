@@ -5,29 +5,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "control_parameter.h"
 #include "cosmology.h"
-#include "hydro.h"
 #include "hydro_tracer.h"
 #include "io.h"
 #include "iterators.h"
 #include "load_balance.h"
-#include "logging.h" 
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
 #include "rt_io.h"
 #include "sfc.h"
-#include "skiplist.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "timing.h"
 #include "tree.h"
 #include "units.h"
+
+
+#include "run/hydro_step.h"
+#include "run/step.h"
+
+#ifdef LOG_STAR_CREATION
+#include "run/logging.h"
+#endif
 
 
 char output_directory[CONTROL_PARAMETER_STRING_LENGTH];
@@ -459,10 +463,10 @@ void write_restart( int gas_filename_flag, int particle_filename_flag, int trace
 	      }
 	    }
 	}
-	MPI_Barrier( MPI_COMM_WORLD ) ; //prevents files from reopening before append occurs
+	MPI_Barrier( mpi.comm.run ) ; //prevents files from reopening before append occurs
 	log_star_creation(-1,-1.0,FILE_OPEN); //close temp_star files 
-#endif /*LOG_STAR_CREATION */
-#endif /*STARFORM */
+#endif /* LOG_STAR_CREATION */
+#endif /* STARFORM */
 
 
 	if ( local_proc_id == MASTER_NODE ) {
@@ -769,7 +773,7 @@ void save_check() {
 
 void set_grid_file_mode(int mode)
 {
-  if(mode>=-3 && mode<=3) grid_file_mode = mode;
+  if(mode>=-4 && mode<=4) grid_file_mode = mode;
 }
 
 #ifdef PARTICLES
@@ -1124,12 +1128,12 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 
 		/* receive initial pages */
 		for ( i = 1; i < num_procs; i++ ) {
-			MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, i, 0, MPI_COMM_WORLD, &status );
+			MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, i, 0, mpi.comm.run, &status );
 			MPI_Get_count( &status, MPI_INT, &count[i] );
-			MPI_Recv( page[i], 2*nDim*num_parts_per_proc_page, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &status );
+			MPI_Recv( page[i], 2*nDim*num_parts_per_proc_page, MPI_DOUBLE, i, 0, mpi.comm.run, &status );
 			
 			if ( timestep_filename != NULL ) {
-				MPI_Recv( times_page[i], num_parts_per_proc_page, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( times_page[i], num_parts_per_proc_page, MPI_DOUBLE, i, 0, mpi.comm.run, &status );
 			}
 
 			pos[i] = 0;
@@ -1248,14 +1252,14 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 						if ( pos[proc] == count[proc] ) { 
 							if ( count[proc] == num_parts_per_proc_page ) {
 								MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT, 
-									proc, pages[proc], MPI_COMM_WORLD, &status );
+									proc, pages[proc], mpi.comm.run, &status );
 								MPI_Get_count( &status, MPI_INT, &count[proc] );
 								MPI_Recv( page[proc], 2*nDim*num_parts_per_proc_page, 
-									MPI_DOUBLE, proc, pages[proc], MPI_COMM_WORLD, &status );
+									MPI_DOUBLE, proc, pages[proc], mpi.comm.run, &status );
 
 								if ( timestep_filename != NULL ) {
 									MPI_Recv( times_page[proc], num_parts_per_proc_page,
-											MPI_DOUBLE, proc, pages[proc], MPI_COMM_WORLD, &status );
+											MPI_DOUBLE, proc, pages[proc], mpi.comm.run, &status );
 								}
 
 								pos[proc] = 0;
@@ -1414,10 +1418,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
 				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				pos[i] = 0;
 				pages[i] = 1;
 				processor_heap[i] = i;
@@ -1512,10 +1516,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 							if ( pos[proc] == count[proc] ) {
 								if ( count[proc] == num_parts_per_proc_page ) {
 									MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
-											proc, pages[proc], MPI_COMM_WORLD, &status );
+											proc, pages[proc], mpi.comm.run, &status );
 									MPI_Get_count( &status, MPI_INT, &count[proc] );
 									MPI_Recv( star_page[proc], num_parts_per_proc_page,
-											MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+											MPI_FLOAT, proc, pages[proc], mpi.comm.run, &status );
 									pos[proc] = 0;
 									pages[proc]++;
 
@@ -1593,10 +1597,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
 				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				pos[i] = 0;
 				processor_heap[i] = i;
 				pages[i] = 1;
@@ -1690,10 +1694,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 							if ( pos[proc] == count[proc] ) {
 								if ( count[proc] == num_parts_per_proc_page ) {
 									MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
-											proc, pages[proc], MPI_COMM_WORLD, &status );
+											proc, pages[proc], mpi.comm.run, &status );
 									MPI_Get_count( &status, MPI_INT, &count[proc] );
 									MPI_Recv( star_page[proc], num_parts_per_proc_page,
-											MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+											MPI_FLOAT, proc, pages[proc], mpi.comm.run, &status );
 									pos[proc] = 0;
 									pages[proc]++;
 
@@ -1769,10 +1773,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
 				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				pos[i] = 0;
 				pages[i] = 1;
 				processor_heap[i] = i;
@@ -1866,10 +1870,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 							if ( pos[proc] == count[proc] ) {
 								if ( count[proc] == num_parts_per_proc_page ) {
 									MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
-											proc, pages[proc], MPI_COMM_WORLD, &status );
+											proc, pages[proc], mpi.comm.run, &status );
 									MPI_Get_count( &status, MPI_INT, &count[proc] );
 									MPI_Recv( star_page[proc], num_parts_per_proc_page,
-											MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+											MPI_FLOAT, proc, pages[proc], mpi.comm.run, &status );
 									pos[proc] = 0;
 									pages[proc]++;
 
@@ -1946,10 +1950,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
 				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				pos[i] = 0;
 				pages[i] = 1;
 				processor_heap[i] = i;
@@ -2043,10 +2047,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 							if ( pos[proc] == count[proc] ) {
 								if ( count[proc] == num_parts_per_proc_page ) {
 									MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
-											proc, pages[proc], MPI_COMM_WORLD, &status );
+											proc, pages[proc], mpi.comm.run, &status );
 									MPI_Get_count( &status, MPI_INT, &count[proc] );
 									MPI_Recv( star_page[proc], num_parts_per_proc_page,
-											MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+											MPI_FLOAT, proc, pages[proc], mpi.comm.run, &status );
 									pos[proc] = 0;
 									pages[proc]++;
 
@@ -2123,10 +2127,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
 				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				pos[i] = 0;
 				pages[i] = 1;
 				processor_heap[i] = i;
@@ -2220,10 +2224,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 							if ( pos[proc] == count[proc] ) {
 								if ( count[proc] == num_parts_per_proc_page ) {
 									MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
-											proc, pages[proc], MPI_COMM_WORLD, &status );
+											proc, pages[proc], mpi.comm.run, &status );
 									MPI_Get_count( &status, MPI_INT, &count[proc] );
 									MPI_Recv( star_page[proc], num_parts_per_proc_page,
-											MPI_FLOAT, proc, pages[proc], MPI_COMM_WORLD, &status );
+											MPI_FLOAT, proc, pages[proc], mpi.comm.run, &status );
 									pos[proc] = 0;
 									pages[proc]++;
 
@@ -2523,11 +2527,11 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			}
 
 			/* send the page */
-			MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
-			MPI_Send( page[local_proc_id], local_count, MPI_DOUBLE, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+			MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+			MPI_Send( page[local_proc_id], local_count, MPI_DOUBLE, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 
 			if ( timestep_filename != NULL ) {
-				MPI_Send( times_page[local_proc_id], i, MPI_DOUBLE, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( times_page[local_proc_id], i, MPI_DOUBLE, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 			}
 
 			pages[local_proc_id]++;
@@ -2559,8 +2563,8 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				}
 	
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
-				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 
@@ -2575,8 +2579,8 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				}
 	
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
-				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 	
@@ -2591,8 +2595,8 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				}
 				
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
-				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 
@@ -2608,8 +2612,8 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				}
 	
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
-				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 	
@@ -2624,8 +2628,8 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				}
 	
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
-				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], MPI_COMM_WORLD );
+				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 #endif /* ENRICH_SNIa */
@@ -3016,11 +3020,11 @@ void write_hydro_tracers( char *filename ) {
 		for ( i = 1; i < num_procs; i++ ) {
 			num_pages_received[i] = 0;
 			MPI_Recv( page_ids[i], num_tracers_per_proc_page, 
-				MPI_INT, i, num_pages_received[i], MPI_COMM_WORLD, &status );
+				MPI_INT, i, num_pages_received[i], mpi.comm.run, &status );
 			MPI_Get_count( &status, MPI_INT, &count[i] );
 			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
 			MPI_Recv( page[i], nDim*num_tracers_per_proc_page, MPI_DOUBLE, i, 
-				num_pages_received[i], MPI_COMM_WORLD, &status );
+				num_pages_received[i], mpi.comm.run, &status );
 			pos[i] = 0;
 			num_pages_received[i]++;
 		}
@@ -3071,12 +3075,12 @@ void write_hydro_tracers( char *filename ) {
 						/* if we've run out, refill page */
 						if ( pos[j] == count[j] && count[j] == num_tracers_per_proc_page ) {
 							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_INT,
-								j, num_pages_received[j], MPI_COMM_WORLD, &status );
+								j, num_pages_received[j], mpi.comm.run, &status );
 							MPI_Get_count( &status, MPI_INT, &count[j] );
 							cart_assert( count[j] >= 0 && count[j] <= num_tracers_per_proc_page );
 							MPI_Recv( page[j], nDim*num_tracers_per_proc_page,
 								MPI_DOUBLE, j, num_pages_received[j], 
-								MPI_COMM_WORLD, &status );
+								mpi.comm.run, &status );
 							pos[j] = 0;
 							num_pages_received[j]++;
 						}
@@ -3098,11 +3102,11 @@ void write_hydro_tracers( char *filename ) {
 		/* receive initial pages */
 		for ( i = 1; i < num_procs; i++ ) {
 			MPI_Recv( page_ids[i], num_tracers_per_proc_page, MPI_INT, 
-				i, num_pages_received[i], MPI_COMM_WORLD, &status );
+				i, num_pages_received[i], mpi.comm.run, &status );
 			MPI_Get_count( &status, MPI_INT, &count[i] );
 			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
 			MPI_Recv( vars_page[i], num_hydro_vars_traced*num_tracers_per_proc_page, 
-				MPI_FLOAT, i, num_pages_received[i], MPI_COMM_WORLD, &status );
+				MPI_FLOAT, i, num_pages_received[i], mpi.comm.run, &status );
 			pos[i] = 0;
 			num_pages_received[i]++;
 		}
@@ -3132,7 +3136,7 @@ void write_hydro_tracers( char *filename ) {
 					for ( j = 0; j < num_hydro_vars_traced; j++ ) {
 						cart_assert( j*num_tracers_per_page + num_tracers_written < num_hydro_vars_traced*num_tracers_per_page );
 						output_vars_page[j*num_tracers_per_page + num_tracers_written] = 
-								cell_vars[icell][ hydro_vars_traced[j] ];
+								cell_var(icell,hydro_vars_traced[j]);
 					}
 
 					local_count++;
@@ -3158,12 +3162,12 @@ void write_hydro_tracers( char *filename ) {
 						/* if we've run out, refill page */
 						if ( pos[j] == count[j] && count[j] == num_tracers_per_proc_page ) {
 							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_INT,
-								j, num_pages_received[j], MPI_COMM_WORLD, &status );
+								j, num_pages_received[j], mpi.comm.run, &status );
 							MPI_Get_count( &status, MPI_INT, &count[j] );
 							cart_assert( count[j] >= 0 && count[j] <= num_tracers_per_proc_page );
 							MPI_Recv( vars_page[j], num_hydro_vars_traced*num_tracers_per_proc_page,
 								MPI_FLOAT, j, num_pages_received[j], 
-								MPI_COMM_WORLD, &status );
+								mpi.comm.run, &status );
 							pos[j] = 0;
 							num_pages_received[j]++;
 						}
@@ -3211,9 +3215,9 @@ void write_hydro_tracers( char *filename ) {
 
 			/* send the page */
 			MPI_Send( page_ids[local_proc_id], i, MPI_INT, 
-				MASTER_NODE, num_pages_sent, MPI_COMM_WORLD );
+				MASTER_NODE, num_pages_sent, mpi.comm.run );
 			MPI_Send( page[local_proc_id], local_count, MPI_DOUBLE, 
-				MASTER_NODE, num_pages_sent, MPI_COMM_WORLD );
+				MASTER_NODE, num_pages_sent, mpi.comm.run );
 			num_pages_sent++;
 		} while ( i == num_tracers_per_proc_page );
 
@@ -3232,7 +3236,7 @@ void write_hydro_tracers( char *filename ) {
 				icell = cell_find_position( tracer_x[index] );
 
 				for ( j = 0; j < num_hydro_vars_traced; j++ ) {
-					vars_page[local_proc_id][local_count++] = cell_vars[icell][ hydro_vars_traced[j] ];
+					vars_page[local_proc_id][local_count++] = cell_var(icell,hydro_vars_traced[j]);
 				}
 
 				num_tracers_written++;
@@ -3241,9 +3245,9 @@ void write_hydro_tracers( char *filename ) {
 			cart_assert( i <= num_tracers_per_proc_page );
 
 			MPI_Send( page_ids[local_proc_id], i, MPI_INT, 	
-				MASTER_NODE, num_pages_sent, MPI_COMM_WORLD );
+				MASTER_NODE, num_pages_sent, mpi.comm.run );
 			MPI_Send( vars_page[local_proc_id], local_count, 
-				MPI_FLOAT, MASTER_NODE, num_pages_sent, MPI_COMM_WORLD );
+				MPI_FLOAT, MASTER_NODE, num_pages_sent, mpi.comm.run );
 			num_pages_sent++;
 		} while ( i == num_tracers_per_proc_page );
 
@@ -3255,7 +3259,7 @@ void write_hydro_tracers( char *filename ) {
 }
 
 void read_hydro_tracers( char *filename ) {
-	int i, j, k;
+	int i, j;
 	FILE *input;
 	int size, endian;
 	char tracerjobname[256];
@@ -3265,22 +3269,19 @@ void read_hydro_tracers( char *filename ) {
 	int proc;
 	int current_id;
 	int tracer;
-	int index, icell;
+	int index;
 	int coords[nDim];
 	float ainit, adum;
 	float boxh, Om0, Oml0, Omb0, h;
-	int *tracer_order;
 	char label[32];
 	int num_tracers_in_page;
 	int num_tracers_per_page, num_tracers_per_proc_page, num_pages;
-	int num_tracers_written, local_count;
 	double *input_page;
 	double *x, *y, *z;
 	int *page_ids[MAX_PROCS];
 	double *page[MAX_PROCS];
 	int count[MAX_PROCS];
 	int current_page[MAX_PROCS];
-	int pos[MAX_PROCS];
 	MPI_Status status;
 
 	if ( local_proc_id == MASTER_NODE ) {
@@ -3373,8 +3374,8 @@ void read_hydro_tracers( char *filename ) {
 		fread( &size, sizeof(int), 1, input );
 	}
 
-	MPI_Bcast( &num_tracer_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &num_tracers_total, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &num_tracer_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &num_tracers_total, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
 	num_tracers_per_page = num_tracer_row*num_tracer_row;
 	num_tracers_per_proc_page = num_tracers_per_page/num_procs;
@@ -3465,9 +3466,9 @@ void read_hydro_tracers( char *filename ) {
 
 					if ( count[proc] == num_tracers_per_proc_page ) {
 						MPI_Send( page_ids[proc], num_tracers_per_proc_page, MPI_INT, proc,
-							current_page[proc], MPI_COMM_WORLD );
+							current_page[proc], mpi.comm.run );
 						MPI_Send( page[proc], nDim*num_tracers_per_proc_page,
-							MPI_DOUBLE, proc, current_page[proc], MPI_COMM_WORLD );
+							MPI_DOUBLE, proc, current_page[proc], mpi.comm.run );
 						count[proc] = 0;
 						current_page[proc]++;
 					}
@@ -3479,8 +3480,8 @@ void read_hydro_tracers( char *filename ) {
 
 		/* send final pages */
 		for ( proc = 1; proc < num_procs; proc++ ) {
-			MPI_Send( page_ids[proc], count[proc], MPI_INT, proc, current_page[proc], MPI_COMM_WORLD );
-			MPI_Send( page[proc], nDim*count[proc], MPI_DOUBLE, proc, current_page[proc], MPI_COMM_WORLD );
+			MPI_Send( page_ids[proc], count[proc], MPI_INT, proc, current_page[proc], mpi.comm.run );
+			MPI_Send( page[proc], nDim*count[proc], MPI_DOUBLE, proc, current_page[proc], mpi.comm.run );
 			cart_free( page_ids[proc] );
 			cart_free( page[proc] );
 		}
@@ -3497,10 +3498,10 @@ void read_hydro_tracers( char *filename ) {
 
 		while ( count[local_proc_id] == num_tracers_per_proc_page ) {
 			MPI_Recv( page_ids[local_proc_id], num_tracers_per_proc_page, MPI_INT,
-				MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
+				MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
 			MPI_Get_count( &status, MPI_INT, &count[local_proc_id] );
 			MPI_Recv( page[local_proc_id], nDim*num_tracers_per_proc_page,
-				MPI_DOUBLE, MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
+				MPI_DOUBLE, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
 
 			current_page[local_proc_id]++;
 
@@ -3583,11 +3584,11 @@ void read_gas_ic( char *filename ) {
 		}
 
 		box_size = boxh;
-		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 #ifdef COSMOLOGY
 		auni_init = ainit;
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 #endif /* COSMOLOGY */
 	
 		cart_debug("boxh = %f", boxh );
@@ -3641,9 +3642,9 @@ void read_gas_ic( char *filename ) {
 	
 							if ( count[proc] == num_grid*num_grid ) {
 								MPI_Send( page[proc], num_grid*num_grid, MPI_FLOAT, 
-									proc, 0, MPI_COMM_WORLD );
+									proc, 0, mpi.comm.run );
 								MPI_Send( page_indices[proc], num_grid*num_grid, 
-									MPI_INT, proc, 0, MPI_COMM_WORLD );
+									MPI_INT, proc, 0, mpi.comm.run );
 								count[proc] = 0;
 							}
 						}
@@ -3656,8 +3657,8 @@ void read_gas_ic( char *filename ) {
 			
 			/* send last variables */
 			for ( proc = 1; proc < num_procs; proc++ ) {
-				MPI_Send( page[proc], count[proc], MPI_FLOAT, proc, 0, MPI_COMM_WORLD );
-				MPI_Send( page_indices[proc], count[proc], MPI_INT, proc, 0, MPI_COMM_WORLD );
+				MPI_Send( page[proc], count[proc], MPI_FLOAT, proc, 0, mpi.comm.run );
+				MPI_Send( page_indices[proc], count[proc], MPI_INT, proc, 0, mpi.comm.run );
 			}
 		}
 	
@@ -3669,9 +3670,9 @@ void read_gas_ic( char *filename ) {
 			cart_free( page_indices[proc] );
 		}
 	} else {
-		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 #ifdef COSMOLOGY
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 #endif /* COSMOLOGY */
 
 		page[local_proc_id] = cart_alloc(float, num_grid*num_grid );
@@ -3680,9 +3681,9 @@ void read_gas_ic( char *filename ) {
 		for ( var = 0; var < num_gas_vars; var++ ) {
 			page_count = num_grid*num_grid;
 			while ( page_count == num_grid*num_grid ) {
-				MPI_Recv( page[local_proc_id], num_grid*num_grid, MPI_FLOAT, MASTER_NODE, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( page[local_proc_id], num_grid*num_grid, MPI_FLOAT, MASTER_NODE, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_FLOAT, &page_count );
-				MPI_Recv( page_indices[local_proc_id], num_grid*num_grid, MPI_INT, MASTER_NODE, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( page_indices[local_proc_id], num_grid*num_grid, MPI_INT, MASTER_NODE, 0, mpi.comm.run, &status );
 
 				for ( i = 0; i < page_count; i++ ) {
 					icell = root_cell_location( page_indices[local_proc_id][i] );
@@ -3834,10 +3835,10 @@ void write_grid_binary( char *filename ) {
 
 	/* get number of cells on each level */
 	MPI_Allgather( num_cells_per_level, max_level-min_level+1, MPI_INT,
-		proc_num_cells, max_level-min_level+1, MPI_INT, MPI_COMM_WORLD );
+		proc_num_cells, max_level-min_level+1, MPI_INT, mpi.comm.run );
 
 	minlevel = min_level;
-	maxlevel = max_level_now_global(MPI_COMM_WORLD);
+	maxlevel = max_level_now_global(mpi.comm.run);
 
 	/* open file handle if parent of parallel file */
 	if ( local_proc_id == file_parent ) {
@@ -4028,7 +4029,7 @@ void write_grid_binary( char *filename ) {
 		if ( local_proc_id == file_parent ) {
 			fwrite( cellrefined, sizeof(int), page_count, output );
 		} else {
-			MPI_Send( cellrefined, page_count, MPI_INT, file_parent, page, MPI_COMM_WORLD );
+			MPI_Send( cellrefined, page_count, MPI_INT, file_parent, page, mpi.comm.run );
 			page++;
 		}
 	}
@@ -4039,7 +4040,7 @@ void write_grid_binary( char *filename ) {
 			page = 0;
 			while ( i < proc_num_cells[(max_level-min_level+1)*proc+min_level] ) {
 				page_count = min( page_size,  proc_num_cells[(max_level-min_level+1)*proc+min_level] - i );
-				MPI_Recv( cellrefined, page_count, MPI_INT, proc, page, MPI_COMM_WORLD, &status );
+				MPI_Recv( cellrefined, page_count, MPI_INT, proc, page, mpi.comm.run, &status );
 				fwrite( cellrefined, sizeof(int), page_count, output );
 				i += page_count;
 				page++;
@@ -4106,7 +4107,7 @@ void write_grid_binary( char *filename ) {
 			if ( local_proc_id == file_parent ) {
 				fwrite( cellrefined, sizeof(int), page_count, output );
 			} else {
-				MPI_Send( cellrefined, page_count, MPI_INT, file_parent, page, MPI_COMM_WORLD );
+				MPI_Send( cellrefined, page_count, MPI_INT, file_parent, page, mpi.comm.run );
 				page++;
 			}
 		}
@@ -4118,7 +4119,7 @@ void write_grid_binary( char *filename ) {
 				while ( i < proc_num_cells[(max_level-min_level+1)*proc+level] ) {
 					page_count = min( page_size, 
 							proc_num_cells[(max_level-min_level+1)*proc+level] - i );
-					MPI_Recv( cellrefined, page_count, MPI_INT, proc, page, MPI_COMM_WORLD, &status );
+					MPI_Recv( cellrefined, page_count, MPI_INT, proc, page, mpi.comm.run, &status );
 					fwrite( cellrefined, sizeof(int), page_count, output );
 					i += page_count;
 					page++;
@@ -4201,7 +4202,7 @@ void write_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *outp
 	} 
       else
 	{
-	  MPI_Send( cellvars, num_out_vars*page_count, MPI_FLOAT, file_parent, page, MPI_COMM_WORLD );
+	  MPI_Send( cellvars, num_out_vars*page_count, MPI_FLOAT, file_parent, page, mpi.comm.run );
 	  page++;
 	}
     }
@@ -4216,7 +4217,7 @@ void write_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *outp
 	    {
 	      page_count = min( page_size,  proc_num_cells[(max_level-min_level+1)*proc+min_level] - i );
 	
-	      MPI_Recv( cellvars, num_out_vars*page_count, MPI_FLOAT, proc, page, MPI_COMM_WORLD, &status );
+	      MPI_Recv( cellvars, num_out_vars*page_count, MPI_FLOAT, proc, page, mpi.comm.run, &status );
 	      fwrite( cellvars, sizeof(float), num_out_vars*page_count, output );
 	      i += page_count;
 	      page++;
@@ -4279,7 +4280,7 @@ void write_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *ou
 	}
       else
 	{
-	  MPI_Send( cellvars, num_out_vars*page_count, MPI_FLOAT, file_parent, page, MPI_COMM_WORLD );
+	  MPI_Send( cellvars, num_out_vars*page_count, MPI_FLOAT, file_parent, page, mpi.comm.run );
 	  page++;
 	}
     }
@@ -4293,7 +4294,7 @@ void write_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *ou
 	  while ( i < proc_num_cells[(max_level-min_level+1)*proc+level] )
 	    {
 	      page_count = min( page_size, proc_num_cells[(max_level-min_level+1)*proc+level] - i );
-	      MPI_Recv( cellvars, num_out_vars*page_count, MPI_FLOAT, proc, page, MPI_COMM_WORLD, &status );
+	      MPI_Recv( cellvars, num_out_vars*page_count, MPI_FLOAT, proc, page, mpi.comm.run, &status );
 	      fwrite( cellvars, sizeof(float), num_out_vars*page_count, output );
 	      i += page_count;
 	      page++;
@@ -4451,6 +4452,13 @@ void read_grid_binary( char *filename ) {
 	      break;
 	    }
 #endif /* BLASTWAVE_FEEDBACK */
+	  case  4:
+	  case -4:
+	    {
+	      num_in_hydro_vars = num_hydro_vars;
+	      num_in_other_vars = num_other_vars + 2;
+	      break;
+	    }
 	  default:
 	    {
 	      cart_error("Invalid grid_file_mode=%d in a call to  read_grid_binary",grid_file_mode);
@@ -4723,44 +4731,44 @@ void read_grid_binary( char *filename ) {
 	}
 
 	/* send header information to all other processors */
-	MPI_Bcast( &endian, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &minlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &maxlevel, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &endian, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &minlevel, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &maxlevel, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 #ifdef COSMOLOGY
-	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, mpi.comm.run );
 	cosmology_copy(&temp_cosmo);
 #else
-	MPI_Bcast( &h100, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( &OmM0, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( &h100, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &OmM0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 	/* h100 == 0 specifies user-defined units, > 0 implies ART standard */
 	if(h100 > 0.0) {
 		units_set_art(OmM0,h100,box_size);                                                                      
 	} else {
-		MPI_Bcast( &OmB0, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &OmL0, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &OmB0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &OmL0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 		units_set(OmM0,OmB0,OmL0);
 	}
 #endif /* COSMOLOGY */
 
-	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( dtl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( dtl_old, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( dtl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( dtl_old, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 #ifdef HYDRO
-	MPI_Bcast( level_sweep_dir, max_level-min_level+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( level_sweep_dir, max_level-min_level+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 #endif /* HYDRO */
 
-	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 
 #ifdef STARFORM
-	MPI_Bcast( star_formation_volume_min, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Bcast( star_formation_volume_max, nDim, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( star_formation_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( star_formation_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 #endif /* STARFORM */
 
 	if ( local_proc_id == file_parent ) {
@@ -4797,7 +4805,7 @@ void read_grid_binary( char *filename ) {
 				/* receive cellrefined */
 				file_sfc_index[i] = cell_counts;
 				MPI_Recv( &file_sfc_index[i+1], 1, MPI_INT, file_parent_proc[i],
-					0, MPI_COMM_WORLD, &status );	
+					0, mpi.comm.run, &status );	
 				cell_counts += file_sfc_index[i+1];
 			}
 			file_sfc_index[num_input_files] = cell_counts;
@@ -4805,12 +4813,12 @@ void read_grid_binary( char *filename ) {
 			cart_assert( cell_counts == num_root_cells );
 		} else {
 			/* send cellrefined array to MASTER_NODE */
-			MPI_Send( &local_file_root_cells, 1, MPI_INT, MASTER_NODE, 0, MPI_COMM_WORLD );
+			MPI_Send( &local_file_root_cells, 1, MPI_INT, MASTER_NODE, 0, mpi.comm.run );
 		}
 	}
 
 	/* send block information */
-	MPI_Bcast( file_sfc_index, num_input_files+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( file_sfc_index, num_input_files+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
 	/* determine how many cells to expect from each processor */
 	for ( proc = 0; proc < num_procs; proc++ ) {
@@ -4844,7 +4852,7 @@ void read_grid_binary( char *filename ) {
 				}
 			} else {
 				MPI_Irecv( &cellrefined[local_proc_id][count], proc_num_cells[proc], MPI_INT, proc,
-					proc_num_cells[proc], MPI_COMM_WORLD, &requests[num_requests++] );
+					proc_num_cells[proc], mpi.comm.run, &requests[num_requests++] );
 			}
 
 			count += proc_num_cells[proc];
@@ -4881,7 +4889,7 @@ void read_grid_binary( char *filename ) {
 					}
 				}
 				MPI_Isend( &cellrefinedbuffer[start], count, MPI_INT, proc, 
-					count, MPI_COMM_WORLD, &requests[num_requests++] );
+					count, mpi.comm.run, &requests[num_requests++] );
 				start += count;
 			}
 		}
@@ -4936,7 +4944,7 @@ void read_grid_binary( char *filename ) {
 
 			if ( proc_num_cells[proc] > 0 && proc != local_proc_id ) {
 				MPI_Irecv( &first_page_count[proc], 1, MPI_LONG, proc,
-						0, MPI_COMM_WORLD, &requests[num_requests++] );
+						0, mpi.comm.run, &requests[num_requests++] );
 			} else {
 				first_page_count[proc] = 0;
 			}
@@ -4985,7 +4993,7 @@ void read_grid_binary( char *filename ) {
 			for ( proc = 0; proc < num_procs; proc++ ) {
 				if ( proc_first_index[proc+1]-proc_first_index[proc] > 0 && proc != local_proc_id ) {
 					MPI_Isend( &proc_first_index[proc], 1, MPI_LONG, proc,
-						0, MPI_COMM_WORLD, &requests[num_requests++] );
+						0, mpi.comm.run, &requests[num_requests++] );
 				}
 			}
 
@@ -5004,7 +5012,7 @@ void read_grid_binary( char *filename ) {
 								proc_num_cells[proc] );
 				cellrefined[proc] = cart_alloc(int, min( page_size, proc_num_cells[proc] ) );
 				MPI_Irecv( cellrefined[proc], proc_page_count[proc], MPI_INT, proc,
-					proc_page_count[proc], MPI_COMM_WORLD, &requests[proc] );
+					proc_page_count[proc], mpi.comm.run, &requests[proc] );
 				num_requests++;
 			} else {
 				proc_page_count[proc] = 0;
@@ -5071,7 +5079,7 @@ void read_grid_binary( char *filename ) {
 							}
 						} else {
 							MPI_Isend( &cellrefinedbuffer[start], count, MPI_INT, proc,
-								count, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+								count, mpi.comm.run, &send_requests[num_send_requests++] );
 						}
 
 						start += count;
@@ -5143,7 +5151,7 @@ void read_grid_binary( char *filename ) {
 						proc_num_cells[proc] - proc_cur_cells[proc] );
 					cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
 					MPI_Irecv( cellrefined[proc], proc_page_count[proc], MPI_INT,
-						proc, proc_page_count[proc], MPI_COMM_WORLD, &requests[proc] );
+						proc, proc_page_count[proc], mpi.comm.run, &requests[proc] );
 					num_requests++;
 				} else {
 					proc_page_count[proc] = 0;
@@ -5241,6 +5249,7 @@ float set_skipped_var(int jskip){
     return (float)1.1*blastwave_time_floor;
   }else{
     cart_error("skipped variables %d not set",jskip);
+    return -1;
   }
 #else
   cart_error("skipped variables %d not set",jskip);
@@ -5288,7 +5297,7 @@ void read_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_var
 					file_sfc_index[(int)((proc * num_input_files)/ num_procs)]) % page_size);
 			cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
 			MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
-					MPI_COMM_WORLD, &requests[proc] );
+					mpi.comm.run, &requests[proc] );
 			num_requests++;
 		} else {
 			proc_page_count[proc] = 0;
@@ -5356,7 +5365,7 @@ void read_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_var
 						}
 					} else { 
 						MPI_Isend( &cellvars_buffer[num_out_vars*start], num_out_vars*count, MPI_FLOAT, proc, count, 
-								MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+								mpi.comm.run, &send_requests[num_send_requests++] );
 					}
 		  
 					start += count;
@@ -5404,7 +5413,7 @@ void read_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_var
 				proc_page_count[proc] = min( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
 				cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
 				MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
-						MPI_COMM_WORLD, &requests[proc] );
+						mpi.comm.run, &requests[proc] );
 				num_requests++;
 			} else {
 				proc_page_count[proc] = 0;
@@ -5487,7 +5496,7 @@ void read_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_v
 	  /* set up receive */
 	  proc_page_count[proc] = min( page_size - first_page_count[proc] % page_size, proc_num_cells[proc] );
 	  cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
-	  MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], MPI_COMM_WORLD, &requests[proc] );
+	  MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], mpi.comm.run, &requests[proc] );
 	  num_requests++;
 	}
       else
@@ -5564,7 +5573,7 @@ void read_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_v
 		    }
 		  else
 		    {
-		      MPI_Isend( &cellvars_buffer[num_out_vars*start], num_out_vars*count, MPI_FLOAT, proc, count, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+		      MPI_Isend( &cellvars_buffer[num_out_vars*start], num_out_vars*count, MPI_FLOAT, proc, count, mpi.comm.run, &send_requests[num_send_requests++] );
 		    }
 	
 		  start += count;
@@ -5629,7 +5638,7 @@ void read_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_v
 	    {
 	      proc_page_count[proc] = min( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
 	      cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
-	      MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], MPI_COMM_WORLD, &requests[proc] );
+	      MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], mpi.comm.run, &requests[proc] );
 	      num_requests++;
 	    }
 	  else

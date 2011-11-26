@@ -16,16 +16,24 @@
 
 
 /* global tree variables */
-float cell_vars[num_cells][num_vars];
-int cell_child_oct[num_cells];
+#ifdef STATIC_MESH_DATA
+int size_oct_array = num_octs;
+int size_cell_array = num_cells;
+#else
+int size_oct_array = 0;
+int size_cell_array = 0;
+#endif
 
-int oct_parent_cell[num_octs];
-int oct_level[num_octs];
-int oct_neighbors[num_octs][num_neighbors];
-int oct_parent_root_sfc[num_octs];
-int oct_next[num_octs];
-int oct_prev[num_octs];
-double oct_pos[num_octs][nDim];
+float CELL_VAR_ARRAY(cell_vars,num_vars) STATIC_INIT;
+int CELL_ARRAY(cell_child_oct) STATIC_INIT;
+
+int OCT_ARRAY(oct_parent_cell) STATIC_INIT;
+int OCT_ARRAY(oct_level) STATIC_INIT;
+int OCT_ARRAY2D(oct_neighbors,num_neighbors) STATIC_INIT;
+int OCT_ARRAY(oct_parent_root_sfc) STATIC_INIT;
+int OCT_ARRAY(oct_next) STATIC_INIT;
+int OCT_ARRAY(oct_prev) STATIC_INIT;
+double OCT_ARRAY2D(oct_pos,nDim) STATIC_INIT;
 
 int all_vars[num_vars];
 #ifdef HYDRO
@@ -72,13 +80,13 @@ void init_tree()
 		local_oct_list[i] = NULL_OCT;
 	}
 
-#pragma omp parallel for default(none), private(i), shared(cell_child_oct)
+#pragma omp parallel for default(none), private(i), shared(cell_child_oct,size_cell_array)
 	for ( i = 0; i < num_cells; i++ ) {
 		cell_child_oct[i] = UNREFINED_CELL;
 	}
 
 	/* this now starts at first_oct due to root cells */
-#pragma omp parallel for default(none), private(i), shared(oct_parent_cell,oct_parent_root_sfc,oct_level,oct_next,oct_prev)
+#pragma omp parallel for default(none), private(i), shared(oct_parent_cell,oct_parent_root_sfc,oct_level,oct_next,oct_prev,size_oct_array)
 	for ( i = 0; i < num_octs; i++ ) {
 		oct_parent_cell[i] = -1;
 		oct_parent_root_sfc[i] = -1;
@@ -553,6 +561,22 @@ double compute_displacement_periodic_1d( const double pos1, const double pos2 ) 
 
 	return dx;
 }
+
+
+void compute_displacement_periodic( const double *pos1, const double *pos2, double *dx12 ) {
+	int d;
+	double dx;
+	
+	for ( d = 0; d < nDim; d++ ) {
+		dx = pos2[d] - pos1[d];
+
+		if ( dx >  (double)(num_grid/2) ) dx -= num_grid;
+		if ( dx < -(double)(num_grid/2) ) dx += num_grid;
+		
+		dx12[d] = dx;
+	}
+}
+
 
 /*******************************************************
  * cell_child

@@ -5,7 +5,6 @@
 #error "Missing config.h include."
 #endif
 
-
 #ifdef RADIATIVE_TRANSFER
 
 #ifndef RT_CONFIGURED
@@ -20,7 +19,6 @@
 struct rtDebugData
 {
   int Mode;
-  int Stop;
   double Pos[3];
 };
 

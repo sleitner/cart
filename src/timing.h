@@ -125,4 +125,9 @@ double average_time( int timerid, int level );
 double total_time( int timerid, int level );
 double last_time( int timerid, int level );
 
+#ifdef DEBUG
+void debug_breakpoint(int timerid, int start, const char *file, int line);
+#define SET_MARKER(id)  debug_breakpoint(id,-1,__FILE__,__LINE__)
+#endif
+
 #endif

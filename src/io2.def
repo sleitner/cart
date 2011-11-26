@@ -336,25 +336,25 @@ void FUNCTION( char *header_filename, char *data_filename,
 #endif /* STARFORM */
 
 #ifdef COSMOLOGY
-		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, mpi.comm.run );
 #endif /* COSMOLOGY */
 
-		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
-		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
 		if ( num_sfcs > 0 ) {
 			/* create hash for quick checking if we should read in particles */
@@ -742,22 +742,22 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 					if ( count[proc] == num_parts_per_proc_page ) {
 						MPI_Send( page_ids[proc], num_parts_per_proc_page, MPI_INT, proc, 
-							2*current_page[proc], MPI_COMM_WORLD );
+							2*current_page[proc], mpi.comm.run );
 						MPI_Send( page[proc], 2*nDim*num_parts_per_proc_page, 
-							MPI_PARTICLE_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
+							MPI_PARTICLE_FLOAT, proc, current_page[proc], mpi.comm.run );
 
 						if ( timestep_filename != NULL ) {
 							MPI_Send( times_page[proc], num_parts_per_proc_page,
-								MPI_PARTICLE_TIMES_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
+								MPI_PARTICLE_TIMES_FLOAT, proc, current_page[proc], mpi.comm.run );
 						}
 
 #ifdef STARFORM
 						if ( stellar_filename != NULL ) {
 							MPI_Send( star_page[proc], num_star_vars[proc],
-									MPI_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
+								MPI_FLOAT, proc, current_page[proc], mpi.comm.run );
 #ifdef STAR_PARTICLE_TYPES
 							MPI_Send( star_type_page[proc], num_parts_per_proc_page,
-									MPI_INT, proc, 2*current_page[proc]+1, MPI_COMM_WORLD );
+								MPI_INT, proc, 2*current_page[proc]+1, mpi.comm.run );
 #endif /* STAR_PARTICLE_TYPES */
 							num_star_vars[proc] = 0;
 						}
@@ -773,20 +773,20 @@ void FUNCTION( char *header_filename, char *data_filename,
 	
 		/* send final pages */
 		for ( proc = 1; proc < num_procs; proc++ ) {
-			MPI_Send( page_ids[proc], count[proc], MPI_INT, proc, 2*current_page[proc], MPI_COMM_WORLD );
-			MPI_Send( page[proc], 2*nDim*count[proc], MPI_PARTICLE_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
+			MPI_Send( page_ids[proc], count[proc], MPI_INT, proc, 2*current_page[proc], mpi.comm.run );
+			MPI_Send( page[proc], 2*nDim*count[proc], MPI_PARTICLE_FLOAT, proc, current_page[proc], mpi.comm.run );
 
 			if ( timestep_filename != NULL ) {
-				MPI_Send( times_page[proc], count[proc], MPI_PARTICLE_TIMES_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
+				MPI_Send( times_page[proc], count[proc], MPI_PARTICLE_TIMES_FLOAT, proc, current_page[proc], mpi.comm.run );
 				cart_free( times_page[proc] );
 			}
 
 #ifdef STARFORM
 			if ( stellar_filename != NULL ) {
-				MPI_Send( star_page[proc], num_star_vars[proc], MPI_FLOAT, proc, current_page[proc], MPI_COMM_WORLD );
+				MPI_Send( star_page[proc], num_star_vars[proc], MPI_FLOAT, proc, current_page[proc], mpi.comm.run );
 				cart_free( star_page[proc] );
 #ifdef STAR_PARTICLE_TYPES
-				MPI_Send( star_type_page[proc], num_parts_per_proc_page, MPI_INT, proc, 2*current_page[proc]+1, MPI_COMM_WORLD );
+				MPI_Send( star_type_page[proc], num_parts_per_proc_page, MPI_INT, proc, 2*current_page[proc]+1, mpi.comm.run );
 				cart_free( star_type_page[proc] );
 #endif /* STAR_PARTICLE_TYPES */
 			}
@@ -823,26 +823,26 @@ void FUNCTION( char *header_filename, char *data_filename,
 		}
 	} else {
 #ifdef COSMOLOGY
-		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, mpi.comm.run );
 		cosmology_copy(&temp_cosmo);
 #endif /* COSMOLOGY */
 
-		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
-		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( particle_species_mass, num_particle_species, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( particle_species_num, num_particle_species, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( particle_species_indices, num_particle_species+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
 		current_page[local_proc_id] = 0;
 
@@ -865,21 +865,21 @@ void FUNCTION( char *header_filename, char *data_filename,
 		count[local_proc_id] = num_parts_per_proc_page;
 		while ( count[local_proc_id] == num_parts_per_proc_page ) {
 			MPI_Recv( page_ids[local_proc_id], num_parts_per_proc_page, MPI_INT, 
-				MASTER_NODE, 2*current_page[local_proc_id], MPI_COMM_WORLD, &status );
+				MASTER_NODE, 2*current_page[local_proc_id], mpi.comm.run, &status );
 			MPI_Get_count( &status, MPI_INT, &count[local_proc_id] );
 
 			MPI_Recv( page[local_proc_id], 2*nDim*num_parts_per_proc_page, 
-				MPI_PARTICLE_FLOAT, MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
+				MPI_PARTICLE_FLOAT, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
 
 			if ( timestep_filename != NULL ) {
 				MPI_Recv( times_page[local_proc_id], num_parts_per_proc_page,
-					MPI_PARTICLE_TIMES_FLOAT, MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
+					MPI_PARTICLE_TIMES_FLOAT, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
 			}
 
 #ifdef STARFORM
 			if ( stellar_filename != NULL ) {
 				MPI_Recv( star_page[local_proc_id], num_star_variables*num_parts_per_proc_page,
-					MPI_FLOAT, MASTER_NODE, current_page[local_proc_id], MPI_COMM_WORLD, &status );
+					MPI_FLOAT, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
 				num_star_vars[local_proc_id] = 0;
 
 #ifdef STAR_PARTICLE_TYPES

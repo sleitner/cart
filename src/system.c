@@ -1,16 +1,21 @@
-#include "config.h"
-
 
 /*
 //  Only ported to Unix at present
 */
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <errno.h>
+#include <limits.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/resource.h>
+#endif
 
 void system_get_host_name( char *name, int len )
 {
@@ -42,6 +47,29 @@ char* system_get_time_stamp(int utc)
     }
 }
 
+/*
+//  Gives the available memory for this process
+*/
+double system_get_available_memory()
+{
+#ifdef _WIN32
+  MEMORYSTATUS r;
+  ::GlobalMemoryStatus(&r);
+  return (double)r.dwTotalPhys;
+#else
+  static struct rlimit r;
+  int d = getrlimit(RLIMIT_DATA,&r);
+  double v1 = (double)r.rlim_cur;
+#if defined(_SC_PHYS_PAGES) && defined(_SC_PAGESIZE)
+  unsigned long np = sysconf(_SC_PHYS_PAGES);
+  unsigned long ps = sysconf(_SC_PAGESIZE);
+  double v2 = (double)np*(double)ps;
+  if(v1 > v2) v1 = v2;
+#endif
+  if(d == 0) return v1; else return (double)ULONG_MAX;
+#endif
+}
+
 int system_mkdir(const char *name)
 {
   switch(mkdir(name,S_IRWXU | S_IRGRP | S_IXGRP))
@@ -57,7 +85,6 @@ int system_mkdir(const char *name)
     }
 }
 
-
 int system_chdir(const char *name)
 {
   switch(chdir(name))
@@ -70,5 +97,24 @@ int system_chdir(const char *name)
       {
 	return errno;
       }
+    }
+}
+
+/*
+//  Is there a better implementation?
+*/
+int file_exists(const char *name)
+{
+  FILE *f;
+
+  f = fopen(name,"r");
+  if(f != NULL)
+    {
+      fclose(f);
+      return 1;
+    }
+  else
+    {
+      return 0;
     }
 }

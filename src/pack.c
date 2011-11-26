@@ -297,9 +297,9 @@ void pack_apply( pack *p ) {
 	/* do global communication for how many cells to expect */
 	MPI_Alltoall( p->num_sending_cells, max_level-min_level+1, MPI_INT,
 		p->num_receiving_cells, max_level-min_level+1, MPI_INT,
-		MPI_COMM_WORLD );
+		mpi.comm.run );
 	MPI_Alltoall( p->num_sending_cells_total, 1, MPI_INT,
-		p->num_receiving_cells_total, 1, MPI_INT, MPI_COMM_WORLD );
+		p->num_receiving_cells_total, 1, MPI_INT, mpi.comm.run );
 }
 
 void pack_communicate( pack *p ) {
@@ -404,12 +404,12 @@ void pack_communicate( pack *p ) {
 						cart_assert( num_receives < num_recv_requests );
 						size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 						MPI_Irecv( &root_cells[proc][i], size, MPI_INT, proc, i,
-								MPI_COMM_WORLD, &receives[num_receives++] );
+								mpi.comm.run, &receives[num_receives++] );
 						i += size;
 					} while ( i < cell_count );
 #else 
 					MPI_Irecv( root_cells[proc], cell_count, MPI_INT, proc, cell_count, 
-						MPI_COMM_WORLD, &receives[num_receives++] );
+						mpi.comm.run, &receives[num_receives++] );
 #endif
 				}
 
@@ -419,7 +419,7 @@ void pack_communicate( pack *p ) {
 					cart_assert( num_receives < num_recv_requests );
 					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 					MPI_Irecv( &cell_refined[proc][i], size, MPI_INT, proc, i+cell_count,
-							MPI_COMM_WORLD, &receives[num_receives++] );
+							mpi.comm.run, &receives[num_receives++] );
 					i += size;
 				} while ( i < cell_count );
 
@@ -428,14 +428,14 @@ void pack_communicate( pack *p ) {
 					cart_assert( num_receives < num_recv_requests );
 					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
 					MPI_Irecv( &cell_recv_vars[proc][i], size, MPI_FLOAT, proc,
-							i, MPI_COMM_WORLD, &receives[num_receives++] );
+							i, mpi.comm.run, &receives[num_receives++] );
 					i += size;
 				} while ( i < cell_count*num_vars );
 #else
 				MPI_Irecv( cell_refined[proc], cell_count, MPI_INT, proc, level,
-						MPI_COMM_WORLD, &receives[num_receives++] );
+						mpi.comm.run, &receives[num_receives++] );
 				MPI_Irecv( cell_recv_vars[proc], num_vars*cell_count, MPI_FLOAT, proc,
-					level, MPI_COMM_WORLD, &receives[num_receives++] );
+					level, mpi.comm.run, &receives[num_receives++] );
 #endif
 			}
 
@@ -448,12 +448,12 @@ void pack_communicate( pack *p ) {
 						cart_assert( num_sends < num_send_requests );
 						size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 						MPI_Isend( &p->root_cells[proc][i], size, MPI_INT, proc, i,
-								MPI_COMM_WORLD, &sends[num_sends++] );
+								mpi.comm.run, &sends[num_sends++] );
 						i += size;
 					} while ( i < cell_count );
 #else 
 					MPI_Isend( p->root_cells[proc], cell_count, MPI_INT, proc, cell_count,
-							MPI_COMM_WORLD, &sends[num_sends++] );
+							mpi.comm.run, &sends[num_sends++] );
 #endif
 				}
 
@@ -463,7 +463,7 @@ void pack_communicate( pack *p ) {
 					cart_assert( num_sends < num_send_requests );
 					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 					MPI_Isend( &p->cell_refined[proc][level_offset[proc]+i], size, MPI_INT, 
-							proc, i+cell_count, MPI_COMM_WORLD, &sends[num_sends++] );
+							proc, i+cell_count, mpi.comm.run, &sends[num_sends++] );
 					i += size;
 				} while ( i < cell_count );
 
@@ -472,15 +472,15 @@ void pack_communicate( pack *p ) {
 					cart_assert( num_sends < num_send_requests );
 					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
 					MPI_Isend( &p->cell_vars[proc][num_vars*level_offset[proc]+i], size, MPI_FLOAT,
-							proc, i, MPI_COMM_WORLD, &sends[num_sends++] );
+							proc, i, mpi.comm.run, &sends[num_sends++] );
 					i += size;
 				} while ( i < cell_count*num_vars );
 
 #else 
 				MPI_Isend( &p->cell_refined[proc][level_offset[proc]], cell_count, MPI_INT, proc, 
-						level, MPI_COMM_WORLD, &sends[num_sends++] );
+						level, mpi.comm.run, &sends[num_sends++] );
 				MPI_Isend( &p->cell_vars[proc][num_vars*level_offset[proc]], num_vars*cell_count, 
-						MPI_FLOAT, proc, level, MPI_COMM_WORLD, &sends[num_sends++] );
+						MPI_FLOAT, proc, level, mpi.comm.run, &sends[num_sends++] );
 #endif
 
 				level_offset[proc] += cell_count;

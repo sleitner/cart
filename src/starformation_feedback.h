@@ -20,7 +20,6 @@ void setup_star_formation_feedback(int level);
 
 #ifdef BLASTWAVE_FEEDBACK
 void init_blastwave(int icell);
-void check_bwtime_precision(int level);
 #endif /* BLASTWAVE_FEEDBACK */
 
 #endif /* STARFORM */
