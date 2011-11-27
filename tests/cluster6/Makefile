@@ -21,6 +21,6 @@ ICs:
 	@svn checkout https://www.drudd.com/svn/cart/data/cluster6/ICs ICs
 
 prep: DAT logs ICs 
-	
+
 clean:
-	rm -rf $(OBJS) .obj *.il core start_cosmology.o cart
+	rm -rf $(OBJS) .obj *.il core start_cosmology.o hart_reader.o cart

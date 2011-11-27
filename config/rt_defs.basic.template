@@ -24,6 +24,13 @@
 
 
 /*
+//  By default, if RT_CHEMISTRY is not set then the LW rate is not computed;
+//  if it is actually needed, use this switch.
+*/
+/* #define RT_COMPUTE_LW_RATE */
+
+
+/*
 //  Also include transfer of UV (non-ionizing) radiation. That requires
 //  RT_CHEMISTRY and adds two extra variables for each cell.
 */

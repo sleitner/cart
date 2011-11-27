@@ -9,13 +9,15 @@
 #include "cell_buffer.h"
 #include "hydro.h"
 #include "iterators.h"
-#include "logging.h"
 #include "parallel.h"
 #include "refinement.h"
-#include "rt_utilities.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
+
+#ifdef RT_DEBUG
+#include "rt_debug.h"
+#endif
 
 #include "extra/healpix.h"
 #include "extra/ifrit.h"
@@ -26,7 +28,7 @@ const float T_i = 1.0e2;
 const int BottomLevel = 2;
 
 
-extern float rtSingleSourceVal;
+extern float rtSingleSourceValue;
 extern double rtSingleSourcePos[nDim];
 
 double tStart;
@@ -109,17 +111,14 @@ void run_output()
   const int nvars = 5;
   const int nbin1 = 32 * (1 << BottomLevel);
   int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC };
+  double pos[3] = { 0.5*num_grid, 0.5*num_grid, 0.5*num_grid };
   int nbin[] = { nbin1, nbin1, nbin1 };
-  double bb[6];
   int done;
   double tPhys;
   char filename[99];
 
-  bb[0] = bb[2] = bb[4] = num_grid*(0.5-0.25);
-  bb[1] = bb[3] = bb[5] = num_grid*(0.5+0.25);
-
   sprintf(filename,"OUT/out.%05d.bin",step);
-  ifrit.OutputMesh(filename,max_level,nbin,bb,nvars,varid);
+  ifrit.OutputMesh(filename,BottomLevel,nbin,pos,nvars,varid);
 
   done = 0;
   if(local_proc_id == MASTER_NODE)
@@ -129,7 +128,7 @@ void run_output()
       if(tPhys > 499.0) done = 1;
     }
 
-  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,mpi.comm.run);
 
   if(done)
     {
@@ -139,6 +138,8 @@ void run_output()
     }
 }
 
+
+extern double max_dt;
 
 void init_run()
 {
@@ -206,15 +207,34 @@ void init_run()
    /* set time variables */
    tStart = tl[min_level] = 0.0;
 
-   dtl[min_level] = 10*constants->Myr/units->time;
+   max_dt = 10*constants->Myr/units->time;
+
+   for ( level = min_level+1; level <= max_level; level++ )
+     {
+       tl[level] = tl[min_level];
+     }
 
    /* source */
-   rtSingleSourceVal = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
+   rtSingleSourceValue = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
    rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.375*num_grid;
    
-   //rtOtvetMaxNumIter = 30;
+   rtOtvetMaxNumIter = 10;
 
    cart_debug("done with initialization");
    
    check_map();
+
+   run_output();
+
+   /*
+   //  Debugging parameters
+   */
+#ifdef RADIATIVE_TRANSFER
+#ifdef RT_DEBUG
+   rt_debug.Mode = 1;
+   rt_debug.Pos[0] = rtSingleSourcePos[0] - 0.5*pow(0.5,BottomLevel);
+   rt_debug.Pos[1] = rtSingleSourcePos[1] - 0.5*pow(0.5,BottomLevel);
+   rt_debug.Pos[2] = rtSingleSourcePos[2] - 0.5*pow(0.5,BottomLevel);
+#endif
+#endif
 }

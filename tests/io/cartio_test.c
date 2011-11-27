@@ -70,7 +70,7 @@ int write_grid()
 	}
 
 	// Barrier. All the processes block here until the whole global sfc index table is recorded in the file.
-	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Barrier(mpi.comm.run);
 
 	sfc = proc_sfc_index[my_rank];
 	log_debug("%d SFC index %d\n",my_rank,proc_sfc_index[my_rank]);
@@ -150,8 +150,8 @@ int argc; char * argv[];
 	int  pool_size;
 
 	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+	MPI_Comm_rank(mpi.comm.run, &my_rank);
+	MPI_Comm_size(mpi.comm.run, &num_procs);
 
 
 	log_debug("initial data\n");
@@ -167,7 +167,7 @@ int argc; char * argv[];
 
 	write_grid();
 
-	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Barrier(mpi.comm.run);
 
 	read_grid();
 

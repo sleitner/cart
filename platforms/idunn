@@ -1,10 +1,12 @@
 # COMPILE OPTIONS
 
-# idunn (PG compilers)
+# fulla (PG compilers)
+PATH = /d/idunn/ext/bin:/opt/pgi/linux86-64/11.7/bin:/bin:/usr/bin
+
 CFLAGS  = -fast -mp -mcmodel=medium
-CC      = pgcc
+CC      = mpicc
 FFLAGS  = -fast -mp -mcmodel=medium
-F77     = pgf77 
-INCLUDES = -I/usr/lib64/openmpi/1.2.5-gcc/include -I/d/idunn/ext/include
-EXTRALIBS = -pgf77libs -L/usr/lib64/openmpi/1.2.5-gcc/lib -L/d/idunn/ext/lib -lmpi -lmpi_f77
+F77     = mpif77
+INCLUDES = -I/d/idunn/ext/include
+EXTRALIBS = -pgf77libs -L/d/idunn/ext/lib 
 

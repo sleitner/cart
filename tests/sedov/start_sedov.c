@@ -17,7 +17,7 @@
 #include "cell_buffer.h"
 #include "iterators.h"
 #include "load_balance.h"
-#include "timestep.h"
+#include "times.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
@@ -127,7 +127,7 @@ void set_sedov_initial_conditions() {
 	}
 	scale = scale_energy;
 	
-	MPI_Allreduce( &scale, &scale_energy, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+	MPI_Allreduce( &scale, &scale_energy, 1, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
 
 	scale_energy = (E/E0) / scale_energy;
 	for ( level = min_level; level <= max_level; level++ ) {
@@ -263,10 +263,10 @@ void run_output() {
 		cart_free( level_cells );
 	}
 
-	MPI_Reduce( rho, reduced_rho, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Reduce( pressure, reduced_pressure, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Reduce( vel, reduced_vel, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Reduce( avgs, reduced_avgs, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Reduce( rho, reduced_rho, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Reduce( pressure, reduced_pressure, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Reduce( vel, reduced_vel, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Reduce( avgs, reduced_avgs, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
 
 	if ( local_proc_id == MASTER_NODE ) {
 		sprintf(filename, "%s/%s_[%5.4f].dat", output_directory, jobname, tl[min_level]-t_init );
@@ -316,7 +316,7 @@ void run_output() {
 					value = cell_gas_density(icell);
 				} else {
 					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
-							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+							mpi.comm.run, MPI_STATUS_IGNORE );
 				}
 
 				slice[ coords[2]*num_grid + coords[0] ] = value;
@@ -335,7 +335,7 @@ void run_output() {
 					value = cell_gas_internal_energy(icell)/cell_gas_density(icell);
 				} else {
 					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
-							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+							mpi.comm.run, MPI_STATUS_IGNORE );
 				}
 
 				slice[ coords[2]*num_grid + coords[0] ] = value;
@@ -354,7 +354,7 @@ void run_output() {
 					value = cell_momentum(icell,0)/cell_gas_density(icell);
 				} else {
 					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
-							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+							mpi.comm.run, MPI_STATUS_IGNORE );
 				}
 
 				slice[ coords[2]*num_grid + coords[0] ] = value;
@@ -373,7 +373,7 @@ void run_output() {
 					value = cell_momentum(icell,2)/cell_gas_density(icell);
 				} else {
 					MPI_Recv( &value, 1, MPI_FLOAT, processor_owner(sfc), sfc,
-							MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+							mpi.comm.run, MPI_STATUS_IGNORE );
 				}
 
 				slice[ coords[2]*num_grid + coords[0] ] = value;
@@ -393,7 +393,7 @@ void run_output() {
 				if ( root_cell_is_local(sfc) ) {
 					icell = root_cell_location(sfc);
 					value = cell_gas_density(icell);
-					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, mpi.comm.run );
 				}
 			}
 		}
@@ -406,7 +406,7 @@ void run_output() {
 				if ( root_cell_is_local(sfc) ) {
 					icell = root_cell_location(sfc);
 					value = cell_gas_internal_energy(icell)/cell_gas_density(icell);
-					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, mpi.comm.run );
 				}
 			}
 		}
@@ -419,7 +419,7 @@ void run_output() {
 				if ( root_cell_is_local(sfc) ) {
 					icell = root_cell_location(sfc);
 					value = cell_momentum(icell,0)/cell_gas_density(icell);
-					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, mpi.comm.run );
 				}
 			}
 		}
@@ -432,7 +432,7 @@ void run_output() {
 				if ( root_cell_is_local(sfc) ) {
 					icell = root_cell_location(sfc);
 					value = cell_momentum(icell,1)/cell_gas_density(icell);
-					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, MPI_COMM_WORLD );
+					MPI_Send( &value, 1, MPI_FLOAT, MASTER_NODE, sfc, mpi.comm.run );
 				}
 			}
 		}

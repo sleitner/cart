@@ -11,12 +11,11 @@
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 #include "cosmology.h"
 
-#include "rt_utilities.h"
 
 #define BottomLevel     1
 
@@ -184,7 +183,7 @@ void init_run()
    /* set time variables */
    tl[min_level] = 0.0;
 
-   dtl[min_level] = 1.0e7/(units->time*constants->yr);
+   max_dt = 1.0e7/(units->time*constants->yr);
 
    for ( level = min_level+1; level <= max_level; level++ )
      {

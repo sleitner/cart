@@ -1,5 +1,4 @@
 
-#define RT_DEBUG
 #define RT_OUTPUT
 
 #define RT_TRANSFER
@@ -10,3 +9,4 @@
 */
 #define RT_TEST 1
 
+/* #define RT_OTVET_SOFT_SOLVER */

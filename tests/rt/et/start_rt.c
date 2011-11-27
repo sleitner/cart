@@ -14,13 +14,12 @@
 #include "density.h"
 #include "hydro.h"
 #include "iterators.h"
-#include "logging.h"
+//#include "logging.h"
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
-#include "rt_utilities.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -29,7 +28,7 @@
 
 const int BottomLevel = 6;
 
-extern float rtSingleSourceVal;
+extern float rtSingleSourceValue;
 extern double rtSingleSourcePos[nDim];
 
 void units_set_art(double OmegaM, double h, double Lbox);
@@ -208,7 +207,7 @@ void run_output()
   for(level=min_level; level<=BottomLevel; level++)
     {
       cart_debug("computing Single Source ET on level %u", level );
-      rtOtvetSingleSourceEddingtonTensor(level,rtSingleSourceVal,rtSingleSourcePos);
+      rtOtvetSingleSourceEddingtonTensor(level,rtSingleSourceValue,rtSingleSourcePos);
     }
 
 //  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,"OUT/out_ss.bin");
@@ -249,7 +248,7 @@ void init_run()
   units_update(min_level);
 
   /* source */
-  rtSingleSourceVal = 1.0;
+  rtSingleSourceValue = 1.0;
   rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.5*num_grid - 0.0;
 
   for ( i = 0; i < nDim; i++ )
@@ -303,7 +302,7 @@ void init_run()
   /* set time variables */
   tl[min_level] = 0.0;
   
-  dtl[min_level] = 10*constants->Myr/units->time;
+  max_dt = 10*constants->Myr/units->time;
 
   for ( level = min_level+1; level <= max_level; level++ )
     {
@@ -364,7 +363,7 @@ void init_run()
 	  particle_mass[num_local_particles] = particle_species_mass[species];
 	  
 	  particle_t[num_local_particles] = 0.0;
-	  particle_dt[num_local_particles] = dtl[cell_level(cell)];
+	  particle_dt[num_local_particles] = 0.0;
 
 	  particle_level[num_local_particles] = cell_level(cell);
 

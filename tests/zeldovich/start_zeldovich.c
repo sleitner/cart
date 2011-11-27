@@ -21,10 +21,12 @@
 #include "refinement.h"
 #include "refinement_operations.h"
 #include "sfc.h"
-#include "timestep.h"
+#include "times.h"
 #include "timing.h"
 #include "tree.h"
 #include "units.h"
+
+#include "run/step.h"
 
 #include "extra/viewdump.h"
 
@@ -187,7 +189,7 @@ void output_cell( int cell, int level ) {
 /*
 		fprintf(output, "%e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %u\n",
 			q, x0, 
-			(cell_density(cell)/cell_volume[level]+1.0), rho, fabs(rho-(cell_density(cell)/cell_volume[level])+1.0)/rho,
+			(cell_total_mass(cell)/cell_volume[level]+1.0), rho, fabs(rho-(cell_total_mass(cell)/cell_volume[level])+1.0)/rho,
 			cell_momentum(cell,0)/cell_gas_density(cell), v, fabs(v-cell_momentum(cell,0)/cell_gas_density(cell))/v,
 			cell_accel(cell, 0)/dtl[level], g, fabs(g-cell_accel(cell, 0)/dtl[level])/g,
 			cell_potential(cell), phi, fabs(phi-cell_potential(cell))/cell_potential(cell), 
@@ -195,18 +197,18 @@ void output_cell( int cell, int level ) {
 			cell_gas_internal_energy(cell), cell_level(cell) );
 */
 		fprintf(output, "%e %e %u %e %e %e %e %e %e %e %e %u %e\n", q, x0, cell_level(cell),
-			cell_density(cell), cell_potential(cell), cell_potential_hydro(cell),
+			cell_total_mass(cell), cell_potential(cell), cell_potential_hydro(cell),
 			cell_gas_density(cell), cell_momentum(cell,0)/cell_gas_density(cell),
 			cell_gas_pressure(cell), cell_momentum(cell,0), ref[cell], cell, phi );
 #else 
 /*
 		fprintf(output, "%e %e %e %e %e %e %e %e %e %e %e\n",
 			q, x0,
-			(cell_density(cell)+cell_volume[level]), rho, fabs(rho-(cell_density(cell)+cell_volume[level]))/rho,
+			(cell_total_mass(cell)+cell_volume[level]), rho, fabs(rho-(cell_total_mass(cell)+cell_volume[level]))/rho,
 			cell_accel(cell, 0), g, fabs(g-cell_accel(cell, 0))/g,
 			cell_potential(cell), phi, fabs(phi-cell_potential(cell))/cell_potential(cell) );
 */
-/*		fprintf(output, "%e %e %e %e\n", q, x0, cell_density(cell), cell_potential(cell) ); */
+/*		fprintf(output, "%e %e %e %e\n", q, x0, cell_total_mass(cell), cell_potential(cell) ); */
 #endif /* HYDRO */
 
 #ifdef PARTICLES
@@ -275,7 +277,7 @@ void run_output() {
 		phi = 0.0;
 	}
 
-	MPI_Allreduce( &phi, &phi0, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+	MPI_Allreduce( &phi, &phi0, 1, MPI_DOUBLE, MPI_MAX, mpi.comm.run );
 
 	/* uncommment to print all cells */
 /*
@@ -330,10 +332,10 @@ void run_output() {
 
 	fclose(particles);
 
-	MPI_Reduce( &x_rms, &x_rms_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Reduce( &v_rms, &v_rms_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Reduce( &x_norm, &x_norm_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
-	MPI_Reduce( &v_norm, &v_norm_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Reduce( &x_rms, &x_rms_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Reduce( &v_rms, &v_rms_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Reduce( &x_norm, &x_norm_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
+	MPI_Reduce( &v_norm, &v_norm_total, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 
 	if ( local_proc_id == MASTER_NODE ) {	
 

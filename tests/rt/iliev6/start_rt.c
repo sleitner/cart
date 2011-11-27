@@ -9,11 +9,9 @@
 #include "cell_buffer.h"
 #include "hydro.h"
 #include "iterators.h"
-#include "logging.h"
 #include "parallel.h"
 #include "refinement.h"
-#include "rt_utilities.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -27,7 +25,7 @@ const int BottomLevel = 2;
 const float ExtraScale = num_grid/16.0;
 
 
-extern float rtSingleSourceVal;
+extern float rtSingleSourceValue;
 extern double rtSingleSourcePos[nDim];
 
 double tStart;
@@ -128,20 +126,17 @@ void run_output()
 {
   const int nvars = 8;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2 };
+  int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, I_GAS_NUMBER_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, rt_field_offset+0, rt_field_offset+1, rt_field_offset+2 };
   int nbin[] = { nbin1, nbin1, nbin1 };
-  double bb[6];
+  double pos[3] = { 0.5*num_grid, 0.5*num_grid, 0.5*num_grid };
   int done;
   double tPhys;
   char filename[99];
 
   if(step>0 && step%2==0) return;
 
-  bb[0] = bb[2] = bb[4] = num_grid*(0.5-1/ExtraScale);
-  bb[1] = bb[3] = bb[5] = num_grid*(0.5+1/ExtraScale);
- 
   sprintf(filename,"OUT/out.%05d.bin",step);
-  ifrit.OutputMesh(filename,max_level,nbin,bb,nvars,varid);
+  ifrit.OutputMesh(filename,BottomLevel,nbin,pos,nvars,varid);
 
   done = 0;
   if(local_proc_id == MASTER_NODE)
@@ -152,7 +147,7 @@ void run_output()
       if(tPhys > 24.9) done = 1;
     }
 
-  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,mpi.comm.run);
 
   if(done)
     {
@@ -162,6 +157,8 @@ void run_output()
     }
 }
 
+
+extern double max_dt;
 
 void init_run()
 {
@@ -229,7 +226,7 @@ void init_run()
    /* set time variables */
    tStart = tl[min_level] = 0.0;
 
-   dtl[min_level] = 0.5*constants->Myr/units->time;
+   max_dt = 0.5*constants->Myr/units->time;
 
    for ( level = min_level+1; level <= max_level; level++ )
      {
@@ -237,10 +234,10 @@ void init_run()
      }
 
    /* source */
-   rtSingleSourceVal = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
+   rtSingleSourceValue = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
    rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.5*num_grid;
    
-   //rtOtvetMaxNumIter = 30;
+   rtOtvetMaxNumIter = 100;
 
    cart_debug("done with initialization");
    

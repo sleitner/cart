@@ -9,12 +9,10 @@
 #include "cell_buffer.h"
 #include "hydro.h"
 #include "iterators.h"
-#include "logging.h"
 #include "parallel.h"
 #include "refinement.h"
-#include "rt_solver.h"
-#include "rt_utilities.h"
-#include "timestep.h"
+#include "rt.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -129,12 +127,10 @@ void init_run()
   /* set time variables */
   tl[min_level] = 0.0;
 
-  dtl[min_level] = 1.0e-5*constants->yr/units->time;
-  /*choose_timestep( &dtl[min_level] );*/
+  max_dt = 1.0e-5*constants->yr/units->time;
 
   for ( level = min_level+1; level <= max_level; level++ )
     {
-      dtl[level] = 0.5*dtl[level-1];
       tl[level] = tl[min_level];
     }
 

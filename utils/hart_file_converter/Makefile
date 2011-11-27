@@ -1,6 +1,5 @@
 TOP_DIR = ../../
 SRC_DIR = $(TOP_DIR)/src
-NO_RT = 1
 
 all: hart_to_cart cart_to_hart
 

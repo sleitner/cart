@@ -25,8 +25,9 @@ c     ------------------------------------------------------------
       character*256 fname1, fname2, fname3, datpath, denpath, respath
       integer ldpath, ldenpath, lrpath
       common / abin / alpha
-      character*80 ctmp
+      character*256 ctmp
       character*10 chaexp
+      character*250 froot
 
       alpha = 1.5
 C
@@ -43,6 +44,28 @@ C
         read (ctmp,*) Deltavir
         call GETARG(4,ctmp)
         read (ctmp,*) rfind
+
+        msort = 0
+        froot = '.'
+
+        do iarg=5,iargc()
+
+           call getarg(iarg,ctmp)
+
+           if(ctmp .eq. '-vmax') then
+              msort = 1
+           else if(ctmp .eq. '-mvir') then
+              msort = 2
+           else if(ctmp(1:6) .eq. '-root=') then
+              ib = index(ctmp,' ') - 1
+              froot = ctmp(7:ib)
+           else 
+              write(0,*) 'Invalid option: ', ctmp
+              stop
+           endif
+
+        enddo
+
       end if
 
 c
@@ -79,8 +102,20 @@ c
       ldpath = index( datpath , ' ' ) - 1 
       ldenpath = index( denpath , ' ' ) - 1 
       ldaexp = index( chaexp, ' ' ) - 1
-      fname1 = datpath(1:ldpath)//'/PMcrda'//chaexp(1:ldaexp)//'.DAT '
-      fname2 = datpath(1:ldpath)//'/PMcrs0a'//chaexp(1:ldaexp)//'.DAT '
+
+      if(froot .eq. '.') then
+         fname1 = datpath(1:ldpath)//
+     .        '/PMcrda'//chaexp(1:ldaexp)//'.DAT '
+         fname2 = datpath(1:ldpath)//
+     .        '/PMcrs0a'//chaexp(1:ldaexp)//'.DAT '
+      else
+         ib = index(froot,' ') - 1
+         fname1 = datpath(1:ldpath)//'/'//froot(1:ib)//'_a'//
+     .        chaexp(1:ldaexp)//'.dph '
+         fname2 = datpath(1:ldpath)//'/'//froot(1:ib)//'_a'//
+     .        chaexp(1:ldaexp)//'.dxv '
+      endif
+
       fname3 = denpath(1:ldenpath)//'/rho_smooth_a'
      &                  //chaexp(1:ldaexp)//'.dat '
 
@@ -132,6 +167,29 @@ c      write(*,*) 'Done.'
       call Compute_Halo_Properties ( ibtype, rmin, rmax, rvel, 
      &                               nbins, niter )
       call Remove_Velocity_Duplicates ()
+
+      if(msort .eq. 1) then
+         do ih=1,nhalo
+            vhmax(ih) = -vhmax(ih)
+         enddo
+         call indexx(nhalo,vhmax,idx)
+         do ih=1,nhalo
+            vhmax(ih) = -vhmax(ih)
+         enddo
+      else if(msort .eq. 2) then
+         do ih=1,nhalo
+            amh(ih) = -amh(ih)
+         enddo
+         call indexx(nhalo,amh,idx)
+         do ih=1,nhalo
+            amh(ih) = -amh(ih)
+         enddo
+      else
+         do ih=1,nhalo
+            idx(ih) = ih
+         enddo
+      endif
+
       write(*,*) 'Done.'
       write(*,*) 'Writing halo catalogs...'
       call Write_Halo_Catalogs ( fname1, fname2 ,
@@ -892,7 +950,8 @@ c     ------------------------------------------------------------------
  119  format(' m(<r) [/h Msun] Np(r)=# of particles in the shell')
 c
       ih = 0 
-      do ic1 = 1 , nhalo
+      do ic0 = 1 , nhalo
+        ic1 = idx(ic0)
         if ( amh(ic1) .gt. nmin*pw(1) ) then
         ih = ih + 1
         rkpc   = rh(ic1) * rg2kpc
@@ -974,7 +1033,8 @@ c
       enddo
 
       ih = 0 
-      do ic1 = 1 , nhalo 
+      do ic0 = 1 , nhalo 
+        ic1 = idx(ic0)
         if ( amh(ic1) .gt. nmin*pw(1) ) then
           rhalo  = rh(ic1)
           rhmaxd = rhmax(ic1)/rg2pkpc

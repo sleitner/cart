@@ -5,10 +5,10 @@ PATH = /usr/local/mpich2-intel/bin:/opt/intel/Compiler/11.0/074/bin/intel64:/usr
 LD_LIBRARY_PATH = /opt/intel/Compiler/11.0/074/lib/intel64
 
 
-CFLAGS  = -O2 -openmp -mcmodel=medium -fp-model strict
+CFLAGS  = -O1 -openmp -mcmodel=medium -fp-model precise
 CC      = mpicc
 FFLAGS  = -O2 -openmp -mcmodel=medium 
 F77     = mpif77
-INCLUDES = -I/home/drudd/include
-EXTRALIBS = -L/home/drudd/lib -L/usr/local/mpich2-intel/lib -lifcore 
+CXX     = mpicc
+EXTRALIBS = -L/usr/local/mpich2-intel/lib -lifcore 
 

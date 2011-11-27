@@ -1,0 +1,12 @@
+# COMPILE OPTIONS
+
+# fulla (PG compilers)
+PATH = /usr/local/openmpi-pgi/bin:/opt/pgilinux-117/linux86-64/11.7/bin:/usr/bin:/bin
+
+CFLAGS  = -fast -mp -mcmodel=medium
+CC      = mpicc
+FFLAGS  = -fast -mp -mcmodel=medium
+F77     = mpif77
+CXX     = mpicxx
+EXTRALIBS = -pgf77libs #-lmpi_f77
+

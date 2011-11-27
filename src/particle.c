@@ -612,7 +612,9 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 							particle_x[ipart][2] );
 					cart_debug("particle_v = %e %e %e", particle_v[ipart][0],particle_v[ipart][1],particle_v[ipart][2]);
 					cart_debug("icell = %d", icell );
+#ifdef STARFORM
 					cart_debug("particle_is_star(ipart=%d)=%d",ipart,particle_is_star(ipart));
+#endif /* STARFORM */
 					if ( icell != -1 ) {
 						cell_center_position( icell, pos );
 						cart_debug("cell position = %e %e %e", pos[0], pos[1], pos[2] );

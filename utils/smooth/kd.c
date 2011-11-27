@@ -7,7 +7,7 @@
 #include "kd.h"
 #include "tipsydefs.h"
 
-typedef double particle_float;
+typedef float particle_float;
 #define MAX_ROOT_ITTR	32
 
 

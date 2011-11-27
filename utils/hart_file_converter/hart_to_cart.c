@@ -10,7 +10,6 @@
 
 #include <mpi.h>
 
-#include "defs.h"
 #include "io.h"
 #include "tree.h"
 #include "sfc.h"
@@ -18,16 +17,18 @@
 #include "cell_buffer.h"
 #include "timing.h"
 #include "units.h"
-#include "logging.h"
 #include "auxiliary.h"
 #include "cosmology.h"
-#include "timestep.h"
+#include "times.h"
 #include "extra/hart_io.h"
+
+void init_run(){}
+void run_output(){}
 
 int main ( int argc, char *argv[]) {
 	MPI_Init( &argc, &argv );
-	MPI_Comm_size( MPI_COMM_WORLD, &num_procs );
-	MPI_Comm_rank( MPI_COMM_WORLD, &local_proc_id );
+	MPI_Comm_size( mpi.comm.run, &num_procs );
+	MPI_Comm_rank( mpi.comm.run, &local_proc_id );
 
 	if ( argc != 3 ) {
 		cart_error("Usage: mpirun -np 1 hart_to_cart input output");

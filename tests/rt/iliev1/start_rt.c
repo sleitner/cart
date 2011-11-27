@@ -11,10 +11,11 @@
 #include "iterators.h"
 #include "parallel.h"
 #include "refinement.h"
-#include "rt_utilities.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
+
+#include "run/logging.h"
 
 #include "extra/healpix.h"
 #include "extra/ifrit.h"
@@ -130,7 +131,7 @@ float fHI(float r, double e[])
     {
       f = -1.0;
     }
-  MPI_Allreduce(&f,&ff,1,MPI_FLOAT,MPI_MAX,MPI_COMM_WORLD);
+  MPI_Allreduce(&f,&ff,1,MPI_FLOAT,MPI_MAX,mpi.comm.run);
 
   return ff;
 }
@@ -248,7 +249,7 @@ void run_output()
       if(tPhys > 999.0) done = 1;
     }
 
-  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,mpi.comm.run);
 
   if(done)
     {
@@ -338,7 +339,7 @@ void init_run()
    rtSingleSourceValue = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
    rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.5*num_grid;
    
-   str = check_option1("nit","nit",NULL);
+   str = extract_option1("nit","nit",NULL);
    if(str != NULL)
      {
        if(sscanf(str,"%d",&rtOtvetMaxNumIter)!=1 || rtOtvetMaxNumIter<1 || rtOtvetMaxNumIter>1000)

@@ -24,6 +24,13 @@
 
 
 /*
+//  By default, if RT_CHEMISTRY is not set then the LW rate is not computed;
+//  if it is actually needed, use this switch.
+*/
+?#define RT_COMPUTE_LW_RATE
+
+
+/*
 //  Also include transfer of UV (non-ionizing) radiation. That requires
 //  RT_CHEMISTRY and adds two extra variables for each cell.
 */
@@ -152,6 +159,31 @@
 //  is off by default
 */
 ?#define RT_TRANSFER_FLUX_CONSERVING
+
+
+/*
+//  Disable metal cooling above 10,000K
+*/
+?#define RT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING
+
+
+/*
+//  Use old-style (power-law) H2 shielding function 
+//  (for backward compatibility)
+*/
+?#define RT_OLDSTYLE_H2_SHIELDING
+
+
+/*
+//  Locally cache Eddington tensor and/or radiationd field - that 
+//  improves the OpenMP performance at the expense of using extra memory.
+//  The best OpenMP performance is obtained when both swicthes are set;
+//  setting just the RF switch gives ~50% of gain with just 1 extra array,
+//  setting the ET swicth will get the remaining 50% gain at the expense of
+//  6 extra arrays.
+*/
+?#define RT_OTVET_CACHE_ET
+?#define RT_OTVET_CACHE_RF
 
 
 /*

@@ -27,3 +27,10 @@ rt_field_offset
 rt_num_extra_vars
 rt_num_fields_per_freq
 rt_num_freqs
+RT_STD
+MPI_COMM_SELF
+MPI_COMM_WORLD
+OPENMP_DECLARE_CONST
+ROOT_GRID_FFT_IJK_TYPE
+STATIC_MESH_DATA
+RT_OTVET_SOFT_SOLVER

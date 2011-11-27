@@ -14,17 +14,17 @@ c     ----------------------------------------------------------------
 
       parameter ( nil    = 0         )           ! integer zero 
       parameter ( zero   = 0.0       )           ! real zero
-      parameter ( nrow   = 128       )            ! # of particles  in 1D
-      parameter ( npmax  = 18000000  )            !
+      parameter ( nrow   = 512       )            ! # of particles  in 1D
+      parameter ( npmax  = 180000000  )            !
       parameter ( ncold  = nrow**3   )           !
       parameter ( npage  = nrow**2   )           !
       parameter ( nrecl  = npage * 6 )           !
-      parameter ( ngrid  = 128       )           ! # of grid cells in 1D
-      parameter ( nll    = 128       )           ! # of chain mesh cells in 1D
+      parameter ( ngrid  = 64        )           ! # of grid cells in 1D
+      parameter ( nll    = ngrid       )           ! # of chain mesh cells in 1D
       parameter ( ncell  = ngrid**3  )           ! total # of grid cells
       parameter ( ncell0 = ngrid**3  )           ! # of 0-level cells in the original sim.
       parameter ( nh     = 400000    )            ! max # of haloes
-      parameter ( floatsize = 8      )
+      parameter ( floatsize = 4      )
       parameter ( nbyteword = 1      )  
       parameter ( rhoaver= 1.0       )           ! average density of particles
       parameter ( rinit  = 100.0     )           ! initial halo radius in kpc
@@ -75,8 +75,9 @@ c
       common / HALO16 / vhmax(nh)                ! 
       common / HALO17 / rhmax(nh)                ! 
       common / HALO18 / rhvir(nh)                ! 
+      common / HALO19 / idx(nh)                  ! halo id (non-trivial if sorted)
 
-      parameter ( nbmax    = 150 )               ! size of the profile arrays
+      parameter ( nbmax    = 300 )               ! size of the profile arrays
       real pn   (nil:nbmax,nh)                   ! mass  profile
       real pnt  (nil:nbmax,nh)                   ! tot mass within r 
       real na   (nil:nbmax,nh)                   ! auxiliary arrays:
@@ -110,9 +111,9 @@ c
      &                   QSCALE, SCALEL
 
 c     Change to real*4 for single-precision particle files
-      real*8        XPAR(npage), YPAR(npage), ZPAR(npage),
+      real*4        XPAR(npage), YPAR(npage), ZPAR(npage),
      &                  VXX(npage), VYY(npage), VZZ(npage)
-      real*8		RECDAT(NRECL)
+      real*4		RECDAT(NRECL)
 	  common / ROW / xpar, ypar, zpar, vxx, vyy, vzz
 
       DIMENSION      wspecies(10),lspecies(10)

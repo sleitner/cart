@@ -9,13 +9,11 @@
 #include "cell_buffer.h"
 #include "hydro.h"
 #include "iterators.h"
-#include "logging.h"
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
-#include "rt_utilities.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -129,7 +127,7 @@ float fHI(float r, double e[])
     {
       f = -1.0;
     }
-  MPI_Allreduce(&f,&ff,1,MPI_FLOAT,MPI_MAX,MPI_COMM_WORLD);
+  MPI_Allreduce(&f,&ff,1,MPI_FLOAT,MPI_MAX,mpi.comm.run);
 
   return ff;
 }
@@ -210,7 +208,7 @@ void run_output()
 {
   const int nvars = 15;
   const int nbin1 = 32 * (1 << BottomLevel);
-  int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, RT_VAR_OT_FIELD, rt_freq_offset+0, rt_freq_offset+1, rt_freq_offset+2, rt_et_offset+0, rt_et_offset+1, rt_et_offset+2, rt_et_offset+3, rt_et_offset+4, rt_et_offset+5 };
+  int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, RT_VAR_OT_FIELD };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   int done;
@@ -250,7 +248,7 @@ void run_output()
       if(tPhys > 999.0) done = 1;
     }
 
-  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(&done,1,MPI_INT,MASTER_NODE,mpi.comm.run);
 
   if(done)
     {
@@ -328,7 +326,7 @@ void init_run()
    /* set time variables */
    tStart = tl[min_level] = 0.0;
 
-   dtl[min_level] = 10*constants->Myr/units->time;
+   max_dt = 10*constants->Myr/units->time;
 
    for ( level = min_level+1; level <= max_level; level++ )
      {
@@ -394,7 +392,7 @@ void init_run()
            particle_mass[num_local_particles] = particle_species_mass[species];
           
            particle_t[num_local_particles] = 0.0;
-           particle_dt[num_local_particles] = dtl[cell_level(cell)];
+           particle_dt[num_local_particles] = 0.0;
 
            particle_level[num_local_particles] = cell_level(cell);
 

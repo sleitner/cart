@@ -11,7 +11,7 @@
 #include "parallel.h"
 #include "cell_buffer.h"
 #include "load_balance.h"
-#include "timestep.h"
+#include "times.h"
 #include "refinement.h"
 #include "timing.h"
 #include "units.h"

@@ -8,7 +8,7 @@
 
 #include <mpi.h>
 
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "io.h"
 #include "units.h"
@@ -87,8 +87,8 @@ void read_hart_gas_ic( char *filename ) {
 		//Lbox = boxh;
 		auni_init = ainit;
 
-		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 	
 		cart_debug("boxh = %f", boxh );
 		cart_debug("ainit = %f", ainit );
@@ -141,9 +141,9 @@ void read_hart_gas_ic( char *filename ) {
 	
 							if ( count[proc] == num_grid*num_grid ) {
 								MPI_Send( page[proc], num_grid*num_grid, MPI_FLOAT, 
-									proc, 0, MPI_COMM_WORLD );
+									proc, 0, mpi.comm.run );
 								MPI_Send( page_indices[proc], num_grid*num_grid, 
-									MPI_INT, proc, 0, MPI_COMM_WORLD );
+									MPI_INT, proc, 0, mpi.comm.run );
 								count[proc] = 0;
 							}
 						}
@@ -156,8 +156,8 @@ void read_hart_gas_ic( char *filename ) {
 			
 			/* send last variables */
 			for ( proc = 1; proc < num_procs; proc++ ) {
-				MPI_Send( page[proc], count[proc], MPI_FLOAT, proc, 0, MPI_COMM_WORLD );
-				MPI_Send( page_indices[proc], count[proc], MPI_INT, proc, 0, MPI_COMM_WORLD );
+				MPI_Send( page[proc], count[proc], MPI_FLOAT, proc, 0, mpi.comm.run );
+				MPI_Send( page_indices[proc], count[proc], MPI_INT, proc, 0, mpi.comm.run );
 			}
 		}
 	
@@ -169,8 +169,8 @@ void read_hart_gas_ic( char *filename ) {
 			cart_free( page_indices[proc] );
 		}
 	} else {
-		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		//MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 		page[local_proc_id] = cart_alloc(float, num_grid*num_grid );
 		page_indices[local_proc_id] = cart_alloc(int, num_grid*num_grid );
@@ -178,9 +178,9 @@ void read_hart_gas_ic( char *filename ) {
 		for ( var = 0; var < num_gas_vars; var++ ) {
 			page_count = num_grid*num_grid;
 			while ( page_count == num_grid*num_grid ) {
-				MPI_Recv( page[local_proc_id], num_grid*num_grid, MPI_FLOAT, MASTER_NODE, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( page[local_proc_id], num_grid*num_grid, MPI_FLOAT, MASTER_NODE, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_FLOAT, &page_count );
-				MPI_Recv( page_indices[local_proc_id], num_grid*num_grid, MPI_INT, MASTER_NODE, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( page_indices[local_proc_id], num_grid*num_grid, MPI_INT, MASTER_NODE, 0, mpi.comm.run, &status );
 
 				for ( i = 0; i < page_count; i++ ) {
 					icell = root_cell_location( page_indices[local_proc_id][i] );

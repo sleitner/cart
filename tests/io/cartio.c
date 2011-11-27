@@ -26,7 +26,7 @@ int cartio_open(char * filename, int mode, int num_files, cartio_file * handle )
 {
 	int status;
 	log_debug("Begin to open file\n", filename);
-	status = MPI_File_open(MPI_COMM_WORLD,filename, mode ,MPI_INFO_NULL,&(handle->ffh.fh));
+	status = MPI_File_open(mpi.comm.run,filename, mode ,MPI_INFO_NULL,&(handle->ffh.fh));
 	if (status != MPI_SUCCESS) {
 	    char error_string[BUFSIZ];
 	    int length_of_error_string, error_class;
@@ -35,7 +35,7 @@ int cartio_open(char * filename, int mode, int num_files, cartio_file * handle )
 	    printf("%s\n", error_string);
 	    MPI_Error_string(status, error_string, &length_of_error_string);
 	    printf("%s\n", error_string);
-	    MPI_Abort(MPI_COMM_WORLD, status);
+	    MPI_Abort(mpi.comm.run, status);
 	  }
 	log_debug("File %s has been open\n", filename);
 	handle->ffh.p=0;

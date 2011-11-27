@@ -1,12 +1,12 @@
 # COMPILE OPTIONS
 
 # fulla (PG compilers)
-PATH = /usr/local/mpich2-1.1-pgi-901/bin:/usr/local/openmpi-pgi/bin:/opt/pgi/linux86-64/9.0/bin:/usr/bin:/bin
+PATH = /usr/local/mpich2-1.2.1p1-pgi-103/bin:/opt/pgi/linux86-64/10.3/bin:/usr/bin:/bin
 
-CFLAGS  = -g -Ktrap=fp -mcmodel=medium
+CFLAGS  = -Ktrap=fp -g -mcmodel=medium
 CC      = mpicc
-FFLAGS  = -g -Ktrap=fp -mcmodel=medium -Mbounds
+FFLAGS  = -Ktrap=fp -g -mcmodel=medium
 F77     = mpif77
-INCLUDES = -I/home/drudd/include
-EXTRALIBS = -pgf77libs -L/home/drudd/lib 
+CXX     = mpicxx
+EXTRALIBS = -pgf77libs 
 

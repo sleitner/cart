@@ -1,6 +1,4 @@
 
-#define DEBUG
-
 #define HYDRO 
 #define REFINEMENT
 #define RADIATIVE_TRANSFER

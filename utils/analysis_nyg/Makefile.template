@@ -1,0 +1,43 @@
+#
+# DO NOT CHANGE THE REPOSITORY!!!
+# 1. Copy Makefile.template into any other directory <dir>, that directory 
+#    can be ANYWHERE on your file system.
+# 2. Rename it Makefile and set TOP_DIR below to the top directory of the 
+#    ART distribution.
+# 3. ART will be compiled in <dir>.
+# 4. You also need start.c. If you don't have it already, a standard one 
+#    will be created automatically during the first compilation. You can 
+#    then modify it as you see fit. 
+#
+TOP_DIR = # Needs to be set
+#
+#  The rest of this file does not need to be changed
+#
+SRC_DIR = $(TOP_DIR)/src
+DRV_DIR = $(TOP_DIR)/utils/analysis_nyg
+
+compile: analysis
+
+include $(TOP_DIR)/Make.config
+
+
+DRV_SRCS = framework.cxx \
+           celldata.cxx \
+           ifrit.cxx \
+           profiles.cxx \
+           current.cxx 
+
+DRV_OBJS = $(patsubst %.cxx,.obj/driver/%.o,$(DRV_SRCS))
+
+.obj/driver:
+	mkdir .obj/driver
+
+.obj/driver/%.o: $(DEFS) $(DRV_DIR)/%.cxx
+	$(CXX) -c $(CXXFLAGS) $(INCLUDES) -I. -I$(SRC_DIR) -I$(DRV_DIR) -o $@ $(DRV_DIR)/$(*F).cxx
+
+analysis: .obj .obj/F .obj/driver $(DEFS) $(OBJS2) $(DRV_OBJS) analysis.cxx
+	$(CXX) $(CXXFLAGS) -I. -I$(SRC_DIR) -I$(DRV_DIR) $(INCLUDES) $(OBJS2) $(DRV_OBJS) analysis.cxx -o analysis $(LIBS) $(EXTRALIBS)
+	which mpirun
+
+clean:
+	rm -rf .obj *.il core analysis

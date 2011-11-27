@@ -12,8 +12,7 @@
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
-#include "rt_utilities.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -99,7 +98,7 @@ void run_output()
   const int prolongation_vars[1] = { VAR_POTENTIAL };
   const int nvars = 3;
   const int nbin1 = 256;
-  int varid[] = { I_CELL_LEVEL, I_LOCAL_PROC, VAR_DENSITY };
+  int varid[] = { I_CELL_LEVEL, I_LOCAL_PROC, VAR_TOTAL_MASS };
   int nbin[] = { nbin1, nbin1, nbin1 };
   double bb[6];
   MESH_RUN_DECLARE(level,cell);
