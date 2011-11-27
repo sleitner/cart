@@ -205,11 +205,12 @@ int split ( int cell ) {
 			cart_error("Error in mass conservation in split_cell: %e %e\n", mass,
 				cell_gas_density(cell)*cell_volume[cell_level(cell)] );
 		}
-#endif /* HYDRO */
 
 		/* ensure new values correspond to variable limits */
 		hydro_magic_one_cell(cell);
 	
+#endif /* HYDRO */
+
 	} else {
 		cart_error("ERROR: split_cell(%u) = %d\n", cell, result );
 	}

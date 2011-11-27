@@ -99,7 +99,7 @@
 //  Default to 25 levels if the number of levels is not set.
 */
 #ifndef num_refinement_levels 
-#define num_refinement_levels 25
+#define num_refinement_levels (30-num_root_grid_refinements)
 #endif
 
 

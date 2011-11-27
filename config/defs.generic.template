@@ -43,9 +43,9 @@
 ?#define HYDRO_CHUNK_SIZE		<value>
 
 ?#define num_root_grid_refinements	<value>
-?#define num_refinement_levels		<value>
+?#define num_refinement_levels		<value>  /* if omitted, defaults to (30-num_root_grid_refinements) */
 ?#define num_octs			<value>
 ?#define num_particles		        <value>
-?#define num_star_particles             <value>
+?#define num_star_particles             <value>  /* if omitted, defauts to num_particles */
 ?#define num_tracers                    <value>
 
