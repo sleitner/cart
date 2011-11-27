@@ -13,20 +13,15 @@
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
-#include "refinement_indicators.h"
 #include "sfc.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
+#include "run/hydro_step.h"
 
 #include "../gic/gic_reader.h"
-
-
-extern int num_options;
-extern char **options;
-
 
 
 #if (!defined(PARTICLES) || !defined(COSMOLOGY) || !defined(HYDRO))
@@ -64,30 +59,25 @@ void cosmics_init()
   /*
   //  Where do we get the root name? Use options for now
   */
-  if(local_proc_id == MASTER_NODE)
+  tmp = extract_option1("dir","dir",NULL);
+  if(tmp != NULL)
     {
-      if(num_options < 1)
-	{
-          cart_error("An option --dir=<name> is required, where <name> is the directory name for a set of COSMICS input files.\n");
-        }
+      dir = tmp;
+    }
+  else
+    {
+      cart_error("An option --dir=<name> is required, where <name> is the directory name for a set of COSMICS input files.");
+    }
+  
+  /*
+  //  No more options are allowed.
+  */
+  if(num_options > 0)
+    {
+      cart_error("Unrecognized option: %s",options[0]);
     }
 
-  for(i=0; i<num_options; i++)
-    {
-      /*
-      //  Root name for data files
-      */
-      tmp = check_option1(options[i],"-dir",NULL);
-      if(tmp != NULL)
-	{
-	  dir = tmp;
-	  continue;
-	}
-
-      cart_error("Unrecognized option: %s",options[i]);
-    }
-
-  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(mpi.comm.run);
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -160,7 +150,7 @@ void cosmics_init()
 	}
     }
 
-  MPI_Bcast(header,sizeof(struct cosmics_header),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(header,sizeof(struct cosmics_header),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 
   levelMax = 0;
   while(header->n[0] > num_grid)
@@ -348,14 +338,14 @@ void cosmics_init()
 
 	  for(l=0; l<6; l++)
 	    {
-	      MPI_Bcast(buffer[l],n,MPI_FLOAT,MASTER_NODE,MPI_COMM_WORLD);
+	      MPI_Bcast(buffer[l],n,MPI_FLOAT,MASTER_NODE,mpi.comm.run);
 	    }
 
 	  /*
 	  //  We need a barrier here to avoid overfilling MPI buffers 
 	  //  with too many asynchronized broadcasts
 	  */
-	  if(page%100 == 99) MPI_Barrier(MPI_COMM_WORLD);
+	  if(page%100 == 99) MPI_Barrier(mpi.comm.run);
 
 	  for(j=0; j<n; j++)
 	    {

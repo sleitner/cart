@@ -1,27 +1,17 @@
 #include "config.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
-#include <string.h>
+#include <stdio.h>
 
-#include <mpi.h>
-
-#include "timestep.h"
-#include "tree.h"
-#include "io.h"
-#include "units.h"
-#include "parallel.h"
-#include "cell_buffer.h"
-#include "sfc.h"
-#include "iterators.h"
 #include "auxiliary.h"
+#include "cosmology.h"
 #include "hydro.h"
-#include "starformation.h"
-#include "skiplist.h"
-#include "index_hash.h"
-#include "refinement_indicators.h"
+#include "io.h"
+#include "parallel.h"
+#include "sfc.h"
+#include "times.h"
+#include "tree.h"
+#include "units.h"
 
 #ifdef HYDRO 
 
@@ -42,6 +32,7 @@ void read_hart_gas_ic( char *filename ) {
 	float *page[MAX_PROCS];
 	int *page_indices[MAX_PROCS];
 	int var;
+	float fracHII;
 	const int num_gas_vars    = 6;
 	const int var_index[] = { 	
 		HVAR_GAS_DENSITY, HVAR_MOMENTUM, 
@@ -87,8 +78,8 @@ void read_hart_gas_ic( char *filename ) {
 		box_size = boxh;
 		auni_init = ainit;
 
-		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 	
 		cart_debug("boxh = %f", boxh );
 		cart_debug("ainit = %f", ainit );
@@ -141,9 +132,9 @@ void read_hart_gas_ic( char *filename ) {
 	
 							if ( count[proc] == num_grid*num_grid ) {
 								MPI_Send( page[proc], num_grid*num_grid, MPI_FLOAT, 
-									proc, 0, MPI_COMM_WORLD );
+									proc, 0, mpi.comm.run );
 								MPI_Send( page_indices[proc], num_grid*num_grid, 
-									MPI_INT, proc, 0, MPI_COMM_WORLD );
+									MPI_INT, proc, 0, mpi.comm.run );
 								count[proc] = 0;
 							}
 						}
@@ -156,8 +147,8 @@ void read_hart_gas_ic( char *filename ) {
 			
 			/* send last variables */
 			for ( proc = 1; proc < num_procs; proc++ ) {
-				MPI_Send( page[proc], count[proc], MPI_FLOAT, proc, 0, MPI_COMM_WORLD );
-				MPI_Send( page_indices[proc], count[proc], MPI_INT, proc, 0, MPI_COMM_WORLD );
+				MPI_Send( page[proc], count[proc], MPI_FLOAT, proc, 0, mpi.comm.run );
+				MPI_Send( page_indices[proc], count[proc], MPI_INT, proc, 0, mpi.comm.run );
 			}
 		}
 
@@ -169,8 +160,8 @@ void read_hart_gas_ic( char *filename ) {
 			cart_free( page_indices[proc] );
 		}
 	} else {
-		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
-		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 		page[local_proc_id] = cart_alloc(float, num_grid*num_grid );
 		page_indices[local_proc_id] = cart_alloc(int, num_grid*num_grid );
@@ -178,9 +169,9 @@ void read_hart_gas_ic( char *filename ) {
 		for ( var = 0; var < num_gas_vars; var++ ) {
 			page_count = num_grid*num_grid;
 			while ( page_count == num_grid*num_grid ) {
-				MPI_Recv( page[local_proc_id], num_grid*num_grid, MPI_FLOAT, MASTER_NODE, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( page[local_proc_id], num_grid*num_grid, MPI_FLOAT, MASTER_NODE, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_FLOAT, &page_count );
-				MPI_Recv( page_indices[local_proc_id], num_grid*num_grid, MPI_INT, MASTER_NODE, 0, MPI_COMM_WORLD, &status );
+				MPI_Recv( page_indices[local_proc_id], num_grid*num_grid, MPI_INT, MASTER_NODE, 0, mpi.comm.run, &status );
 
 				for ( i = 0; i < page_count; i++ ) {
 					icell = root_cell_location( page_indices[local_proc_id][i] );
@@ -192,6 +183,8 @@ void read_hart_gas_ic( char *filename ) {
 		cart_free( page[local_proc_id] );
 		cart_free( page_indices[local_proc_id] );
 	}
+
+	fracHII = 1.2e-5*sqrt(cosmology->Omh2)/cosmology->Obh2;
 
 	/* set gas gamma on root level */
 	for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
@@ -209,6 +202,14 @@ void read_hart_gas_ic( char *filename ) {
 #endif /* ENRICH_SNIa */
 #endif /* ENRICH */
 
+#ifdef RADIATIVE_TRANSFER
+		cell_HI_density(i) = cell_gas_density(i)*constants->XH*(1.0-fracHII);
+		cell_HII_density(i) = cell_gas_density(i)*constants->XH*fracHII;
+		cell_HeI_density(i) = cell_gas_density(i)*constants->XHe;
+		cell_HeII_density(i) = cell_gas_density(i)*0.0;
+		cell_HeIII_density(i) = cell_gas_density(i)*0.0;
+		cell_H2_density(i) = cell_gas_density(i)*constants->XH*2.0e-6;
+#endif
 	}
 }
 

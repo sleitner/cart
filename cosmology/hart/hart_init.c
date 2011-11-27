@@ -1,30 +1,21 @@
 #include "config.h"
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
-#include <math.h>
-#include <mpi.h>
 
 #include "auxiliary.h"
-#include "tree.h"
-#include "particle.h"
-#include "sfc.h"
-#include "parallel.h"
 #include "cell_buffer.h"
-#include "iterators.h"
-#include "load_balance.h"
-#include "timestep.h"
-#include "refinement.h"
-#include "refinement_indicators.h"
-#include "refinement_operations.h"
-#include "timing.h"
-#include "units.h"
 #include "hydro.h"
-#include "gravity.h"
-#include "density.h"
-#include "starformation.h"
 #include "io.h"
+#include "load_balance.h"
+#include "parallel.h"
+#include "particle.h"
+#include "refinement.h"
+#include "starformation.h"
+#include "times.h"
+#include "tree.h"
+#include "units.h"
+
+#include "run/hydro_step.h"
 
 #include "hart_init.h"
 

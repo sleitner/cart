@@ -32,9 +32,5 @@ art: .obj $(DEFS) $(OBJS) start.c gic_reader.o cosmics_init.o
 	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/cosmics -I$(SRC_DIR) $(INCLUDES) $(OBJS) cosmics_init.o gic_reader.o start.c -o art $(LIBS) $(EXTRALIBS)
 	which mpirun
 
-analysis: .obj $(DEFS) $(OBJS) $(EXT_OBJS) analysis.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) $(EXT_OBJS) analysis.c -o analysis $(LIBS) $(EXTRALIBS)
-	which mpirun
-
 clean:
-	rm -rf .obj *.il core start.o gic_reader.o cosmics_init.o art analysis
+	rm -rf .obj *.il core start.o gic_reader.o cosmics_init.o art

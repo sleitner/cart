@@ -16,16 +16,13 @@
 #include "refinement_indicators.h"
 #include "sfc.h"
 #include "starformation.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
+#include "run/hydro_step.h"
 
 #include "gic_reader.h"
-
-
-extern int num_options;
-extern char **options;
 
 
 #if (!defined(PARTICLES) || !defined(COSMOLOGY))
@@ -300,7 +297,7 @@ void gicBalanceLoad(const char *rootname, char *type)
     }
 
   /* let all other processors know what their new workload is */
-  MPI_Bcast(proc_sfc_index,num_procs+1,MPI_INT,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(proc_sfc_index,num_procs+1,MPI_INT,MASTER_NODE,mpi.comm.run);
   init_tree();
 }
 
@@ -365,7 +362,7 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
 	    }
 	}
 
-      MPI_Bcast(levelHeader,sizeof(struct gicLevelHeader),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+      MPI_Bcast(levelHeader,sizeof(struct gicLevelHeader),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 
       /*
       //  Set species arrays
@@ -433,14 +430,14 @@ void gicReadParticleLevel(int species, int Level, int lMax, struct gicFile *inpu
 
       for(l=0; l<lMax; l++)
 	{
-	  MPI_Bcast(buffer[l],fileHeader->Nrec*sizeof(GIC_REAL),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+	  MPI_Bcast(buffer[l],fileHeader->Nrec*sizeof(GIC_REAL),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 	}
 
       /*
       //  We need a barrier here to avoid overfilling MPI buffers 
       //  with too many asynchronized broadcasts
       */
-      if(page%100 == 99) MPI_Barrier(MPI_COMM_WORLD);
+      if(page%100 == 99) MPI_Barrier(mpi.comm.run);
 
       for(j=0; j<n; j++)
 	{
@@ -568,7 +565,7 @@ void gicReadParticleData(const char *rootname, char *type, int dc_off)
       cart_debug("Number of data elements to load: %ld",fileHeader->Ntot);
     }
 
-  MPI_Bcast(fileHeader,sizeof(struct gicFileHeader),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(fileHeader,sizeof(struct gicFileHeader),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 
   /*
   //  Set units
@@ -770,7 +767,7 @@ void gicReadGasData(const char *rootname, char *type)
 	}
     }
 
-  MPI_Bcast(fileHeader,sizeof(struct gicFileHeader),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+  MPI_Bcast(fileHeader,sizeof(struct gicFileHeader),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 
   if(min_level+fileHeader->Lmax < max_level)
     {
@@ -891,7 +888,7 @@ void gicReadGasData(const char *rootname, char *type)
 	      levelHeader->ind = 1;
 	    }
 
-	  MPI_Bcast(levelHeader,sizeof(struct gicLevelHeader),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+	  MPI_Bcast(levelHeader,sizeof(struct gicLevelHeader),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 
 	  ntot = levelHeader->Nlev;
 	}
@@ -980,17 +977,17 @@ void gicReadGasData(const char *rootname, char *type)
 
 	  for(l=0; l<lMax; l++)
 	    {
-	      MPI_Bcast(buffer[l],fileHeader->Nrec*sizeof(GIC_REAL),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+	      MPI_Bcast(buffer[l],fileHeader->Nrec*sizeof(GIC_REAL),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 	    }
-	  MPI_Bcast(idx,fileHeader->Nrec*sizeof(GIC_INTEGER),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
-	  MPI_Bcast(jdx,fileHeader->Nrec*sizeof(GIC_INTEGER),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
-	  MPI_Bcast(kdx,fileHeader->Nrec*sizeof(GIC_INTEGER),MPI_BYTE,MASTER_NODE,MPI_COMM_WORLD);
+	  MPI_Bcast(idx,fileHeader->Nrec*sizeof(GIC_INTEGER),MPI_BYTE,MASTER_NODE,mpi.comm.run);
+	  MPI_Bcast(jdx,fileHeader->Nrec*sizeof(GIC_INTEGER),MPI_BYTE,MASTER_NODE,mpi.comm.run);
+	  MPI_Bcast(kdx,fileHeader->Nrec*sizeof(GIC_INTEGER),MPI_BYTE,MASTER_NODE,mpi.comm.run);
 
 	  /*
 	  //  We need a barrier here to avoid overfilling MPI buffers 
 	  //  with too many asynchronized broadcasts
 	  */
-	  if(page%100 == 99) MPI_Barrier(MPI_COMM_WORLD);
+	  if(page%100 == 99) MPI_Barrier(mpi.comm.run);
 
 	  /*
 	  //  Assign data now
@@ -1046,8 +1043,8 @@ void gicReadGasData(const char *rootname, char *type)
   cart_free(jdx);
   cart_free(kdx);
 
-  MPI_Allreduce(&dMax,&delMax,1,MPI_FLOAT,MPI_MAX,MPI_COMM_WORLD);
-  MPI_Allreduce(&dMin,&delMin,1,MPI_FLOAT,MPI_MIN,MPI_COMM_WORLD);
+  MPI_Allreduce(&dMax,&delMax,1,MPI_FLOAT,MPI_MAX,mpi.comm.run);
+  MPI_Allreduce(&dMin,&delMin,1,MPI_FLOAT,MPI_MIN,mpi.comm.run);
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -1183,42 +1180,36 @@ void gic_init()
   /*
   //  Where do we get the root name? Use options for now
   */
-  if(local_proc_id == MASTER_NODE)
+  tmp = extract_option1("root-file-name","root",NULL);
+  if(tmp != NULL)
     {
-      if(num_options < 1)
-	{
-          cart_error("An option --root=<name> is required, where <name> is the root name for a set of GIC input files.\n");
-        }
+      rootname = tmp;
+    }
+  else
+    {
+      cart_error("An option --root-file-name=<name> is required, where <name> is the root name for a set of GIC input files.");
     }
 
-  for(i=0; i<num_options; i++)
+  /*
+  //  Switch off the DC mode if asked
+  */
+  tmp = extract_option0("ignore-dc-mode","no-dc");
+  if(tmp != NULL)
     {
-      /*
-      //  Root name for data files
-      */
-      tmp = check_option1(options[i],"-root",NULL);
-      if(tmp != NULL)
-	{
-	  rootname = tmp;
-	  continue;
-	}
+      dc_off = 1;
+    }
 
-      /*
-      //  Switch off the DC mode
-      */
-      tmp = check_option0(options[i],"-no-dc");
-      if(tmp != NULL)
-	{
-	  dc_off = 1;
-	  continue;
-	}
-
-      cart_error("Unrecognized option: %s",options[i]);
+  /*
+  //  No more options are allowed.
+  */
+  if(num_options > 0)
+    {
+      cart_error("Unrecognized option: %s",options[0]);
     }
 
   type[1] = 0;
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Barrier(mpi.comm.run);
 
   /*
   //  Begin with load balancing 
