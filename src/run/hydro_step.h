@@ -19,7 +19,6 @@ void hydro_step( int level );
 void hydro_copy_vars( int level, int direction );
 
 void hydro_eos(int level);
-void hydro_magic(int level);
 
 #endif /* HYDRO */
 #endif /* __HYDRO_STEP_H__ */

@@ -8,6 +8,9 @@
 
 #ifdef PARTICLES 
 
+#ifdef GRAVITY
+void accelerate_particles( int level );
+#endif
 void move_particles( int level );
 
 #endif /* PARTICLES */

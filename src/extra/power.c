@@ -5,9 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <srfftw.h>
-#include <sfftw.h>
+#include <string.h>
 
 #include "auxiliary.h"
 #include "cosmology.h"
@@ -19,12 +17,13 @@
 #include "times.h"
 #include "units.h"
 
+#include "fft/fft3.h"
+
 #include "power.h"
 
 #define num_power_foldings	4
 #define power_mesh_refinements	9		/* 512 mesh */
 #define power_mesh_size		(1<<power_mesh_refinements)
-#define num_power_mesh		(power_mesh_size*power_mesh_size*power_mesh_size)
 
 
 int bin_from_d(double d) {
@@ -44,11 +43,9 @@ int mesh_index( int ix, int iy, int iz ) {
 void compute_power_spectrum( char *filename, int power_type ) {
 	int i, j, k, m;
 	FILE *output;
-	fftwnd_plan forward;
-	fftw_complex *density_fft;
 	int num_level_cells;
 	int *level_cells;
-	float *local_mesh, *global_mesh;
+	fft_t *local_mesh, *global_mesh;
 	double pos[nDim];
 	int icell, level;
 	float mass;
@@ -72,6 +69,10 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	float mass_factor, fb;
 	double stellar_mass, total_stellar_mass;
 	int bin, index;
+	int pads[] = { 1, 0, 0 };
+	int dims[3], bbox[6];
+        int num_power_mesh, jk[2];
+	size_t offset;
 
 	fb = cosmology->OmegaB / cosmology->OmegaM;
 	mass_factor = ((float)(num_power_mesh)/(float)(num_grid*num_grid*num_grid));
@@ -111,14 +112,14 @@ void compute_power_spectrum( char *filename, int power_type ) {
 #endif /* HYDRO */
 	}
 
-	local_mesh = cart_alloc(float, num_power_mesh );
-
 	if ( local_proc_id == MASTER_NODE ) {
-		global_mesh = cart_alloc(float, num_power_mesh );
-		density_fft = cart_alloc(fftw_complex, power_mesh_size*power_mesh_size*(power_mesh_size/2+1) );
+		dims[0] = dims[1] = dims[2] = power_mesh_size;
+		num_power_mesh = (size_t)dims[0]*dims[1]*dims[2];
 
-		forward = rfftw3d_create_plan(power_mesh_size, power_mesh_size, power_mesh_size,
-				FFTW_REAL_TO_COMPLEX, FFTW_ESTIMATE | FFTW_OUT_OF_PLACE );
+		fft3_init(MPI_COMM_SELF,dims,pads,bbox);
+		global_mesh = fft3_allocate_data();
+		cart_assert(global_mesh != NULL);
+		memset(global_mesh,0,sizeof(fft_t)*num_power_mesh);
 
 		output = fopen( filename, "w" );
 		if ( output == NULL ) {
@@ -126,6 +127,8 @@ void compute_power_spectrum( char *filename, int power_type ) {
 		}
 		fprintf( output, "aexp: %le Dplus[aexp]: %le  Dplus[1]: %le\n", auni[min_level], dplus_from_auni(auni[min_level]), dplus_from_auni(1.0) );
 	}
+
+	local_mesh = cart_alloc(fft_t, num_power_mesh );
 
 	cart_debug("mass_factor = %e", mass_factor );
 
@@ -284,7 +287,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 				total += global_mesh[i];
 			}
 
-			rfftwnd_one_real_to_complex( forward, (fftw_real *)global_mesh, density_fft );
+			fft3_x2k(global_mesh,FFT3_FLAG_WACKY_K_SPACE);
 
 			/* now average over modes */
 			for ( i = 0; i < power_mesh_size; i++ ) {
@@ -293,59 +296,50 @@ void compute_power_spectrum( char *filename, int power_type ) {
 				power[i] = 0.0;
 			}
 
-			for ( i = 0; i < power_mesh_size; i++ ) {
-				if ( i <= power_mesh_size/2 ) {
-					di = i*i;
-				} else {
-					di = (i-power_mesh_size)*(i-power_mesh_size);
-				}
+			for ( k = 0; k < dims[2]; k++ ) {
+				for ( j = 0; j < dims[1]; j++ ) {
 
-				for ( j = 0; j < power_mesh_size; j++ ) {
-					if ( j <= power_mesh_size/2 ) {
-						dj = j*j;
-					} else {
-						dj = (j-power_mesh_size)*(j-power_mesh_size);
-					}
+				        offset = fft3_jk_index(j,k,jk,FFT3_FLAG_WACKY_K_SPACE);
+				        if(offset == -1) continue;
 
-					/* skip 0,0,0 mode */
-					if ( i != 0 || j != 0 ) {
-						d = sqrt( di + dj );
-						bin = bin_from_d(d);
-						index = (power_mesh_size/2+1) * ( j + power_mesh_size * i );
+                                        if ( k <= power_mesh_size/2 ) {
+                                                dk = k*k;
+                                        } else {
+                                                dk = (k-power_mesh_size)*(k-power_mesh_size);
+                                        }
 
-						Pq = (density_fft[index].re*density_fft[index].re +
-							density_fft[index].im * density_fft[index].im);
+                                        if ( j <= power_mesh_size/2 ) {
+                                                dj = j*j;
+                                        } else {
+                                                dj = (j-power_mesh_size)*(j-power_mesh_size);
+                                        }
 
-						power[bin] += Pq;
-						avg_k[bin] += d;
-						num_modes[bin]++;
-					}
+					for ( i = 0; i < power_mesh_size/2; i++ ) {
 
-					/* add power from critical mode */
-					d = sqrt( di + dj + (double)(power_mesh_size*power_mesh_size/4) );
-					bin = bin_from_d(d);
-					index = power_mesh_size/2 + (power_mesh_size/2+1) * ( j + power_mesh_size * i );
+						if(i==0 && jk[0]==0 && jk[2]==0) continue;
 
-					Pq = (density_fft[index].re*density_fft[index].re +
-						density_fft[index].im * density_fft[index].im);
-					power[bin] += Pq;
-
-					avg_k[bin] += d;
-					num_modes[bin]++;
-
-					for ( k = 1; k < power_mesh_size/2; k++ ) {
-						dk = k*k;
+						di = i*i;
 						d = sqrt( di + dj + dk );
 						bin = bin_from_d(d);
 
-						index = k + (power_mesh_size/2+1) * ( j + power_mesh_size * i );
-
-						Pq = (density_fft[index].re*density_fft[index].re +
-							density_fft[index].im * density_fft[index].im);
+						Pq = global_mesh[2*i+0+offset*dims[0]]*global_mesh[2*i+0+offset*dims[0]] + global_mesh[2*i+1+offset*dims[0]]*global_mesh[2*i+1+offset*dims[0]];
 
 						power[bin] += 2.0*Pq;
 						avg_k[bin] += 2.0*d;
 						num_modes[bin] += 2;
+					}
+
+					i = power_mesh_size/2; {
+
+						di = i*i;
+						d = sqrt( di + dj + dk );
+						bin = bin_from_d(d);
+
+						Pq = global_mesh[2*i+0+offset*dims[0]]*global_mesh[2*i+0+offset*dims[0]] + global_mesh[2*i+1+offset*dims[0]]*global_mesh[2*i+1+offset*dims[0]];
+
+						power[bin] += 1.0*Pq;
+						avg_k[bin] += 1.0*d;
+						num_modes[bin] += 1;
 					}
 				}
 			}
@@ -367,9 +361,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	/* output computed power spectrum */
 	if ( local_proc_id == MASTER_NODE ) {
 		cart_free( global_mesh );
-		cart_free( density_fft );
-
-		rfftwnd_destroy_plan(forward);
+		fft3_done();
 
 		fclose(output);
 	}

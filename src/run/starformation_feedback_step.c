@@ -2,7 +2,13 @@
 #ifdef STARFORM
 
 #include "auxiliary.h"
+#include "iterators.h"
+#include "particle.h"
 #include "starformation.h"
+#include "starformation_feedback.h"
+#include "times.h"
+#include "timing.h"
+#include "tree.h"
 #include "units.h"
 
 #include "step.h"
@@ -46,9 +52,9 @@ void star_particle_feedback(int level) {
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 #ifdef STAR_PARTICLE_TYPES
-#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,dtl,particle_list_next), schedule(dynamic)
+#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next), schedule(dynamic)
 #else
-#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,particle_species_indices,num_particle_species,dtl,particle_list_next), schedule(dynamic)
+#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,particle_species_indices,num_particle_species,particle_list_next), schedule(dynamic)
 #endif
 	for ( i = 0; i < num_level_cells; i++ ) {
 		iter_cell = level_cells[i];

@@ -141,7 +141,7 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
   */
   for(level=top_level; level<=bottom_level; level++)
     {
-      select_level_with_condition(1,level,&num_level_cells,&level_cells);
+      select_level(level,CELL_TYPE_LOCAL | CELL_TYPE_LEAF,&num_level_cells,&level_cells);
       if(num_level_cells == 0) continue;
 
       /*
@@ -308,12 +308,25 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 #endif /* RT_OUTPUT */
 
 
-  for(cell=0; cell<num_cells; cell++)
+  /*
+  //  Maintain the unit average of the far field
+  */
+  for(level=top_level; level<=bottom_level; level++)
     {
-      for(freq=0; freq<rt_num_freqs; freq++)
-        {
-//	  if(rtAvgRF[rt_num_freqs*rt_num_near_fields_per_freq+freq].Value > 0.0) cell_var(cell,rt_far_field_offset+freq) /= rtAvgRF[rt_num_freqs*rt_num_near_fields_per_freq+freq].Value;
-        }
+      select_level(level,CELL_TYPE_LOCAL | CELL_TYPE_LEAF,&num_level_cells,&level_cells);
+      if(num_level_cells == 0) continue;
+
+#pragma omp parallel for default(none), private(i,freq,cell), shared(num_level_cells,level_cells,cell_vars,cell_child_oct,rtAvgRF)
+      for(i=0; i<num_level_cells; i++)
+	{
+	  cell = level_cells[i]; // No need to check for leaves, we selected only them!
+	  for(freq=0; freq<rt_num_freqs; freq++)
+	    {
+	      if(rtAvgRF[rt_num_freqs*rt_num_near_fields_per_freq+freq].Value > 0.0) cell_var(cell,rt_far_field_offset+freq) /= rtAvgRF[rt_num_freqs*rt_num_near_fields_per_freq+freq].Value;
+	    }
+	}
+
+      cart_free(level_cells);
     }
 
 

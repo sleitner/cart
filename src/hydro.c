@@ -6,6 +6,9 @@
 
 #include "auxiliary.h"
 #include "control_parameter.h"
+#include "hydro.h"
+#include "iterators.h"
+#include "timing.h"
 #include "tree.h"
 #include "units.h"
 
@@ -77,6 +80,84 @@ void config_verify_hydro()
 
 #endif /* BLASTWAVE_FEEDBACK */
 }
+
+
+void hydro_magic_one_cell( int icell ) {
+	int j;
+	float average_density;
+	int neighbors[num_neighbors];
+	static int failed = 0;
+
+	double kinetic_energy;
+	double thermal_energy;
+
+	/* do density floor stuff */
+	if ( cell_gas_density(icell) < gas_density_floor ) {
+		average_density = 0.0;
+		cell_all_neighbors( icell, neighbors );
+
+		for ( j = 0; j < num_neighbors; j++ ) {
+			average_density += cell_gas_density( neighbors[j] );
+		}
+
+		if(!failed) {
+			cart_debug("---------------------------------------------------------");
+			cart_debug("HIT DENSITY FLOOR:");
+			cart_debug("old density = %e g/cc", cell_gas_density(icell)*units->density/constants->gpercc );
+			cart_debug("new density = %e g/cc", max( average_density/(float)num_neighbors, gas_density_floor ) );
+			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature/constants->K );
+			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density/constants->barye );
+			cart_debug("v  = %e %e %e cm/s",
+					cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity/constants->cms );
+			cart_debug("---------------------------------------------------------");
+		}	
+
+		failed = 1;
+
+		cell_gas_density(icell) = max( average_density/(float)num_neighbors, gas_density_floor );
+	}
+
+	kinetic_energy = cell_gas_kinetic_energy(icell);
+	thermal_energy = units->Emin * cell_gas_density(icell);
+
+	cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
+	cell_gas_energy(icell) = max( cell_gas_energy(icell), thermal_energy+kinetic_energy );
+
+#ifdef ELECTRON_ION_NONEQUILIBRIUM
+	cell_electron_internal_energy(icell) = max( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
+#endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
+	for ( j = 0; j < num_chem_species; j++ ) {
+		/* 
+		   1e-15 may be too large a number for ionic species;
+		   at least let's scale them with density and make 1e-20;
+Gnedin: 1e-20 is not small enough for chemistry, making it 1e-30
+		 */
+		cell_advected_variable(icell,j) = max( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
+		/* Doug had it like that:
+		   cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
+		 */
+	}
+}
+
+void hydro_magic( int level ) {
+    int i;
+    int num_level_cells;
+    int *level_cells;
+
+    start_time( WORK_TIMER );
+
+    select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(i), shared(num_level_cells,level_cells,cell_child_oct)
+    for ( i = 0; i < num_level_cells; i++ ) {
+		hydro_magic_one_cell(level_cells[i]);
+	}
+    cart_free( level_cells );
+
+    end_time( WORK_TIMER );
+} 
 
 
 float cell_gas_kinetic_energy(int cell) {

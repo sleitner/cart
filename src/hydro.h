@@ -16,6 +16,9 @@ extern float gas_temperature_floor;
 void config_init_hydro();
 void config_verify_hydro();
 
+void hydro_magic_one_cell( int icell );
+void hydro_magic( int level );
+
 float cell_gas_kinetic_energy(int cell);
 float cell_gas_temperature(int cell);
 float cell_radiation_pressure(int cell);

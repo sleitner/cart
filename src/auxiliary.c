@@ -258,14 +258,12 @@ void cart_debug( const char *fmt, ... ) {
 	if ( f == NULL ) {
 		sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
 		f = fopen(filename,"w");
+	}
 
-		if ( f == NULL ) {
-			cart_error("Unable to open stdout file %s for writing!", filename );
-		}	
-	} 
-	
-	fprintf(f,"%s%s\n",prompt,message);
-	fflush(f);
+        if ( f != NULL ) {
+                fprintf(f,"%s%s\n",prompt,message);
+                fflush(f);
+        }
 }
 #endif
 

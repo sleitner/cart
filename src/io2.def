@@ -884,7 +884,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 #ifdef STAR_PARTICLE_TYPES
 				MPI_Recv( star_type_page[local_proc_id], num_parts_per_proc_page, MPI_INT,
-						MASTER_NODE, 2*current_page[local_proc_id]+1, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+						MASTER_NODE, 2*current_page[local_proc_id]+1, mpi.comm.run, MPI_STATUS_IGNORE );
 #endif /* STAR_PARTICLE_TYPES */
 			}
 #endif /* STARFORM */

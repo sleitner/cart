@@ -946,7 +946,7 @@ void restart_load_balance( char *grid_filename, char *particle_header_filename, 
 	}
 
 	/* let all other processors know what their new workload is */
-	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 	init_tree();
 }
 
@@ -2311,10 +2311,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
 				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, 
-						i, 0, MPI_COMM_WORLD, &status );
+						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_type_page[i], num_parts_per_proc_page, MPI_INT, 
-						i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+						i, 1, mpi.comm.run, MPI_STATUS_IGNORE );
 				pos[i] = 0;
 				pages[i] = 1;
 				processor_heap[i] = i;
@@ -2411,10 +2411,10 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 								if ( pos[proc] == count[proc] ) {
 									if ( count[proc] == num_parts_per_proc_page ) {
 										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
-												proc, 2*pages[proc], MPI_COMM_WORLD, &status );
+												proc, 2*pages[proc], mpi.comm.run, &status );
 										MPI_Get_count( &status, MPI_INT, &count[proc] );
 										MPI_Recv( star_type_page[proc], num_parts_per_proc_page,
-												MPI_INT, proc, 2*pages[proc]+1, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+												MPI_INT, proc, 2*pages[proc]+1, mpi.comm.run, MPI_STATUS_IGNORE );
 										pos[proc] = 0;
 										pages[proc]++;
 
@@ -2650,8 +2650,8 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 				}
 
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id], MPI_COMM_WORLD );
-				MPI_Send( star_type_page[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id]+1, MPI_COMM_WORLD );
+				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id], mpi.comm.run );
+				MPI_Send( star_type_page[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id]+1, mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 

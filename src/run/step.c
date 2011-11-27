@@ -489,7 +489,7 @@ int global_timestep() {
 int timestep( int level, MPI_Comm level_com ) 
 /* returns -1 if timestep would invalidate cfl condition */
 {
-	int i, j, courant_cell;
+	int j, courant_cell;
 	double velocity;
 	int ret;
 	int step_ret;
@@ -748,8 +748,8 @@ int timestep( int level, MPI_Comm level_com )
 	start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 	update_buffer_level( level, all_hydro_vars, num_hydro_vars );
 #ifdef AGN
-	for ( i = level+1; i <= max_level; i++ ) {
-                update_buffer_level( i, all_hydro_vars, num_hydro_vars );
+	for ( j = level+1; j <= max_level; j++ ) {
+                update_buffer_level( j, all_hydro_vars, num_hydro_vars );
         }
 #endif /* AGN */
 	end_time( STELLAR_FEEDBACK_UPDATE_TIMER );

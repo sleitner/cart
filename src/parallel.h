@@ -16,12 +16,8 @@
 #undef MPI_COMM_WORLD
 #endif
 
-#ifdef MPI_COMM_SELF
-#undef MPI_COMM_SELF
-#endif
 
-#define MPI_COMM_WORLD
-#define MPI_COMM_SELF
+#define MPI_COMM_WORLD                  MPI_COMM_WORLD_should_not_be_used_directly
 
 
 #define	MASTER_NODE			0

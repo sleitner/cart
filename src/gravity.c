@@ -643,7 +643,7 @@ void smooth( int level ) {
 		start_time( WORK_TIMER );
 
 		/* red (local red and buffered red) */
-#pragma omp parallel for default(none), private(i,block,phi1,phi2,phi4,phi7,phi_ext_neighbors,icell), shared(num_local_blocks,num_direct_blocks,phi_black,ext_red,phi_red,wsor6,trfi2,rho_red,local)
+#pragma omp parallel for default(none), private(i,block,phi1,phi2,phi4,phi7,phi_ext_neighbors,icell), shared(num_local_blocks,num_direct_blocks,phi_black,ext_red,phi_red,wsor6,trfi2,rho_red)
 		for ( i = 0; i < num_local_blocks + num_direct_blocks; i++ ) {
 			block = i*4;
 			

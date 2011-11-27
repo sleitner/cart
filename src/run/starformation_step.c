@@ -29,6 +29,9 @@ extern double sf_timescale;
 extern double sf_min_stellar_particle_mass;
 
 
+void create_star_particle( int icell, float mass, int type );
+
+
 #ifdef HYDRO
 
 void star_formation( int level, int time_multiplier )

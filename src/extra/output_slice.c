@@ -17,11 +17,10 @@
 #include "cell_buffer.h"
 #include "iterators.h"
 #include "load_balance.h"
-#include "timestep.h"
+#include "times.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
-#include "rt_utilities.h"
 #include "timing.h"
 #include "units.h"
 #include "hydro.h"
@@ -198,7 +197,8 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
 #else
     cart_error("pick a different time variable to output");
 #endif
-    fdummy  = dtl[min_level]*units->time/constants->yr*1e-6;
+    fdummy  = 0*units->time/constants->yr*1e-6;
+    /* fdummy  = dtl[min_level]*units->time/constants->yr*1e-6; # Not available in analysis mode */
     fwrite( &fdummy, sizeof(float), 1, output );
         
     slice = cart_alloc(float, nsgrid*nsgrid);
