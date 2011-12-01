@@ -486,13 +486,19 @@ d_flag[idSTAR_PARTICLE_TYPES] = 1;
 #else
 d_flag[idSTAR_PARTICLE_TYPES] = 0;
 #endif
-#define idUNIQUE_RAND  81
+#define idSTATIC_MESH_DATA  81
+#ifdef STATIC_MESH_DATA
+d_flag[idSTATIC_MESH_DATA] = 1;
+#else
+d_flag[idSTATIC_MESH_DATA] = 0;
+#endif
+#define idUNIQUE_RAND  82
 #ifdef UNIQUE_RAND
 d_flag[idUNIQUE_RAND] = 1;
 #else
 d_flag[idUNIQUE_RAND] = 0;
 #endif
-#define idUSER_PLUGIN  82
+#define idUSER_PLUGIN  83
 #ifdef USER_PLUGIN
 d_flag[idUSER_PLUGIN] = 1;
 #else
@@ -580,6 +586,7 @@ PRINT(RT_XRAYS) \
 PRINT(SAVE_LOAD_BALANCE_PARTITION) \
 PRINT(STARFORM) \
 PRINT(STAR_PARTICLE_TYPES) \
+PRINT(STATIC_MESH_DATA) \
 PRINT(UNIQUE_RAND) \
 PRINT(USER_PLUGIN) \
 ;

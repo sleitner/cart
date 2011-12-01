@@ -33,13 +33,14 @@ int rtOtvetMaxNumIter = 10;
 #ifdef RT_EXTERNAL_BACKGROUND
 
 extern struct rtGlobalValue rtAvgRF[];
+extern struct rtGlobalValue rtAvgAC[];
 extern struct rtGlobalValue rtAvgACxRF[];
 
-const float rtConvFac = 1.0;
+const float rtConvFac = 0.0;
 const float rtFMaxFac = 3.0;
 
 float rtBarF[rt_num_freqs];
-float rtBarKF[rt_num_freqs];
+float rtBarK[rt_num_freqs];
 
 #endif /* RT_EXTERNAL_BACKGROUND */
 
@@ -94,32 +95,18 @@ void rtStepBeginTransferOtvet(struct rtGlobalValue *maxAC)
       //  This is so that these values are the same for all nodes.
       */
       rtBarF[freq] = rtAvgRF[rt_num_freqs+freq].Value;
-      rtBarKF[freq] = rtAvgACxRF[rt_num_freqs+freq].Value;
+      if(rtBarF[freq] > 0.0)
+	{
+	  rtBarK[freq] = rtAvgACxRF[rt_num_freqs+freq].Value/rtBarF[freq];
+	}
+      else
+	{
+	  rtBarK[freq] = rtAvgAC[rt_num_freqs+freq].Value;
+	}
 
 #ifdef RT_OUTPUT
-      cart_debug("RT: OTVET Far Field %d, <f> = %10.3le, <kf> = %10.3le",freq,rtBarF[freq],rtBarKF[freq]);
+      cart_debug("RT: OTVET Far Field %d, <f> = %10.3le, <k> = %10.3le",freq,rtBarF[freq],rtBarK[freq]);
 #endif
-
-
-      /*
-      //  Test we are ok
-      */
-      float fmin, fmax;
-      MPI_Allreduce(&rtBarF[freq],&fmin,1,MPI_FLOAT,MPI_MIN,mpi.comm.run);
-      MPI_Allreduce(&rtBarF[freq],&fmax,1,MPI_FLOAT,MPI_MAX,mpi.comm.run);
-      if(fmin < fmax)
-	{
-	  cart_error("BAD!!!  Pass F: freq=%d  fmin=%g  fmax=%g  f=%g",freq,fmin,fmax,rtBarF[freq]);
-	}
-
-      MPI_Allreduce(&rtBarKF[freq],&fmin,1,MPI_FLOAT,MPI_MIN,mpi.comm.run);
-      MPI_Allreduce(&rtBarKF[freq],&fmax,1,MPI_FLOAT,MPI_MAX,mpi.comm.run);
-      if(fmin < fmax)
-	{
-	  cart_error("BAD!!!  Pass KF: freq=%d  fmin=%g  fmax=%g  f=%g",freq,fmin,fmax,rtBarKF[freq]);
-	}
-
-
 
 #endif /* RT_EXTERNAL_BACKGROUND */
     }
@@ -175,7 +162,7 @@ void rtLevelUpdateTransferOtvet(int level)
       /*
       // Allocate the rest of arrays
       */
-      neib = cart_alloc(int, rtStencilSize*num_level_cells );
+      neib = cart_alloc(int, (size_t)rtStencilSize*num_level_cells );
       num_all_cells = 100 + (int)(BufferFactor[level]*num_level_cells);
       indL2G = cart_alloc(int, num_all_cells );
       linear_array_copy_int(indL2G,info,num_level_cells);
@@ -435,11 +422,11 @@ void rtLevelUpdateTransferOtvet(int level)
 
 	      if(rtBarF[freq] > 0.0)
 		{
-		  QFac = rtBarKF[freq]*((rtConvFac+1)/rtBarF[freq]-rtConvFac)/rtBarF[freq];
+		  QFac = rtBarK[freq]/pow(rtBarF[freq],rtConvFac);
 		}
 	      else
 		{
-		  QFac = rtBarKF[freq]*1.0;
+		  QFac = rtBarK[freq];
 		}
 
 #pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rhs,abc,QFac,freq)
@@ -600,18 +587,14 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 
 	  /*
 	  // Inverse Jacobian
-	  // NB: I don't know why, but I get smaller artifacts at level
-	  //     boundaries when I use the form below
 	  */
 	  jac[iL] = gamma/(1.0+gamma*(beta*abc[iL]*dx+dWorker(iL,indL2G,abcMid)));
-	  //jac[iL] = gamma/(1.0+gamma*(ADX(abc[iL]*dx)+dWorker(iL,indL2G,abcMid)));
 
 	  /*
 	  // RHS: absorption must act on the initial field only to insure
 	  // photon number conservation
 	  */
 	  rhs[iL] = dx*rhs[iL] - (1-beta)*ADX(abc[iL]*dx)*var(iL);
-	  //dd[iL] = rhs[iL];
 	}
 
       end_time(WORK_TIMER);
@@ -671,7 +654,7 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	  */
 	  if(work)
 	    {
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,num_total_cells,cell_vars,indL2G,ivar,cache_var)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivar,cache_var)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
 		  cell_var(indL2G[iL],ivar) = cache_var[iL];
@@ -746,8 +729,8 @@ float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *in
   /*
   // Compute update mask
   */
-  vmax = fabs(var(nb[0]));
-  for(j=1; j<num_neighbors; j++)
+  vmax = fabs(var(iL));
+  for(j=0; j<num_neighbors; j++)
     {
       vmax = (vmax > fabs(var(nb[j]))) ? vmax : fabs(var(nb[j]));
     }
@@ -785,8 +768,8 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *in
   /*
   // Compute update mask
   */
-  vmax = fabs(var(nb[0]));
-  for(j=1; j<rtStencilSize; j++)
+  vmax = fabs(var(iL));
+  for(j=0; j<rtStencilSize; j++)
     {
       vmax = (vmax > fabs(var(nb[j]))) ? vmax : fabs(var(nb[j]));
     }

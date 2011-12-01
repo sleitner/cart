@@ -1,5 +1,6 @@
 #include "config.h"
 
+#include <malloc.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -771,7 +772,7 @@ void dmuRegister(void *ptr, size_t size, const char *file, int line)
       dmuCheckRegistry(&dmuLarge);
 
       dmuLarge.Data[dmuLarge.NumItems].Ptr = ptr;
-      dmuLarge.Data[dmuLarge.NumItems].Size = size;
+      dmuLarge.Data[dmuLarge.NumItems].Size = malloc_usable_size(ptr);
       dmuLarge.Data[dmuLarge.NumItems].File = file;
       dmuLarge.Data[dmuLarge.NumItems].Line = line;
       dmuLarge.NumItems++;
@@ -780,6 +781,7 @@ void dmuRegister(void *ptr, size_t size, const char *file, int line)
     {
       dmuCheckRegistry(&dmuSmall);
 
+      size = malloc_usable_size(ptr);
       if(size > dmuMaxSmallChunk) dmuMaxSmallChunk = size;
 
       for(i=0; i<dmuSmall.NumItems; i++)

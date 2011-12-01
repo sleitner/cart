@@ -2,6 +2,7 @@
 #ifdef HYDRO 
 
 #include <math.h>
+#include <string.h>
 
 #include "auxiliary.h"
 #include "cell_buffer.h"

@@ -464,7 +464,7 @@ void config_allocate_data(float memory_fraction_mesh)
   */
   taskmem = system_get_available_memory()/tasks_per_node;
 
-  str = extract_option1("max-memory","mm",NULL);
+  str = extract_option1("max-memory","m",NULL);
   if(str != NULL)
     {
       if(sscanf(str,"%lg",&maxmem) != 1)
