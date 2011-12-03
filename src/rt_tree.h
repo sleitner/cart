@@ -47,7 +47,8 @@
 #endif
 
 #define rt_field_offset         (rt_grav_vars_offset+rt_num_extra_vars)
-#define rt_far_field_offset     (rt_field_offset+rt_num_near_fields_per_freq*rt_num_freqs)
+#define rt_far_freq_offset      (rt_num_near_fields_per_freq*rt_num_freqs)
+#define rt_far_field_offset     (rt_field_offset+rt_far_freq_offset)
 
 #define rt_num_fields_per_freq  (1+rt_num_near_fields_per_freq)
 #define rt_num_fields           (rt_num_fields_per_freq*rt_num_freqs)

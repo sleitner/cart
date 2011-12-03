@@ -36,7 +36,7 @@ extern struct rtGlobalValue rtAvgRF[];
 extern struct rtGlobalValue rtAvgAC[];
 extern struct rtGlobalValue rtAvgACxRF[];
 
-const float rtConvFac = 0.0;
+const float rtConvFac = 1.0;
 const float rtFMaxFac = 3.0;
 
 float rtBarF[rt_num_freqs];

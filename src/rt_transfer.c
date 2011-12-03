@@ -52,7 +52,7 @@ void rtTransferAssignSingleSourceDensity(int level);
 
 void rtInitRunTransfer()
 {
-  int cell, freq;
+  int cell, freq, level;
   frt_intg nfreq = rt_num_freqs;
   frt_intg ncomp = rt_num_fields_per_freq;
 #ifdef RT_SINGLE_SOURCE
@@ -71,6 +71,7 @@ void rtInitRunTransfer()
   for(i=0; i<nDim; i++) rtSingleSourcePos[i] = 0.5*num_grid;
 #endif
 
+#pragma omp parallel for default(none), private(cell,freq), shared(size_cell_array,cell_vars)
   for(cell=0; cell<num_cells; cell++)
     {
       for(freq=0; freq<rt_num_freqs; freq++)
@@ -307,28 +308,32 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
     }
 #endif /* RT_OUTPUT */
 
-
   /*
-  //  Maintain the unit average of the far field
+  //  Maintain the unit average of the far field - should be called
+  //  by all run tasks only, to ensure the buffer consistency.
   */
+  //if(top_level == min_level)
   for(level=top_level; level<=bottom_level; level++)
     {
-      select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
-      if(num_level_cells == 0) continue;
+      select_level(level,CELL_TYPE_ANY,&num_level_cells,&level_cells);
 
-#pragma omp parallel for default(none), private(i,freq,cell), shared(num_level_cells,level_cells,cell_vars,cell_child_oct,rtAvgRF)
+#pragma omp parallel for default(none), private(i,freq), shared(num_level_cells,level_cells,cell_vars,rtAvgRF)
       for(i=0; i<num_level_cells; i++)
 	{
-	  cell = level_cells[i];
-	  for(freq=0; freq<rt_num_freqs; freq++)
+	  for(freq=0; freq<rt_num_freqs; freq++) if(rtAvgRF[rt_far_freq_offset+freq].Value > 0.0)
 	    {
-	      if(rtAvgRF[rt_num_freqs*rt_num_near_fields_per_freq+freq].Value > 0.0) cell_var(cell,rt_far_field_offset+freq) /= rtAvgRF[rt_num_freqs*rt_num_near_fields_per_freq+freq].Value;
+	      cell_var(level_cells[i],rt_far_field_offset+freq) /= rtAvgRF[rt_far_freq_offset+freq].Value;
 	    }
 	}
 
       cart_free(level_cells);
-    }
 
+      for(freq=0; freq<rt_num_freqs; freq++) if(rtAvgRF[rt_far_freq_offset+freq].Value > 0.0)
+	{
+	  rtAvgRF[rt_far_freq_offset+freq].buffer[i] /= rtAvgRF[rt_far_freq_offset+freq].Value;
+	  rtAvgACxRF[rt_far_freq_offset+freq].buffer[i] /= rtAvgRF[rt_far_freq_offset+freq].Value;
+	}
+    }
 
 #ifdef RT_SINGLE_SOURCE
   start_time(WORK_TIMER);
