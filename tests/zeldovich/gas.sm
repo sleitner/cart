@@ -1,0 +1,206 @@
+#!/bin/bash
+. plottypes.sm
+
+i=0
+name[$((++i))]="velocity"
+name[$((++i))]="density"
+name[$((++i))]="phi"
+name[$((++i))]="acceleration"
+name[$((++i))]="temperature"
+name[$((++i))]="dtemperature"
+name[$((++i))]="internal_energy"
+numnames=$i
+
+if [ $# -lt 3 ]; then echo "usage: wait (int)plot# datafile"; for i in `seq 1 $numnames`; do echo $i ${name[$i]}; done; exit; fi
+name=${name[$2]}
+
+datafile=$3
+alabel=`echo $datafile |sed 's/\[0./ /g'|sed 's/\]/ /g'|awk '{print $2}'`
+dlabel=`echo $datafile |sed 's/\// /g'|sed 's/dump/ /g'|awk '{print $1}'`
+psfile="plot${dlabel}/${name}_$alabel.ps" 
+echo $psfile
+
+giffile=`echo $psfile | perl -pi -e 's/.ps/.gif/g'`
+
+wait=$1
+if [ `echo "$wait >= 0" |bc -l` -eq 1  ]; then 
+    if [ $wait -eq 0 ]; then echo "output to: $psfile" ; fi  
+else 
+    echo "bad wait=$wait 0 for file, >0 for x11 plot"; exit;
+fi
+if [[ `echo "$2 > $numnames" |bc -l` -eq 1  ]] || [[ `echo "$2 <= 0" |bc -l` -eq 1  ]]; then 
+    echo 'bad plot#';    exit;
+fi
+
+
+#grid="           
+#     ltype 1      
+#     lweight .25   
+#     ctype grey     
+#     grid "          
+########################################################################
+########################################################################
+#   Start SM
+#
+
+#cat << FIN > blah
+sm -m ~/.sm2/start.sm -S << FIN 
+
+define wait $wait 
+define name $name
+
+# The following line outputs checks if the user has enetered a 'wait' time >1
+# if the 'wait' time from the command line is 0, then the output is sent to a file
+#
+# to output to gif rather than postscript, uncomment the second line and 
+# comment out the first line
+if (\$wait) {device x11} else {device postencap $psfile}   # output to .ps
+#if (\$wait) {device x11} else {device gif $psfile}  # output to .gif doesn't work
+
+#  Type your sm commands here. An example is provided  =======================================
+
+erase
+ctype black
+define TeX_strings 1
+#toplabel Cumulative Stellar Mass
+
+data "$datafile"
+`read_prefix gas x 1 q 2 rho 3 rhot 4 drho 5 v 6 vt 7 dv 8 g 9 gt 10 dg 11 T 12 Tt 13 dT 14 phi 15 phit 16 dphi 17   ie 18 iet 19 totke 20 ieP 21 energy 22 ke 23 `
+set gasrho=lg((gasrho > 0 ? gasrho : 1e-30))
+set gasrhot=lg((gasrhot > 0 ? gasrhot : 1e-30))
+set gasT=lg((gasT  > 0 ? gasT : 1e-30))
+set gasTt=lg((gasTt  > 0 ? gasTt : 1e-30))
+set gasie=lg((gasie  > 0 ? gasie : 1e-30))
+set gasiet=lg((gasiet  > 0 ? gasiet : 1e-30))
+set gastotke=lg((gastotke  > 0 ? gastotke : 1e-30))
+set gastotke2= gasenergy-gaske
+set gastotke2=lg((gastotke2  > 0 ? gastotke2 : 1e-30))
+set gasenergy=lg((gasenergy  > 0 ? gasenergy : 1e-30))
+set gaske=lg((gaske  > 0 ? gaske : 1e-30))
+set gasieP=lg((gasieP  > 0 ? gasieP : 1e-30))
+set diff=gasie-gasieP
+set gasdT=lg((gasdT  > 0 ? gasdT : 1e-6))
+#set gasdT=abs(gasT-gasTt)  > 0 ? gasdT : 1e-6))
+
+#print{gasie gasieP diff}
+#-----------------------------
+lweight 4.
+expand 2
+LOCATION \$(\$gx1 + 2500) \$gx2  \$(\$gy1 + 500) \$gy2
+window 1 1 1 1 
+ctype black
+
+xlabel position 
+if('$name'=='velocity'){
+ticksize 0 0 0 0
+limits gasq  gasv
+ylabel velocity
+}
+if('$name'=='density'){
+ticksize 0 0 -1 10
+limits gasq  gasrho
+ylabel density
+}
+if('$name'=='phi'){
+ticksize 0 0 0 0
+limits gasq  gasphi
+ylabel phi
+}
+if('$name'=='acceleration'){
+ticksize 0 0 0 0
+limits gasq  gasg
+ylabel acceleration
+}
+if('$name'=='temperature'){
+set gasallq = gasq concat gasq 
+set gasallT = gasT concat gasTt
+ticksize 0 0 -1 10
+limits gasq  gasallT
+ylabel temperature
+}
+if('$name'=='internal_energy'){
+ticksize 0 0 -1 10
+set gasallq = gasq concat gasq #concat gasq 
+set gasallie = gasie concat gasenergy #concat gastotke 
+limits gasallq gasallie
+ylabel internal energy
+}
+if('$name'=='dtemperature'){
+ticksize 0 0 -1 10
+limits gasq  gasdT
+ylabel Tcode-Tanalytic
+}
+
+
+
+
+
+$grid
+lweight 4
+ltype 0 
+#-----------------------------
+set label_dy=4.5
+
+set label_ypos0=0
+set label_xpos=12
+set label_ypos0=97
+if(label_ypos0 < 50){
+	set label_dy=-label_dy
+    }
+
+set label_ypos=label_ypos0
+
+###################################################
+if('$name'=='velocity'){
+set label_off=0
+`plot_line black   1 8 "analytic" gasq gasvt `
+`plot_points red   0 8 "numerical" gasq gasv `
+}
+if('$name'=='density'){
+set label_off=0
+`plot_line black   1 8 "analytic" gasq gasrhot `
+`plot_points red   0 8 "numerical" gasq gasrho `
+}
+if('$name'=='phi'){
+set label_off=0
+`plot_line black   1 8 "analytic" gasq gasphit `
+`plot_points red   0 8 "numerical" gasq gasphi `
+}
+if('$name'=='acceleration'){
+set label_off=0
+`plot_line black   1 8 "analytic" gasq gasgt `
+`plot_points red   0 8 "numerical" gasq gasg `
+}
+if('$name'=='temperature'){
+set label_off=0
+`plot_line black   1 8 "analytic" gasq gasTt `
+`plot_points red   0 8 "numerical" gasq gasT `
+}
+if('$name'=='internal_energy'){  #color ptype pfill expand lweight label x y 
+set label_off=0
+`plot_line black   1 8 "analytic" gasq gasiet `
+`plot_fpoints red   8 0 2 8 "cell gas ie" gasq gasie `
+`plot_fpoints blue  3 3 2 8 "ie=Et-KE" gasq gastotke `
+###`#plot_fpoints black  3 0 2 8 "ie_{sm}=Et-KE" gasq gastotke2 `
+`plot_fpoints green 4 0 2 8 "ie=P/rho/(g-1)" gasq gasieP `
+`plot_fpoints cyan 8 0 2 8 "tot energy" gasq gasenergy `
+`plot_fpoints red 3 0 2 8 "KE energy" gasq gaske `
+}
+
+if('$name'=='dtemperature'){
+set label_off=0
+`plot_fpoints black   8 0 1 8 "temperature difference" gasq gasdT `
+}
+
+# finalize =======================================
+`reset_to_default`
+box
+
+
+#set label_off=1
+# do not alter below this line =======================================
+!sleep \$wait
+FIN
+
+
+if [ $wait -eq 0 ]; then convert $psfile $giffile ; fi

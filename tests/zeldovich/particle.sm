@@ -1,0 +1,122 @@
+#!/bin/bash
+. plottypes.sm
+
+i=0
+name[$((++i))]="velocity"
+#name[$((++i))]="density"
+#name[$((++i))]="phi"
+#name[$((++i))]="acceleration"
+#name[$((++i))]="temperature"
+#name[$((++i))]="internal_energy"
+numnames=$i
+
+if [ $# -lt 3 ]; then echo "usage: wait (int)plot# datafile"; for i in `seq 1 $numnames`; do echo $i ${name[$i]}; done; exit; fi
+name=${name[$2]}
+
+datafile=$3
+alabel=`echo $datafile |sed 's/\[0./ /g'|sed 's/\]/ /g'|awk '{print $2}'`
+dlabel=`echo $datafile |sed 's/\// /g'|sed 's/dumps/ /g'|awk '{print $1}'`
+psfile="plots_${dlabel}/${name}_$alabel.ps" 
+echo $psfile
+
+giffile=`echo $psfile | perl -pi -e 's/.ps/.gif/g'`
+
+wait=$1
+if [ `echo "$wait >= 0" |bc -l` -eq 1  ]; then 
+    if [ $wait -eq 0 ]; then echo "output to: $psfile" ; fi  
+else 
+    echo "bad wait=$wait 0 for file, >0 for x11 plot"; exit;
+fi
+if [[ `echo "$2 > $numnames" |bc -l` -eq 1  ]] || [[ `echo "$2 <= 0" |bc -l` -eq 1  ]]; then 
+    echo 'bad plot#';    exit;
+fi
+
+
+#grid="           
+#     ltype 1      
+#     lweight .25   
+#     ctype grey     
+#     grid "          
+########################################################################
+########################################################################
+#   Start SM
+#
+
+#cat << FIN > blah
+sm -m ~/.sm2/start.sm -S << FIN 
+
+define wait $wait 
+define name $name
+
+# The following line outputs checks if the user has enetered a 'wait' time >1
+# if the 'wait' time from the command line is 0, then the output is sent to a file
+#
+# to output to gif rather than postscript, uncomment the second line and 
+# comment out the first line
+if (\$wait) {device x11} else {device postencap $psfile}   # output to .ps
+#if (\$wait) {device x11} else {device gif $psfile}  # output to .gif doesn't work
+
+#  Type your sm commands here. An example is provided  =======================================
+
+erase
+ctype black
+define TeX_strings 1
+#toplabel Cumulative Stellar Mass
+
+data "$datafile"
+`read_prefix part x 2 v 3 xt 5 vt 6 `
+
+#-----------------------------
+lweight 4.
+expand 2
+LOCATION \$(\$gx1 + 2500) \$gx2  \$(\$gy1 + 500) \$gy2
+window 1 1 1 1 
+ctype black
+
+xlabel position 
+if('$name'=='velocity'){
+ticksize 0 0 0 0
+limits partx  partv
+ylabel velocity
+}
+
+
+
+
+
+
+$grid
+lweight 4
+ltype 0 
+#-----------------------------
+set label_dy=4.5
+
+set label_ypos0=0
+set label_xpos=12
+set label_ypos0=97
+if(label_ypos0 < 50){
+	set label_dy=-label_dy
+    }
+
+set label_ypos=label_ypos0
+
+###################################################
+if('$name'=='velocity'){
+set label_off=0
+`plot_line black   1 8 "analytic" partx partvt `
+`plot_points red   0 3 "numerical" partx partv `
+}
+
+
+# finalize =======================================
+`reset_to_default`
+box
+
+
+#set label_off=1
+# do not alter below this line =======================================
+!sleep \$wait
+FIN
+
+
+if [ $wait -eq 0 ]; then convert $psfile $giffile ; fi

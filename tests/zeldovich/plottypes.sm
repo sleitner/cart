@@ -1,0 +1,912 @@
+#!/bin/bash
+#watch out for }else{ etc
+#function interpolate()
+#{
+#    interp2 $1 $2 $3 $4 function to interpolate (x=$1,y=$2) pickt point at xprime=$3 outputs value at yprime=$4
+#}
+function reset_to_default()
+{
+cat <<EOF
+    expand 2.0
+    ltype 0
+    angle 0
+    ctype black
+    lweight 4
+EOF
+}
+
+function smooth_array_end()
+{
+    smooth_arr=$1
+    indmin=$2
+    indmax=$2
+    dt=$3
+    Dt=$4
+cat <<EOF
+set smooth=0
+set i=\$($indmin)
+while {i <= \$($indmax)}{
+    set smooth=smooth+$smooth_arr[\$(i)]*$dt[\$(i)]/($Dt)
+    set i=i+1
+}
+set i=\$($indmin)
+while {i <= \$($indmax)}{
+    set $smooth_arr[\$(i)]=smooth
+    set i=i+1
+}
+EOF
+}
+
+function smooth_array()
+{
+    smooth_arr=$1
+    indmax=$2
+    dt=$3
+    Dt=$4
+cat <<EOF
+set smooth=0
+set i=0
+while {i <= \$($indmax)}{
+    set smooth=smooth+$smooth_arr[\$(i)]*$dt[\$(i)]/($Dt)
+    set i=i+1
+}
+set i=0
+while {i <= \$($indmax)}{
+    set $smooth_arr[\$(i)]=smooth
+    set i=i+1
+}
+EOF
+}
+
+
+function read_prefix()
+{
+    args=("$@")
+    prefix=${args[0]}
+    i=1
+    while [ $i -lt $# ];
+      do
+      suffix=$((i++))
+      count=$((i++))
+      sentence="$sentence $prefix${args[$suffix]} ${args[$count]} "
+    done
+    cat <<EOF
+read { $sentence }
+EOF
+}
+
+cosmology(){
+    cat <<EOF
+    set h=0.719
+    set H0=h/1.0e10
+    set OL=0.7419
+    set OM=0.2581
+    set t0=1/H0*2/3/sqrt(OL)*ln( (sqrt(OL) + sqrt(OL+OM))/sqrt(OM)  ) 
+EOF
+}
+
+tlb2zarr(){
+    cat <<EOF
+    `cosmology`
+    set nu=1.5*OL**0.5*H0*(t0-tlb)
+    set a=(OM/OL)**(1/3.)*( exp(nu)/2. - exp(-nu)/2. )**(2/3.)
+    set zarr=1/a-1
+EOF
+}
+
+z2tlb(){
+    cat <<EOF
+    `cosmology`
+    set z=$1
+    set t0=1/H0*2/3/sqrt(OL)*ln( (sqrt(OL) + sqrt(OL+OM))/sqrt(OM)  )
+    set tlb=t0-1/H0*2/3/sqrt(OL)*ln( (sqrt(OL*(z+1)**-3) + sqrt(OL*(z+1)**-3+OM))/sqrt(OM)  )
+EOF
+}
+
+zredboxnoy(){
+    cat <<EOF
+    box 1 0 3 0
+    set b={1.3 5.00 7.73 10.33 11.49 12.48} 
+    set s=b
+    set labs={z=0.1 0.5 1 2 3 5} + '\\\\strut' 
+    ltype 0
+    AXIS \$fx1 \$fx2 s b labs \$gx1 \$gy2 \$(\$gx2-\$gx1) 1 1
+EOF
+}
+zredbox(){
+    cat <<EOF
+    box 1 2 3 0
+    set b={1.3 5.00 7.73 10.33 11.49 12.48} 
+    set s=b
+    set labs={z=0.1 0.5 1 2 3 5} + '\\\\strut' 
+    ltype 0
+    AXIS \$fx1 \$fx2 s b labs \$gx1 \$gy2 \$(\$gx2-\$gx1) 1 1
+EOF
+}
+lgzredbox(){
+    cat <<EOF
+    box 1 2 3 0
+    set b={1.3 5.00 7.73 10.33 11.49 12.48} 
+    set b=lg(b)
+    set s=b
+    set labs={z=0.1 0.5 1 2 3 5} + '\\\\strut' 
+    ltype 0
+    AXIS \$fx1 \$fx2 s b labs \$gx1 \$gy2 \$(\$gx2-\$gx1) 1 1
+EOF
+}
+last_element(){
+    cat<<EOF
+set nf=DIMEN($1)-1
+EOF
+}
+##########################################
+log_many(){
+    i=1
+    cat <<EOF
+`
+    while [ ${i} -le $# ];
+    do 
+       eval echo "set ynew=\\${${i}}"
+       echo "set ynew=lg(ynew)"
+       eval echo "set \\${${i}}=ynew"
+       i=$((i+1))
+    done 
+`
+EOF
+}
+##########################################
+interpolate_many(){    
+#interp2 limits_x limits_ylo x_arr limits_ylox 
+##    eval xnew=\${$((i++))}
+echo echo interpolate_many
+    i=1
+    eval xorig=\${$((i++))}
+    eval nels=\${$((i++))}
+    cat <<EOF
+echo echo interpolate_many1
+set xorig=$xorig
+    sort{xorig} 
+echo DIMEN(xorig)
+
+set nels=$nels
+set nf=DIMEN(xorig)-1   
+set dx=(xorig[nf]-xorig[0])/(nels-1.) 
+set xnew=xorig[0], xorig[nf], dx     
+    sort{xnew} 
+print {xnew xorig}  
+
+#set xnew=$xnew
+#echo \$(nels) \$(nf) \$(dx)                  
+#print {xnew yorig}  
+#set temp=yorig    
+#`#interpolate_many xorig yorig xnew ynew ` 
+#print {xorig yorig xnew ynew}
+
+echo \$(DIMEN(xorig)) \$(DIMEN(xnew))
+`
+    while [ ${i} -le $# ];
+    do 
+       eval echo set yorig = \\${${i}}
+       echo "interp2 xorig yorig xnew ynew"
+       eval echo set \\${${i}}=ynew
+       i=$((i+1))
+    done #snl1
+`
+set $xorig=xnew
+EOF
+}
+
+
+##########################################
+##########################################
+plot_points(){ #color ptype lweight label x y 
+    cat <<EOF
+    set label_ypos=label_ypos-label_dy
+    set label_yleg=label_ypos+abs(label_dy*0.25)
+    ctype $1 
+    ptype 8 $2 #m=no. sides ; fill = 0(open) 1(skeletal) 3(filled)
+    move (label_xpos) (label_ypos)
+    expand 1.50
+    ltype 0
+if(label_off!=1){
+    label $4
+}
+    lweight $3
+    expand 2.10
+if(label_off!=1){
+    mpoint (label_xpos-6) (label_yleg)
+}
+    points $5 $6
+    expand 2.0
+EOF
+    reset_to_default
+}
+
+plot_points_xyerr(){ #color ptype lweight label x xerr+ xerr- y yerr+ [yerr-]
+    color=$1
+    pt="$2"
+    lweight=$3
+    label=$4
+    x=$5
+    errxu=$6
+    errxd=$7
+    y=$8
+    erryd=${10}
+    erryu=$9
+    cat <<EOF
+set label_ypos=label_ypos-label_dy
+set label_yleg=label_ypos+abs(label_dy*0.25)
+ctype $color
+ptype $pt 3 #m=no. sides ; fill = 0(open) 1(skeletal) 3(filled)
+move (label_xpos) (label_ypos)
+expand 1.50
+ltype 0
+
+ltype 0
+label $label
+lweight $lweight
+move (label_xpos) (label_ypos)
+expand 3.0
+mpoint (label_xpos-6) (label_yleg)
+points $x $y
+expand 3.0
+ERRORBAR $x $y $errxd 1
+ERRORBAR $x $y $errxu 1
+ERRORBAR $x $y $erryu 2
+ERRORBAR $x $y $erryd 2
+EOF
+    reset_to_default
+}
+
+plot_fpoints_yerr(){ #color ptypeside ptypefill expand lweight label x y yerr+ [yerr-]
+    color=$1
+    ptypesides=$2
+    ptypefill=$3
+    expand=$4
+    lweight=$5
+    label=$6
+    x=$7
+    y=$8
+    errd=$9
+    erru=${10}
+    cat <<EOF
+set label_ypos=label_ypos-label_dy
+set label_yleg=label_ypos+abs(label_dy*0.25)
+ctype $color 
+ptype $ptypesides $ptypefill  #m=no. sides ; fill = 0(open) 1(skeletal) 3(filled)
+move (label_xpos) (label_ypos)
+expand 1.50
+ltype 0
+if(label_off!=1){
+  label $label
+}
+lweight $lweight
+expand $expand
+if(label_off!=1){
+  mpoint (label_xpos-6) (label_yleg)
+}
+move (label_xpos) (label_ypos)
+points $x $y
+expand 2.0
+ERRORBAR $x $y $errd 2
+ERRORBAR $x $y $erru 2
+EOF
+    reset_to_default
+}
+
+plot_fpoints(){ #color ptype pfill expand lweight label x y 
+    color=$1
+    ptypesides=$2   #m=no. sides ; 
+    ptypefill=$3   #fill = 0(open) 1(skeletal) 3(filled)
+    expand=$4
+    lweight=$5
+    label=$6
+    x=$7
+    y=$8
+    cat <<EOF
+set label_ypos=label_ypos-label_dy
+set label_yleg=label_ypos+abs(label_dy*0.25)
+ctype $color 
+ptype $ptypesides $ptypefill  
+move (label_xpos) (label_ypos)
+expand 1.50
+ltype 0
+if(label_off!=1){
+label $label
+}
+lweight $lweight
+expand $expand
+if(label_off!=1){
+mpoint (label_xpos-6) (label_yleg)
+}
+move (label_xpos) (label_ypos)
+points $x $y
+expand 2.0
+EOF
+    reset_to_default
+}
+
+plot_flinepoints(){ 
+    color="$1"
+    ptypesides="$2"
+    ptypefill="$3"
+    expand="$4"
+    lweight="$5"
+    ltype="$6"
+    label="$7"
+    x="$8"
+    y="$9"
+if [ $# -eq 11 ]; then
+    errd="${10}"
+    erru="${11}"
+  plot_fpoints_yerr "$color" "$ptypesides" "$ptypefill" "$expand" "$lweight" "$label" "$x" "$y" "$errd" "$erru"
+else
+  plot_fpoints "$color" "$ptypesides" "$ptypefill" "$expand" "$lweight" "$label" "$x" "$y"
+
+  if [ $# -ne 9 ]; then
+    echo 'echo "BAD NUMBER OF ARGUMENTS TO plot_flinepoints $#"'
+    echo '!sleep 2000'
+  fi
+fi
+
+echo '
+if(label_off!=1){
+set label_ypos=label_ypos+label_dy
+}'
+ #keep label in the same place
+plot_line $color $ltype $lweight " " $x $y
+}
+
+plot_flinepoints_nested(){ 
+    color1="$1"
+    color2="$2"
+    ptypesides="$3"
+    ptypefill="$4"
+    expand1="$5"
+    expand2="$6"
+    lweight="$7"
+    ltype="$8"
+    label="$9"
+    x="${10}"
+    y="${11}"
+if [ $# -eq 13 ]; then
+    errd="${12}"
+    erru="${13}"
+  plot_fpoints_yerr "$color1" "$ptypesides" "$ptypefill" "$expand1" "$lweight" "$label" "$x" "$y" "$errd" "$erru"
+else
+  plot_fpoints "$color1" "$ptypesides" "$ptypefill" "$expand1" "$lweight" "$label" "$x" "$y"
+
+  if [ $# -ne 11 ]; then
+    echo echo "BAD NUMBER OF ARGUMENTS TO plot_flinepoints_nested $#"
+    echo '!sleep 2000'
+  fi
+fi
+
+#keep label in the same place
+echo '
+ if(label_off!=1){
+   set label_ypos=label_ypos+label_dy
+ }'
+plot_line $color1 $ltype $lweight " " $x $y
+
+#keep label in the same place
+echo '
+ if(label_off!=1){
+   set label_ypos=label_ypos+label_dy
+ }'
+plot_fpoints  "$color2" "$ptypesides" "$ptypefill" "$expand2" "$lweight" "$label" "$x" "$y"
+
+#$ltype $lweight " " $x $y
+}
+
+
+plot_flinepoints(){ 
+    color="$1"
+    ptypesides="$2"
+    ptypefill="$3"
+    expand="$4"
+    lweight="$5"
+    ltype="$6"
+    label="$7"
+    x="$8"
+    y="$9"
+if [ $# -ge 11 ]; then
+    errd="${10}"
+    erru="${11}"
+  plot_fpoints_yerr "$color" "$ptypesides" "$ptypefill" "$expand" "$lweight" "$label" "$x" "$y" "$errd" "$erru"
+else
+  plot_fpoints "$color" "$ptypesides" "$ptypefill" "$expand" "$lweight" "$label" "$x" "$y"
+
+  if [ $# -ne 9 ]; then
+    echo echo "BAD NUMBER OF ARGUMENTS TO plot_flinepoints $#"
+    echo '!sleep 2000'
+  fi
+fi
+
+#keep label in the same place
+echo '
+ if(label_off!=1){
+   set label_ypos=label_ypos+label_dy
+ }'
+
+plot_line $color $ltype $lweight " " $x $y
+}
+
+
+plot_points_yerr(){ #color ptype lweight label x y yerr+ [yerr-]
+    x=$5
+    y=$6
+    if [ $# -eq 7 ]; then
+	erru=$7
+	errd=$7
+    else
+	erru=$7
+	errd=$8
+    fi
+    cat <<EOF
+set label_ypos=label_ypos-label_dy
+set label_yleg=label_ypos+abs(label_dy*0.25)
+ctype $1 
+ptype $2 3 #m=no. sides ; fill = 0(open) 1(skeletal) 3(filled)
+move (label_xpos) (label_ypos)
+expand 1.50
+ltype 0
+if(label_off!=1){
+label $4
+}
+lweight $3
+expand 2.10
+if(label_off!=1){
+mpoint (label_xpos-6) (label_yleg)
+}
+move (label_xpos) (label_ypos)
+points $5 $6
+expand 2.0
+ERRORBAR $x $y $errd 2
+ERRORBAR $x $y $erru 2
+EOF
+    reset_to_default
+}
+
+#############################snl1
+identify_region(){ ####### limx limlo limhi cutoff xarr mf1 sfr1 mf2 sfr2
+
+    i=1
+    eval limits_x=\${$((i++))}
+    eval limits_ylo=\${$((i++))}
+    eval limits_yhi=\${$((i++))}
+
+    eval cutoff=\${$((i++))}
+
+    eval x_arr=\${$((i++))}
+
+    cat <<EOF
+    echo identify region 
+
+    set limits_x=$limits_x
+    set limits_ylo=$limits_ylo
+    set limits_yhi=$limits_yhi
+
+    set cutoff=$cutoff
+
+    set x_arr=$x_arr
+
+    sort{limits_x limits_ylo limits_yhi} 
+    interp2 limits_x limits_ylo x_arr limits_ylox
+    interp2 limits_x limits_yhi x_arr limits_yhix
+`
+echo echo ------loop 1
+    j=0
+    ibeg=${i}
+    while [ ${i} -le $# ]; 
+    do 
+       eval echo "set restricter_${j} = \\${${i}}"
+       i=$((i+1))
+       eval echo "set passive_${j} = \\${${i}}"
+       i=$((i+1))
+       j=$((j+1))
+       nlines=${j}
+    done
+
+echo echo ------loop 2
+    j=0
+echo '    set DIMEN(EPLy)=0'
+echo '    set DIMEN(EPLx)=0'
+    while [ ${j} -lt $nlines ];
+    do 
+cat <<EOF2
+echo '**careful this x direction dependent stuff in identify_region**'
+if(flag_complete==0){ #incomplete region
+       set passive_${j}=passive_${j} IF( restricter_${j} >= limits_ylox && restricter_${j} <= limits_yhix ) 
+       set x_arr_${j}=x_arr          IF( restricter_${j} >= limits_ylox && restricter_${j} <= limits_yhix ) 
+       set x_arrc_${j}=x_arr       IF(!( restricter_${j} >= limits_ylox && restricter_${j} <= limits_yhix )) 
+ #starting from large lookback intersection is at the end of the overlap
+       set EPLy=EPLy concat passive_${j}[DIMEN(passive_${j})-1] 
+       set EPLx=EPLx concat x_arr_${j}[DIMEN(passive_${j})-1]
+}
+if(flag_complete==1){ #complete region
+       set passive_${j}=passive_${j} IF( restricter_${j} >= limits_yhix ) 
+       set x_arr_${j} =x_arr         IF( restricter_${j} >= limits_yhix )  
+       set x_arrc_${j}=x_arr       IF(!( restricter_${j} >= limits_yhix )) 
+ #starting from large lookback intersection is at [0]
+       set EPLy=EPLy concat passive_${j}[0]
+       set EPLx=EPLx concat x_arr_${j}[0] 
+}
+if(flag_complete==-1){
+       set passive_${j}=passive_${j} IF( restricter_${j} <= limits_ylox ) 
+       set x_arr_${j} =x_arr         IF( restricter_${j} <= limits_ylox )
+       set x_arrc_${j}=x_arr       IF(!( restricter_${j} <= limits_ylox ))
+       set EPLy=EPLy concat passive_${j}[0]
+       set EPLx=EPLx concat x_arr_${j}[0] 
+echo NOT SURE in identify_region
+!sleep 2000
+}
+
+EOF2
+       j=$((j+1))
+    done
+
+echo echo ------loop 3
+    echo "sort{EPLx EPLy}"
+    j=0
+    while [ ${j} -lt $nlines ];
+    do 
+cat<<EOF2
+
+       set  complimentx =x_arrc_${j}
+       sort{complimentx}
+       interp2 EPLx EPLy complimentx complimenty
+       set complimenty = (complimentx >= EPLx[0] && complimentx <=EPLx[DIMEN(EPLx)-1]) ? complimenty : 0  
+
+#print {EPLx EPLy complimentx complimenty x_arr_${j}} #col4 should be empty to the end or beginning
+
+echo "the compliment gets flipped because of the ordering!!"
+set complimentx=-complimentx
+       sort{complimentx complimenty}
+
+if(flag_complete==1){ #complete region
+                   echo direction dependent
+       set passive_${j}= complimenty concat passive_${j} 
+}
+
+if(flag_complete==0){ #complete region
+                   echo direction dependent
+       set passive_${j}=  passive_${j} concat complimenty
+}
+
+
+#print {x_arr passive_${j}} 
+EOF2
+       j=$((j+1))
+    done
+
+
+echo echo ------loop 4
+    i=${ibeg}
+    j=0
+    while [ ${i} -le $# ]; 
+    do 
+       eval echo "set restricter_${j} = \\${${i}}"
+       i=$((i+1))
+       eval echo "set \\${${i}}_n = \passive_${j} "
+       i=$((i+1))
+       j=$((j+1))
+    done
+`    
+EOF
+}
+
+overlap_region(){ #color weight freq ang x f1 ... fn 
+#  need 2 arrays, but otherwise, loop over arrays until you find the high/low of all
+# f1 f2 f3 f4: fhi=f1;flo=f1 ; 
+#    fhi = ( fhi > f2 ) ? fhi : f2
+#    flo = ( flo < f2 ) ? flo : f2
+# how to do the loop?
+#    make it a bash loop with backticks
+    i=1
+    eval color=\${$((i++))} #eval parses twice 
+    eval weight=\${$((i++))}
+    eval frequency=\${$((i++))}
+    eval angle=\${$((i++))}
+
+    eval limits_x=\${$((i++))}
+    eval limits_ylo=\${$((i++))}
+    eval limits_yhi=\${$((i++))}
+    eval cutoff=\${$((i++))}
+
+    eval xarray=\${$((i++))}
+
+    cat <<EOF
+    echo overlap region 
+
+
+    ctype     $color
+    lweight   $weight
+    set freq =$frequency
+    set ang  =$angle
+    set x_arr=$xarray
+    set cutoff=$cutoff
+`
+    eval echo "set region_hi = \\${${i}}"
+    eval echo "set region_lo  = region_hi"
+    while [ ${i} -le $# ];
+    do 
+       eval echo set ftest = \\${${i}}
+       echo "set region_hi = (region_hi > ftest) ? region_hi : ftest"
+       echo "set region_lo = (region_lo < ftest) ? region_lo  : ftest"
+       i=$((i+1))
+    done
+`    
+#######only in overlap
+    set limits_x=$limits_x
+    set limits_ylo=$limits_ylo
+    set limits_yhi=$limits_yhi
+##interp2 needs input x to be sorted from region_lo to region_hi in x
+    sort{limits_x limits_ylo limits_yhi} 
+    interp2 limits_x limits_ylo x_arr limits_ylox
+    interp2 limits_x limits_yhi x_arr limits_yhix
+#print { limits_x limits_ylo x_arr limits_ylox }
+#print { limits_x limits_yhi x_arr limits_yhix }
+
+##conditions for only in limits region
+if(flag_complete==1){ #approaching from below
+    set nregion_lo = ( region_lo < limits_ylox || region_lo > limits_yhix) ? region_lo : ( ( region_lo < limits_yhix ) ?  limits_yhix : 0) 
+    set nregion_hi = ( region_hi < limits_ylox || region_hi > limits_yhix) ? region_hi : ( ( region_hi < limits_yhix ) ?  limits_yhix : 0)
+}
+if(flag_complete==-1){ #approaching from below
+    set nregion_lo = ( region_lo < limits_ylox || region_lo > limits_yhix) ? region_lo : ( ( region_lo > limits_ylox ) ?  limits_ylox : 0) 
+    set nregion_hi = ( region_hi < limits_ylox || region_hi > limits_yhix) ? region_hi : ( ( region_hi > limits_ylox ) ?  limits_ylox : 0)
+}
+
+if(flag_complete==0){
+    set nregion_lo = ( ( region_lo > limits_ylox && region_lo < limits_yhix) ? region_lo : ( region_lo < limits_ylox && region_hi > limits_ylox ) ? limits_ylox : 0 ) 
+    set nregion_hi = ( ( region_hi > limits_ylox && region_hi < limits_yhix) ? region_hi : ( region_lo < limits_yhix && region_hi > limits_yhix ) ? limits_yhix : 0 )
+}
+if(flag_complete!=1 && flag_complete!=0 && flag_complete!=-1){
+echo BAD: UNDEFINED FLAG_COMPLETE IN overlap_region
+}
+
+
+#print {x_arr limits_ylox  limits_yhix region_lo region_hi  nregion_lo nregion_hi}
+#print {x_arr limits_ylox  region_lo nregion_lo }
+if(cutoff<0){
+    set nregion_lo = (x_arr < -cutoff) ? nregion_lo : 0 
+    set nregion_hi = (x_arr < -cutoff) ? nregion_hi : 0 
+}else{
+    set nregion_lo  = (x_arr > cutoff) ? nregion_lo : 0 
+    set nregion_hi = (x_arr > cutoff) ? nregion_hi : 0 
+}
+#######only in overlap
+
+    set region_lo = nregion_lo IF(nregion_hi!=nregion_lo ) 
+    set region_hi = nregion_hi IF(nregion_hi!=nregion_lo ) 
+    set x_arr     = x_arr      IF(nregion_hi!=nregion_lo ) 
+#print{x_arr region_lo region_hi}
+if(DIMEN(x_arr)>2){
+    set x1n = x_arr
+    set xn1 = x_arr
+    if( xn1[0] < xn1[1]){
+      set xn1 = -xn1
+      sort{xn1 region_hi}
+      set xn1 = -xn1  
+    }else{
+      sort{xn1 region_hi}
+    }
+#    print {x1n region_lo xn1 region_hi} #xn1 x1n should be reverse (descending order) 
+ 
+if(freq==-99){
+    connect (x1n concat xn1) (region_lo concat region_hi)
+}else{
+    if(freq<0){ echo BAD FREQUENCY NOT AN OUTLINE FREQ BUT NEGATIVE}
+    angle \$(ang) shade \$(freq) (x1n concat xn1) (region_lo concat region_hi)
+}
+}
+EOF
+    reset_to_default
+
+}
+
+
+stripe_region(){ #color weight freq ang x f1 ... fn 
+#  need 2 arrays, but otherwise, loop over arrays until you find the high/low of all
+# f1 f2 f3 f4: fhi=f1;flo=f1 ; 
+#    fhi = ( fhi > f2 ) ? fhi : f2
+#    flo = ( flo < f2 ) ? flo : f2
+# how to do the loop?
+#    make it a bash loop with backticks
+    i=1
+    eval color=\${$((i++))} #eval parses twice 
+    eval weight=\${$((i++))}
+    eval frequency=\${$((i++))}
+    eval angle=\${$((i++))}
+    eval xarray=\${$((i++))}
+
+    cat <<EOF
+    ctype     $color
+    lweight   $weight
+    set freq =$frequency
+    set ang  =$angle
+    set x_arr=$xarray
+`
+    eval echo "set high = \\${${i}}"
+    eval echo "set low  = \\${${i}}"
+    while [ $i -le $# ];
+    do 
+       eval echo set ftest = \\${$i}
+       echo "set high = (high > ftest) ? high : ftest"
+       echo "set low  = (low  < ftest) ? low  : ftest"
+       i=$((i+1))
+    done
+`    
+# need a continuous shape that returns to first element 
+#
+#
+    set x1n = x_arr
+    set xn1 = x_arr
+    if( xn1[0] < xn1[1]){
+      set xn1 = -xn1
+      sort{xn1 high}
+      set xn1 = -xn1  
+    }else{
+      sort{xn1 high}
+    }
+    #print {x1n xn1 high} #xn1 x1n should be reverse (descending order) 
+if(freq==-99){
+    connect (x1n concat xn1) (low concat high)
+}else{
+    if(freq<0){ echo BAD FREQUENCY NOT AN OUTLINE FREQ BUT NEGATIVE}
+    angle \$(ang) shade \$(freq) (x1n concat xn1) (low concat high)
+}
+EOF
+    reset_to_default
+}
+
+set_label(){ #label_name
+    cat <<EOF
+expand 1.50
+ltype 0
+lweight 4
+    set label_ypos=label_ypos-label_dy
+    move (label_xpos-11) (label_ypos)
+    label $1
+    move (label_xpos+10) (label_ypos)
+EOF
+    reset_to_default
+}
+
+plot_line_points(){ #color ltype lweight pside pfill label x y xshift xerr yerr
+    color="$1" 
+    line_type="$2"
+    lweight="$3"
+    pside="$4" ; pfill="$5" ;
+    label="$6" ;
+    x="$7" ;
+    y="$8" ;
+
+    if [ $# -ne 8 ]; then
+	erru="$9"
+	errd="${10}"
+	xshift="${11}"
+	if [ $# -ne 11 ]; then 
+	    echo "echo BAD args to plot_line_points! $#"
+	    exit
+	fi
+    fi
+	
+    cat <<EOF
+    ptype $pside $pfill #m=no. sides ; fill = 0(open) 1(skeletal) 3(filled)
+    set label_ypos=label_ypos-label_dy
+    set label_yleg=label_ypos+abs(label_dy*0.25)
+    ctype $color 
+    ltype $line_type
+    move (label_xpos) (label_ypos)
+    expand 1.50
+    lweight 4
+    label $label
+    lweight $lweight
+
+    move (label_xpos-11) (label_yleg)
+    mdraw (label_xpos-1) (label_yleg)
+
+    expand 2.50
+    ltype 0
+    mpoint (label_xpos-6) (label_yleg)
+    move (label_xpos) (label_ypos)
+    points $x $y
+
+    expand 2.0
+    ltype $line_type
+    connect $x $y
+    lweight 4
+EOF
+    if [ $# -eq 11 ]; then
+	cat <<EOF
+	ltype 0
+	lweight 2
+	set xshifted=$xshift+$x
+	ERRORBAR xshifted $y $erru 2
+	ERRORBAR xshifted $y $errd 2
+	lweight 4
+EOF
+    reset_to_default
+    fi
+}
+
+plot_line_bins(){ #color ltype lweight label x xbinsz y 
+
+    cat <<EOF
+    set label_ypos=label_ypos-label_dy
+    set label_yleg=label_ypos+abs(label_dy*0.25)
+    ctype $1 
+    ltype $2
+    move (label_xpos) (label_ypos)
+    expand 1.50
+    label $4
+    lweight $3
+    move (label_xpos-11) (label_yleg)
+    mdraw (label_xpos-1) (label_yleg)
+    move (label_xpos) (label_ypos)
+    expand 2.0
+    set binx=$5-$6/2.0 concat $5+$6/2.0-0.01 #small number is for sorting
+    set biny=$7 concat $7
+    sort{ binx biny}
+    connect binx biny
+#print{ binx biny}
+    lweight 4
+EOF
+    reset_to_default
+}
+plot_line(){ #color ltype lweight label x y 
+    color="$1"
+    ltype="$2"
+    lweight="$3"
+    label="$4"
+    x="$5"
+    y="$6"
+    cat <<EOF
+    ctype $color 
+    ltype $ltype
+    expand 1.50
+if(label_off!=1){
+    set label_ypos=label_ypos-label_dy
+    set label_yleg=label_ypos+abs(label_dy*0.25)
+    move (label_xpos) (label_ypos)
+    label $label
+    lweight $lweight
+    move (label_xpos-11) (label_yleg)
+    mdraw (label_xpos-1) (label_yleg)
+}else{
+    lweight $lweight
+}
+    move (label_xpos) (label_ypos)
+    expand 2.0
+    connect $x $y
+    lweight 4
+EOF
+    reset_to_default
+}
+
+#stripe_region(){ #weight freq ang flo fmid fhi
+#    cat <<EOF
+#    ctype     $1
+#    ltype     0
+#    lweight   $2
+#    set freq =$3
+#    set ang  =$4
+#    set x_arr=$5
+#
+#    set flo  =$6
+#    set fmid =$7
+#    set fhi  =$8
+#    set x = -x_arr
+#    set high = fhi #(fhi > fmid) ? fhi : fmid
+#    set low =  flo #(flo < fmid) ? flo : fmid
+#    sort{x high}
+#    set x = x_arr concat -x
+#    angle \$(ang) shade \$(freq) (x) (low concat high)
+#    angle 0
+#    ctype black
+#EOF
+#}
+
+
