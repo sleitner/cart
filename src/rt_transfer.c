@@ -312,7 +312,7 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
   //  Maintain the unit average of the far field - should be called
   //  by all run tasks only, to ensure the buffer consistency.
   */
-  //if(top_level == min_level)
+  if(top_level == min_level)
   for(level=top_level; level<=bottom_level; level++)
     {
       select_level(level,CELL_TYPE_ANY,&num_level_cells,&level_cells);
