@@ -18,6 +18,7 @@ struct rtGlobalValue;
 
 void rtStepBeginTransferOtvet(struct rtGlobalValue *abcMax);
 void rtLevelUpdateTransferOtvet(int level);
+void rtOtvetSplitUpdate(int level, int num_level_cells, int *level_cells);
 
 #ifdef RT_OTVET_SAVE_FLUX
 extern int rt_flux_frequency;

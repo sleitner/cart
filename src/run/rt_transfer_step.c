@@ -86,9 +86,7 @@ void rtLevelUpdateTransfer(int level)
   if(!rtIsThereWork()) return;
 
 #if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
-
   rtLevelUpdateTransferOtvet(level);
-
 #endif
 
   rtTransferSplitUpdate(level);
@@ -98,7 +96,7 @@ void rtLevelUpdateTransfer(int level)
 void rtTransferSplitUpdate(int level)
 {
   int i, j, k;
-  int icell;
+  int cell;
   int num_level_cells;
   int *level_cells;
   int children[num_children];
@@ -110,16 +108,16 @@ void rtTransferSplitUpdate(int level)
   if(level < max_level)
     {
       select_level(level,CELL_TYPE_LOCAL,&num_level_cells,&level_cells);
-#pragma omp parallel for default(none), private(i,icell,j,k,children,new_var), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
+#pragma omp parallel for default(none), private(i,cell,j,k,children,new_var), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
       for(i=0; i<num_level_cells; i++)
 	{
-	  icell = level_cells[i];
-	  if(cell_is_refined(icell))
+	  cell = level_cells[i];
+	  if(cell_is_refined(cell))
 	    {
 	      /*
 	      // Average over children
 	      */
-	      cell_all_children(icell,children);
+	      cell_all_children(cell,children);
 	      for(j=0; j<rt_num_fields; j++)
 		{
 		  new_var = 0.0;
@@ -127,10 +125,15 @@ void rtTransferSplitUpdate(int level)
 		    {
 		      new_var += cell_var(children[k],rt_field_offset+j);
 		    }
-		  cell_var(icell,rt_field_offset+j) = new_var*factor; 
+		  cell_var(cell,rt_field_offset+j) = new_var*factor; 
 		}
 	    }
 	}
+
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
+      rtOtvetSplitUpdate(level,num_level_cells,level_cells);
+#endif
+
       cart_free(level_cells);
     }
 

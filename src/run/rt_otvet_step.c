@@ -31,7 +31,7 @@ int rtOtvetMaxNumIter = 10;
 
 
 #ifdef RT_OTVET_SAVE_FLUX
-int rt_flux_frequency;
+int rt_flux_frequency = rt_num_freqs-1;  /* UV by default */
 float rt_flux[num_cells][nDim];
 #endif /* RT_OTVET_SAVE_FLUX */
 
@@ -67,28 +67,22 @@ extern float rtGlobalAC[];
 
 void rtOtvetMidPointAbsorptionCoefficients(int level, int iL, int *info, int *nb, float *abc, float *abcMid);
 
-typedef float (*LaplacianDiag)(int iL, int *indL2G, float *abcLoc);
+typedef struct 
+{
+  float (*Diag)(int iL, int *indL2G, float *abcLoc);
 #ifdef RT_OTVET_SAVE_FLUX
-typedef float (*LaplacianFull)(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux);
+  float (*Full)(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux);
 #else
-typedef float (*LaplacianFull)(int ivar, int iL, int *indL2G, int *nb, float *abcLoc);
+  float (*Full)(int ivar, int iL, int *indL2G, int *nb, float *abcLoc);
 #endif /* RT_OTVET_SAVE_FLUX */
+}
+rt_laplacian_t;
 
-void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd, int nit, int work, LaplacianDiag dWorker, LaplacianFull fWorker);
 
-/*
-// Tensor stencils
-*/
-float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag(int iL, int *indL2G, float *abcLoc);
-float rtOtvetLaplacian_GenericTensor_SplitStencil_Diag(int iL, int *indL2G, float *abcLoc);
+void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd, int nit, int work, rt_laplacian_t lap, float flux[][nDim]);
 
-#ifdef RT_OTVET_SAVE_FLUX
-float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux);
-float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux);
-#else
-float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc);
-float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc);
-#endif /* RT_OTVET_SAVE_FLUX */
+extern rt_laplacian_t rt_unitary;
+extern rt_laplacian_t rt_generic;
 
 
 void rtStepBeginTransferOtvet(struct rtGlobalValue *maxAC)
@@ -401,7 +395,7 @@ void rtLevelUpdateTransferOtvet(int level)
 	    }
 	  end_time(WORK_TIMER);
 
-	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[0],rhs,jac,dd,nit,work,rtOtvetLaplacian_GenericTensor_SplitStencil_Diag,rtOtvetLaplacian_GenericTensor_SplitStencil_Full);
+	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[0],rhs,jac,dd,nit,work,rt_generic,(freq == rt_flux_frequency) ? rt_flux : NULL);
 
 	  if(work)
 	    {
@@ -460,7 +454,7 @@ void rtLevelUpdateTransferOtvet(int level)
 	      end_time(WORK_TIMER);
 	    }
 
-	  rtOtvetSolveFieldEquation(ivarG,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[1],rhs,jac,dd,nit,work,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag,rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full);
+	  rtOtvetSolveFieldEquation(ivarG,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[1],rhs,jac,dd,nit,work,rt_unitary,NULL);
 
 	  if(work)
 	    {
@@ -566,7 +560,7 @@ void rtLevelUpdateTransferOtvet(int level)
 
 #define RPT(ind,iL)      (varET(ind,iL)*var(iL))
 
-void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd, int nit, int work, LaplacianDiag dWorker, LaplacianFull fWorker)
+void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd, int nit, int work, rt_laplacian_t lap, float **flux)
 {
   /*
   // Numerical parameters
@@ -588,7 +582,7 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 
       start_time(WORK_TIMER);
 
-#pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,dx,dWorker,rhs,dd,cache_var)
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,dx,lap,rhs,dd,cache_var)
       for(iL=0; iL<num_level_cells; iL++)
 	{
       
@@ -603,7 +597,7 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	  /*
 	  // Inverse Jacobian
 	  */
-	  jac[iL] = gamma/(1.0+gamma*(beta*abc[iL]*dx+dWorker(iL,indL2G,abcMid)));
+	  jac[iL] = gamma/(1.0+gamma*(beta*abc[iL]*dx+lap.Diag(iL,indL2G,abcMid)));
 
 	  /*
 	  // RHS: absorption must act on the initial field only to insure
@@ -626,7 +620,7 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	  /*
 	  // Compute Laplacian term
 	  */
-#pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd,dx,fWorker,cache_var,rt_flux,it,nit)
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd,dx,lap,cache_var,flux,it,nit)
 	  for(iL=0; iL<num_level_cells; iL++)
 	    {
 
@@ -643,9 +637,16 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	      */
 #ifdef RT_OTVET_SAVE_FLUX
 	      /* save flux at the last iteration */
-	      dd[iL] = fWorker(ivar,iL,indL2G,nb,abcMid,(it<nit)?NULL:rt_flux[indL2G[iL]]) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
+	      if(it==nit && flux!=NULL)
+		{
+		  dd[iL] = lap.Full(ivar,iL,indL2G,nb,abcMid,flux[indL2G[iL]]) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
+		}
+	      else
+		{
+		  dd[iL] = lap.Full(ivar,iL,indL2G,nb,abcMid,NULL) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
+		}
 #else
-	      dd[iL] = fWorker(ivar,iL,indL2G,nb,abcMid) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
+	      dd[iL] = lap.Full(ivar,iL,indL2G,nb,abcMid) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
 #endif /* RT_OTVET_SAVE_FLUX */
 	    }
 
@@ -705,6 +706,42 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 }
 
 
+void rtOtvetSplitUpdate(int level, int num_level_cells, int *level_cells)
+{
+#ifdef RT_OTVET_SAVE_FLUX
+  int i, j, k;
+  int cell;
+  int children[num_children];
+  double new_var;
+  const double factor = ((double)(1.0/(1<<nDim)));
+
+  if(level < max_level)
+    {
+#pragma omp parallel for default(none), private(i,cell,j,k,children,new_var), shared(num_level_cells,level_cells,cell_child_oct,rt_flux)
+      for(i=0; i<num_level_cells; i++)
+	{
+	  cell = level_cells[i];
+	  if(cell_is_refined(cell))
+	    {
+	      /*
+	      // Average over children
+	      */
+	      cell_all_children(cell,children);
+	      for(j=0; j<nDim; j++)
+		{
+		  new_var = 0.0;
+		  for(k=0; k<num_children; k++)
+		    {
+		      new_var += rt_flux[children[k]][j];
+		    }
+		  rt_flux[cell][j] = new_var*factor; 
+		}
+	    }
+	}
+    }
+#endif /* RT_OTVET_SAVE_FLUX */
+}
+
 
 /*
 // Flux-conserving diffusion coefficients a-la Oran & Boris
@@ -741,9 +778,9 @@ void rtOtvetMidPointAbsorptionCoefficients(int level, int iL, int *info, int *nb
 // Compute the Laplacian and its diagonal element in several ways
 */
 #ifdef RT_OTVET_SAVE_FLUX
-float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux)
+float rtOtvet_UnitaryTensorFull(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux)
 #else
-float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc)
+float rtOtvet_UnitaryTensorFull(int ivar, int iL, int *indL2G, int *nb, float *abcLoc)
 #endif /* RT_OTVET_SAVE_FLUX */
 {
   int j;
@@ -791,7 +828,7 @@ float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *in
 }
 
 
-float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag(int iL, int *indL2G, float *abcLoc)
+float rtOtvet_UnitaryTensorDiag(int iL, int *indL2G, float *abcLoc)
 {
   int j;
   float s;
@@ -803,9 +840,9 @@ float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag(int iL, int *indL2G, floa
 
 
 #ifdef RT_OTVET_SAVE_FLUX
-float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux)
+float rtOtvet_GenericTensorFull(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux)
 #else
-float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc)
+float rtOtvet_GenericTensorFull(int ivar, int iL, int *indL2G, int *nb, float *abcLoc)
 #endif /* RT_OTVET_SAVE_FLUX */
 {
   int j;
@@ -903,7 +940,7 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *in
 }
 
 
-float rtOtvetLaplacian_GenericTensor_SplitStencil_Diag(int iL, int *indL2G, float *abcLoc)
+float rtOtvet_GenericTensorDiag(int iL, int *indL2G, float *abcLoc)
 {
   return varET(0,iL)*(1.0/abcLoc[0]+1.0/abcLoc[1])
 #if (nDim > 1)
@@ -917,5 +954,8 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Diag(int iL, int *indL2G, floa
 #endif /* nDim > 1 */
     ;
 }
+
+rt_laplacian_t rt_unitary = { rtOtvet_UnitaryTensorDiag, rtOtvet_UnitaryTensorFull };
+rt_laplacian_t rt_generic = { rtOtvet_GenericTensorDiag, rtOtvet_GenericTensorFull };
 
 #endif /* RADIATIVE_TRANSFER && RT_TRANSFER && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */
