@@ -16,24 +16,20 @@
 
 
 /* global tree variables */
-#ifdef STATIC_MESH_DATA
 int size_oct_array = num_octs;
 int size_cell_array = num_cells;
-#else
-int size_oct_array = 0;
-int size_cell_array = 0;
-#endif
 
-float CELL_VAR_ARRAY(cell_vars,num_vars) STATIC_INIT;
-int CELL_ARRAY(cell_child_oct) STATIC_INIT;
+float cell_vars[num_cells][num_vars];
+int cell_child_oct[num_cells];
 
-int OCT_ARRAY(oct_parent_cell) STATIC_INIT;
-int OCT_ARRAY(oct_level) STATIC_INIT;
-int OCT_ARRAY2D(oct_neighbors,num_neighbors) STATIC_INIT;
-int OCT_ARRAY(oct_parent_root_sfc) STATIC_INIT;
-int OCT_ARRAY(oct_next) STATIC_INIT;
-int OCT_ARRAY(oct_prev) STATIC_INIT;
-double OCT_ARRAY2D(oct_pos,nDim) STATIC_INIT;
+int oct_parent_cell[num_octs];
+int oct_level[num_octs];
+int oct_neighbors[num_octs][num_neighbors];
+int oct_parent_root_sfc[num_octs];
+int oct_next[num_octs];
+int oct_prev[num_octs];
+double oct_pos[num_octs][nDim];
+
 
 int all_vars[num_vars];
 #ifdef HYDRO

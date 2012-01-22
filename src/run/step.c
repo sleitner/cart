@@ -220,10 +220,6 @@ void run( int restart, const char *restart_label ) {
 	config_append_units_to_file("config.log");
 	config_print_to_file("history.log",1);
 
-#ifdef HYDRO 
-	hydro_step_init();
-#endif
-
 	end_time( INIT_TIMER );
 
 	current_steps = 0;

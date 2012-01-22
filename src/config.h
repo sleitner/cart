@@ -122,40 +122,12 @@
 #define num_children    (1<<nDim)		
 #define num_neighbors   (2*nDim)
 
+
 #ifdef num_octs
-
 #define num_cells	(num_octs<<nDim)                        /* number of cells in buffer */
-#define STATIC_MESH_DATA
-#define STATIC_INIT      
-
 #else
-
-#define num_octs         size_oct_array
-#define num_cells        size_cell_array
-#ifdef STATIC_MESH_DATA
-#undef STATIC_MESH_DATA
+#error "num_octs must be set."
 #endif
-
-#define STATIC_INIT      = NULL
-
-#endif
-
-
-#ifdef STATIC_MESH_DATA
-
-#define OCT_ARRAY(name)   name[num_octs]
-#define CELL_ARRAY(name)  name[num_cells]
-#define OCT_ARRAY2D(name,dim2)   name[num_octs][dim2]
-#define CELL_VAR_ARRAY(name,nvars)  name[num_cells][nvars]
-
-#else  /* STATIC_MESH_DATA */
-
-#define OCT_ARRAY(name)   *name
-#define CELL_ARRAY(name)  *name
-#define OCT_ARRAY2D(name,dim2)   **name
-#define CELL_VAR_ARRAY(name,nvars)  *name
-
-#endif /* STATIC_MESH_DATA */
 
 
 #if (nDim == 3)

@@ -15,7 +15,7 @@ extern int tracer_id[num_tracers];
 extern int tracer_list_next[num_tracers];
 extern int tracer_list_prev[num_tracers];
 
-extern int CELL_ARRAY(cell_tracer_list);
+extern int cell_tracer_list[num_cells];
 
 extern int num_tracer_row;
 extern int num_local_tracers;

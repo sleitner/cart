@@ -45,15 +45,11 @@ extern double blastwave_time_floor;
 extern double blastwave_time_cut;
 #endif /* BLASTWAVE_FEEDBACK */
 
-#ifdef STATIC_MESH_DATA
 #define backup_hvar(c,v)	(backup_hvars[c][v])
-#else  /* STATIC_MESH_DATA */
-#define backup_hvar(c,v)	(backup_hvars[(c)*(num_hydro_vars-2)+(v)])
-#endif /* STATIC_MESH_DATA */
 
-float CELL_VAR_ARRAY(backup_hvars,num_hydro_vars-2) STATIC_INIT;
-float CELL_ARRAY(ref) STATIC_INIT;
-int CELL_ARRAY(backup_dirty) STATIC_INIT;
+float backup_hvars[num_cells][num_hydro_vars-2];
+float ref[num_cells];
+int backup_dirty[num_cells];
 
 #ifdef GRAVITY_IN_RIEMANN
 void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double g[2], double c[2], double f[num_hydro_vars-1] );
@@ -93,23 +89,6 @@ void hydro_eos(int level);
 void hydro_magic(int level);
 void hydro_advance_internalenergy(int level);
 void hydro_split_update( int level );
-
-
-void hydro_step_init() {
-#ifndef STATIC_MESH_DATA
-	if(backup_hvars == NULL)
-	  {
-	    backup_hvars = cart_alloc(float,(size_t)num_cells*(num_hydro_vars-2));
-	    memset(backup_hvars,0,sizeof(float)*(size_t)num_cells*(num_hydro_vars-2));
-
-	    ref = cart_alloc(float,num_cells);
-	    memset(ref,0,sizeof(float)*num_cells);
-
-	    backup_dirty = cart_alloc(int,num_cells);
-	    memset(ref,0,sizeof(int)*num_cells);
-	  }
-#endif  /* STATIC_MESH_DATA */
-}
 
 
 void hydro_step( int level ) {

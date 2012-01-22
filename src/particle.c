@@ -59,7 +59,7 @@ double aeu0 = 0.0;
 double ap0 = 0.0;
 double ap1 = 0.0;
 
-int CELL_ARRAY(cell_particle_list) STATIC_INIT;
+int cell_particle_list[num_cells];
 
 int num_local_particles = 0;
 long num_particles_total = 0;

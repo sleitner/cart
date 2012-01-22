@@ -24,7 +24,7 @@ float refinement_volume_max[nDim] = { num_grid, num_grid, num_grid };
 #include "units.h"
 
 
-int OCT_ARRAY(cells_to_refine) STATIC_INIT;
+int cells_to_refine[num_octs];
 int num_cells_to_refine;
 
 int refinement_is_static        = 0;

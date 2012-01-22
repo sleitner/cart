@@ -19,6 +19,12 @@ struct rtGlobalValue;
 void rtStepBeginTransferOtvet(struct rtGlobalValue *abcMax);
 void rtLevelUpdateTransferOtvet(int level);
 
+#ifdef RT_OTVET_SAVE_FLUX
+extern int rt_flux_frequency;
+extern float rt_flux[num_cells][nDim];
+#endif /* RT_OTVET_SAVE_FLUX */
+
+
 #endif /* defined(RT_TRANSFER) && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */
 #endif /* RADIATIVE_TRANSFER */
 

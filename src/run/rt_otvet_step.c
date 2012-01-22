@@ -30,6 +30,12 @@ int rtOtvetMaxNumIter = 10;
 #endif
 
 
+#ifdef RT_OTVET_SAVE_FLUX
+int rt_flux_frequency;
+float rt_flux[num_cells][nDim];
+#endif /* RT_OTVET_SAVE_FLUX */
+
+
 #ifdef RT_EXTERNAL_BACKGROUND
 
 extern struct rtGlobalValue rtAvgRF[];
@@ -62,7 +68,11 @@ extern float rtGlobalAC[];
 void rtOtvetMidPointAbsorptionCoefficients(int level, int iL, int *info, int *nb, float *abc, float *abcMid);
 
 typedef float (*LaplacianDiag)(int iL, int *indL2G, float *abcLoc);
+#ifdef RT_OTVET_SAVE_FLUX
+typedef float (*LaplacianFull)(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux);
+#else
 typedef float (*LaplacianFull)(int ivar, int iL, int *indL2G, int *nb, float *abcLoc);
+#endif /* RT_OTVET_SAVE_FLUX */
 
 void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd, int nit, int work, LaplacianDiag dWorker, LaplacianFull fWorker);
 
@@ -72,8 +82,13 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag(int iL, int *indL2G, float *abcLoc);
 float rtOtvetLaplacian_GenericTensor_SplitStencil_Diag(int iL, int *indL2G, float *abcLoc);
 
+#ifdef RT_OTVET_SAVE_FLUX
+float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux);
+float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux);
+#else
 float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc);
 float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc);
+#endif /* RT_OTVET_SAVE_FLUX */
 
 
 void rtStepBeginTransferOtvet(struct rtGlobalValue *maxAC)
@@ -611,7 +626,7 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	  /*
 	  // Compute Laplacian term
 	  */
-#pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd,dx,fWorker,cache_var)
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd,dx,fWorker,cache_var,rt_flux,it,nit)
 	  for(iL=0; iL<num_level_cells; iL++)
 	    {
 
@@ -626,7 +641,12 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	      /*
 	      // Main operator element
 	      */
+#ifdef RT_OTVET_SAVE_FLUX
+	      /* save flux at the last iteration */
+	      dd[iL] = fWorker(ivar,iL,indL2G,nb,abcMid,(it<nit)?NULL:rt_flux[indL2G[iL]]) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
+#else
 	      dd[iL] = fWorker(ivar,iL,indL2G,nb,abcMid) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
+#endif /* RT_OTVET_SAVE_FLUX */
 	    }
 
 	  /*
@@ -720,10 +740,15 @@ void rtOtvetMidPointAbsorptionCoefficients(int level, int iL, int *info, int *nb
 /*
 // Compute the Laplacian and its diagonal element in several ways
 */
+#ifdef RT_OTVET_SAVE_FLUX
+float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux)
+#else
 float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc)
+#endif /* RT_OTVET_SAVE_FLUX */
 {
   int j;
-  float s, vmax;
+  float q, vmax;
+  float deh[num_neighbors];
 
 #ifndef RT_DEBUG_BLOCK_MASKING
   /*
@@ -737,12 +762,31 @@ float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Full(int ivar, int iL, int *in
   if(vmax > 1.0e-35)
 #endif
     {
-      s = 0.0;
-      for(j=0; j<num_neighbors; j++) s += (var(nb[j])-var(iL))/abcLoc[j];
-      return s/nDim;
+      for(j=0; j<num_neighbors; j++) deh[j] = (var(nb[j])-var(iL))/abcLoc[j]/nDim;
+
+#ifdef RT_OTVET_SAVE_FLUX
+      if(flux != NULL) for(j=0; j<nDim; j++)
+	{
+	  flux[j] = 0.5*(deh[2*j+1]-deh[2*j+0]);
+	}
+#endif /* RT_OTVET_SAVE_FLUX */
+
+      q = 0.0;
+      for(j=0; j<num_neighbors; j++) q += deh[j];
+      return q;
     }
 #ifndef RT_DEBUG_BLOCK_MASKING
-  else return 0.0;
+  else
+    {
+#ifdef RT_OTVET_SAVE_FLUX
+      if(flux != NULL) for(j=0; j<nDim; j++)
+	{
+	  flux[j] = 0.0;
+	}
+#endif /* RT_OTVET_SAVE_FLUX */
+
+      return 0.0;
+    }
 #endif
 }
 
@@ -758,11 +802,15 @@ float rtOtvetLaplacian_UnitaryTensor_CrossStencil_Diag(int iL, int *indL2G, floa
 }
 
 
+#ifdef RT_OTVET_SAVE_FLUX
+float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc, float *flux)
+#else
 float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *indL2G, int *nb, float *abcLoc)
+#endif /* RT_OTVET_SAVE_FLUX */
 {
   int j;
   float q, vmax;
-  float flux[num_neighbors];
+  float deh[num_neighbors];
 
 #ifndef RT_DEBUG_BLOCK_MASKING
   /*
@@ -779,14 +827,14 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *in
       /*
       // Co-axial elements
       */
-      flux[0] = RPT(0,nb[0]) - RPT(0,iL);
-      flux[1] = RPT(0,nb[1]) - RPT(0,iL);
+      deh[0] = RPT(0,nb[0]) - RPT(0,iL);
+      deh[1] = RPT(0,nb[1]) - RPT(0,iL);
 #if (nDim > 1)
-      flux[2] = RPT(2,nb[2]) - RPT(2,iL);
-      flux[3] = RPT(2,nb[3]) - RPT(2,iL);
+      deh[2] = RPT(2,nb[2]) - RPT(2,iL);
+      deh[3] = RPT(2,nb[3]) - RPT(2,iL);
 #if (nDim > 2)
-      flux[4] = RPT(5,nb[4]) - RPT(5,iL);
-      flux[5] = RPT(5,nb[5]) - RPT(5,iL);
+      deh[4] = RPT(5,nb[4]) - RPT(5,iL);
+      deh[5] = RPT(5,nb[5]) - RPT(5,iL);
 #endif /* nDim > 2 */
 #endif /* nDim > 1 */
 
@@ -794,17 +842,17 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *in
       // Off-axial elements
       */
 #if (nDim > 1)
-      flux[0] -= 0.25*(RPT(1,nb[ 8])+RPT(1,nb[ 3])-RPT(1,nb[ 6])-RPT(1,nb[ 2]));
-      flux[1] += 0.25*(RPT(1,nb[ 9])+RPT(1,nb[ 3])-RPT(1,nb[ 7])-RPT(1,nb[ 2]));
-      flux[2] -= 0.25*(RPT(1,nb[ 7])+RPT(1,nb[ 1])-RPT(1,nb[ 6])-RPT(1,nb[ 0]));
-      flux[3] += 0.25*(RPT(1,nb[ 9])+RPT(1,nb[ 1])-RPT(1,nb[ 8])-RPT(1,nb[ 0]));
+      deh[0] -= 0.25*(RPT(1,nb[ 8])+RPT(1,nb[ 3])-RPT(1,nb[ 6])-RPT(1,nb[ 2]));
+      deh[1] += 0.25*(RPT(1,nb[ 9])+RPT(1,nb[ 3])-RPT(1,nb[ 7])-RPT(1,nb[ 2]));
+      deh[2] -= 0.25*(RPT(1,nb[ 7])+RPT(1,nb[ 1])-RPT(1,nb[ 6])-RPT(1,nb[ 0]));
+      deh[3] += 0.25*(RPT(1,nb[ 9])+RPT(1,nb[ 1])-RPT(1,nb[ 8])-RPT(1,nb[ 0]));
 #if (nDim > 2)
-      flux[0] -= 0.25*(RPT(3,nb[14])+RPT(3,nb[ 5])-RPT(3,nb[10])-RPT(3,nb[ 4]));
-      flux[1] += 0.25*(RPT(3,nb[15])+RPT(3,nb[ 5])-RPT(3,nb[11])-RPT(3,nb[ 4]));
-      flux[2] -= 0.25*(RPT(4,nb[16])+RPT(4,nb[ 5])-RPT(4,nb[12])-RPT(4,nb[ 4]));
-      flux[3] += 0.25*(RPT(4,nb[17])+RPT(4,nb[ 5])-RPT(4,nb[13])-RPT(4,nb[ 4]));
-      flux[4] -= 0.25*(RPT(3,nb[11])+RPT(3,nb[ 1])-RPT(3,nb[10])-RPT(3,nb[ 0])+RPT(4,nb[13])+RPT(4,nb[ 3])-RPT(4,nb[12])-RPT(4,nb[ 2]));
-      flux[5] += 0.25*(RPT(3,nb[15])+RPT(3,nb[ 1])-RPT(3,nb[14])-RPT(3,nb[ 0])+RPT(4,nb[17])+RPT(4,nb[ 3])-RPT(4,nb[16])-RPT(4,nb[ 2]));
+      deh[0] -= 0.25*(RPT(3,nb[14])+RPT(3,nb[ 5])-RPT(3,nb[10])-RPT(3,nb[ 4]));
+      deh[1] += 0.25*(RPT(3,nb[15])+RPT(3,nb[ 5])-RPT(3,nb[11])-RPT(3,nb[ 4]));
+      deh[2] -= 0.25*(RPT(4,nb[16])+RPT(4,nb[ 5])-RPT(4,nb[12])-RPT(4,nb[ 4]));
+      deh[3] += 0.25*(RPT(4,nb[17])+RPT(4,nb[ 5])-RPT(4,nb[13])-RPT(4,nb[ 4]));
+      deh[4] -= 0.25*(RPT(3,nb[11])+RPT(3,nb[ 1])-RPT(3,nb[10])-RPT(3,nb[ 0])+RPT(4,nb[13])+RPT(4,nb[ 3])-RPT(4,nb[12])-RPT(4,nb[ 2]));
+      deh[5] += 0.25*(RPT(3,nb[15])+RPT(3,nb[ 1])-RPT(3,nb[14])-RPT(3,nb[ 0])+RPT(4,nb[17])+RPT(4,nb[ 3])-RPT(4,nb[16])-RPT(4,nb[ 2]));
 #endif /* nDim > 2 */
 #endif /* nDim > 1 */
 
@@ -815,27 +863,42 @@ float rtOtvetLaplacian_GenericTensor_SplitStencil_Full(int ivar, int iL, int *in
       for(j=0; j<num_neighbors; j++)
         {
           q = 0.5*abcLoc[j]*(var(iL)+var(nb[j]));
-          if(flux[j] > q)
+          if(deh[j] > q)
             {
-              flux[j] = q;
+              deh[j] = q;
             }
-          else if(flux[j] < -q)
+          else if(deh[j] < -q)
             {
-              flux[j] = -q;
+              deh[j] = -q;
             }
         }
       */
 
+      for(j=0; j<num_neighbors; j++) deh[j] /= abcLoc[j];
+
+#ifdef RT_OTVET_SAVE_FLUX
+      if(flux != NULL) for(j=0; j<nDim; j++)
+	{
+	  flux[j] = 0.5*(deh[2*j+1]-deh[2*j+0]);
+	}
+#endif /* RT_OTVET_SAVE_FLUX */
+
       q = 0.0;
-      for(j=0; j<num_neighbors; j++)
-        {
-	  q += flux[j]/abcLoc[j];
-        }
+      for(j=0; j<num_neighbors; j++) q += deh[j];
       return q;
 
     }
 #ifndef RT_DEBUG_BLOCK_MASKING
-  else return 0.0;
+  else
+    {
+#ifdef RT_OTVET_SAVE_FLUX
+      if(flux != NULL) for(j=0; j<nDim; j++)
+	{
+	  flux[j] = 0.0;
+	}
+#endif /* RT_OTVET_SAVE_FLUX */
+      return 0.0;
+    }
 #endif
 }
 

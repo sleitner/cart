@@ -212,22 +212,18 @@ extern int all_hydro_vars[num_hydro_vars];
 #endif /* HYDRO */
 
 
-#ifdef STATIC_MESH_DATA
 #define cell_var(c,v)	(cell_vars[c][v])
-#else  /* STATIC_MESH_DATA */
-#define cell_var(c,v)	(cell_vars[(c)*num_vars+(v)])
-#endif /* STATIC_MESH_DATA */
 
-extern float CELL_VAR_ARRAY(cell_vars,num_vars);
-extern int CELL_ARRAY(cell_child_oct);
+extern float cell_vars[num_cells][num_vars];
+extern int cell_child_oct[num_cells];
 
-extern int OCT_ARRAY(oct_parent_cell);
-extern int OCT_ARRAY(oct_level);
-extern int OCT_ARRAY2D(oct_neighbors,num_neighbors);
-extern int OCT_ARRAY(oct_parent_root_sfc);
-extern int OCT_ARRAY(oct_next);
-extern int OCT_ARRAY(oct_prev);
-extern double OCT_ARRAY2D(oct_pos,nDim);
+extern int oct_parent_cell[num_octs];
+extern int oct_level[num_octs];
+extern int oct_neighbors[num_octs][num_neighbors];
+extern int oct_parent_root_sfc[num_octs];
+extern int oct_next[num_octs];
+extern int oct_prev[num_octs];
+extern double oct_pos[num_octs][nDim];
 
 extern int next_free_oct;
 extern int free_oct_list;

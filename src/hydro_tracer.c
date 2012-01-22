@@ -25,7 +25,7 @@ int tracer_id[num_tracers];
 int tracer_list_next[num_tracers];
 int tracer_list_prev[num_tracers];
 
-int CELL_ARRAY(cell_tracer_list) STATIC_INIT;
+int cell_tracer_list[num_cells];
 
 int num_tracer_row    = 256;
 int num_local_tracers = 0;

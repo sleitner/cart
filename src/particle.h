@@ -49,8 +49,7 @@ extern int particle_id[/* num_particles */];
 extern int particle_list_next[/* num_particles */];
 extern int particle_list_prev[/* num_particles */];
 
-/* extern int cell_particle_list[num_cells]; */
-extern int CELL_ARRAY(cell_particle_list);
+extern int cell_particle_list[num_cells];
 
 extern int num_local_particles;
 extern long num_particles_total;

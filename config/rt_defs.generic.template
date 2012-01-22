@@ -187,6 +187,14 @@
 
 
 /*
+//  Adds saving of the radiation flux in the OTVET method (without
+//  this setting the flux is used internally but is not accessible from
+//  the rest of the code).
+*/
+?#define RT_OTVET_SAVE_FLUX
+
+
+/*
 //  Mode of ionization clumping factor:
 //  0:  no clumping factors
 //  1:  use clumping factors in external RF only
