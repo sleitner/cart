@@ -1,7 +1,7 @@
 # COMPILE OPTIONS
 
 # fulla (PG compilers)
-PATH = /usr/local/mvapich2-1.2p1-pgi/bin:/opt/pgi/linux86-64/11.7/bin:/usr/bin:/bin
+PATH = /usr/local/mvapich2-1.5-pgi-103/bin:/opt/pgi/linux86-64/11.7/bin:/usr/bin:/bin
 
 CFLAGS  = -fast -mp -mcmodel=medium
 CC      = mpicc

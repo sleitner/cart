@@ -148,7 +148,11 @@ C
 #ifdef RT_DEBUG
       ideb = nint(abs(var(ivarDeb)))
       if(ideb .eq. 1) then
-         open(unit=IOUNIT, file='rt-debug.log')
+         if(var(ivarDeb) .lt. 0) then
+            open(unit=IOUNIT, file='rt-debug.log')
+         else
+            open(unit=IOUNIT, file='rt-debug.log', access='append')
+         endif
          write(IOUNIT,*) 'In cell-level debug: ', uDen*var(ivarRho)
          write(6,*) 'In cell-level debug: ', uDen*var(ivarRho)
       endif
@@ -193,7 +197,8 @@ C
 
 #ifdef RT_DEBUG
       if(ideb .eq. 1) then
-         call frtDebugPrint(IOUNIT,nStep,t,nEqs,var,w0,a0) 
+         ns = nStep
+         call frtDebugPrint(IOUNIT,ns,t,nEqs,var,w0,a0) 
       endif
 #endif
 C
@@ -267,8 +272,10 @@ C
 
 #ifdef RT_DEBUG
       if(ideb .eq. 1) then
-         call frtDebugPrint(IOUNIT,nStep,t,nEqs,var,w0,a0) 
+         ns = nStep
+         call frtDebugPrint(IOUNIT,ns,t,nEqs,var,w0,a0) 
          close(IOUNIT)
+         write(6,*) 'Steps made: ', nStep
          if(var(ivarDeb) .lt. 0) call frtAbort
       endif
 #endif
@@ -1307,7 +1314,7 @@ C
       write(io,9) nStep, t, frtTem(var), 
      .     var(ivarXH1)/XH, var(ivarXH2)/XH, var(ivarXMH)/(0.5*XH), 
      .     var(ivarXG1)/XG, var(ivarXG2)/XG, var(ivarXG3)/XG,
-     .     ((a0(j),w0(j)),j=1,nEqs)
+     .     (a0(j),w0(j),j=1,nEqs)
 
  9    format(i4,1p,8(1x,e11.3),8(' + ',e11.3,1x,e11.3))
 
