@@ -52,7 +52,7 @@ void rtTransferAssignSingleSourceDensity(int level);
 
 void rtInitRunTransfer()
 {
-  int cell, freq, level;
+  int cell, freq;
   frt_intg nfreq = rt_num_freqs;
   frt_intg ncomp = rt_num_fields_per_freq;
 #ifdef RT_SINGLE_SOURCE

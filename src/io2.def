@@ -655,7 +655,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 				}
 #endif /* STARFORM && STAR_PARTICLE_TYPES */
 
-				if ( current_id >= particle_species_indices[current_type+1] ) {
+				while ( current_type < num_particle_species-1 && current_id >= particle_species_indices[current_type+1] ) {
 					current_type++;
 				}
 
@@ -670,7 +670,10 @@ void FUNCTION( char *header_filename, char *data_filename,
 					particle_v[ipart][1] = vy[j];
 					particle_v[ipart][2] = vz[j];
 
-					cart_assert( particle_specie( current_id ) == current_type );
+					if( particle_specie( current_id ) != current_type )
+					{
+						cart_error("Assertion failed: particle_specie(%d)=%d, current_type=%d",current_id,particle_specie(current_id),current_type);
+					}
 
 					particle_t[ipart] = tl[min_level];
 					if ( timestep_filename == NULL ) {

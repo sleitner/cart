@@ -38,7 +38,6 @@ void check_bwtime_precision(int level)
 
 void star_particle_feedback(int level) {
 	int i;
-	int count;
 	int ipart;
 	int iter_cell;
 	int num_level_cells;

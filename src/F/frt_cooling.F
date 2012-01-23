@@ -148,7 +148,7 @@ C
 #ifdef RT_DEBUG
       ideb = nint(abs(var(ivarDeb)))
       if(ideb .eq. 1) then
-         open(unit=IOUNIT, file='rt-debug.log', access='append')
+         open(unit=IOUNIT, file='rt-debug.log')
          write(IOUNIT,*) 'In cell-level debug: ', uDen*var(ivarRho)
          write(6,*) 'In cell-level debug: ', uDen*var(ivarRho)
       endif
@@ -181,7 +181,6 @@ C
          write(IOUNIT,*) 'Mean chemistry rates:',
      .        (pRate0(j),j=iptabCi27,iptabCiLW)
 #endif
-         call frtDebugPrint1(IOUNIT,nStep,t,dt,tFin,var,1) 
       endif
 #endif
 
@@ -191,6 +190,12 @@ C
       do j=1,nEqs
          y0(j) = var(j)
       enddo
+
+#ifdef RT_DEBUG
+      if(ideb .eq. 1) then
+         call frtDebugPrint(IOUNIT,nStep,t,nEqs,var,w0,a0) 
+      endif
+#endif
 C
 C  ODE Solver
 C
@@ -252,12 +257,6 @@ C  In general, schemes are not conserving
 C
          call frtAdjust(nEqs,var)
 
-#ifdef RT_DEBUG
-         if(ideb .eq. 1) then
-            call frtDebugPrint1(IOUNIT,nStep,t,dt,tFin,var,ivarmax) 
-         endif
-#endif
-
       endif
 
       if(tFin-t.gt.0.5*dt .and. nStep.lt.info) goto 10
@@ -268,6 +267,7 @@ C
 
 #ifdef RT_DEBUG
       if(ideb .eq. 1) then
+         call frtDebugPrint(IOUNIT,nStep,t,nEqs,var,w0,a0) 
          close(IOUNIT)
          if(var(ivarDeb) .lt. 0) call frtAbort
       endif
@@ -1300,15 +1300,16 @@ C
 C
 C  Debug helpers
 C
-      subroutine frtDebugPrint1(io,nStep,t,dt,tFin,var,ivarmax)
+      subroutine frtDebugPrint(io,nStep,t,nEqs,var,w0,a0) 
       include 'frt_base.inc'
-      dimension var(*)
+      dimension var(*), w0(*), a0(*)
 
-      write(io,9) nStep, t, dt, tFin, frtTem(var),
+      write(io,9) nStep, t, frtTem(var), 
      .     var(ivarXH1)/XH, var(ivarXH2)/XH, var(ivarXMH)/(0.5*XH), 
-     .     var(ivarmax), ivarmax
+     .     var(ivarXG1)/XG, var(ivarXG2)/XG, var(ivarXG3)/XG,
+     .     ((a0(j),w0(j)),j=1,nEqs)
 
- 9    format(i4,1p,8(1x,e11.3),1x,i1)
+ 9    format(i4,1p,8(1x,e11.3),8(' + ',e11.3,1x,e11.3))
 
       return
       end
