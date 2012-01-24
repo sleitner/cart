@@ -734,8 +734,11 @@ int timestep( int level, MPI_Comm level_com )
         accelerate_particles(level);
 #endif /* GRAVITY */
 
-	move_particles( level );
-	update_particle_list( level );
+	/*
+	//  This is here twice!!!
+	//  move_particles( level );
+	//  update_particle_list( level );
+	*/
 
 #ifdef STARFORM
         star_particle_feedback(level);
