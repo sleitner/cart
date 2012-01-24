@@ -200,7 +200,7 @@ void config_verify_star_formation_feedback()
   /*
   //  IMF
   */
-  cart_assert(imf.type>=0 && imf.type<2);
+  cart_assert(imf.type>=0 && imf.type<3);
 
   cart_assert(imf.slope > 0.0);
 
