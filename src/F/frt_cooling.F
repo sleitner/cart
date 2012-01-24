@@ -1316,7 +1316,7 @@ C
      .     var(ivarXG1)/XG, var(ivarXG2)/XG, var(ivarXG3)/XG,
      .     (a0(j),w0(j),j=1,nEqs)
 
- 9    format(i4,1p,8(1x,e11.3),8(' + ',e11.3,1x,e11.3))
+ 9    format(i4,1p,8(1x,e9.3),8(' + ',e9.3,1x,e9.3))
 
       return
       end
