@@ -1,12 +1,12 @@
 # COMPILE OPTIONS
 
 # fulla (PG compilers)
-PATH = /d/idunn/ext/bin:/opt/pgi/linux86-64/11.7/bin:/bin:/usr/bin
+PATH = /opt/pgi/linux86-64/2011/bin:/opt/pgi/linux86-64/2011/mpi/mpich/bin:/bin:/usr/bin
 
 CFLAGS  = -g -Ktrap=fp -mcmodel=medium
 CC      = mpicc
 FFLAGS  = -g -Ktrap=fp -mcmodel=medium
 F77     = mpif77
-INCLUDES = -I/d/idunn/ext/include
-EXTRALIBS = -pgf77libs -L/d/idunn/ext/lib 
+CXX     = mpicxx
+EXTRALIBS = -pgf77libs 
 
