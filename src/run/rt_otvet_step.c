@@ -395,8 +395,11 @@ void rtLevelUpdateTransferOtvet(int level)
 	    }
 	  end_time(WORK_TIMER);
 
+#ifdef RT_OTVET_SAVE_FLUX
 	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[0],rhs,jac,dd,nit,work,rt_generic,(freq == rt_flux_frequency) ? rt_flux : NULL);
-
+#else
+	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[0],rhs,jac,dd,nit,work,rt_generic,NULL);
+#endif
 	  if(work)
 	    {
 	      start_time(WORK_TIMER);
