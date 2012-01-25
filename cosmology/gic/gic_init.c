@@ -1220,6 +1220,35 @@ void gic_init()
   type[0] = 'M';
 #endif
 
+#ifdef HYDRO
+  /*
+  //  If HYDRO is on, refinement now requires that the mesh contained
+  //  the valid data. Hence, we fill the root cells with some dummy
+  //  data.
+  */
+  for(i=0; i<num_root_cells; i++)
+    {
+      cell_gas_density(i) = 1;
+      cell_momentum(i,0) = 0;
+      cell_momentum(i,1) = 0;
+      cell_momentum(i,2) = 0;
+
+      cell_gas_gamma(i) = constants->gamma;
+      cell_gas_internal_energy(i) =  1;
+      cell_gas_pressure(i) = cell_gas_internal_energy(i)*(constants->gamma-1);
+      cell_gas_energy(i) = cell_gas_internal_energy(i);
+
+#ifdef RADIATIVE_TRANSFER
+      cell_HI_density(i) = cell_gas_density(i)*constants->XH;
+      cell_HII_density(i) = 0;
+      cell_HeI_density(i) = cell_gas_density(i)*constants->XHe;
+      cell_HeII_density(i) = 0;
+      cell_HeIII_density(i) = 0;
+      cell_H2_density(i) = 0;
+#endif
+    }
+#endif /* HYDRO */
+
   gicBalanceLoad(rootname,type);
   gicReadParticleData(rootname,type,dc_off);
   cart_debug("read in particles");
