@@ -734,12 +734,6 @@ int timestep( int level, MPI_Comm level_com )
         accelerate_particles(level);
 #endif /* GRAVITY */
 
-	/*
-	//  This is here twice!!!
-	//  move_particles( level );
-	//  update_particle_list( level );
-	*/
-
 #ifdef STARFORM
         star_particle_feedback(level);
 
@@ -797,7 +791,7 @@ int timestep( int level, MPI_Comm level_com )
 	PLUGIN_POINT(LevelStepEnd)(level,level_com);
 #endif
 
-        cart_debug("timestep(%u, %e %s, %d)", level, 
+        cart_debug("timestep(%u, %9.3e %s, %d)", level, 
 #ifdef COSMOLOGY
                 dtl[level]*units->time/constants->Myr, "Myr",
 #else
