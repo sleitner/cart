@@ -623,7 +623,16 @@ int timestep( int level, MPI_Comm level_com )
 	/* test if timestep is still valid */
 	start_time( WORK_TIMER );
 	hydro_cfl_condition( level, &courant_cell, &velocity );
-	dt_needed = cfl_max * cell_size[level] / velocity;
+
+	/* velocity can be 0 if this level has no leaves */
+	if(velocity > 0.0)
+	  {
+	    dt_needed = cfl_max * cell_size[level] / velocity;
+	  }
+	else
+	  {
+	    dt_needed = dtl[level];
+	  }
 
 	/* check for cfl condition violation... */
 	if ( dtl[level] > dt_needed && ret != -1 ) {
