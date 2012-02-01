@@ -48,36 +48,39 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define f77_call(fun)   fun##_
 
 #ifdef FFT_DOUBLE
-#define cffti1 zffti1
-#define cfftf1 zfftf1
-#define cfftb1 zfftb1
+#error "This implementation does not support double precision."
 #endif
 
-void f77_call(cffti1)(int *n, fft_t *work, int *facs);
-void f77_call(cfftf1)(int *n, fft_t *data, fft_t *temp, fft_t *work, int *facs);
-void f77_call(cfftb1)(int *n, fft_t *data, fft_t *temp, fft_t *work, int *facs);
+void f77_call(fourt)(fft_t *DATA, int *NN, int *NDIM, int *ISIGN, int *IFORM, fft_t *WORK);
 
 
 int ffti_get_work_size(int n)
 {
-  return 4*n + 15;
+  return 2*n;
 }
 
 
 void ffti_init(int n, fft_t *work)
 {
-  f77_call(cffti1)(&n,work+2*n,(int *)(work+4*n));
 }
 
 
 void ffti_fc2c(int n, fft_t *array, fft_t *work)
 {
-  f77_call(cfftf1)(&n,array,work,work+2*n,(int *)(work+4*n));
+  static int ndim = 1;
+  static int isign = -1;
+  static int iform = 1;
+
+  f77_call(fourt)(array,&n,&ndim,&isign,&iform,work);
 }
 
 
 void ffti_bc2c(int n, fft_t *array, fft_t *work)
 {
-  f77_call(cfftb1)(&n,array,work,work+2*n,(int *)(work+4*n));
+  static int ndim = 1;
+  static int isign = 1;
+  static int iform = 1;
+
+  f77_call(fourt)(array,&n,&ndim,&isign,&iform,work);
 }
 

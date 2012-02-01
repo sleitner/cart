@@ -1,11 +1,11 @@
 # COMPILE OPTIONS
 
 # fulla (gcc compilers)
-PATH = /usr/local/mvapich2-gcc/bin:/usr/bin:/bin
+PATH = /usr/local/mvapich2-1.5-gcc/bin:/usr/bin:/bin
 
 CFLAGS  = -fopenmp -O3 -mcmodel=medium -DCOMPILER_GCC
 CC      = mpicc
-FFLAGS  = -fopenmp -O3 -mcmodel=medium
+FFLAGS  = -fopenmp -O3 -mcmodel=medium -DCOMPILER_GCC
 F77     = mpif77
 CXX     = mpicxx
 EXTRALIBS = -lgfortran 

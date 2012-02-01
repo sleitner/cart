@@ -1,14 +1,14 @@
 # COMPILE OPTIONS
 
 # fulla (PG compilers)
-PATH = /usr/local/mpich2-intel/bin:/opt/intel/Compiler/11.0/074/bin/intel64:/usr/bin:/bin
-LD_LIBRARY_PATH = /opt/intel/Compiler/11.0/074/lib/intel64
+PATH = /usr/local/mvapich2-1.5-intel-11.0.081/bin:/opt/intel/Compiler/11.0/081/bin/intel64:/usr/bin:/bin
+LD_LIBRARY_PATH = /opt/intel/Compiler/11.0/081/lib/intel64
 
 
-CFLAGS  = -O1 -openmp -mcmodel=medium -fp-model precise
+CFLAGS  = -O3 -ipo -no-prec-div -xW -openmp -mcmodel=medium -fp-model strict
 CC      = mpicc
-FFLAGS  = -O2 -openmp -mcmodel=medium 
+FFLAGS  = -O3 -ipo -no-prec-div -xW -openmp -mcmodel=medium -fp-model strict
 F77     = mpif77
 CXX     = mpicc
-EXTRALIBS = -L/usr/local/mpich2-intel/lib -lifcore 
+EXTRALIBS = -L/usr/local/mvapich2-1.5-intel-11.0.081/lib -lifcore 
 

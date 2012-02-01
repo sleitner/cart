@@ -42,14 +42,23 @@ typedef float		fft_t;
 #endif
 
 
-void ffti_init(int dims[3]);
-void ffti_done();
+/*
+//  If the implementation needs some internal memory, it should
+//  return the number of fft_t values it needs; if the memory
+//  is not needed, the implementation MUST return 0.
+*/
+int ffti_get_work_size(int n);
 
 /*
-//  dir = 1 for forward and 0 for backward
+//
+//  ffti_init will be called multiple times (3*num_omp_threads). 
 */
-void ffti_r2c_x(int dir, fft_t *array);
-void ffti_c2c_y(int dir, fft_t *array);
-void ffti_c2c_z(int dir, fft_t *array);
+void ffti_init(int n, fft_t *work);
+
+/*
+//  1D complex-to-complex FFTs (forward and backward)
+*/
+void ffti_fc2c(int n, fft_t *array, fft_t *work);
+void ffti_bc2c(int n, fft_t *array, fft_t *work);
 
 #endif

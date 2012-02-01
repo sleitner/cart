@@ -71,6 +71,7 @@ struct fft3Internal
   int kstride;
   fft_t **tomp;
   int nomp;
+  fft_t **work[3];
   int init;
 }
 fft3_internal_data;
@@ -93,7 +94,7 @@ void fft3_fail(const char *fmt, ... )
 
 void fft3_init(MPI_Comm fft_com, int dims[3], int pads[3], int bbox[6])
 {
-  int i;
+  int i, j, n;
 
   d.com = fft_com;
 
@@ -110,21 +111,19 @@ void fft3_init(MPI_Comm fft_com, int dims[3], int pads[3], int bbox[6])
       fft3_fail("fft3: First dimension MUST be even");
     }
 
-  for(i=0; i<3; i++)
+  for(j=0; j<3; j++)
     {
-      if(dims[i] <= 0)
+      if(dims[j] <= 0)
 	{
-	  fft3_fail("fft3: Invalid input dimension[%d]=%d.",i,dims[i]);
+	  fft3_fail("fft3: Invalid input dimension[%d]=%d.",j,dims[j]);
 	}
-      d.fft_dims[i] = dims[i];
+      d.fft_dims[j] = dims[j];
     }
 
   if(dims[2] < d.size)
     {
       fft3_fail("fft3: Input K dimension is shorter than the number of MPI tasks.");
     }
-
-  ffti_init(d.fft_dims);
 
   d.arr_dims[0] = d.fft_dims[0] + MAX(2,pads[0]);
 
@@ -140,7 +139,7 @@ void fft3_init(MPI_Comm fft_com, int dims[3], int pads[3], int bbox[6])
   d.krange[0] = d.kstride*d.rank;
   d.krange[1] = d.kstride*(d.rank+1);
 
-  for(i=0; i<3; i++) dims[i] = d.arr_dims[i];
+  for(j=0; j<3; j++) dims[j] = d.arr_dims[j];
 
   bbox[0] = 0;
   bbox[1] = d.fft_dims[0];
@@ -162,10 +161,34 @@ void fft3_init(MPI_Comm fft_com, int dims[3], int pads[3], int bbox[6])
     }
   for(i=0; i<d.nomp; i++)
     {
-      d.tomp[i] = NEW(2*MAX(d.fft_dims[1],d.fft_dims[2]));
+      d.tomp[i] = NEW(2*MAX(2+d.fft_dims[0],MAX(d.fft_dims[1],d.fft_dims[2])));
       if(d.tomp[i] == NULL)
 	{
 	  fft3_fail("fft3: unable to allocate temporary storage.");
+	}
+    }
+
+  for(j=0; j<3; j++)
+    {
+      d.work[j] = (fft_t**)malloc(sizeof(fft_t*)*d.nomp);
+      if(d.work[j] == NULL)
+	{
+	  FAIL("fft3: unable to allocate temporary storage.");
+	}
+
+      n = ffti_get_work_size(d.fft_dims[j]);
+      for(i=0; i<d.nomp; i++)
+	{
+	  if(n > 0)
+	    {
+	      d.work[j][i] = NEW(n);
+	      if(d.work[j][i] == NULL)
+		{
+		  fft3_fail("fft3: unable to allocate temporary storage (%d values).",n);
+		}
+	    }
+	  else d.work[j][i] = NULL;
+	  ffti_init(d.fft_dims[j],d.work[j][i]);
 	}
     }
 
@@ -175,17 +198,24 @@ void fft3_init(MPI_Comm fft_com, int dims[3], int pads[3], int bbox[6])
 
 void fft3_done()
 {
-  int i;
+  int i, j;
 
   if(d.init != 1)
     {
       fft3_fail("fft3: has not been initialized.");
     }
 
-  ffti_done();
-
   for(i=0; i<d.nomp; i++) DEL(d.tomp[i]);
   free(d.tomp);
+
+  for(j=0; j<3; j++)
+    {
+      for(i=0; i<d.nomp; i++)
+	{
+	  if(d.work[j][i] != NULL) DEL(d.work[j][i]);
+	}
+      free(d.work[j]);
+    }
 
   d.init = 0;
 }
@@ -274,20 +304,80 @@ void fft3_k2x(fft_t *data, int flags)
 */
 void fft3_internal_step_x(fft_t *data, int mode, int pad)
 {
-  int i, j, k;
+  int i, j, k, iomp;
   size_t offset;
+  fft_t *ptr;
   double t = MPI_Wtime();
 
   /*
   //  Transform X direction
   */
-#pragma omp parallel for default(none), private(i,j,k), shared(data,d,offset,mode,pad)
+  //#pragma omp parallel for default(none), private(i,j,k,ptr,iomp,offset), shared(data,d,mode,pad)
   for(k=d.krange[0]; k<MIN(d.krange[1],d.fft_dims[2]); k++)
     {
+#ifdef _OPENMP
+      iomp = omp_get_thread_num();
+      if(iomp<0 || iomp>=d.nomp)
+	{
+	  fft3_fail("fft3: invalid OpenMP thread %d out of %d.",iomp,d.nomp);
+	}
+#else
+      iomp = 0;
+#endif
+      ptr = d.tomp[iomp];
+
       offset = (size_t)d.arr_dims[1]*(k-d.krange[0]);
       for(j=0; j<d.fft_dims[1]; j++)
 	{
-	  ffti_r2c_x(mode&0x1,data+d.arr_dims[0]*(j+offset));
+	  if(mode & 0x1)
+	    {
+	      /*
+	      //  First, cache X direction
+	      */
+	      for(i=0; i<d.fft_dims[0]; i++)
+		{
+		  ptr[2*i+0] = data[i+d.arr_dims[0]*(j+offset)];
+		  ptr[2*i+1] = 0.0;
+		}
+	      
+	      ffti_fc2c(d.fft_dims[0],ptr,d.work[0][iomp]);
+
+	      /*
+	      //  De-cache it back
+	      */
+	      for(i=0; i<=d.fft_dims[0]/2; i++)
+		{
+		  data[2*i+0+d.arr_dims[0]*(j+offset)] = ptr[2*i+0];
+		  data[2*i+1+d.arr_dims[0]*(j+offset)] = ptr[2*i+1];
+		}
+	    }
+	  else
+	    {
+	      /*
+	      //  First, cache X direction
+	      */
+	      for(i=0; i<=d.fft_dims[0]/2; i++)
+		{
+		  ptr[2*i+0] = data[2*i+0+d.arr_dims[0]*(j+offset)];
+		  ptr[2*i+1] = data[2*i+1+d.arr_dims[0]*(j+offset)];
+		}
+	      for(i=d.fft_dims[0]/2+1; i<d.fft_dims[0]; i++)
+		{
+		  ptr[2*i+0] =  ptr[2*(d.fft_dims[0]-i)+0];
+		  ptr[2*i+1] = -ptr[2*(d.fft_dims[0]-i)+1];
+		}
+	      ptr[1] = ptr[d.fft_dims[0]+1] = 0.0;
+
+	      ffti_bc2c(d.fft_dims[0],ptr,d.work[0][iomp]);
+
+	      /*
+	      //  De-cache it back
+	      */
+	      for(i=0; i<d.fft_dims[0]; i++)
+		{
+		  data[i+d.arr_dims[0]*(j+offset)] = ptr[2*i+0];
+		}
+	    }
 	  /*
 	  //  Pad data with zeros to avoid garbage in MPI buffers
 	  */
@@ -362,7 +452,14 @@ void fft3_internal_step_y(fft_t *data, int mode)
 	      ptr[2*j+1] = data[2*i+1+d.arr_dims[0]*(j+offset)];
 	    }
 	     
-	  ffti_c2c_y(mode&0x1,ptr);
+	  if(mode&0x1)
+	    {
+	      ffti_fc2c(d.fft_dims[1],ptr,d.work[1][iomp]);
+	    }
+	  else
+	    {
+	      ffti_bc2c(d.fft_dims[1],ptr,d.work[1][iomp]);
+	    }
 
 	  /*
 	  //  De-cache it back
@@ -390,7 +487,7 @@ void fft3_internal_step_z_no_communication(fft_t *data, int mode)
   //  Transform Z direction (which is now weirdly packed)
   */
   tb = MPI_Wtime();
-#pragma omp parallel for default(none), private(i,j,k,ptr,offset,iomp), shared(data,d,mode)
+#pragma omp parallel for default(none), private(i,j,k,ptr,iomp,offset), shared(data,d,mode)
   for(j=0; j<d.fft_dims[1]; j++)
     {
 #ifdef _OPENMP
@@ -416,7 +513,14 @@ void fft3_internal_step_z_no_communication(fft_t *data, int mode)
 	      ptr[2*k+1] = data[2*i+1+offset];
 	    }
 	     
-	  ffti_c2c_z(mode&0x1,ptr);
+	  if(mode&0x1)
+	    {
+	      ffti_fc2c(d.fft_dims[2],ptr,d.work[2][iomp]);
+	    }
+	  else
+	    {
+	      ffti_bc2c(d.fft_dims[2],ptr,d.work[2][iomp]);
+	    }
 
 	  /*
 	  //  De-cache it back into the second array
@@ -496,7 +600,7 @@ void fft3_internal_step_z_single_communication(fft_t *data, int mode)
   //  Transform Z direction
   */
   tb = te;
-#pragma omp parallel for default(none), private(i,j,k,ptr,offset,iomp), shared(data,d,mode)
+#pragma omp parallel for default(none), private(i,j,k,ptr,iomp,offset), shared(data,d,mode)
   for(j=d.jrange[0]; j<MIN(d.jrange[1],d.fft_dims[1]); j++)
     {
 #ifdef _OPENMP
@@ -522,7 +626,14 @@ void fft3_internal_step_z_single_communication(fft_t *data, int mode)
 	      ptr[2*k+1] = data[2*i+1+offset];
 	    }
 	     
-	  ffti_c2c_z(mode&0x1,ptr);
+	  if(mode&0x1)
+	    {
+	      ffti_fc2c(d.fft_dims[2],ptr,d.work[2][iomp]);
+	    }
+	  else
+	    {
+	      ffti_bc2c(d.fft_dims[2],ptr,d.work[2][iomp]);
+	    }
 
 	  /*
 	  //  De-cache it back into the second array
@@ -663,7 +774,7 @@ void fft3_internal_step_z_multiple_communication(fft_t *data, int mode)
 	}
 
       tb = te;
-#pragma omp parallel for default(none), private(i,k,ptr,offset,iomp), shared(j,data,d,arr1,arr2,mode)
+#pragma omp parallel for default(none), private(i,k,ptr,iomp,offset), shared(j,data,d,arr1,arr2,mode)
       for(i=0; i<=d.fft_dims[0]/2; i++)
 	{
 #ifdef _OPENMP
@@ -687,7 +798,14 @@ void fft3_internal_step_z_multiple_communication(fft_t *data, int mode)
 	      ptr[2*k+1] = arr1[2*i+1+offset];
 	    }
 	     
-	  ffti_c2c_z(mode&0x1,ptr);
+	  if(mode&0x1)
+	    {
+	      ffti_fc2c(d.fft_dims[2],ptr,d.work[2][iomp]);
+	    }
+	  else
+	    {
+	      ffti_bc2c(d.fft_dims[2],ptr,d.work[2][iomp]);
+	    }
 
 	  /*
 	  //  De-cache it back into the data array in proper order

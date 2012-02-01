@@ -215,11 +215,11 @@ void config_verify_timestep()
   cart_assert(max_time_refinement_factor >= min_time_refinement_factor);
   cart_assert(time_refinement_level >= min_level);
 
-#ifndef HYDRO
+#if !defined(HYDRO) && defined(PARTICLES)
   if(min_time_refinement_factor==1 && max_time_refinement_factor>1 && particle_cfl==0.0)
     {
       cart_error("In a pure N-body mode, with <particle-cfl> parameter set to 0.0, it is incorrect to set the <time-refinement-factor:min> parameter to 1. In that case there is no condition to make time-steps on lower levels smaller than on the top level, so the particle trajectories will be integrated incorrectly.");
     }
-#endif /* HYDRO */
+#endif /* !HYDRO && PARTICLES */
 }
 
