@@ -10,5 +10,5 @@ CC      = mpicc
 FFLAGS  = -O3 -ipo -no-prec-div -xW -openmp -mcmodel=medium -fp-model strict
 F77     = mpif77
 CXX     = mpicc
-EXTRALIBS = -L/usr/local/mvapich2-1.5-intel-11.0.081/lib -lifcore 
+EXTRALIBS = -L/opt/intel/Compiler/11.0/081/lib/intel64 -lifcore 
 

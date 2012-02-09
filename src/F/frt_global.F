@@ -15,7 +15,7 @@ C
       real*8 dInfoBuf(infoDim,RT_PARALLEL_NUM_OPENMP_BUFFERS)
       common/RT_GLBBUF/ dBremBuf, dDataBuf, dInfoBuf
 C
-#if defined(_OPENMP) || defined(RT_PARALLEL_NUM_OPENMP_BUFFERS)
+#if defined(_OPENMP) && defined(RT_PARALLEL_NUM_OPENMP_BUFFERS)
       integer OMP_GET_THREAD_NUM
       external OMP_GET_THREAD_NUM
 
