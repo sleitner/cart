@@ -120,11 +120,13 @@ def plot_field(field,clabel,filename,time,vmin,vmax):
 		add_arrows(vx,vy)
 	
         if(vmin==vmax):
-            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
+#            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest")        
 #            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation=None)        
+            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest")        
         else:
-            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
+#            im=plt.imshow(field,cmap=py.cm.gist_yarg,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
 #            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="gaussian",vmin=vmin,vmax=vmax) 
+            im=plt.imshow(field,cmap=py.cm.jet,origin="lower",interpolation="Nearest",vmin=vmin,vmax=vmax) 
 
 #	title='t-t0={:.2g}Myr,dt={:.2g}Myr'.format(time,dtl)
 #	title='t-t0={:.2g}Myr'.format(time)
@@ -169,13 +171,13 @@ def read_header(input):
 	(nx,ny)= np.fromfile(file=input,dtype='i4',count=2,sep='')
 	box_kpc= np.fromfile(file=input,dtype='f4',count=1,sep='')
 	box_kpc=box_kpc[0]
-        print 'rounding box size %4.f for labels' % box_kpc
-        if(box_kpc>20):
+        print 'rounding box size %4.6f for labels' % box_kpc
+        if(box_kpc>2):
             box_kpc = round(box_kpc,0)
-        elif(box_kpc>2):
-            box_kpc = round(box_kpc,-1)
         elif(box_kpc>0.2):
-            box_kpc = round(box_kpc,-2)
+            box_kpc = round(box_kpc,1)
+        elif(box_kpc>0.02):
+            box_kpc = round(box_kpc,2)
 	auni = np.fromfile(file=input,dtype='f4',count=1,sep='')
 	time = np.fromfile(file=input,dtype='f4',count=1,sep='')
 	dtl = np.fromfile(file=input,dtype='f4',count=1,sep='')
@@ -197,7 +199,9 @@ def set_axis(np):
 		tick_lbls[i] = '%.2f' % tick_lbls[i]
 	return (tick_locs, tick_lbls)
 
-# load data
+
+
+################################# load data
 for slice in ( sys.argv[1:] ) :
 	print slice
 
@@ -238,7 +242,8 @@ for slice in ( sys.argv[1:] ) :
         print 'done reading '
         (tick_locs,tick_lbls) = set_axis(nx-1)
 	for i in range(nx/2,nx/2+10):
-            print 'rho',density[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2],'mach#:',mach[i,nx/2] #,'radPoP#:',radPoP[i,nx/2]
+            print 'rho',density[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2]
+            #,'mach#:',mach[i,nx/2] ,'radPoP#:',radPoP[i,nx/2]
 
 	input.close()
 
@@ -248,6 +253,8 @@ for slice in ( sys.argv[1:] ) :
             arrows=1
         else:
             arrows=0
+
+        arrows=0
         if 'density' in locals():
             #	filename="plots/density/"+slice.replace("dat","png").replace("out/","")
             filename=slice.replace("dat","png").replace("out/","plots/density/")
@@ -255,12 +262,25 @@ for slice in ( sys.argv[1:] ) :
             clabel='log(n [1/cc])'
             vmin=0
             vmax=4
-            arrows=1
             dpi=400
             plot_field(density,clabel,filename, time,vmin,vmax)
             dpi=100
             #	arrows=0
 
+        if 'vz' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/vz/")
+            print filename
+            clabel='vz [km/s])'
+            vmin=0
+            vmax=50
+            plot_field(vz,clabel,filename, time,0,0)
+        if 'vy' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/vy/")
+            print filename
+            clabel='vy [km/s])'
+            vmin=0
+            vmax=50
+            plot_field(vy,clabel,filename, time,0,0)
         if 'vx' in locals():
             filename=slice.replace("dat","png").replace("out/","plots/vx/")
             print filename
@@ -286,7 +306,7 @@ for slice in ( sys.argv[1:] ) :
             print filename
             clabel='log(T [K])'
             vmin=2
-            vmax=7
+            vmax=8
             dpi=400
             plot_field(temp,clabel,filename, time,vmin,vmax)
             dpi=100
@@ -303,8 +323,8 @@ for slice in ( sys.argv[1:] ) :
             filename=slice.replace("dat","png").replace("out/","plots/pressure/")
             print filename
             clabel='log(P[erg/cc])'
-            vmin=0
-            vmax=0
+            vmin=-11
+            vmax=-6
             plot_field(Pergcc,clabel,filename, time,vmin,vmax)
 
         if 'Urad' in locals():
