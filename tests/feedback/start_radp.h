@@ -1,42 +1,53 @@
-#define ONE_CELL_IN_THE_CENTER
+#ifndef __STARTRADP_H__
+#define __STARTRADP_H__
 
 
-#define refine_radius	(8.0)
-int const slice_axis_z=2;
-#define slice_hsize_pc  50
+#define slice_axis_z    2  
+#define slice_hsize_pc  2000  //(->2000)
 
-#ifdef COSMOLOGY
 #define omm0 1.0
 #define oml0 0.0
 #define omb0 1.0
 #define hubble 1.0
 #define deltadc 0.0
 #define a0 0.9
-#define boxh (1.0e-3/a0*hubble) //1pkpc //for level4
-#define rho0            (0.65e8)
-#define blast_radius    (cell_size[max_level]) 
 
-#ifdef STARFORM
+#define NSTARS_1D   (1)
+#define NSTARS (NSTARS_1D*NSTARS_1D*NSTARS_1D)
 
-#define E_ambient       (1.0e10)
-const double mstar_one_msun = 5e3; //5e3; //10
+/* #define boxh (20.0e-3/a0*hubble) //20,000pc/2^9~2000/51=40pc  (4->8pc) */
+/* #define box_traverse_time  (40e6)  */
+#define box_traverse_time  (0) 
+
+#define boxh (5.0e-3/a0*hubble/pow(2.,NSTARS_1D-1)) //20,000pc/2^9~2000/51=40pc  (4->8pc) 
+/* #define box_traverse_time  (40e6/pow(2.,NSTARS_1D-1)) */
+
+
+
+#define equil            1.0
+#define n_h2            (100.0)
+#define n_ambient       (n_h2/equil) 
+#define T_h2            (100.0)  
+#define T_ambient       (T_h2*equil)
+//#define mstar_one_msun   1e5  //5e3; //10
+#define mstar_one_msun   1e6  //5e3; //10
+
+
+
+double advection_momentum(int icell,int idir);
+extern double tot_momentum0;
+//extern const int NSTARS;
+extern float adv_velocity[3];
+extern double tot_energy0;
 extern int last_star_id;
-//int last_star_id=-1;
+
+int icell_central(double dispx,double dispy,double dispz);
+    
+void radial_average( int cell, int level );
 
 
+#ifndef STARFORM
+#error need stars defined for feedback tests
+#endif
 
-#else /* !STARFORM */
-#define E_ambient       (1.0)
-#define E_det           (1.0e7*E_ambient)
-#define P_ambient	(1.0) 
-#endif /* STARFORM */
-
-
-#else /* !COSMOLOGY */
-
-#define blast_radius    (cell_size[max_level]) 
-#define rho0            (0.6e8) //1e7=150/cc
-#define P_ambient	(1.0) 
-#define refine_radius	(4.0)
-
-#endif  /* COSMOLOGY */
+#endif
