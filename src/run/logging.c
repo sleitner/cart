@@ -636,7 +636,6 @@ void log_diagnostics() {
 	/* compute energies */
 	gas_kinetic = gas_thermal = gas_potential = gas_mass = 0.0;
 	total_gas_kinetic = total_gas_thermal = total_gas_potential = total_gas_mass = 0.0;
-#ifdef GRAVITY
 #ifdef HYDRO
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -653,7 +652,9 @@ void log_diagnostics() {
 				kinetic_energy *= 0.5*cell_volume[level]/cell_gas_density(icell);
 
 				gas_kinetic += kinetic_energy;
+#ifdef GRAVITY
 				gas_potential += cell_gas_density(icell)*cell_volume[level]*cell_potential(icell);
+#endif
 				gas_mass += cell_gas_density(icell)*cell_volume[level];
 			}
 		}
@@ -675,10 +676,11 @@ void log_diagnostics() {
 
 	MPI_Reduce( &gas_thermal, &total_gas_thermal, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 	MPI_Reduce( &gas_kinetic, &total_gas_kinetic, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
+#ifdef GRAVITY
 	MPI_Reduce( &gas_potential, &total_gas_potential, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
+#endif /* GRAVITY */
 	MPI_Reduce( &gas_mass, &total_gas_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 #endif /* HYDRO */
-#endif /* GRAVITY */
 
 #ifdef STARFORM
 	dtyears = dtl[min_level] * units->time / constants->yr;
