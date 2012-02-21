@@ -666,9 +666,9 @@ C
       cRate3B = den*XH1ll*(hRate(irateHDi30)*XH1ll +  !! 3-body reaction
      .     hRate(irateHDi31)*XMHll + hRate(irateHDi32)*XG1ll)
       cRate09 = cRate(irateMHi09)*XH1ll/
-     .     (1+cRate(irateMHi09)*XH1ll*den/hRate(irateHDi09)) +
+     .     (1+cRate(irateMHi09)*XH1ll*den/(1.0e-35+hRate(irateHDi09))) +
      .     cRate(irateMHi10)*XMHll/
-     .     (1+cRate(irateMHi10)*XMHll*den/hRate(irateHDi10))
+     .     (1+cRate(irateMHi10)*XMHll*den/(1.0e-35+hRate(irateHDi10)))
 #else
       cRate3B = 0.0
       cRate09 = cRate(irateMHi09)*XH1ll + cRate(irateMHi10)*XMHll

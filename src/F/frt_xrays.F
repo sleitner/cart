@@ -11,36 +11,36 @@ C
 
       do lr=1,NRAD
 
-         wpTabSE(istabPiH1H1w1,lr) = csH1(lr)*se1H1i(lr)*
+         wpTabSE(jstabPiH1H1w1,lr) = csH1(lr)*se1H1i(lr)*
      .        max(0.0,Txi(lr)-TH1-TH1)/TH1
-         wpTabSE(istabPiH1G1w1,lr) = csG1(lr)*se1H1i(lr)*
+         wpTabSE(jstabPiH1G1w1,lr) = csG1(lr)*se1H1i(lr)*
      .        max(0.0,Txi(lr)-TH1-TG1)/TH1
-         wpTabSE(istabPiH1G2w1,lr) = csG2(lr)*se1H1i(lr)*
+         wpTabSE(jstabPiH1G2w1,lr) = csG2(lr)*se1H1i(lr)*
      .        max(0.0,Txi(lr)-TH1-TG2)/TH1
-         wpTabSE(istabPiG1H1w1,lr) = csH1(lr)*se1G1i(lr)*
+         wpTabSE(jstabPiG1H1w1,lr) = csH1(lr)*se1G1i(lr)*
      .        max(0.0,Txi(lr)-TG1-TH1)/TG1
-         wpTabSE(istabPiG1G1w1,lr) = csG1(lr)*se1G1i(lr)*
+         wpTabSE(jstabPiG1G1w1,lr) = csG1(lr)*se1G1i(lr)*
      .        max(0.0,Txi(lr)-TG1-TG1)/TG1
-         wpTabSE(istabPiG1G2w1,lr) = csG2(lr)*se1G1i(lr)*
+         wpTabSE(jstabPiG1G2w1,lr) = csG2(lr)*se1G1i(lr)*
      .        max(0.0,Txi(lr)-TG1-TG2)/TG1
          
-         wpTabSE(istabPiH1H1w2,lr) = csH1(lr)*se2H1i(lr)*
+         wpTabSE(jstabPiH1H1w2,lr) = csH1(lr)*se2H1i(lr)*
      .        max(0.0,Txi(lr)-TH1-TH1)/TH1
-         wpTabSE(istabPiH1G1w2,lr) = csG1(lr)*se2H1i(lr)*
+         wpTabSE(jstabPiH1G1w2,lr) = csG1(lr)*se2H1i(lr)*
      .        max(0.0,Txi(lr)-TH1-TG1)/TH1
-         wpTabSE(istabPiH1G2w2,lr) = csG2(lr)*se2H1i(lr)*
+         wpTabSE(jstabPiH1G2w2,lr) = csG2(lr)*se2H1i(lr)*
      .        max(0.0,Txi(lr)-TH1-TG2)/TH1
-         wpTabSE(istabPiG1H1w2,lr) = csH1(lr)*se2G1i(lr)*
+         wpTabSE(jstabPiG1H1w2,lr) = csH1(lr)*se2G1i(lr)*
      .        max(0.0,Txi(lr)-TG1-TH1)/TG1
-         wpTabSE(istabPiG1G1w2,lr) = csG1(lr)*se2G1i(lr)*
+         wpTabSE(jstabPiG1G1w2,lr) = csG1(lr)*se2G1i(lr)*
      .        max(0.0,Txi(lr)-TG1-TG1)/TG1
-         wpTabSE(istabPiG1G2w2,lr) = csG2(lr)*se2G1i(lr)*
+         wpTabSE(jstabPiG1G2w2,lr) = csG2(lr)*se2G1i(lr)*
      .        max(0.0,Txi(lr)-TG1-TG2)/TG1
 
-         wpTabSE(istabPhH1w1,lr) = csH1(lr)*se1H1h(lr)*(Txi(lr)-TH1)
-         wpTabSE(istabPhG1w1,lr) = csG1(lr)*se1G1h(lr)*(Txi(lr)-TG1)
-         wpTabSE(istabPhH1w2,lr) = csH1(lr)*se2H1h(lr)*(Txi(lr)-TH1)
-         wpTabSE(istabPhG1w2,lr) = csG1(lr)*se2G1h(lr)*(Txi(lr)-TG1)
+         wpTabSE(jstabPhH1w1,lr) = csH1(lr)*se1H1h(lr)*(Txi(lr)-TH1)
+         wpTabSE(jstabPhG1w1,lr) = csG1(lr)*se1G1h(lr)*(Txi(lr)-TG1)
+         wpTabSE(jstabPhH1w2,lr) = csH1(lr)*se2H1h(lr)*(Txi(lr)-TH1)
+         wpTabSE(jstabPhG1w2,lr) = csG1(lr)*se2G1h(lr)*(Txi(lr)-TG1)
 
       enddo
 
@@ -54,9 +54,9 @@ C
       include 'frt_tables.inc'
       include 'frt_xrays.inc'
 C
-      dimension pH1(istabDim), qH1(istabDim)
-      dimension pG1(istabDim), qG1(istabDim)
-      dimension pG2(istabDim), qG2(istabDim)
+      dimension pH1(jstabDim), qH1(jstabDim)
+      dimension pG1(jstabDim), qG1(jstabDim)
+      dimension pG2(jstabDim), qG2(jstabDim)
 C
 C  Main tables
 C
@@ -69,7 +69,7 @@ C$OMP+SHARED(tauH1m,acTAU,csH1tr,csG1tr,csG2tr,tauG1m,tauG2m,
 C$OMP+ itloc2,pTabSE,qTabSE,wpTabSE,facPhot,facLX)
       do lo1=1,NOPT1
 
-         do j=1,istabDim
+         do j=1,jstabDim
 #ifdef RT_EXTERNAL_BACKGROUND
             pH1(j) = 0.0
 #endif
@@ -82,12 +82,12 @@ C$OMP+ itloc2,pTabSE,qTabSE,wpTabSE,facPhot,facLX)
 
             tauH1l = tauH1m*acTAU(lo1)
 #ifdef RT_EXTERNAL_BACKGROUND
-            call frtIntegrateRates_H1(0,istabDim,wpTabSE,
-     .           istabH1,istabDim,pH1,0.0,tauH1l)
+            call frtIntegrateRates_H1(0,jstabDim,wpTabSE,
+     .           jstabH1,jstabDim,pH1,0.0,tauH1l)
 #endif
 #ifdef RT_TRANSFER
-            call frtIntegrateRates_H1(1,istabDim,wpTabSE,
-     .           istabH1,istabDim,qH1,0.0,tauH1l)
+            call frtIntegrateRates_H1(1,jstabDim,wpTabSE,
+     .           jstabH1,jstabDim,qH1,0.0,tauH1l)
 #endif
 
          else
@@ -98,7 +98,7 @@ C$OMP+ itloc2,pTabSE,qTabSE,wpTabSE,facPhot,facLX)
 
          do lo2=1,NOPT1
 
-            do j=1,istabDim
+            do j=1,jstabDim
 #ifdef RT_EXTERNAL_BACKGROUND
                pG1(j) = pH1(j)
 #endif
@@ -111,12 +111,12 @@ C$OMP+ itloc2,pTabSE,qTabSE,wpTabSE,facPhot,facLX)
 
                tauG1l = tauG1m*acTAU(lo2)
 #ifdef RT_EXTERNAL_BACKGROUND
-               call frtIntegrateRates_G1(0,istabDim,wpTabSE,
-     .              istabG1,istabDim,pG1,0.0,tauH1l,tauG1l)
+               call frtIntegrateRates_G1(0,jstabDim,wpTabSE,
+     .              jstabG1,jstabDim,pG1,0.0,tauH1l,tauG1l)
 #endif
 #ifdef RT_TRANSFER
-               call frtIntegrateRates_G1(1,istabDim,wpTabSE,
-     .              istabG1,istabDim,qG1,0.0,tauH1l,tauG1l)
+               call frtIntegrateRates_G1(1,jstabDim,wpTabSE,
+     .              jstabG1,jstabDim,qG1,0.0,tauH1l,tauG1l)
 #endif
 
             else
@@ -131,7 +131,7 @@ C$OMP+ itloc2,pTabSE,qTabSE,wpTabSE,facPhot,facLX)
 C
 C  No heating and ionizing HeII
 C
-               do j=1,istabDim
+               do j=1,jstabDim
 #ifdef RT_EXTERNAL_BACKGROUND
                   pG2(j) = pG1(j)
 #endif
@@ -144,18 +144,18 @@ C
 
                   tauG2l = tauG2m*acTAU(lo3)
 #ifdef RT_EXTERNAL_BACKGROUND
-                  call frtIntegrateRates_G2(0,istabDim,wpTabSE,
-     .                 istabG2,istabDim,pG2,0.0,tauH1l,tauG1l,tauG2l)
+                  call frtIntegrateRates_G2(0,jstabDim,wpTabSE,
+     .                 jstabG2,jstabDim,pG2,0.0,tauH1l,tauG1l,tauG2l)
 #endif
 #ifdef RT_TRANSFER
-                  call frtIntegrateRates_G2(1,istabDim,wpTabSE,
-     .                 istabG2,istabDim,qG2,0.0,tauH1l,tauG1l,tauG2l)
+                  call frtIntegrateRates_G2(1,jstabDim,wpTabSE,
+     .                 jstabG2,jstabDim,qG2,0.0,tauH1l,tauG1l,tauG2l)
 #endif
 
                endif
 
                itind = lo3 + itind2
-               do j=1,istabDim
+               do j=1,jstabDim
 #ifdef RT_INTERPOLLOG
 #ifdef RT_EXTERNAL_BACKGROUND
                   if(pG2(j) .gt. 0.0) then
@@ -206,7 +206,7 @@ C
       dimension var(*), rf(*)
       dimension itab(*)
       dimension pRate(*), qRate(*)
-      dimension pRate1(istabDim), qRate1(istabDim)
+      dimension pRate1(jstabDim), qRate1(jstabDim)
 C
       include 'frt_xrays_fun.inc'
 C
@@ -232,13 +232,13 @@ C
 #ifndef RT_NO_TABLE
 
       call frtSampleTable3(tauH1l,tauG1l,tauG2l,
-     .     istabDim,pTabSE,istabDim,pRate1,iOk)
+     .     jstabDim,pTabSE,jstabDim,pRate1,iOk)
 
       if(iOk .eq. 1) then
          itab(1) = itab(1) + 1
 
 #ifdef RT_UV
-         do j=1,istabDim
+         do j=1,jstabDim
             pRate1(j) = pRate1(j)*exp(-tauUVl*uvFac(j))
          enddo
 #endif
@@ -246,7 +246,7 @@ C
 
 #endif /* RT_NO_TABLE */
 
-         do j=1,istabDim
+         do j=1,jstabDim
             pRate1(j) = 0.0
          enddo
 
@@ -254,16 +254,16 @@ C
 
          itab(2) = itab(2) + 1
 
-         call frtIntegrateRates_H1(0,istabDim,wpTabSE,
-     .        istabH1,istabDim,pRate1,tauUVl,tauH1l)
+         call frtIntegrateRates_H1(0,jstabDim,wpTabSE,
+     .        jstabH1,jstabDim,pRate1,tauUVl,tauH1l)
 
-         call frtIntegrateRates_G1(0,istabDim,wpTabSE,
-     .        istabG1,istabDim,pRate1,tauUVl,tauH1l,tauG1l)
+         call frtIntegrateRates_G1(0,jstabDim,wpTabSE,
+     .        jstabG1,jstabDim,pRate1,tauUVl,tauH1l,tauG1l)
 
-         call frtIntegrateRates_G2(0,istabDim,wpTabSE,
-     .        istabG2,istabDim,pRate1,tauUVl,tauH1l,tauG1l,tauG2l)
+         call frtIntegrateRates_G2(0,jstabDim,wpTabSE,
+     .        jstabG2,jstabDim,pRate1,tauUVl,tauH1l,tauG1l,tauG2l)
 
-         do j=1,istabDim
+         do j=1,jstabDim
             pRate1(j) = facPhot*max(0.0,pRate1(j))
          enddo
 
@@ -289,13 +289,13 @@ C
 #ifndef RT_NO_TABLE
 
       call frtSampleTable3(tauH1l,tauG1l,tauG2l,
-     .     istabDim,qTabSE,istabDim,qRate1,iOk)
+     .     jstabDim,qTabSE,jstabDim,qRate1,iOk)
 
       if(iOk .eq. 1) then
          itab(1) = itab(1) + 1
 
 #ifdef RT_UV
-         do j=1,istabDim
+         do j=1,jstabDim
             qRate1(j) = qRate1(j)*exp(-tauUVl*uvFac(j))
          enddo
 #endif
@@ -303,7 +303,7 @@ C
 
 #endif /* RT_NO_TABLE */
 
-         do j=1,istabDim
+         do j=1,jstabDim
             qRate1(j) = 0.0
          enddo
 
@@ -311,16 +311,16 @@ C
 
          itab(2) = itab(2) + 1
 
-         call frtIntegrateRates_H1(1,istabDim,wpTabSE,
-     .        istabH1,istabDim,qRate1,tauUVl,tauH1l)
+         call frtIntegrateRates_H1(1,jstabDim,wpTabSE,
+     .        jstabH1,jstabDim,qRate1,tauUVl,tauH1l)
 
-         call frtIntegrateRates_G1(1,istabDim,wpTabSE,
-     .        istabG1,istabDim,qRate1,tauUVl,tauH1l,tauG1l)
+         call frtIntegrateRates_G1(1,jstabDim,wpTabSE,
+     .        jstabG1,jstabDim,qRate1,tauUVl,tauH1l,tauG1l)
 
-         call frtIntegrateRates_G2(1,istabDim,wpTabSE,
-     .        istabG2,istabDim,qRate1,tauUVl,tauH1l,tauG1l,tauG2l)
+         call frtIntegrateRates_G2(1,jstabDim,wpTabSE,
+     .        jstabG2,jstabDim,qRate1,tauUVl,tauH1l,tauG1l,tauG2l)
 
-         do j=1,istabDim
+         do j=1,jstabDim
             qRate1(j) = facLX*facPhot*max(0.0,qRate1(j))
          enddo
 
@@ -339,7 +339,7 @@ C
       fg1 = se1fun(x,SE1G1A,SE1G1B,SE1G1C)
       fg2 = se2fun(x,SE2G1A,SE2G1B,SE2G1C)
 
-      do j=1,istabDim2
+      do j=1,istabDim
 #ifdef RT_EXTERNAL_BACKGROUND
          pRate(j) = fh1*pRate1(2*j-1) + fh2*pRate1(2*j)
 #endif

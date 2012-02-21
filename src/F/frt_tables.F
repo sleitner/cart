@@ -1157,11 +1157,15 @@ C
 C
 C  Shapiro & Kang 87
 C
-         RateHigh(irateHDi09,lc) = 1.20e-9*exp(-5.24e4/tem)*
-     .        10.0**(4.0-0.416*x-0.327*x**2)
-
-         RateHigh(irateHDi10,lc) = 1.30e-9*exp(-5.33e4/tem)*
-     .        10.0**(4.845-1.3*x+1.62*x**2)
+         if(tem .gt. 1.0e3) then
+            RateHigh(irateHDi09,lc) = 1.20e-9*exp(-5.24e4/tem)*
+     .           10.0**(4.0-0.416*x-0.327*x**2)
+            RateHigh(irateHDi10,lc) = 1.30e-9*exp(-5.33e4/tem)*
+     .           10.0**(4.845-1.3*x+1.62*x**2)
+         else
+            RateHigh(irateHDi09,lc) = 0
+            RateHigh(irateHDi10,lc) = 0
+         endif
 C
 C  30. H + H + H -> H2 + H
 C
@@ -1861,32 +1865,32 @@ C
 
 #ifdef RT_EXTERNAL_BACKGROUND
       pRate(iptabPiH1) = pRate(iptabPiH1) + 
-     .     var(ivarXH1)*pRateSE(istabPiH1H1w1) +
-     .     var(ivarXG1)*pRateSE(istabPiH1G1w1) +
-     .     var(ivarXG2)*pRateSE(istabPiH1G2w1)
+     .     var(ivarXH1)*pRateSE(istabPiH1H1) +
+     .     var(ivarXG1)*pRateSE(istabPiH1G1) +
+     .     var(ivarXG2)*pRateSE(istabPiH1G2)
       pRate(iptabPiG1) = pRate(iptabPiG1) +
-     .     var(ivarXH1)*pRateSE(istabPiG1H1w1) +
-     .     var(ivarXG2)*pRateSE(istabPiG1G1w1) +
-     .     var(ivarXG2)*pRateSE(istabPiG1G2w1)
+     .     var(ivarXH1)*pRateSE(istabPiG1H1) +
+     .     var(ivarXG2)*pRateSE(istabPiG1G1) +
+     .     var(ivarXG2)*pRateSE(istabPiG1G2)
       pRate(iptabPhH1) = max(0.0,
-     .     pRate(iptabPhH1)-pRateSE(istabPhH1w1))
+     .     pRate(iptabPhH1)-pRateSE(istabPhH1))
       pRate(iptabPhG1) = max(0.0,
-     .     pRate(iptabPhG1)-pRateSE(istabPhG1w1))
+     .     pRate(iptabPhG1)-pRateSE(istabPhG1))
 #endif
 
 #ifdef RT_TRANSFER
       qRate(iptabPiH1) = qRate(iptabPiH1) + 
-     .     var(ivarXH1)*qRateSE(istabPiH1H1w1) +
-     .     var(ivarXG1)*qRateSE(istabPiH1G1w1) +
-     .     var(ivarXG2)*qRateSE(istabPiH1G2w1)
+     .     var(ivarXH1)*qRateSE(istabPiH1H1) +
+     .     var(ivarXG1)*qRateSE(istabPiH1G1) +
+     .     var(ivarXG2)*qRateSE(istabPiH1G2)
       qRate(iptabPiG1) = pRate(iptabPiG1) +
-     .     var(ivarXH1)*qRateSE(istabPiG1H1w1) +
-     .     var(ivarXG2)*qRateSE(istabPiG1G1w1) +
-     .     var(ivarXG2)*qRateSE(istabPiG1G2w1)
+     .     var(ivarXH1)*qRateSE(istabPiG1H1) +
+     .     var(ivarXG2)*qRateSE(istabPiG1G1) +
+     .     var(ivarXG2)*qRateSE(istabPiG1G2)
       qRate(iptabPhH1) = max(0.0,qRate(iptabPhH1) -
-     .     qRateSE(istabPhH1w1))
+     .     qRateSE(istabPhH1))
       qRate(iptabPhG1) = max(0.0,qRate(iptabPhG1) -
-     .     qRateSE(istabPhG1w1))
+     .     qRateSE(istabPhG1))
 #endif /* RT_TRANSFER */
 
 #endif /* RT_XRAYS */

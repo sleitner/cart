@@ -35,6 +35,8 @@
 #include "starformation.h"
 #include "plugin.h"
 
+#include "rt_debug.h"
+
 #include "start_radp.h"
 void create_star_particle( int icell, float mass, int type );
     
@@ -206,9 +208,37 @@ void    ic_star_spread(int icell, float dm_star){
 }
 
 void ic_refine_levels(){
-    int i, level;
+  int i, j, level;
     int num_level_cells;
     int *level_cells;
+
+  /*
+  //  If HYDRO is on, refinement now requires that the mesh contained
+  //  the valid data. Hence, we fill the root cells with some dummy
+  //  data.
+  */
+  for(i=0; i<num_root_cells; i++)
+    {
+      cell_gas_density(i) = 1;
+      cell_momentum(i,0) = 0;
+      cell_momentum(i,1) = 0;
+      cell_momentum(i,2) = 0;
+
+      cell_gas_gamma(i) = constants->gamma;
+      cell_gas_internal_energy(i) =  1;
+      cell_gas_pressure(i) = cell_gas_internal_energy(i)*(constants->gamma-1);
+      cell_gas_energy(i) = cell_gas_internal_energy(i);
+
+#ifdef RADIATIVE_TRANSFER
+      cell_HI_density(i) = cell_gas_density(i)*constants->XH;
+      cell_HII_density(i) = 0;
+      cell_HeI_density(i) = cell_gas_density(i)*constants->XHe;
+      cell_HeII_density(i) = 0;
+      cell_HeIII_density(i) = 0;
+      cell_H2_density(i) = 0;
+#endif
+    }
+
     for(level=min_level; level<max_level; level++){
         modify( level, OP_REFINE );
         if((!refinement_indicator[SPATIAL_INDICATOR].use[level])){
@@ -462,6 +492,17 @@ void init_run() {
     cart_debug("momentum %e",tot_momentum0);
     hydro_magic( min_level );
     hydro_eos( min_level );
+
+
+#ifdef RADIATIVE_TRANSFER
+#ifdef RT_DEBUG
+  rt_debug.Mode = -1;
+  rt_debug.Pos[0] = 0.5;
+  rt_debug.Pos[1] = 0.5;
+  rt_debug.Pos[2] = 0.5;
+#endif
+#endif
+
 
 }
 

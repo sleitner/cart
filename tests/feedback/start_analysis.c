@@ -48,6 +48,9 @@
 #include "run/step.h"
 
 
+void Out4IFrIT();
+
+
 #ifdef VIEWDUMP
 #include "extra/viewdump.h"
 #endif
@@ -436,6 +439,8 @@ void outslice() {
         cart_error("output not MPI_parallel!!");
     }
 
+    //Out4IFrIT();
+
 }
 
 
@@ -447,7 +452,19 @@ void run_output(){
 
 
 
+#include "extra/ifrit.h"
 
 
+void Out4IFrIT()
+{
+  const int nbin1 = 256;
+  int ids[] = { I_HI_FRACTION, I_GAS_OVERDENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, rt_field_offset, rt_field_offset+rt_num_freqs };
+  int nbin[] = { nbin1, nbin1, nbin1 };
+  double pos[] = { 0.5*num_grid, 0.5*num_grid, 0.5*num_grid };
+  char fname[999];
 
+  sprintf(fname,"%s/ifrit-box-a=%05d.bin",output_directory,step);
+
+  ifrit.OutputMesh(fname,-1,nbin,pos,sizeof(ids)/sizeof(int),ids);
+}
 

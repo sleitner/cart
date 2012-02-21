@@ -1034,7 +1034,7 @@ void write_particles( char *header_filename, char *data_filename, char *timestep
 		header.OmB0	= cosmology->OmegaB;
 		header.DelDC	= cosmology->DeltaDC;
 		header.abox	= abox[min_level];
-		header.Hbox	= (abox_from_tcode(tl[min_level]+0.5*dtl[min_level])-abox_from_tcode(tl[min_level]-0.5*dtl[min_level]))/dtl[min_level];
+		header.Hbox	= Hubble(abox[min_level]);
 #else
 		header.aunin	= 1.0;
 		header.auni0	= 1.0;

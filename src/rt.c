@@ -136,7 +136,7 @@ float rtSource(int ipart)
 #ifdef RT_OLDSTYLE_SOURCE_FUNCTION
   float x1;
 #else
-  float x1, x2;
+  float x1, x2, dx;
 #endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
 #endif /* PARTICLES && STARFORM */
 
@@ -182,10 +182,19 @@ float rtSource(int ipart)
       /*
       //  This is a rough fit to Starburst99 evolving spectra
       */
-      x2 = x1 + rt_src_rate*particle_dt[ipart];
-      x1 *= (0.8+x1*x1);
-      x2 *= (0.8+x2*x2);
-      return (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
+      dx = rt_src_rate*particle_dt[ipart];
+      if(dx > 1.0e-5)
+	{
+	  x2 = x1 + dx;
+	  x1 *= (0.8+x1*x1);
+	  x2 *= (0.8+x2*x2);
+	  return (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
+	}
+      else
+	{
+	  x2 = x1*(0.8+x1*x1);
+	  return (0.8+3*x1*x1)/(1+x2)/(1+x2)*rt_src_rate;
+	}
     }
 #endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
   else
@@ -559,7 +568,9 @@ void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf)
 	{
 	  cart_debug("Var[%d] = %g",j,var[j]);
 	}
-      cart_error("frtCoolOff returned NaN");
+      double pos[nDim];
+      cell_center_position(cell,pos);
+      cart_error("frtCoolOff returned NaN, cell = %d, pos = (%lf,%lf,%lf)",cell,pos[0],pos[1],pos[2]);
     }
 #endif
   

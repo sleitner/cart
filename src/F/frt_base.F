@@ -280,7 +280,7 @@ C$OMP+SHARED(angLoc)
 #endif /* RT_EXTERNAL_BACKGROUND != RT_BACKGROUND_SELFCONSISTENT */
 #endif /* RT_EXTERNAL_BACKGROUND */
 
-#ifdef RT_DEBUG
+#ifdef RT_OUTPUT
       if(ioNode) then
          fac = 1.59e-17/aExp**3
          write(6,*) 'RT: <PIR_HI> = ', 
@@ -403,6 +403,12 @@ C
       endif
 #endif
 
+C
+C  Coefficient for absorption:
+C    c*CSSTAR*n_b/uTime = uColumn/facLX
+C
+      CRAD2 = uColumn/facLX
+
 #ifdef RT_EXTERNAL_BACKGROUND
 #if (RT_EXTERNAL_BACKGROUND == RT_BACKGROUND_SELFCONSISTENT)
 C
@@ -425,11 +431,6 @@ C     gBrem(xi) = Sum dV rho dT/dt 1/T e^{-T_xi/T} / V
 C     CRAD1 = \tilde{n}_b = comoving n_b
 C
       CRAD1 = uDen*aExp**3
-C
-C  Coefficient for absorption:
-C    c*CSSTAR*n_b/uTime = uColumn/facLX
-C
-      CRAD2 = uColumn/facLX
 C
 C  Advance the average radiation field:
 C  Absorption
@@ -581,10 +582,9 @@ C
       enddo
 
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
+#endif /* RT_EXTERNAL_BACKGROUND == RT_BACKGROUND_SELFCONSISTENT */
 
       axiH1tr = axi(lrH1tr)
-
-#endif /* RT_EXTERNAL_BACKGROUND == RT_BACKGROUND_SELFCONSISTENT */
 C
 C  Total
 C
@@ -597,7 +597,7 @@ C$OMP+SHARED(angUni,angLoc,angAvg)
 
       angH1tr = angAvg(lrH1tr)
 
-#ifdef RT_DEBUG
+#ifdef RT_OUTPUT
       if(ioNode) then
          fac = 1.59e-17/aExp**3
          write(6,*) 'RT: <abs_HI> = ', axiH1tr, axiH1tr/csH1tr/CRAD2
@@ -666,7 +666,7 @@ C$OMP+SHARED(lshift,ang,anb,xib,xig)
          endif
       enddo
 
-#ifdef RT_DEBUG
+#if defined(RT_OUTPUT) && defined(RT_DEBUG)
       if(ioNode) then
          lr = lrH1tr
          write(6,*) 'RT::Advance Background:', lr, ang(lr), axi(lr),

@@ -198,12 +198,6 @@ C
 
       if(vol .gt. 0.0) then
          w = vol*dt*weight
-#ifdef RT_DEBUG
-         if(ioNode) then
-            write(6,*) 'RT: internal vol*dt = ', dDataBufGlob(iavgNorm)
-            write(6,*) 'RT: external vol*dt = ', vol*dt
-         endif
-#endif
          if(abs(w-1.0) .gt. 1.0e-3) then
             write(6,*) 'RT_Global: fatal error: <1> = ', w
             call frtAbort
