@@ -73,11 +73,6 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 #endif /* BLASTWAVE_FEEDBACK */
   for(i=0; i<num_level_cells; i++) if(cell_is_leaf((cell = level_cells[i])) && cell_gas_density(cell) > 0.0)  /* neg. density means a blow-up, let the code die gracefully in hydro_magic, not here */
     {
-#ifdef BLASTWAVE_FEEDBACK
-      blastwave_time = cell_blastwave_time(cell) / cell_gas_density(cell) ; 
-      if(blastwave_time <= blastwave_time_cut){ 
-#endif /* BLASTWAVE_FEEDBACK */
-      
       rtPackCellData(level,cell,var,&rawrf);
 
 #ifdef RT_DEBUG
@@ -92,22 +87,26 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 	}
 #endif
 
+#ifdef BLASTWAVE_FEEDBACK
+      blastwave_time = cell_blastwave_time(cell)/cell_gas_density(cell);
+      if(blastwave_time < blastwave_time_cut)
+	{
+	  var[FRT_CoolingSuppressionFactor] = 0.0;
+	}
+      else
+	{
+	  blastwave_time -= dtl[level]*units->time/constants->yr;
+	  if(blastwave_time < blastwave_time_cut) blastwave_time = blastwave_time_floor;
+	  cell_blastwave_time(cell) = cell_gas_density(cell)*blastwave_time;
+	}
+#endif /* BLASTWAVE_FEEDBACK */
+      
       /*
       //  Call the Fortran worker 
       */
       frtCall(cooloff)(var,rawrf,&time,&info);
 
       rtUnPackCellData(level,cell,var,rawrf);
-
-#ifdef BLASTWAVE_FEEDBACK
-      }else {
-	blastwave_time -= dtl[level]*units->time/constants->yr;
-	if(blastwave_time < blastwave_time_cut){
-	  blastwave_time = blastwave_time_floor;
-	}
-	cell_blastwave_time(cell) = cell_gas_density(cell) * blastwave_time;
-      }
-#endif /* BLASTWAVE_FEEDBACK */
     }
 }
 

@@ -153,8 +153,16 @@ C
          else
             open(unit=IOUNIT, file='rt-debug.log', access='append')
          endif
-         write(IOUNIT,*) 'In cell-level debug: ', uDen*var(ivarRho)
-         write(6,*) 'In cell-level debug: ', uDen*var(ivarRho)
+         write(IOUNIT,*) 'In cell-level debug: ', uDen*var(ivarRho),
+     .        tFin*uTime/3.155e7
+         write(6,*) 'In cell-level debug: ', uDen*var(ivarRho),
+     .        var(ivarSobL)/(uColumn*var(ivarRho))
+#ifdef RT_CHEMISTRY
+         XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
+         XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
+         cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
+         write(IOUNIT,*) 'Dust opacity: ', d_sDUST*cdDUl
+#endif
       endif
 #endif
 
@@ -877,9 +885,10 @@ C
 
 #else
 
+      aEinll = aEinll*var(ivarCSup)
       fac = 1.0/(tem+TemCMB)*(1.0-Tmin/tem)
 
-      a(ivarEin) = (fac*aEinll*tem+aEinl2*var(ivarCSup))/Einll
+      a(ivarEin) = (fac*aEinll*tem+aEinl2)/Einll
       w(ivarEin) = max(0.0,wEinll+wEinl2+fac*aEinll*TemCMB) +
      .     var(ivarDTex)
 

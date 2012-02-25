@@ -591,8 +591,6 @@ int timestep( int level, MPI_Comm level_com )
 	    //  with the parent. The time-step variable should've been 
 	    //  set already.
 	    */
-	    cart_assert(!refined);
-
 	    cart_debug("Creating level %d...",level);
 #ifdef COSMOLOGY
 	    cart_debug("Spatial resolution: %le kpc (proper), %le CHIMP (comoving)",units->length*cell_size[level]/constants->kpc,units->length_in_chimps*cell_size[level]);

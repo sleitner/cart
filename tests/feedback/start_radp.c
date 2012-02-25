@@ -497,9 +497,9 @@ void init_run() {
 #ifdef RADIATIVE_TRANSFER
 #ifdef RT_DEBUG
   rt_debug.Mode = -1;
-  rt_debug.Pos[0] = 0.5;
-  rt_debug.Pos[1] = 0.5;
-  rt_debug.Pos[2] = 0.5;
+  rt_debug.Pos[0] = 0.5*num_grid - pow(0.5,1.0+max_level);
+  rt_debug.Pos[1] = 0.5*num_grid - pow(0.5,1.0+max_level);
+  rt_debug.Pos[2] = 0.5*num_grid - pow(0.5,1.0+max_level);
 #endif
 #endif
 
