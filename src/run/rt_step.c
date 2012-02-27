@@ -67,7 +67,7 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
   //  Main loop
   */
 #ifdef BLASTWAVE_FEEDBACK
-#pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info,blastwave_time), shared(cell_vars,num_level_cells,level,cell_child_oct,level_cells,level,time,rt_debug,nchunk,blastwave_time_floor,blastwave_time_cut,blastwave_time_code_max,units,constants), schedule(dynamic,nchunk)
+#pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,time,rt_debug,nchunk), schedule(dynamic,nchunk), private(blastwave_time), shared(blastwave_time_cut,blastwave_time_floor,units,constants)
 #else      
 #pragma omp parallel for default(none), private(i,cell,var,rawrf,rawrfBuffer,info), shared(cell_vars,num_level_cells,cell_child_oct,level_cells,level,time,rt_debug,nchunk), schedule(dynamic,nchunk)
 #endif /* BLASTWAVE_FEEDBACK */
@@ -89,12 +89,10 @@ void rtApplyCooling(int level, int num_level_cells, int *level_cells)
 
 #ifdef BLASTWAVE_FEEDBACK
       blastwave_time = cell_blastwave_time(cell)/cell_gas_density(cell);
-      if(blastwave_time < blastwave_time_cut)
+      if(blastwave_time > blastwave_time_cut)
 	{
 	  var[FRT_CoolingSuppressionFactor] = 0.0;
-	}
-      else
-	{
+
 	  blastwave_time -= dtl[level]*units->time/constants->yr;
 	  if(blastwave_time < blastwave_time_cut) blastwave_time = blastwave_time_floor;
 	  cell_blastwave_time(cell) = cell_gas_density(cell)*blastwave_time;
