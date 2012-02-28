@@ -197,7 +197,6 @@ void init_run()
   /* set time variables */
   tl[min_level] = 0.0;
    
-  num_row = num_grid;
   num_particle_species = 2;
   particle_species_mass[0] = force_free ? 0 : num_root_cells;
   particle_species_mass[1] = force_free ? num_root_cells : 0;

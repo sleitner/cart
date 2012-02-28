@@ -292,6 +292,64 @@ int tree_cell_count( int cell ) {
 	return count;
 }
 
+int tree_oct_count( int icell ) {
+	int i;
+	int count = 0;
+	if ( cell_is_refined(icell) ) {
+		for ( i = 0; i < num_children; i++ ) {
+			count += tree_oct_count( cell_child(icell,i));
+		}
+		count++;
+	}
+
+	return count;
+}
+
+void root_tree_level_oct_count( int icell, int level_oct_count[max_level-min_level] ) {
+	int i;
+
+	cart_assert( cell_level(icell) == min_level );
+
+	for ( i = min_level; i < max_level; i++ ) {
+		level_oct_count[i] = 0;
+	}
+
+	tree_level_oct_count( icell, level_oct_count );
+}
+    
+
+void tree_level_oct_count( int icell, int level_oct_count[max_level-min_level] ) {
+	int i;
+
+	if ( cell_is_refined(icell) ) {
+		level_oct_count[ cell_level(icell) ]++;
+
+		for ( i = 0; i < num_children; i++ ) {
+			tree_level_oct_count( cell_child( icell, i ), level_oct_count );
+		}
+	}
+}
+
+int tree_max_level( int icell ) {
+	int i, level, max_tree_level;
+
+	if ( cell_is_refined(icell) ) {
+		i = 0;
+		max_tree_level = tree_max_level( cell_child( icell, i ) );
+		for ( ; i < num_children; i++ ) {
+			level = tree_max_level( cell_child( icell, i ) );
+
+			if ( level > max_tree_level ) {
+				max_tree_level = level;
+			}
+		}
+	} else {
+		max_tree_level = cell_level(icell);
+	}
+
+	return max_tree_level;
+}
+
 /*******************************************************
  * tree_level_traversal
  *******************************************************/

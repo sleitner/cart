@@ -11,6 +11,10 @@ int tree_traversal( int cell, int workfunction( int, int ) );
 int tree_preorder_traversal( int cell, int workfunction(int, int) );
 int tree_level_traversal( int cell, int level, int workfunction( int, int ) );
 
+int tree_oct_count( int icell );
+void root_tree_level_oct_count( int icell, int level_oct_count[max_level-min_level] );
+void tree_level_oct_count( int icell, int level_oct_count[max_level-min_level] );
+int tree_max_level( int icell );
 
 /*
 //  Useful macros

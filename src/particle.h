@@ -16,8 +16,6 @@
 
 #define MAX_PARTICLE_SPECIES	10
 
-extern int num_row;
-
 extern double particle_t[/* num_particles */];
 extern double particle_dt[/* num_particles */];
 extern double particle_x[/* num_particles */][nDim];
@@ -78,7 +76,7 @@ void join_particle_list( int cell );
 void insert_particle( int cell, int part );
 void delete_particle( int cell, int part );
 void rebuild_particle_list();
-int particle_specie( int id );
+int particle_species( int id );
 
 #ifdef STARFORM
 #define particle_id_is_star(id)		(id >= particle_species_indices[num_particle_species-1])

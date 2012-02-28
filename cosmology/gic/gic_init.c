@@ -589,7 +589,6 @@ void gicReadParticleData(const char *rootname, char *type, int dc_off)
   units_reset();
   units_update(min_level);
 
-  num_row = 4*fileHeader->dims[0];  /* Empirical number to reduce the # of communications */
   num_particles_total = fileHeader->Ntot;
   num_particle_species = fileHeader->Lmax + 1;
   particle_species_indices[0] = 0;

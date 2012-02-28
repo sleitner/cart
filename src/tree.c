@@ -294,12 +294,15 @@ int oct_parent_root_cell( int ioct )
 int root_cell_sfc_index( int icell ) {
 	cart_assert( icell >= 0 && icell < num_cells );
 	cart_assert( cell_is_root_cell(icell) );
-	cart_assert( root_buffer_enabled );
 
 	if ( icell < num_cells_per_level[min_level] ) {
 		return proc_sfc_index[local_proc_id] + icell;
 	} else {
-		return buffer_cell_sfc_index[ icell - num_cells_per_level[min_level] ];
+		if ( root_buffer_enabled ) {
+			return buffer_cell_sfc_index[ icell - num_cells_per_level[min_level] ];
+		} else {
+			return -1;
+		}
 	}
 }
 

@@ -190,11 +190,11 @@ double particle_q_init( int id ) {
 	int i, j, k;
 	double qfact;
 
-	k = id % num_row;
-	j = ((id-k)/num_row) % num_row;
-	i = (((id-k)/num_row) - j ) / num_row;
+	k = id % num_grid;
+	j = ((id-k)/num_grid) % num_grid;
+	i = (((id-k)/num_grid) - j ) / num_grid;
 
-	qfact = (double)num_grid/(double)num_row;
+	qfact = (double)num_grid/(double)num_grid;
 
 	return qfact*((double)i + 0.5);
 }
@@ -538,8 +538,7 @@ void init_run() {
         
         
 #ifdef PARTICLES
-	num_row = num_grid;
-	qfact = (double)num_grid / (double)num_row;
+	qfact = (double)num_grid / (double)num_grid;
 	pw = (1.0-rhogas0)*qfact*qfact*qfact;
 
 	cart_debug("particle weight = %e", pw );
@@ -549,13 +548,13 @@ void init_run() {
 	vcons = ampl * dgrowthdt( a_vel);
 
 	ipart = 0;
-	for ( i = 0; i < num_row; i++ ) {
+	for ( i = 0; i < num_grid; i++ ) {
 		qi = qfact*((double)i + 0.5);
 		dx = xcons * sin( ak * qi );
 		dvx = vcons * sin( ak * qi );
-		for ( j = 0; j < num_row; j++ ) {
+		for ( j = 0; j < num_grid; j++ ) {
 			qj = qfact*((double)j + 0.5);
-			for ( k = 0; k < num_row; k++ ) {
+			for ( k = 0; k < num_grid; k++ ) {
 				qk = qfact*((double)k + 0.5);
 
 				particle_x[ipart][0] = qi + dx;
@@ -581,7 +580,7 @@ void init_run() {
 					particle_v[ipart][1] = 0.0;
 					particle_v[ipart][2] = 0.0;
 
-					particle_id[ipart] = num_row*num_row*i + num_row*j + k;
+					particle_id[ipart] = num_grid*num_grid*i + num_grid*j + k;
                                         particle_mass[ipart] = pw;
 
 					cart_assert( qi == particle_q_init( particle_id[ipart] ) );
@@ -598,7 +597,7 @@ void init_run() {
 	cart_debug("created %u particles", ipart );
 
 	num_local_particles = ipart;
-	num_particles_total = num_row*num_row*num_row;
+	num_particles_total = num_grid*num_grid*num_grid;
 	num_particle_species = 1;
 	particle_species_mass[0] = pw;
 	particle_species_num[0] = num_particles_total;

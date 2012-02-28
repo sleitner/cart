@@ -19,9 +19,9 @@
 int particle_buffer_enabled = 0;
 
 #ifdef STAR_PARTICLE_TYPES
-void build_particle_buffer( int specie, int star_type ) {
+void build_particle_buffer( int species, int star_type ) {
 #else 
-void build_particle_buffer( int specie ) {
+void build_particle_buffer( int species ) {
 #endif /* STAR_PARTICLE_TYPES */
 
 	int i;
@@ -45,10 +45,10 @@ void build_particle_buffer( int specie ) {
 				icell = level_cells[i];
 				ipart = cell_particle_list[icell];
 				while ( ipart != NULL_PARTICLE ) {
-					if ( specie == -1 || 
-							( particle_specie(particle_id[ipart]) == specie
+					if ( species == -1 || 
+							( particle_species(particle_id[ipart]) == species
 #ifdef STAR_PARTICLE_TYPES
-							  && ( specie != num_particle_species-1 || star_type == -1 ||
+							  && ( species != num_particle_species-1 || star_type == -1 ||
 								  star_particle_type[ipart] == star_type ) 
 #endif /* STAR_PARTICLE_TYPES */
 							) ) {
@@ -71,10 +71,10 @@ void build_particle_buffer( int specie ) {
 					icell = level_cells[i];
 					ipart = cell_particle_list[icell];
 					while ( ipart != NULL_PARTICLE ) {
-						if ( specie == -1 || 
-								( particle_specie(particle_id[ipart]) == specie
+						if ( species == -1 || 
+								( particle_species(particle_id[ipart]) == species
 #ifdef STAR_PARTICLE_TYPES
-								  && ( specie != num_particle_species-1 || star_type == -1 ||
+								  && ( species != num_particle_species-1 || star_type == -1 ||
 									  star_particle_type[ipart] == star_type ) 
 #endif /* STAR_PARTICLE_TYPES */
 								) ) {

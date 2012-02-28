@@ -71,11 +71,10 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	int bin, index;
 	int pads[] = { 1, 0, 0 };
 	int dims[3], bbox[6];
-        int num_power_mesh, jk[2];
+	int num_power_mesh, jk[2];
 	size_t offset;
 
 	fb = cosmology->OmegaB / cosmology->OmegaM;
-	mass_factor = ((float)(num_power_mesh)/(float)(num_grid*num_grid*num_grid));
 
 	if ( power_type == POWER_TYPE_GAS || power_type == POWER_TYPE_STARS || power_type == POWER_TYPE_BARYONS ) {
 #ifdef STARFORM
@@ -130,6 +129,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 	local_mesh = cart_alloc(fft_t, num_power_mesh );
 
+    mass_factor = ((float)(num_power_mesh)/(float)(num_grid*num_grid*num_grid));
 	cart_debug("mass_factor = %e", mass_factor );
 
 	for ( m = 0; m < num_power_foldings; m++ ) {
@@ -316,7 +316,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 					for ( i = 0; i < power_mesh_size/2; i++ ) {
 
-						if(i==0 && jk[0]==0 && jk[2]==0) continue;
+						if(i==0 && jk[0]==0 && jk[1]==0) continue;
 
 						di = i*i;
 						d = sqrt( di + dj + dk );

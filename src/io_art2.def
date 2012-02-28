@@ -84,7 +84,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 #endif /* STARFORM */
 
 	if ( local_proc_id == MASTER_NODE ) {
-		read_particle_header( header_filename, &header, &endian, &nbody_flag );
+		read_art_particle_header( header_filename, &header, &endian, &nbody_flag );
 
 		cart_debug("auni  = %e", header.aunin );
 		cart_debug("auni0 = %e", header.auni0 );
@@ -143,8 +143,8 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 #endif /* COSMOLOGY */
 
-		step		= header.istep;
-		num_row		= header.Nrow;
+		step                  = header.istep;
+		art_particle_num_row  = header.Nrow;
 	
 		if ( nbody_flag ) {
 			vfact = 2.0/sqrt(header.OmM0);
@@ -346,7 +346,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
-		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &art_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
@@ -670,9 +670,9 @@ void FUNCTION( char *header_filename, char *data_filename,
 					particle_v[ipart][1] = vy[j];
 					particle_v[ipart][2] = vz[j];
 
-					if( particle_specie( current_id ) != current_type )
+					if( particle_species( current_id ) != current_type )
 					{
-						cart_error("Assertion failed: particle_specie(%d)=%d, current_type=%d",current_id,particle_specie(current_id),current_type);
+						cart_error("Assertion failed: particle_species(%d)=%d, current_type=%d",current_id,particle_species(current_id),current_type);
 					}
 
 					particle_t[ipart] = tl[min_level];
@@ -703,10 +703,10 @@ void FUNCTION( char *header_filename, char *data_filename,
 						star_particle_type[ipart] = types[j];
 #endif /* STAR_PARTICLE_TYPES */
 					} else {
-						particle_mass[ipart] = particle_species_mass[particle_specie(current_id)];
+						particle_mass[ipart] = particle_species_mass[particle_species(current_id)];
 					}
 #else
-					particle_mass[ipart] = particle_species_mass[particle_specie(current_id)];
+					particle_mass[ipart] = particle_species_mass[particle_species(current_id)];
 #endif /* STARFORM */
 
 				} else if ( proc >= 0 && proc < num_procs ) {
@@ -837,7 +837,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
-		MPI_Bcast( &num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &art_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
@@ -931,10 +931,10 @@ void FUNCTION( char *header_filename, char *data_filename,
 					star_particle_type[ipart] = star_type_page[local_proc_id][i];
 #endif /* STAR_PARTICLE_TYPES */
 				} else {
-					particle_mass[ipart] = particle_species_mass[particle_specie(particle_id[ipart])];
+					particle_mass[ipart] = particle_species_mass[particle_species(particle_id[ipart])];
 				}
 #else
-				particle_mass[ipart] = particle_species_mass[particle_specie(particle_id[ipart])];
+				particle_mass[ipart] = particle_species_mass[particle_species(particle_id[ipart])];
 #endif /* STARFORM */
 			}
 		}

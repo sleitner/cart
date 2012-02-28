@@ -192,7 +192,6 @@ void init_run()
      }
 
    /* particles */
-   num_row = num_grid;
    num_particle_species = 2;
    particle_species_mass[0] = 1.0;
    particle_species_mass[1] = 0.1;

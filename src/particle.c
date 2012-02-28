@@ -26,8 +26,6 @@
 #include "units.h"
 
 
-int num_row = 128;
-
 double particle_t[num_particles];
 double particle_dt[num_particles];
 double particle_x[num_particles][nDim];
@@ -319,7 +317,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	/* use same page size as for I/O, could easily change to different parameter,
 	 * doesn't really matter as long as page_size is small relative to memory,
 	 * but typical of numbers of particles moved */
-	page_size = min(num_row*num_row/num_procs, 1024);
+	page_size = min(65536/num_procs, 1024);
 	parts_page_size = num_particle_vars*page_size;
 
 #ifdef STARFORM
@@ -596,10 +594,10 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 #endif /* STAR_PARTICLE_TYPES */
 				
 				} else {
-					particle_mass[ipart] = particle_species_mass[ particle_specie( recv_id[proc][i] ) ];
+					particle_mass[ipart] = particle_species_mass[ particle_species( recv_id[proc][i] ) ];
 				}
 #else
-				particle_mass[ipart] = particle_species_mass[ particle_specie( recv_id[proc][i] ) ];
+				particle_mass[ipart] = particle_species_mass[ particle_species( recv_id[proc][i] ) ];
 #endif /* STARFORM */
 
 				icell = cell_find_position( particle_x[ipart] );
@@ -1105,7 +1103,7 @@ void delete_particle( int icell, int part ) {
 	}
 }
 
-int particle_specie( int id ) {
+int particle_species( int id ) {
 	int specie = 0;
 
 	for ( specie = 0; specie < num_particle_species; specie++ ) {

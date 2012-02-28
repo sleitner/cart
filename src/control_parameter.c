@@ -6,7 +6,7 @@
 #include "auxiliary.h"
 #include "control_parameter.h"
 
-
+ControlParameterOps control_parameter_bool = { control_parameter_set_bool, control_parameter_list_bool };
 ControlParameterOps control_parameter_int = { control_parameter_set_int, control_parameter_list_int };
 ControlParameterOps control_parameter_float = { control_parameter_set_float, control_parameter_list_float };
 ControlParameterOps control_parameter_double = { control_parameter_set_double, control_parameter_list_double };
@@ -204,6 +204,16 @@ void control_parameter_print_hidden(FILE *f, int with_help)
   control_parameters_print_worker(f,with_help,1);
 }
 
+void control_parameter_set_bool(const char *value, void *ptr, int ind)
+{
+  if(value[0] == 'T' || value[0] == 't' || value[0] == '1' ) {
+	*(int *)ptr = 1;
+  } else if ( value[0] == 'F' || value[0] == 'f' || value[0] == '0' ) {
+	*(int *)ptr = 0;
+  } else {
+	cart_error("Unable to determine boolean value from string '%s'", value);
+  }
+}
 
 void control_parameter_set_int(const char *value, void *ptr, int ind)
 {
@@ -229,6 +239,9 @@ void control_parameter_set_string(const char *value, void *ptr, int ind)
   ((char *)ptr)[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
 }
 
+void control_parameter_list_bool(FILE *stream, const void *ptr) {
+  fprintf(stream, (*(int *)ptr) ? "True" : "False"); 
+}
 
 void control_parameter_list_int(FILE *stream, const void *ptr)
 {

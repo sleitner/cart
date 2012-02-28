@@ -334,7 +334,6 @@ void init_run()
      }
 
    /* source */
-   num_row = num_grid;
    num_particle_species = 2;
    particle_species_mass[0] = 1.0;
    particle_species_mass[1] = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;

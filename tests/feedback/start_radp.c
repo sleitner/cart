@@ -341,7 +341,6 @@ void init_run() {
 #endif /* COSMOLOGY */    
 
 
-    num_row=512;
     for(i=0; i<num_particles; i++) if(particle_level[i] != FREE_PARTICLE_LEVEL)
     {
         particle_t[i] = tl[min_level];

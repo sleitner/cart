@@ -29,8 +29,8 @@ void check_map() {
 	int sfc;
 	float max_var[num_vars];
 	float min_var[num_vars];
-	int specie_count[100];
-	int specie_count_total[100];
+	int species_count[100];
+	int species_count_total[100];
 #ifdef GRAVITY
 	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
         const int color[num_children] = {
@@ -182,14 +182,14 @@ void check_map() {
 	/* check particles */
 	count = 0;
 	for ( i = 0; i < num_particle_species; i++ ) {
-		specie_count[i] = 0;
+		species_count[i] = 0;
 	}
 
 	for ( i = 0; i < num_particles; i++ ) {
 		if ( particle_level[i] != FREE_PARTICLE_LEVEL ) {
 			cart_assert( particle_id[i] < num_particles_total );
 			count++;
-			specie_count[ particle_specie( particle_id[i] ) ]++;
+			species_count[ particle_species( particle_id[i] ) ]++;
 		}
 	}
 
@@ -199,10 +199,10 @@ void check_map() {
 	}
 	cart_assert( count == num_local_particles );
 
-	MPI_Allreduce( specie_count, specie_count_total, num_particle_species, MPI_INT, MPI_SUM, mpi.comm.run );
+	MPI_Allreduce( species_count, species_count_total, num_particle_species, MPI_INT, MPI_SUM, mpi.comm.run );
 
 	for ( i = 0; i < num_particle_species; i++ ) {
-		cart_assert( specie_count_total[i] == particle_species_num[i] );
+		cart_assert( species_count_total[i] == particle_species_num[i] );
 	}
 
 	count = 0;

@@ -273,7 +273,7 @@ void run( int restart, const char *restart_label ) {
 			if ( last_restart_step != step ) {
 				start_time( RESTART_TIMER );
 				destroy_cell_buffer();
-				write_restart( WRITE_GENERIC, WRITE_GENERIC, WRITE_GENERIC, NULL );
+				write_restart( WRITE_GENERIC, WRITE_GENERIC, WRITE_GENERIC );
 				end_time( RESTART_TIMER );
 			}
 

@@ -17,18 +17,20 @@ typedef struct
 }
 ControlParameterOps;
 
-
+void control_parameter_set_bool(const char *value, void *ptr, int ind);
 void control_parameter_set_int(const char *value, void *ptr, int ind);
 void control_parameter_set_float(const char *value, void *ptr, int ind);
 void control_parameter_set_double(const char *value, void *ptr, int ind);
 void control_parameter_set_string(const char *value, void *ptr, int ind);
 
+void control_parameter_list_bool(FILE *stream, const void *ptr);
 void control_parameter_list_int(FILE *stream, const void *ptr);
 void control_parameter_list_float(FILE *stream, const void *ptr);
 void control_parameter_list_double(FILE *stream, const void *ptr);
 void control_parameter_list_string(FILE *stream, const void *ptr);
 
 
+extern ControlParameterOps control_parameter_bool;
 extern ControlParameterOps control_parameter_int;
 extern ControlParameterOps control_parameter_float;
 extern ControlParameterOps control_parameter_double;

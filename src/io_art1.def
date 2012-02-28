@@ -31,7 +31,7 @@ void FUNCTION( char *particle_header_filename, char *particle_data, float *cell_
 	double rfact;
 	double grid_shift;
 	
-	read_particle_header( particle_header_filename, &header, &endian, &nbody_flag );
+	read_art_particle_header( particle_header_filename, &header, &endian, &nbody_flag );
 
 	num_particles_total = header.num[ header.Nspecies - 1 ];
 	num_parts_per_page = header.Nrow*header.Nrow;
