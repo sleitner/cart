@@ -24,6 +24,7 @@ typedef double(*fimf)(double);
 double f_IMF_Salpeter(double m);
 double f_IMF_MillerScalo(double m);
 double f_IMF_Chabrier(double m);
+double f_IMF_Kroupa(double m);
 
 
 struct InitialMassFunction
@@ -31,7 +32,9 @@ struct InitialMassFunction
   char* name;
   fimf  f;
 }
-const IMF_fun[] = { { "Salpeter", f_IMF_Salpeter }, { "Miller-Scalo", f_IMF_MillerScalo }, { "Chabrier", f_IMF_Chabrier } };
+const IMF_fun[] = { { "Salpeter", f_IMF_Salpeter }, { "Miller-Scalo", f_IMF_MillerScalo }, { "Chabrier", f_IMF_Chabrier }, { "Kroupa", f_IMF_Kroupa } };
+
+const int num_imfs = sizeof(IMF_fun)/sizeof(struct InitialMassFunction);
 
 
 struct
@@ -49,13 +52,11 @@ imf = { 1, 2.35, 0.1, 100.0, 8.0, 3.0, 8.0 };
 
 void control_parameter_set_imf(const char *value, void *ptr, int ind)
 {
-  const int n = sizeof(IMF_fun)/sizeof(struct InitialMassFunction);
-
   int i;
 
   imf.type = -1;
 
-  for(i=0; i<n; i++)
+  for(i=0; i<num_imfs; i++)
     {
       if(strcmp(value,IMF_fun[i].name) == 0)
 	{
@@ -66,7 +67,7 @@ void control_parameter_set_imf(const char *value, void *ptr, int ind)
   if(imf.type < 0)
     {
       cart_debug("String '%s' is not a valid name of IMF. Valid names are:",value);
-      for(i=0; i<n; i++) cart_debug("%s",IMF_fun[i].name);
+      for(i=0; i<num_imfs; i++) cart_debug("%s",IMF_fun[i].name);
       cart_error("ART is terminating.");
     }
 }
@@ -99,7 +100,7 @@ struct
 
 void control_parameter_set_tSNIa(const char *value, void *ptr, int ind)
 {
-  control_parameter_set_double(value,ptr,ind);
+  control_parameter_set_time(value,ptr,ind);
   /*
   //  Backward compatibility
   */
@@ -116,7 +117,7 @@ ml = { 0.05, 5.0e6 };
 
 void control_parameter_set_t0ml(const char *value, void *ptr, int ind)
 {
-  control_parameter_set_double(value,ptr,ind);
+  control_parameter_set_time(value,ptr,ind);
   /*
   //  Backward compatibility
   */
@@ -136,8 +137,8 @@ struct
 void config_init_star_formation_feedback()
 {
   ControlParameterOps control_parameter_imf = { control_parameter_set_imf, control_parameter_list_imf };
-  ControlParameterOps control_parameter_tSNIa = { control_parameter_set_tSNIa, control_parameter_list_double };
-  ControlParameterOps control_parameter_t0ml = { control_parameter_set_t0ml, control_parameter_list_double };
+  ControlParameterOps control_parameter_tSNIa = { control_parameter_set_tSNIa, control_parameter_list_time };
+  ControlParameterOps control_parameter_t0ml = { control_parameter_set_t0ml, control_parameter_list_time };
 
   /*
   //  IMF
@@ -161,8 +162,8 @@ void config_init_star_formation_feedback()
   */
   control_parameter_add3(control_parameter_double,&snII.energy_per_explosion,"snII:energy-per-explosion","snII.energy_per_explosion","e_51","average energy per type II supernova explosion, in 1e51 ergs.");
 
-  control_parameter_add3(control_parameter_double,&snII.time_duration,"snII:time-duration","snII.time_duration","t_fb","time duration (in yrs) over which type II supernova explosions occur.");
-  control_parameter_add2(control_parameter_double,&snII.time_before_start,"snII:time-before-start","snII.time_before_start","time before start (in yrs) between the formation of the stellar particle and type II supernova explosions.");
+  control_parameter_add3(control_parameter_time,&snII.time_duration,"snII:time-duration","snII.time_duration","t_fb","time duration (in yrs) over which type II supernova explosions occur.");
+  control_parameter_add2(control_parameter_time,&snII.time_before_start,"snII:time-before-start","snII.time_before_start","time before start (in yrs) between the formation of the stellar particle and type II supernova explosions.");
 
   control_parameter_add2(control_parameter_double,&snII.yield_factor,"snII:yield-factor","snII.yield_factor","fractional yield relative to the coded in model.");
 
@@ -190,7 +191,7 @@ void config_init_star_formation_feedback()
   control_parameter_add3(control_parameter_double,&feedback_temperature_ceiling,"fb:temperature-ceiling","feedback_temperature_ceiling","T_max_feedback","maximum gas temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
 
 #ifdef BLASTWAVE_FEEDBACK 
-  control_parameter_add2(control_parameter_double,&bw.blast_time,"bw:blast_time","bw.blast_time","time before cells can cool in blastwave feedback subgrid model.");
+  control_parameter_add2(control_parameter_time,&bw.blast_time,"bw:blast-time","bw.blast_time","time before cells can cool in blastwave feedback subgrid model.");
 #endif /* BLASTWAVE_FEEDBACK */
 }
 
@@ -200,7 +201,7 @@ void config_verify_star_formation_feedback()
   /*
   //  IMF
   */
-  cart_assert(imf.type>=0 && imf.type<3);
+  cart_assert(imf.type>=0 && imf.type<num_imfs);
 
   cart_assert(imf.slope > 0.0);
 
@@ -247,7 +248,7 @@ void config_verify_star_formation_feedback()
   cart_assert(feedback_temperature_ceiling > 1.0e6);
 
 #ifdef BLASTWAVE_FEEDBACK 
-  cart_assert(bw.blast_time > 1.0e6);
+  cart_assert(!(bw.blast_time < 0.0));
 #endif /* BLASTWAVE_FEEDBACK */
 
 }
@@ -295,6 +296,15 @@ double f_IMF_Chabrier( double m )
   return exp( -pow( m0_Ch/m, beta_Ch) ) * pow(m,alpha_Ch);
 }
 
+
+double f_IMF_Kroupa( double m )
+{
+  if(m < 0.5)
+    return pow(m/0.07,-1.3);
+  else
+    return pow(0.5/0.07,-1.3)*pow(m/0.5,-imf.slope);
+}
+  
 
 /* Normalized */
 double f_SNIa( double xd )

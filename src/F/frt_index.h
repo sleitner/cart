@@ -33,7 +33,7 @@
 #define FRT_Debug				(21+__FRT_OFFSET)
 #define FRT_DustToGasRatio			(22+__FRT_OFFSET)
 #define FRT_Gamma				(23+__FRT_OFFSET)
-#define FRT_DIM					(31)
+#define FRT_DIM					(28)
 
 #define FRT_RATE_HeatingHeII			(0+__FRT_OFFSET)
 #define FRT_RATE_IonizationHeII			(1+__FRT_OFFSET)
@@ -41,8 +41,9 @@
 #define FRT_RATE_IonizationHeI			(3+__FRT_OFFSET)
 #define FRT_RATE_HeatingHI			(4+__FRT_OFFSET)
 #define FRT_RATE_IonizationHI			(5+__FRT_OFFSET)
-#define FRT_RATE_DissociationLW			(12+__FRT_OFFSET)
-#define FRT_RATE_DIM				(13)
+#define FRT_RATE_IonizationO8			(6+__FRT_OFFSET)
+#define FRT_RATE_DissociationLW			(13+__FRT_OFFSET)
+#define FRT_RATE_DIM				(14)
 
 
 #endif

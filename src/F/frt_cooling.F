@@ -32,6 +32,7 @@ C
       include 'frt_transfer3.inc'
 #endif
 #endif
+      include 'frt_cf3.inc'
       dimension var(*), rawrf(*)
 C
 C  This function solves the equation
@@ -58,6 +59,7 @@ C
 #endif
 C
       dimension itab(2), pRate(iptabDim)
+      dimension chf(2,NT)
 #ifdef RT_TRANSFER
 #ifdef RT_TRANSFER_FLUX_CONSERVING
       dimension rf(irfDim)
@@ -67,22 +69,16 @@ C
 #else
       dimension rf(1)
 #endif
-
+C
 #if defined(RT_TEST) && (RT_TEST==1 || RT_TEST==11)
       EinSave = var(ivarEin)
 #endif
 
 C
-C  Metallicity-dependent cooling: parameters are saved in var(*) array.
-C  var(ivarSDp[1-3]) - parameters for the Sutherland & Dopita 93, ApJS,
-C                  88, 253 cooling function as parametrized by Gnedin 
 C  var(ivarDGas) - dust-to-gas ratio. We assume it is proportional to 
 C                  metallicity in solar units (more precisely, it is 
 C                  10*SMC value is SMC metallicity is 0.1 solar).
 C
-      var(ivarSDp1) = var(ivarZsol)
-      var(ivarSDp2) = 2.7*exp(-(var(ivarZsol)/0.316)**3)
-      var(ivarSDp3) = 0.04*var(ivarZsol)**2
 #ifdef RT_CUSTOM_DUST_TO_GAS
       var(ivarDGas) = max(D2Gmin,frtDustToGas(var))
 #else
@@ -110,12 +106,15 @@ C
 
 #ifndef RT_VARIABLE_RF
       call frtPhotoRates(var,rf,itab,pRate)
+
+      den = uDen*var(ivarRho)
+      call frtSetCF(var(ivarZsol),den,pRate,chf)
 #endif
 C
 C  Query mode
 C
       if(tFin .lt. 0.0) then
-         call frtRates(var,rf,itab,w0,a0,avg0,pRate)
+         call frtRates(var,rf,itab,w0,a0,avg0,pRate,chf)
          var(ivarCool) = a0(ivarEin)*var(ivarEin)
          var(ivarHeat) = w0(ivarEin)
          return
@@ -198,7 +197,7 @@ C
 
  10   nStep = nStep + 1
 
-      call frtRates(var,rf,itab,w0,a0,avg0,pRate)
+      call frtRates(var,rf,itab,w0,a0,avg0,pRate,chf)
       do j=1,nEqs
          y0(j) = var(j)
       enddo
@@ -218,10 +217,10 @@ C
 
       if(nStep .lt. 100) then
          call frtCoolOffStepQS1(nEqs,dt,var,rf,itab,
-     .        w0,a0,rs,d1,avg1,pRate)
+     .        w0,a0,rs,d1,avg1,pRate,chf)
       else
          call frtCoolOffStepQSN(nEqs,dt,var,rf,itab,
-     .        w0,a0,rs,d1,avg1,pRate)
+     .        w0,a0,rs,d1,avg1,pRate,chf)
       endif
 
       ivarmax = 1
@@ -352,12 +351,12 @@ C
 C
 C
 C
-      subroutine frtRates(var,rf,itab,w,a,avg,pRate)
+      subroutine frtRates(var,rf,itab,w,a,avg,pRate,chf)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension var(*), rf(*), itab(*)
       dimension w(*), a(*)
-      dimension avg(*), pRate(*)
+      dimension avg(*), pRate(*), chf(2,*)
 C
       dimension aRate(irateAtomN)
 #ifdef RT_CHEMISTRY
@@ -402,6 +401,7 @@ C
 
 #ifdef RT_VARIABLE_RF
       call frtPhotoRates(var,rf,itab,pRate)
+      call frtSetCF(var(ivarZsol),den,pRate,chf)
 #endif
 C
 #ifdef RT_CHEMISTRY
@@ -569,6 +569,13 @@ C
 
       aEinl2 = facCC*Xfell*tem  !! Compton cooling
       wEinl2 = facCC*Xfell*TemCMB  !! Compton heating
+C
+C  Heavy element (from tables)
+C
+      call frtGetCFln(altem,chf,cfun,hfun)
+
+      aEinll = aEinll + uRate/1.381e-16*var(ivarRho)*cfun
+      wEinll = wEinll + uRate/1.381e-16*var(ivarRho)*hfun*sFact1
 
 #ifdef RT_CHEMISTRY
 C
@@ -800,38 +807,16 @@ C
 #ifdef RT_HIGH_DENSITY
      .     /(1+den/hRate(irateHDcNC))
 #endif
+C ***********************************************
+C
+C  Exotic processes
 C
 C ***********************************************
 C
-C  Heavy element (metals+dust)
+C  1. cooling on dust dust
 C
-C ***********************************************
-C
-C
-C  1. High temperature part (SD93 fit)
-C
-#ifdef RT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING
-      cfzHT = 0.0
-#else
-      if(tem .gt. temZLT) then
-         cfzHT = var(ivarSDp1)*(cRate(irateZHcTA)+var(ivarSDp2)*
-     .        cRate(irateZHcTB))/(1.0+var(ivarSDp3)*cRate(irateZHcTC))*
-     .        Xfell*(XH2ll+XG2ll+XG3ll)
-      else
-         cfzHT = 0.0
-      endif
-#endif
-C
-C  2. Low temperature part (Preston, Dalgarno&McCray)
-C
-      cfzLT = var(ivarSDp1)*XH1ll*(XH1ll*cRate(irateZLcTA)+
-     .     Xfell*cRate(irateZLcTX))
-
-      CF_HEl = cfzLT + cfzHT
-C
-C  3. dust
-C
-      CF_HEl = CF_HEl + cRate(irateMHcDU)*Xdust*Xfell
+      aEinll = aEinll + facCool*var(ivarRho)*cRate(irateMHcDU)*
+     .     Xdust*Xfell
 
 #ifdef RT_PAH_CR
 C
@@ -856,10 +841,6 @@ C
       wEinll = wEinll + uTime*((XH1ll+2*XMHll)*pRatePAHh+
      .     XH1ll*pRateCRh)
 #endif
-C
-C  Final aseembly
-C
-      aEinll = aEinll + facCool*var(ivarRho)*(CF_MHl+CF_HEl)
 
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       avg(iavgDust) = var(ivarDGas)*(XH1ll+2*XMHll)

@@ -34,9 +34,9 @@ struct HALO;
 
 struct IFRIT_NAMESPACE
 {
-  int  (*OutputMesh)(const char *filename, int floor_level, int nbin[], const double pcen[], int nvars, const int *varid);
-  void (*OutputHalo)(const char *filename, int floor_level, int nbin[], const struct HALO *h, int nvars, const int *varid);
-  void (*OutputBox)(const char *fileroot, int floor_level, int nbin[], const double pos[], int nvars, const int *varid);
+  int  (*OutputMesh)(const char *filename, int pixel_level, int nbin[], const double pcen[], int nvars, const int *varid);
+  void (*OutputHalo)(const char *filename, int pixel_level, int nbin[], const struct HALO *h, int nvars, const int *varid);
+  void (*OutputBox)(const char *fileroot, int pixel_level, int nbin[], const double pos[], int nvars, const int *varid);
 };
 
 extern const struct IFRIT_NAMESPACE ifrit;

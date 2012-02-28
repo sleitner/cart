@@ -58,14 +58,11 @@ C
         parameter(ivarInt  = ivarDeb+1)
 *       parameter(ivarDGas = ivarInt+0)  !! already defined
         parameter(ivarRecB = ivarInt+1)
-        parameter(ivarSDp1 = ivarInt+2)
-        parameter(ivarSDp2 = ivarInt+3)
-        parameter(ivarSDp3 = ivarInt+4)
-        parameter(ivarCFH1 = ivarInt+5)
-        parameter(ivarCFG1 = ivarInt+6)
-        parameter(ivarCFG2 = ivarInt+7)
-        parameter(ivarDelN = ivarInt+8)
-        parameter(ivarDim  = ivarInt+8)
+        parameter(ivarCFH1 = ivarInt+2)
+        parameter(ivarCFG1 = ivarInt+3)
+        parameter(ivarCFG2 = ivarInt+4)
+        parameter(ivarDelN = ivarInt+5)
+        parameter(ivarDim  = ivarInt+5)
 C
 C  Globally-averaged quantities
 C

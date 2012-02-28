@@ -79,19 +79,13 @@ C$OMP+SHARED(Txi,IPOP,guv_G,guv_Q)
          ELSE
             guvl_G = 0.0
          ENDIF
-
-         if(fnu .lt. 1.0e+3) then
-            guvl_Q = 0.0123*fnu**3/(exp(min(50.0,real(fnu)/2.59))-1.0)+
-     .           fnu**aeQSO
-         else
-            if(fnu .lt. 1.0e+5) then
-               guvl_Q = 0.5*fnu**aeQSO*(1.0+(fnu/1.0e+3)**0.7)
-            else
-               guvl_Q = 0.5*fnu**aeQSO*(1.0+(fnu/1.0e+3)**0.7)/
-     .              (1.0+(fnu/1.0e+5))*2.0
-            endif
-         endif
-         guvl_Q = 0.2675*guvl_Q
+C
+C  Average QSO spectral shape used by Hopkins et al 2007, ApJ, 654, 731
+C  (i.e. my fit to it).
+C
+         guvl_Q = 9.5e-5/(1+(fnu/300))**0.8*exp(-fnu/5e5) +
+     .        0.1*(10/fnu)**2.2/(1+(9/fnu)**5)**0.4 +
+     .        5.8*exp(-fnu/0.2)
 
          guv_G(lr) = guvl_G/T1eV
          guv_Q(lr) = guvl_Q/T1eV

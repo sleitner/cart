@@ -157,7 +157,7 @@ void load_halo_finder_epochs( char *filename, int *num_epochs, float **epoch ) {
 	*num_epochs = num;
 }
 
-halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float mvir_min, float vmax_min, float rvir_min)
+halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float mvir_min, float vmax_min, float rvir_min, int max_num_halos)
 {
   int i, size;
   FILE *input;
@@ -230,9 +230,9 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
   halos->list = cart_alloc(halo, size );
   halos->map = NULL;  /* not mapped by default */
 
-  while (fscanf( input, "%u %e %e %e %e %e %e %e %e %e %u %e %e %e %u",
+  while (halos->num_halos<max_num_halos && fscanf( input, "%u %e %e %e %e %e %e %e %e %e %u %e %e %e %u",
 		 &id, &px, &py, &pz, &vx, &vy, &vz, &rvir, &rhalo,
-		 &mvir, &np, &vmax, &rmax, &rs, &pid ) == 15 )
+		 &mvir, &np, &vmax, &rmax, &rs, &pid )==15 )
     {
       if(np>=nmem_min && mvir>=mvir_min && vmax>=vmax_min && rvir>=rvir_min)
 	{

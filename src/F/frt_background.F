@@ -59,7 +59,9 @@ C  Load the data on the first call
 C
          inited = .true.
 
-         open(unit=IOUNIT, file='drt_bkg_HM.dat', status='old')
+         ib = index(DataPath,' ') - 1
+         open(unit=IOUNIT, file=DataPath(1:ib)//'/drt_bkg_HM.dat',
+     .      status='old')
          read(IOUNIT,*) np1, nw1, nz1
          if(np1.ne.NHMP .or. nw1.ne.NHMW .or. nz1.ne.NHMZ) then
             write(0,*) 'RT::BackgroundHM: fatal error, ',

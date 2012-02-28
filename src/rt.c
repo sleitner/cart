@@ -635,14 +635,9 @@ float rtDmw2(int cell)
 void rtGetPhotoRates(int cell, float *rate);
 float rtUmw(int cell)
 {
-#if defined(RT_CHEMISTRY) || defined(RT_COMPUTE_LW_RATE)
   float rate[FRT_RATE_DIM];
   rtGetPhotoRates(cell,rate);
   return rate[FRT_RATE_DissociationLW]*1.05e10;
-#else
-  cart_error("rtUmw needs RT_CHEMISTRY or RT_COMPUTE_LW_RATE to be set.");
-  return 0.0;
-#endif
 }
 
 

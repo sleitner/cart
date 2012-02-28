@@ -8,6 +8,7 @@
 
 ControlParameterOps control_parameter_bool = { control_parameter_set_bool, control_parameter_list_bool };
 ControlParameterOps control_parameter_int = { control_parameter_set_int, control_parameter_list_int };
+ControlParameterOps control_parameter_time = { control_parameter_set_time, control_parameter_list_time };
 ControlParameterOps control_parameter_float = { control_parameter_set_float, control_parameter_list_float };
 ControlParameterOps control_parameter_double = { control_parameter_set_double, control_parameter_list_double };
 ControlParameterOps control_parameter_string = { control_parameter_set_string, control_parameter_list_string };
@@ -221,6 +222,57 @@ void control_parameter_set_int(const char *value, void *ptr, int ind)
 }
 
 
+void control_parameter_set_time(const char *value, void *ptr, int ind)
+{
+  char str[100];
+  double val;
+
+  switch(sscanf(value,"%lg%99s",&val,str))
+    {
+    case 2:
+      {
+	str[99] = 0;
+	if(strcasecmp(str,"gyr") == 0)
+	  {
+	    val *= 1.0e9;
+	  }
+	else if(strcasecmp(str,"myr") == 0)
+	  {
+	    val *= 1.0e6;
+	  }
+	else if(strcasecmp(str,"kyr") == 0)
+	  {
+	    val *= 1.0e3;
+	  }
+	else if(strcasecmp(str,"yr") == 0)
+	  {
+	    val *= 1.0;
+	  }
+	else if(strcasecmp(str,"s") == 0)
+	  {
+	    val /= (365.25*86400);
+	  }
+	else
+	  {
+	    cart_error("Invalid unit for TIME parameter: %s",str);
+	  }
+	break;
+      }
+    case 1:
+      {
+	/* yrs are defaut */
+	break;
+      }
+    default:
+      {
+	cart_error("Unable to read TIME parameter from string '%s'",value);
+      }
+    }
+
+  *((double *)ptr) = val;
+}
+
+
 void control_parameter_set_float(const char *value, void *ptr, int ind)
 {
   if(sscanf(value,"%g",(float *)ptr) != 1) cart_error("Unable to read FLOAT parameter from string '%s'",value);
@@ -246,6 +298,12 @@ void control_parameter_list_bool(FILE *stream, const void *ptr) {
 void control_parameter_list_int(FILE *stream, const void *ptr)
 {
   fprintf(stream,"%-d",*(int *)ptr);
+}
+
+
+void control_parameter_list_time(FILE *stream, const void *ptr)
+{
+  fprintf(stream,"%-lg yr",*(double *)ptr);
 }
 
 

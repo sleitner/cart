@@ -7,10 +7,10 @@ C
 C  ODE solvers for derCoolOff routine
 C
       subroutine frtCoolOffStepRK2(nEqs,dt,var,rf,itab,
-     .     w0,a0,rs,d1,out1,pRate)
+     .     w0,a0,rs,d1,out1,pRate,chf)
       dimension var(*), rf(*), itab(*)
       dimension w0(*), a0(*), rs(*)
-      dimension out1(*), pRate(*)
+      dimension out1(*), pRate(*), chf(2,*)
 C
       dimension y0(9), y1(9), w1(9), a1(9)
 C
@@ -24,7 +24,7 @@ C
       do j=1,nEqs
          var(j) = y1(j)
       enddo
-      call frtRates(var,rf,itab,w1,a1,out1,pRate)
+      call frtRates(var,rf,itab,w1,a1,out1,pRate,chf)
 
       do j=1,nEqs
          var(j) = y0(j) + 0.5*dt*(w0(j)-a0(j)*y0(j)+w1(j)-a1(j)*y1(j))
@@ -40,10 +40,10 @@ C
 C
 C
       subroutine frtCoolOffStepWA1(nEqs,dt,var,rf,itab,
-     .     w0,a0,rs,d1,out1,pRate)
+     .     w0,a0,rs,d1,out1,pRate,chf)
       dimension var(*), rf(*), itab(*)
       dimension w0(*), a0(*), rs(*)
-      dimension out1(*), pRate(*)
+      dimension out1(*), pRate(*), chf(2,*)
 C
       dimension y0(9), y1(9), y2(9), w1(9), a1(9)
 C
@@ -73,7 +73,7 @@ C
       do j=1,nEqs
          var(j) = y1(j)
       enddo
-      call frtRates(var,rf,itab,w1,a1,out1,pRate)
+      call frtRates(var,rf,itab,w1,a1,out1,pRate,chf)
 
       do j=1,nEqs
          tau = dt*(a1(j)*y1(j)+alp*a0(j)*y0(j))/(y1(j)+alp*y0(j))
@@ -101,10 +101,10 @@ C
 C
 C
       subroutine frtCoolOffStepWA2(nEqs,dt,var,rf,itab,
-     .     w0,a0,rs,d1,out1,pRate)
+     .     w0,a0,rs,d1,out1,pRate,chf)
       dimension var(*), rf(*), itab(*)
       dimension w0(*), a0(*), rs(*)
-      dimension out1(*), pRate(*)
+      dimension out1(*), pRate(*), chf(2,*)
 C
       dimension y0(9), y1(9), y2(9), w1(9), a1(9)
 C
@@ -134,7 +134,7 @@ C
       do j=1,nEqs
          var(j) = y1(j)
       enddo
-      call frtRates(var,rf,itab,w1,a1,out1,pRate)
+      call frtRates(var,rf,itab,w1,a1,out1,pRate,chf)
 
       do j=1,nEqs
          tau = dt*(alp*a0(j)+(1-alp)*a1(j))
@@ -162,10 +162,10 @@ C
 C
 C
       subroutine frtCoolOffStepQS1(nEqs,dt,var,rf,itab,
-     .     w0,a0,rs,d1,out1,pRate)
+     .     w0,a0,rs,d1,out1,pRate,chf)
       dimension var(*), rf(*), itab(*)
       dimension w0(*), a0(*), rs(*)
-      dimension out1(*), pRate(*)
+      dimension out1(*), pRate(*), chf(2,*)
 C
       dimension y0(9), y1(9), w1(9), a1(9), ys(9)
 C
@@ -186,7 +186,7 @@ C
       do j=1,nEqs
          var(j) = y1(j)
       enddo
-      call frtRates(var,rf,itab,w1,a1,out1,pRate)
+      call frtRates(var,rf,itab,w1,a1,out1,pRate,chf)
 
       do j=1,nEqs
          tau = 0.5*dt*(a0(j)+a1(j))
@@ -209,10 +209,10 @@ C
 C
 C
       subroutine frtCoolOffStepQSN(nEqs,dt,var,rf,itab,
-     .     w0,a0,rs,d1,out1,pRate)
+     .     w0,a0,rs,d1,out1,pRate,chf)
       dimension var(*), rf(*), itab(*)
       dimension w0(*), a0(*), rs(*)
-      dimension out1(*), pRate(*)
+      dimension out1(*), pRate(*), chf(2,*)
 C
       dimension y0(9), y1(9), w1(9), a1(9), ys(9)
 C
@@ -239,7 +239,7 @@ C
       do j=1,nEqs
          var(j) = y1(j)
       enddo
-      call frtRates(var,rf,itab,w1,a1,out1,pRate)
+      call frtRates(var,rf,itab,w1,a1,out1,pRate,chf)
 
       do j=1,nEqs
          tau = 0.5*dt*(a0(j)+a1(j))

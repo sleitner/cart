@@ -52,7 +52,8 @@ C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,fnu,x,cs0,fn0,y0,y1,yw,ya,p,y,w)
 C$OMP+SHARED(Txi,xig,angUni,angLoc,angAvg,tauLoc,csH1,csG1,csG2,csDust,
-C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW,csUV)
+C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW,csUV,
+C$OMP+ csO8,csS16,csFe26)
       do lr = 1,NRAD
 
          xig(lr) = XISTEP*(real(lr)-0.5) + log(TXI0/TH1)
@@ -108,6 +109,54 @@ C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW,csUV)
             x = fnu/fn0 - y0
             y = sqrt(x**2+y1**2)
             csG2(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
+     .           (1.0+sqrt(y/ya))**p/CSSTAR
+         endif
+
+         if(fnu .lt. 871.4) then
+            csO8(lr) = 0.0
+         else
+            cs0 = 8.554e-16
+            fn0 = 27.54
+            y0  = 0.0 
+            y1  = 0.0
+            yw  = 0.0
+            ya  = 3.288e+01
+            p   = 2.963
+            x = fnu/fn0 - y0
+            y = sqrt(x**2+y1**2)
+            csO8(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
+     .           (1.0+sqrt(y/ya))**p/CSSTAR
+         endif
+
+         if(fnu .lt. 3494) then
+            csS16(lr) = 0.0
+         else
+            cs0 = 2.139e-16
+            fn0 = 110.4
+            y0  = 0.0 
+            y1  = 0.0
+            yw  = 0.0
+            ya  = 3.288e+01
+            p   = 2.963
+            x = fnu/fn0 - y0
+            y = sqrt(x**2+y1**2)
+            csS16(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
+     .           (1.0+sqrt(y/ya))**p/CSSTAR
+         endif
+
+         if(fnu .lt. 9278) then
+            csFe26(lr) = 0.0
+         else
+            cs0 = 8.099e-17
+            fn0 = 293.2
+            y0  = 0.0 
+            y1  = 0.0
+            yw  = 0.0
+            ya  = 3.288e+01
+            p   = 2.963
+            x = fnu/fn0 - y0
+            y = sqrt(x**2+y1**2)
+            csFe26(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
      .           (1.0+sqrt(y/ya))**p/CSSTAR
          endif
 
@@ -1082,73 +1131,6 @@ C
          RateChem(irateMHc15,lc) = 0.75*(1.602e-12/CFSTAR)*
      .        RateChem(irateMHi15,lc)
 C
-C  heavy elements (HE) rates
-C
-C  1. SD93 re-interpolation
-C
-         itl = 1 + int((alt10-sd93lt(1))/dsd93)
-         if(itl .lt. 1) then
-            RateChem(irateZHcTA,lc) = 0.0
-            RateChem(irateZHcTB,lc) = 0.0
-            RateChem(irateZHcTC,lc) = 0.0
-         else
-            if(itl .ge. nsd93) itl = nsd93 - 1
-            itu = itl + 1
-            RateChem(irateZHcTA,lc) = (sd93c0(itl) + 
-     .           (sd93c0(itu)-sd93c0(itl))/dsd93*(alt10-sd93lt(itl)))/
-     .           CFSTAR
-            RateChem(irateZHcTB,lc) = (sd93c1(itl) + 
-     .           (sd93c1(itu)-sd93c1(itl))/dsd93*(alt10-sd93lt(itl)))/
-     .           CFSTAR
-            RateChem(irateZHcTC,lc) = log(1.0+tem/1.0e8)
-         endif
-C
-C  2. low T regime: build the CF from the data from Penston, ApJ, 162, 771
-C  and Dalgarno & McCray, ARAA, 10, 375
-C
-C  1. Collisions with electrons
-C
-         rC2e = 1.22e-17/tem**0.5*exp(-61900/tem) + 
-     .        6.67e-20/tem**0.5*exp(-92/tem)         !! D&MC: 7.9
-         rN1e = 1.09e-21*tem**0.5*exp(-27700/tem)    !! D&MC: 0.82
-         rO1e = 1.40e-22*tem**0.5*exp(-22500/tem) +  !! D&MC: 0.94
-     .        1.17e-24*tem**0.333*exp(-326/tem)      !! D&MC: 0.76
-         rMg2e = 6.08e-17/tem**0.5*exp(-51300/tem)
-         rSi2e = 2.36e-17/tem**0.5*exp(-79600/tem) + 
-     .        1.67e-18/tem**0.5*exp(-413/tem)        !! D&MC: 1.9
-         rS2e = 8.44e-18/tem**0.5*exp(-21400/tem)
-         rFe2e = 1.50e-18/tem**0.5*exp(-961/tem) +   !! D&MC: 1.3
-     .        1.05e-18/tem**0.5*exp(-554/tem)        !! D&MC: 1.1
-C
-C  2. Collisions with H atoms
-C
-         rC1a = 3.4e-24*tem**0.333*exp(-62/tem) + 
-     .        0.81e-24*tem**0.333*exp(-23/tem)
-         rO1a = 2.53e-24*tem**0.333*exp(-326/tem) + 
-     .        6.43e-24*tem**0.333*exp(-228/tem)
-         rFe2a = 1.41e-22*exp(-961/tem) +            !! D&MC: 1.54 
-     .        1.38e-22*exp(-554/tem)                 !! D&MC: 1.1
-C
-C  The next two are from Barinovs et al, ApJ, 620, 537
-C
-         rC2a = 1.0e-24*exp(-92/tem)*max(0.0,16+0.344*sqrt(tem)-
-     .        47.7/tem)
-         rSi2a = 1.0e-24*exp(-413/tem)*(43.5+1.78*sqrt(tem)+
-     .        0.005*tem)
-C
-C  The suppresion factor is somewhat arbitrary. I am not sure that
-C  there rates are valid even at T=1.0e4. The supression factor will
-C  make sure that SD93 rates are used above 1.0e4, not these ones.
-C
-         RateChem(irateZLcTA,lc) = (3.55e-5*rSi2a + 3.31e-4*rC2a + 
-     .        6.76e-4*rO1a + 3.16e-5*rFe2a + 3.31e-4*rC1a)/
-     .        (1.0+(tem/2.0e4)**4)/CFSTAR
-         RateChem(irateZLcTx,lc) = (3.55e-5*rSi2e + 3.31e-4*rC2e + 
-     .        3.80e-5*rMg2e + 8.32e-5*rN1e + 6.76e-4*rO1e + 
-     .        2.14e-5*rS2e +  3.16e-5*rFe2e)/
-     .        (1.0+(tem/2.0e4)**4)/CFSTAR
-
-C
 C  High density regime
 C
 #ifdef RT_HIGH_DENSITY
@@ -1352,7 +1334,7 @@ C
 C
       include 'frt_inline.inc'
 C
-      iptabMax = 6
+      iptabMax = 7
 
       sumc1 = 0.0
       sumc2 = 0.0
@@ -1360,6 +1342,7 @@ C
       sumi1 = 0.0
       sumi2 = 0.0
       sumi3 = 0.0
+      sumi4 = 0.0
 
       do lr=1,NRAD
          sumc1 = sumc1 + angAvg(lr)*csH1(lr)*(Txi(lr)-TH1)
@@ -1368,6 +1351,7 @@ C
          sumi1 = sumi1 + angAvg(lr)*csH1(lr)
          sumi2 = sumi2 + angAvg(lr)*csG1(lr)
          sumi3 = sumi3 + angAvg(lr)*csG2(lr)
+         sumi4 = sumi4 + angAvg(lr)*csO8(lr)
       enddo
 
       pRate0(iptabPhH1) = max(0.0,facPhot*sumc1)
@@ -1376,6 +1360,7 @@ C
       pRate0(iptabPiH1) = max(0.0,facPhot*sumi1)
       pRate0(iptabPiG1) = max(0.0,facPhot*sumi2)
       pRate0(iptabPiG2) = max(0.0,facPhot*sumi3)
+      pRate0(iptabPiO8) = max(0.0,facPhot*sumi4)
 
       sumiLW = 0.0
       do lr=1,NRAD
@@ -1385,7 +1370,7 @@ C
 
 #ifdef RT_CHEMISTRY
 
-      iptabMax = 12
+      iptabMax = 13
 
       sumi27 = 0.0
       sumi28 = 0.0
@@ -1431,6 +1416,7 @@ C
       sumi1 = 0.0
       sumi2 = 0.0
       sumi3 = 0.0
+      sumi4 = 0.0
 
       do lr=1,NRAD
          sumc1 = sumc1 + guvEff(lr)*csH1(lr)*(Txi(lr)-TH1)
@@ -1439,6 +1425,7 @@ C
          sumi1 = sumi1 + guvEff(lr)*csH1(lr)
          sumi2 = sumi2 + guvEff(lr)*csG1(lr)
          sumi3 = sumi3 + guvEff(lr)*csG2(lr)
+         sumi4 = sumi4 + guvEff(lr)*csO8(lr)
       enddo
 
       qRate0(iptabPhH1) = max(0.0,facPhot*sumc1*facLX)
@@ -1447,6 +1434,7 @@ C
       qRate0(iptabPiH1) = max(0.0,facPhot*sumi1*facLX)
       qRate0(iptabPiG1) = max(0.0,facPhot*sumi2*facLX)
       qRate0(iptabPiG2) = max(0.0,facPhot*sumi3*facLX)
+      qRate0(iptabPiO8) = max(0.0,facPhot*sumi4*facLX)
 
       sumiLW = 0.0
       do lr=1,NRAD
@@ -1771,13 +1759,11 @@ C
       endif
 #endif /* RT_NO_TABLE */
 
-#if defined(RT_CHEMISTRY) || defined(RT_COMPUTE_LW_RATE)
 #ifdef RT_UV
       pRate(iptabCiLW) = pRate0(iptabCiLW)*exp(-tauUVl)
 #else
       pRate(iptabCiLW) = pRate0(iptabCiLW)
 #endif
-#endif /* RT_CHEMISTRY || RT_COMPUTE_LW_RATE */
 
 #else  /* RT_EXTERNAL_BACKGROUND */
 
@@ -1848,13 +1834,11 @@ C
       endif
 #endif /* RT_NO_TABLE */
 
-#if defined(RT_CHEMISTRY) || defined(RT_COMPUTE_LW_RATE)
 #ifdef RT_UV
       qRate(iptabCiLW) = qRate0(iptabCiLW)*exp(-tauUVl)
 #else
       qRate(iptabCiLW) = qRate0(iptabCiLW)
 #endif
-#endif /* RT_CHEMISTRY || RT_COMPUTE_LW_RATE */
 
 #endif /* RT_TRANSFER */
 
@@ -1918,10 +1902,8 @@ C
       do j=1,jmax
          pRate(j) = pRate(j) + rf(irfNorm)*qRate(j)
       enddo
-#if defined(RT_CHEMISTRY) || defined(RT_COMPUTE_LW_RATE)
       pRate(iptabCiLW) = pRate(iptabCiLW) + rf(irfNorm)*
      .     qRate(iptabCiLW)
-#endif
 #endif /* RT_TRANSFER */
 
 #if (RT_CFI == 2)

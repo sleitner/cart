@@ -84,7 +84,7 @@ c ... Ly12 917.1806 R0(18)
 C
 C
 C
-      subroutine frtLW_ReadData(JLWH2)
+      subroutine frtLW_ReadData(path,JLWH2)
       include 'frt_lwbands.inc'
       integer n_lines_file
       parameter (n_lines_file=399)
@@ -92,12 +92,14 @@ C
       dimension JLWH2(0:NRH2), tempJ(0:n_lines_file)
       integer jl, ii, i, IOUNIT
       parameter(IOUNIT = 99)
+      character*(*) path
 
       XISH2=(lnu_b-lnu_a)/NRH2
       clight=3.e10   ![cm s-1]
       Atocm=1.e-8
       
-      open(unit=IOUNIT, file='drt_lwbands.dat', status='old')
+      open(unit=IOUNIT, file=path//'/drt_lwbands.dat',
+     .    status='old')
       do i=1,n_lines_file
          read(IOUNIT,*) lambd,ttpop3 ![erg s-1 A-1] 
          nu=clight/lambd/Atocm

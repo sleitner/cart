@@ -35,7 +35,7 @@ typedef struct HALO_LIST {
 } halo_list;
 
 void load_halo_finder_epochs( char *filename, int *num_epochs, float **epoch );
-halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float mvir_min, float vmax_min, float rvir_min);
+halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float mvir_min, float vmax_min, float rvir_min, int max_num_halos);
 void load_halo_particle_mapping( char *filename, halo_list *halos );
 void destroy_halo_list( halo_list *halos );
 void compute_halo_properties( char *analysis_directory, int halo_section, halo_list *halos );

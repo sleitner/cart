@@ -351,12 +351,12 @@ void ifritOutputParticles(const char *fileroot, double *bb)
 #endif /* PARTICLES */
 
 
-void ifritOutputBox(const char *fileroot, int floor_level, int nbin[], const double pos[3], int nvars, const int *varid)
+void ifritOutputBox(const char *fileroot, int pixel_level, int nbin[], const double pos[3], int nvars, const int *varid)
 {
   double bb[6], dx;
   char str[999];
 
-  dx = pow(0.5,(double)floor_level);
+  dx = pow(0.5,(double)pixel_level);
 
   bb[0] = pos[0] - 0.5*dx*nbin[0];
   bb[1] = pos[0] + 0.5*dx*nbin[0];
@@ -372,7 +372,7 @@ void ifritOutputBox(const char *fileroot, int floor_level, int nbin[], const dou
 
   strcpy(str,fileroot);
   strcat(str,"-mesh.bin");
-  ifritOutputMesh(str,floor_level,nbin,pos,nvars,varid);
+  ifritOutputMesh(str,pixel_level,nbin,pos,nvars,varid);
 
 #ifdef PARTICLES
   ifritOutputParticles(fileroot,bb);
@@ -380,7 +380,7 @@ void ifritOutputBox(const char *fileroot, int floor_level, int nbin[], const dou
 }
 
 
-void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const halo *h, int nvars, const int *varid)
+void ifritOutputHalo(const char *fileroot, int pixel_level, int nbin[], const halo *h, int nvars, const int *varid)
 {
   if(h == NULL)
     {
@@ -389,7 +389,7 @@ void ifritOutputHalo(const char *fileroot, int floor_level, int nbin[], const ha
     }
   else
     {
-      ifritOutputBox(fileroot,floor_level,nbin,h->pos,nvars,varid);
+      ifritOutputBox(fileroot,pixel_level,nbin,h->pos,nvars,varid);
     }
 }
 

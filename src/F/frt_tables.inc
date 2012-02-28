@@ -102,12 +102,7 @@ C
 	parameter(irateMHc14 = 40)
 	parameter(irateMHc15 = 41)
 	parameter(irateMHcDU = 42)
-	parameter(irateZLcTX = 43)
-	parameter(irateZLcTA = 44)
-	parameter(irateZHcTA = 45)
-	parameter(irateZHcTB = 46)
-	parameter(irateZHcTC = 47)
-	parameter(irateChemN = 47)
+	parameter(irateChemN = 42)
 
 	common/RT_TAB_C/ RateChem(irateChemN,NTEM)
 	common/RT_TAB_D/ temZLT, d_pPAH, d_sPAH, d_sDUST
@@ -134,19 +129,20 @@ C
 	parameter(iptabPiG1 =  4)
 	parameter(iptabPhH1 =  5)
 	parameter(iptabPiH1 =  6)
-	parameter(iptabCi27 =  7)
-	parameter(iptabCi28 =  8)
-	parameter(iptabCi29 =  9)
-	parameter(iptabCi30 = 10)
-	parameter(iptabCi31 = 11)
-	parameter(iptabCi32 = 12)
-	parameter(iptabCiLW = 13)
-	parameter(iptabIon  =  6)
-	parameter(iptabOT   =  7)
+	parameter(iptabPiO8 =  7)
+	parameter(iptabCi27 =  8)
+	parameter(iptabCi28 =  9)
+	parameter(iptabCi29 = 10)
+	parameter(iptabCi30 = 11)
+	parameter(iptabCi31 = 12)
+	parameter(iptabCi32 = 13)
+	parameter(iptabCiLW = 14)
+	parameter(iptabIon  =  7)
+	parameter(iptabOT   =  8)
 	parameter(iptabH1   =  5)
 	parameter(iptabG1   =  3)
 	parameter(iptabG2   =  1)
-	parameter(iptabDim  = 13)
+	parameter(iptabDim  = 14)
 
 	common/RT_TAB_F/ acLO(NOPT), acOPT(NOPT), acTAU(NOPT),
      .	                 acLOmin, acLOmax, acLOstp
@@ -200,3 +196,8 @@ C
      .                   csMHLW(NRAD)
 	common/RT_TAB_R/ lr27tr, lr28tr, lr29tr, 
      .                   lr30tr, lr31tr, lr32tr, lrLWtr
+C
+C  Cross sections: meatl species for CF fits
+C
+	common/RT_TAB_S/ csO8(NRAD), csS16(NRAD), csFe26(NRAD),
+     .			 csO8tr, csS16tr, csFe26tr

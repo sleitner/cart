@@ -17,6 +17,8 @@ C
       IREC = ir
       IOUNIT = io
 C
+      DataPath = './drt'
+C
       call frtInitRun
 C
       return
@@ -62,6 +64,7 @@ C
          write(IOUNIT,*) 'IPOP:     ', IPOP
          write(IOUNIT,*) 'IREC:     ', IREC
          write(IOUNIT,*) 'IOUNIT:   ', IOUNIT
+         write(IOUNIT,*) 'DataPath: ', DataPath
          close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */
@@ -75,13 +78,16 @@ C
       call frtInitTables
       call frtInitSourceSpectrum
 
+      ib = index(DataPath,' ') - 1
+      call frtInitCF(IOUNIT,DataPath(1:ib)//'/drt_cf.LHO13.dat')
+
 #ifdef RT_CHEMISTRY
 #ifdef RT_LWBANDS
 C
 C  Call Massimo's routine
 C
       call frtLW_InitRun()
-      call frtLW_ReadData(guvLW0)
+      call frtLW_ReadData(DataPath(1:ib),guvLW0)
 #endif
 #endif
 C
@@ -355,6 +361,9 @@ C
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
+#ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
+      include 'frt_spectrum.inc'
+#endif
       include 'frt_global.inc'
       dimension par(*)
 C
@@ -500,7 +509,7 @@ C$OMP+SHARED(CRAD1,gBrem,sxi)
       enddo
 C
 C  Hydrogen and Helium recombination photons:
-C  Recombination case A
+C  Recombination case AaLumDen
 C
       sxi(lrH1tr) = sxi(lrH1tr) + CRAD1*gData(iavgRAH2)/XISTEP
       sxi(lrG1tr) = sxi(lrG1tr) + CRAD1*gData(iavgRAG2)/XISTEP
@@ -512,6 +521,45 @@ C
       sxi(lrG1rB) = sxi(lrG1rB) + CRAD1*gData(iavgRBG2)/XISTEP
       sxi(lrG2rB) = sxi(lrG2rB) + CRAD1*gData(iavgRBG3)/XISTEP
 C
+C  Background from external (outside of the box) QSOs
+C
+#ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
+
+      z = 1/aExp - 1
+C
+C  My fit to Hopkins et all 2007 (ApJ, 654, 731) comoving 
+C  bolometric luminosity density from QSOs (in Lsun/Mpc^3)
+C
+      aLumDen = 10.0**7.7/((exp(1.2*(z-4)))**0.33+
+     .     (3*exp(-2.7*z))**0.33)**3
+      aKion = 3.9
+C
+C  Change units:
+C    j = \int_0^\infty E_\nu (dn_\xi/dt) d\xi
+C    j = A \int_0^\infty E_\nu g_\xi d\xi
+C      = A * Kion * m_pc^2
+C  where Kion = 3.9 is the bolometric correction from the ionizing to
+C  the bolometric luminosity. Hence
+C    (dn_\xi/dt) = (j/(Kion*m_pc^2)) g_\xi
+C  or
+C    (dn_\xi/dt)_{code} = uTime/uDen*(j/(Kion*m_pc^2)) g_\xi
+C    q = uTime/uDen*(j/(Kion*m_pc^2)) = (uTime/1e18s)*(1cm^{-3}/uDen)*
+C        1e18s*cm^3*(1Mpc/3.086e24cm)^3*(j)*3.9e33 erg/s/Mpc^3/
+C        (Kion*1.674e-24*9e20 erg)
+C
+C  Transform to code units, being careful with not overfilling 
+C  a single precision number.
+C
+      q = (uTime/1.0e18)*(1.0/uDen)*aLumDen*8.81e-20/aKion
+
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(q,guv_Q,sxi)
+      do lr=1,NRAD
+         sxi(lr) = sxi(lr) + q*guv_Q(lr)
+      enddo
+#endif /* RT_ADD_EXTERNAL_QSO_BACKGROUND */
+
       call frtAdvanceBackground(dt,lshift,xib,axi,sxi,angUni)
 C
 C  Step 2: background due to local sources
