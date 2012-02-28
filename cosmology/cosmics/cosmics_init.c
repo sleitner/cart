@@ -187,7 +187,6 @@ void cosmics_init()
   /*
   //  Particle parameters
   */
-  num_row = header->n[1];
   num_particles_total = header->n[1]*header->n[1]*header->n[1];
   num_particle_species = 1;
   particle_species_num[0] = num_particles_total;
