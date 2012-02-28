@@ -83,6 +83,51 @@ namespace ng
       return d;
     }
   };
+
+  namespace rei
+  {
+    const CellData& cd()
+    {
+      static CellData d;
+
+      if(d.Size() == 0)
+	{
+	  d += cd::baryon_number_density;
+	  d += cd::temperature;
+	  d += cd::baryon_column_density;
+	  d += cd::gas_metallicity;
+	  d += cd::HI_fraction;
+	  d += cd::HII_fraction;
+	  d += cd::H2_fraction;
+	  d += cd::interstellar_radiation_field;
+	  d += cd::dust_to_gas_ratio;
+	  d += cd::total_density;
+	  d += cd::stellar_density;
+	}
+
+      return d;
+    }
+
+    const ifrit::VarSet& vs()
+    {
+      static ifrit::VarSet d;
+
+      if(d.Size() == 0)
+	{
+#ifdef RADIATIVE_TRANSFER
+	  d += I_HI_FRACTION;
+	  d += I_GAS_NUMBER_DENSITY;
+	  d += I_GAS_TEMPERATURE;
+	  d += I_FRACTION+RT_HVAR_OFFSET+0;
+	  d += RT_HVAR_OFFSET+0;
+	  d += I_CELL_LEVEL;
+	  d += I_LOCAL_PROC;
+#endif /* RADIATIVE_TRANSFER */
+	}
+
+      return d;
+    }
+  };
 };
 
 using namespace ng;
@@ -170,6 +215,4 @@ void KSRelation::Exec(const char *path)
   cart_debug("HYDRO and STARFORM are not set. Skipping writing Kennicutt-Schmidt relation...");
 #endif
 }
-
-
 

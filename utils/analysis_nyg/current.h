@@ -30,6 +30,12 @@ namespace ng
     const CellData& cd();
   };
 
+  namespace rei
+  {
+    const CellData& cd();
+    const ifrit::VarSet& vs();
+  };
+
 
   //
   //  Compute gas and other mass fractions for halos.

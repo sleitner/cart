@@ -59,6 +59,8 @@ namespace ng
     extern const CellDataWorker& H2_number_density;
     extern const CellDataWorker& dust_to_gas_ratio;
     extern const CellDataWorker& interstellar_radiation_field;
+    extern const CellDataWorker& cooling_rate;
+    extern const CellDataWorker& heating_rate;
   };
 };
 

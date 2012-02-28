@@ -5,9 +5,9 @@ PATH = /usr/local/mvapich2-1.5-intel-11.0.081/bin:/opt/intel/Compiler/11.0/081/b
 LD_LIBRARY_PATH = /opt/intel/Compiler/11.0/081/lib/intel64
 
 
-CFLAGS  = -O3 -ipo -no-prec-div -xW -openmp -mcmodel=medium -fp-model strict
+CFLAGS  = -O3 -ipo -no-prec-div -xW -openmp -mcmodel=medium
 CC      = mpicc
-FFLAGS  = -O3 -ipo -no-prec-div -xW -openmp -mcmodel=medium -fp-model strict
+FFLAGS  = -O3 -ipo -no-prec-div -xW -openmp -mcmodel=medium
 F77     = mpif77
 CXX     = mpicc
 EXTRALIBS = -L/opt/intel/Compiler/11.0/081/lib/intel64 -lifcore 

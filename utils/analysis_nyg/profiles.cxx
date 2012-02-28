@@ -66,7 +66,7 @@ void AbstractProbe::Exec(const char *path)
 	  init->StellarDensity();
 	}
 
-      if(cd.Worker(i) == cd::interstellar_radiation_field)
+      if(cd.Worker(i)==cd::interstellar_radiation_field || cd.Worker(i)==cd::cooling_rate || cd.Worker(i)==cd::heating_rate)
 	{
 	  init->RadiativeTransfer();
 	}

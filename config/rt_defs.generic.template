@@ -24,13 +24,6 @@
 
 
 /*
-//  By default, if RT_CHEMISTRY is not set then the LW rate is not computed;
-//  if it is actually needed, use this switch.
-*/
-?#define RT_COMPUTE_LW_RATE
-
-
-/*
 //  Also include transfer of UV (non-ionizing) radiation. That requires
 //  RT_CHEMISTRY and adds two extra variables for each cell.
 */
@@ -87,6 +80,14 @@
 //  2. Haardt-Madau 2001 (RT_BACKGROUND_HAARDT_MADAU)
 */
 ?#define RT_EXTERNAL_BACKGROUND 	<value>
+
+
+/*
+//  When RT_EXTERNAL_BACKGROUND is set to RT_BACKGROUND_SELFCONSISTENT,
+//  this switch adds Hopkins et al 2007 QSO LF as an additional source
+//  for the background radiation.
+*/
+?#define RT_ADD_EXTERNAL_QSO_BACKGROUND
 
 
 /*
@@ -159,12 +160,6 @@
 //  is off by default
 */
 ?#define RT_TRANSFER_FLUX_CONSERVING
-
-
-/*
-//  Disable metal cooling above 10,000K
-*/
-?#define RT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING
 
 
 /*

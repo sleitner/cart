@@ -156,89 +156,89 @@ d_flag[idMPE_LOG] = 1;
 #else
 d_flag[idMPE_LOG] = 0;
 #endif
-#define idMPI_COMM_WORLD  26
-#ifdef MPI_COMM_WORLD
-d_flag[idMPI_COMM_WORLD] = 1;
-#else
-d_flag[idMPI_COMM_WORLD] = 0;
-#endif
-#define idMPI_MAX_MESSAGE_SIZE  27
+#define idMPI_MAX_MESSAGE_SIZE  26
 #ifdef MPI_MAX_MESSAGE_SIZE
 d_flag[idMPI_MAX_MESSAGE_SIZE] = 1;
 #else
 d_flag[idMPI_MAX_MESSAGE_SIZE] = 0;
 #endif
-#define idNDEBUG  28
+#define idNDEBUG  27
 #ifdef NDEBUG
 d_flag[idNDEBUG] = 1;
 #else
 d_flag[idNDEBUG] = 0;
 #endif
-#define idOLDSTYLE_COOLING_EXPLICIT_SOLVER  29
+#define idOLDSTYLE_COOLING_EXPLICIT_SOLVER  28
 #ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 d_flag[idOLDSTYLE_COOLING_EXPLICIT_SOLVER] = 1;
 #else
 d_flag[idOLDSTYLE_COOLING_EXPLICIT_SOLVER] = 0;
 #endif
-#define idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID  30
+#define idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID  29
 #ifdef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
 d_flag[idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID] = 1;
 #else
 d_flag[idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID] = 0;
 #endif
-#define idOPENMP_DECLARE_CONST  31
+#define idOPENMP_DECLARE_CONST  30
 #ifdef OPENMP_DECLARE_CONST
 d_flag[idOPENMP_DECLARE_CONST] = 1;
 #else
 d_flag[idOPENMP_DECLARE_CONST] = 0;
 #endif
-#define idPARTICLES  32
+#define idPARTICLES  31
 #ifdef PARTICLES
 d_flag[idPARTICLES] = 1;
 #else
 d_flag[idPARTICLES] = 0;
 #endif
-#define idPREFIX_JOBNAME_TO_OUTPUT_FILES  33
+#define idPREFIX_JOBNAME_TO_OUTPUT_FILES  32
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 d_flag[idPREFIX_JOBNAME_TO_OUTPUT_FILES] = 1;
 #else
 d_flag[idPREFIX_JOBNAME_TO_OUTPUT_FILES] = 0;
 #endif
-#define idRADIATIVE_TRANSFER  34
+#define idRADIATIVE_TRANSFER  33
 #ifdef RADIATIVE_TRANSFER
 d_flag[idRADIATIVE_TRANSFER] = 1;
 #else
 d_flag[idRADIATIVE_TRANSFER] = 0;
 #endif
-#define idREFINEMENT  35
+#define idREFINEMENT  34
 #ifdef REFINEMENT
 d_flag[idREFINEMENT] = 1;
 #else
 d_flag[idREFINEMENT] = 0;
 #endif
-#define idROOT_GRID_FFT_IJK_TYPE  36
+#define idROOT_GRID_FFT_IJK_TYPE  35
 #ifdef ROOT_GRID_FFT_IJK_TYPE
 d_flag[idROOT_GRID_FFT_IJK_TYPE] = 1;
 #else
 d_flag[idROOT_GRID_FFT_IJK_TYPE] = 0;
 #endif
-#define idRT_1ZONE  37
+#define idRT_1ZONE  36
 #ifdef RT_1ZONE
 d_flag[idRT_1ZONE] = 1;
 #else
 d_flag[idRT_1ZONE] = 0;
 #endif
-#define idRT_8SPECIES  38
+#define idRT_8SPECIES  37
 #ifdef RT_8SPECIES
 d_flag[idRT_8SPECIES] = 1;
 #else
 d_flag[idRT_8SPECIES] = 0;
 #endif
-#define idRT_ABSORPTION_CALLBACK_FULL  39
+#define idRT_ABSORPTION_CALLBACK_FULL  38
 #ifdef RT_ABSORPTION_CALLBACK_FULL
 d_flag[idRT_ABSORPTION_CALLBACK_FULL] = 1;
 #else
 d_flag[idRT_ABSORPTION_CALLBACK_FULL] = 0;
+#endif
+#define idRT_ADD_EXTERNAL_QSO_BACKGROUND  39
+#ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
+d_flag[idRT_ADD_EXTERNAL_QSO_BACKGROUND] = 1;
+#else
+d_flag[idRT_ADD_EXTERNAL_QSO_BACKGROUND] = 0;
 #endif
 #define idRT_BACKGROUND_HAARDT_MADAU  40
 #ifdef RT_BACKGROUND_HAARDT_MADAU
@@ -270,235 +270,223 @@ d_flag[idRT_CHEMISTRY_MINIMAL_MODEL] = 1;
 #else
 d_flag[idRT_CHEMISTRY_MINIMAL_MODEL] = 0;
 #endif
-#define idRT_COMPUTE_LW_RATE  45
-#ifdef RT_COMPUTE_LW_RATE
-d_flag[idRT_COMPUTE_LW_RATE] = 1;
-#else
-d_flag[idRT_COMPUTE_LW_RATE] = 0;
-#endif
-#define idRT_CUSTOM_DUST_TO_GAS  46
+#define idRT_CUSTOM_DUST_TO_GAS  45
 #ifdef RT_CUSTOM_DUST_TO_GAS
 d_flag[idRT_CUSTOM_DUST_TO_GAS] = 1;
 #else
 d_flag[idRT_CUSTOM_DUST_TO_GAS] = 0;
 #endif
-#define idRT_DEBUG  47
+#define idRT_DEBUG  46
 #ifdef RT_DEBUG
 d_flag[idRT_DEBUG] = 1;
 #else
 d_flag[idRT_DEBUG] = 0;
 #endif
-#define idRT_DEBUG_BLOCK_MASKING  48
+#define idRT_DEBUG_BLOCK_MASKING  47
 #ifdef RT_DEBUG_BLOCK_MASKING
 d_flag[idRT_DEBUG_BLOCK_MASKING] = 1;
 #else
 d_flag[idRT_DEBUG_BLOCK_MASKING] = 0;
 #endif
-#define idRT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING  49
-#ifdef RT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING
-d_flag[idRT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING] = 1;
-#else
-d_flag[idRT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING] = 0;
-#endif
-#define idRT_DUST_ABSORBS_BACKGROUND  50
+#define idRT_DUST_ABSORBS_BACKGROUND  48
 #ifdef RT_DUST_ABSORBS_BACKGROUND
 d_flag[idRT_DUST_ABSORBS_BACKGROUND] = 1;
 #else
 d_flag[idRT_DUST_ABSORBS_BACKGROUND] = 0;
 #endif
-#define idRT_DUST_CS  51
+#define idRT_DUST_CS  49
 #ifdef RT_DUST_CS
 d_flag[idRT_DUST_CS] = 1;
 #else
 d_flag[idRT_DUST_CS] = 0;
 #endif
-#define idRT_EXACT_EOS  52
+#define idRT_EXACT_EOS  50
 #ifdef RT_EXACT_EOS
 d_flag[idRT_EXACT_EOS] = 1;
 #else
 d_flag[idRT_EXACT_EOS] = 0;
 #endif
-#define idRT_EXTERNAL_BACKGROUND  53
+#define idRT_EXTERNAL_BACKGROUND  51
 #ifdef RT_EXTERNAL_BACKGROUND
 d_flag[idRT_EXTERNAL_BACKGROUND] = 1;
 #else
 d_flag[idRT_EXTERNAL_BACKGROUND] = 0;
 #endif
-#define idRT_FIXED_ISM  54
+#define idRT_FIXED_ISM  52
 #ifdef RT_FIXED_ISM
 d_flag[idRT_FIXED_ISM] = 1;
 #else
 d_flag[idRT_FIXED_ISM] = 0;
 #endif
-#define idRT_H2_RATE  55
+#define idRT_H2_RATE  53
 #ifdef RT_H2_RATE
 d_flag[idRT_H2_RATE] = 1;
 #else
 d_flag[idRT_H2_RATE] = 0;
 #endif
-#define idRT_HIGH_DENSITY  56
+#define idRT_HIGH_DENSITY  54
 #ifdef RT_HIGH_DENSITY
 d_flag[idRT_HIGH_DENSITY] = 1;
 #else
 d_flag[idRT_HIGH_DENSITY] = 0;
 #endif
-#define idRT_INTERPOLLOG  57
+#define idRT_INTERPOLLOG  55
 #ifdef RT_INTERPOLLOG
 d_flag[idRT_INTERPOLLOG] = 1;
 #else
 d_flag[idRT_INTERPOLLOG] = 0;
 #endif
-#define idRT_LWBANDS  58
+#define idRT_LWBANDS  56
 #ifdef RT_LWBANDS
 d_flag[idRT_LWBANDS] = 1;
 #else
 d_flag[idRT_LWBANDS] = 0;
 #endif
-#define idRT_LYMAN_ALPHA_HEATING  59
+#define idRT_LYMAN_ALPHA_HEATING  57
 #ifdef RT_LYMAN_ALPHA_HEATING
 d_flag[idRT_LYMAN_ALPHA_HEATING] = 1;
 #else
 d_flag[idRT_LYMAN_ALPHA_HEATING] = 0;
 #endif
-#define idRT_METHOD_OTVET  60
+#define idRT_METHOD_OTVET  58
 #ifdef RT_METHOD_OTVET
 d_flag[idRT_METHOD_OTVET] = 1;
 #else
 d_flag[idRT_METHOD_OTVET] = 0;
 #endif
-#define idRT_NARROW_TABLE  61
+#define idRT_NARROW_TABLE  59
 #ifdef RT_NARROW_TABLE
 d_flag[idRT_NARROW_TABLE] = 1;
 #else
 d_flag[idRT_NARROW_TABLE] = 0;
 #endif
-#define idRT_NO_TABLE  62
+#define idRT_NO_TABLE  60
 #ifdef RT_NO_TABLE
 d_flag[idRT_NO_TABLE] = 1;
 #else
 d_flag[idRT_NO_TABLE] = 0;
 #endif
-#define idRT_OLDSTYLE_H2_SHIELDING  63
+#define idRT_OLDSTYLE_H2_SHIELDING  61
 #ifdef RT_OLDSTYLE_H2_SHIELDING
 d_flag[idRT_OLDSTYLE_H2_SHIELDING] = 1;
 #else
 d_flag[idRT_OLDSTYLE_H2_SHIELDING] = 0;
 #endif
-#define idRT_OLDSTYLE_SOURCE_FUNCTION  64
+#define idRT_OLDSTYLE_SOURCE_FUNCTION  62
 #ifdef RT_OLDSTYLE_SOURCE_FUNCTION
 d_flag[idRT_OLDSTYLE_SOURCE_FUNCTION] = 1;
 #else
 d_flag[idRT_OLDSTYLE_SOURCE_FUNCTION] = 0;
 #endif
-#define idRT_OTVET_CACHE_ET  65
+#define idRT_OTVET_CACHE_ET  63
 #ifdef RT_OTVET_CACHE_ET
 d_flag[idRT_OTVET_CACHE_ET] = 1;
 #else
 d_flag[idRT_OTVET_CACHE_ET] = 0;
 #endif
-#define idRT_OTVET_CACHE_RF  66
+#define idRT_OTVET_CACHE_RF  64
 #ifdef RT_OTVET_CACHE_RF
 d_flag[idRT_OTVET_CACHE_RF] = 1;
 #else
 d_flag[idRT_OTVET_CACHE_RF] = 0;
 #endif
-#define idRT_OUTPUT  67
+#define idRT_OTVET_SAVE_FLUX  65
+#ifdef RT_OTVET_SAVE_FLUX
+d_flag[idRT_OTVET_SAVE_FLUX] = 1;
+#else
+d_flag[idRT_OTVET_SAVE_FLUX] = 0;
+#endif
+#define idRT_OUTPUT  66
 #ifdef RT_OUTPUT
 d_flag[idRT_OUTPUT] = 1;
 #else
 d_flag[idRT_OUTPUT] = 0;
 #endif
-#define idRT_PAH_CR  68
+#define idRT_PAH_CR  67
 #ifdef RT_PAH_CR
 d_flag[idRT_PAH_CR] = 1;
 #else
 d_flag[idRT_PAH_CR] = 0;
 #endif
-#define idRT_PARALLEL_USE_MPI  69
+#define idRT_PARALLEL_USE_MPI  68
 #ifdef RT_PARALLEL_USE_MPI
 d_flag[idRT_PARALLEL_USE_MPI] = 1;
 #else
 d_flag[idRT_PARALLEL_USE_MPI] = 0;
 #endif
-#define idRT_SINGLE_SOURCE  70
+#define idRT_SINGLE_SOURCE  69
 #ifdef RT_SINGLE_SOURCE
 d_flag[idRT_SINGLE_SOURCE] = 1;
 #else
 d_flag[idRT_SINGLE_SOURCE] = 0;
 #endif
-#define idRT_TRANSFER  71
+#define idRT_TRANSFER  70
 #ifdef RT_TRANSFER
 d_flag[idRT_TRANSFER] = 1;
 #else
 d_flag[idRT_TRANSFER] = 0;
 #endif
-#define idRT_TRANSFER_FLUX_CONSERVING  72
+#define idRT_TRANSFER_FLUX_CONSERVING  71
 #ifdef RT_TRANSFER_FLUX_CONSERVING
 d_flag[idRT_TRANSFER_FLUX_CONSERVING] = 1;
 #else
 d_flag[idRT_TRANSFER_FLUX_CONSERVING] = 0;
 #endif
-#define idRT_TRANSFER_METHOD  73
+#define idRT_TRANSFER_METHOD  72
 #ifdef RT_TRANSFER_METHOD
 d_flag[idRT_TRANSFER_METHOD] = 1;
 #else
 d_flag[idRT_TRANSFER_METHOD] = 0;
 #endif
-#define idRT_UV  74
+#define idRT_UV  73
 #ifdef RT_UV
 d_flag[idRT_UV] = 1;
 #else
 d_flag[idRT_UV] = 0;
 #endif
-#define idRT_VARIABLE_RF  75
+#define idRT_VARIABLE_RF  74
 #ifdef RT_VARIABLE_RF
 d_flag[idRT_VARIABLE_RF] = 1;
 #else
 d_flag[idRT_VARIABLE_RF] = 0;
 #endif
-#define idRT_XLF_BUG_FIX1  76
+#define idRT_XLF_BUG_FIX1  75
 #ifdef RT_XLF_BUG_FIX1
 d_flag[idRT_XLF_BUG_FIX1] = 1;
 #else
 d_flag[idRT_XLF_BUG_FIX1] = 0;
 #endif
-#define idRT_XRAYS  77
+#define idRT_XRAYS  76
 #ifdef RT_XRAYS
 d_flag[idRT_XRAYS] = 1;
 #else
 d_flag[idRT_XRAYS] = 0;
 #endif
-#define idSAVE_LOAD_BALANCE_PARTITION  78
+#define idSAVE_LOAD_BALANCE_PARTITION  77
 #ifdef SAVE_LOAD_BALANCE_PARTITION
 d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 1;
 #else
 d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 0;
 #endif
-#define idSTARFORM  79
+#define idSTARFORM  78
 #ifdef STARFORM
 d_flag[idSTARFORM] = 1;
 #else
 d_flag[idSTARFORM] = 0;
 #endif
-#define idSTAR_PARTICLE_TYPES  80
+#define idSTAR_PARTICLE_TYPES  79
 #ifdef STAR_PARTICLE_TYPES
 d_flag[idSTAR_PARTICLE_TYPES] = 1;
 #else
 d_flag[idSTAR_PARTICLE_TYPES] = 0;
 #endif
-#define idSTATIC_MESH_DATA  81
-#ifdef STATIC_MESH_DATA
-d_flag[idSTATIC_MESH_DATA] = 1;
-#else
-d_flag[idSTATIC_MESH_DATA] = 0;
-#endif
-#define idUNIQUE_RAND  82
+#define idUNIQUE_RAND  80
 #ifdef UNIQUE_RAND
 d_flag[idUNIQUE_RAND] = 1;
 #else
 d_flag[idUNIQUE_RAND] = 0;
 #endif
-#define idUSER_PLUGIN  83
+#define idUSER_PLUGIN  81
 #ifdef USER_PLUGIN
 d_flag[idUSER_PLUGIN] = 1;
 #else
@@ -531,7 +519,6 @@ PRINT(HYDRO_TRACERS_NGP) \
 PRINT(LOG_STAR_CREATION) \
 PRINT(MOMENTUM_DIFFUSION) \
 PRINT(MPE_LOG) \
-PRINT(MPI_COMM_WORLD) \
 PRINT(MPI_MAX_MESSAGE_SIZE) \
 PRINT(NDEBUG) \
 PRINT(OLDSTYLE_COOLING_EXPLICIT_SOLVER) \
@@ -545,16 +532,15 @@ PRINT(ROOT_GRID_FFT_IJK_TYPE) \
 PRINT(RT_1ZONE) \
 PRINT(RT_8SPECIES) \
 PRINT(RT_ABSORPTION_CALLBACK_FULL) \
+PRINT(RT_ADD_EXTERNAL_QSO_BACKGROUND) \
 PRINT(RT_BACKGROUND_HAARDT_MADAU) \
 PRINT(RT_BACKGROUND_SELFCONSISTENT) \
 PRINT(RT_CFI) \
 PRINT(RT_CHEMISTRY) \
 PRINT(RT_CHEMISTRY_MINIMAL_MODEL) \
-PRINT(RT_COMPUTE_LW_RATE) \
 PRINT(RT_CUSTOM_DUST_TO_GAS) \
 PRINT(RT_DEBUG) \
 PRINT(RT_DEBUG_BLOCK_MASKING) \
-PRINT(RT_DISABLE_HIGH_TEMPERATURE_METAL_COOLING) \
 PRINT(RT_DUST_ABSORBS_BACKGROUND) \
 PRINT(RT_DUST_CS) \
 PRINT(RT_EXACT_EOS) \
@@ -572,6 +558,7 @@ PRINT(RT_OLDSTYLE_H2_SHIELDING) \
 PRINT(RT_OLDSTYLE_SOURCE_FUNCTION) \
 PRINT(RT_OTVET_CACHE_ET) \
 PRINT(RT_OTVET_CACHE_RF) \
+PRINT(RT_OTVET_SAVE_FLUX) \
 PRINT(RT_OUTPUT) \
 PRINT(RT_PAH_CR) \
 PRINT(RT_PARALLEL_USE_MPI) \
@@ -586,7 +573,6 @@ PRINT(RT_XRAYS) \
 PRINT(SAVE_LOAD_BALANCE_PARTITION) \
 PRINT(STARFORM) \
 PRINT(STAR_PARTICLE_TYPES) \
-PRINT(STATIC_MESH_DATA) \
 PRINT(UNIQUE_RAND) \
 PRINT(USER_PLUGIN) \
 ;

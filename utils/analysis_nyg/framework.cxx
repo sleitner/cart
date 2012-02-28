@@ -109,7 +109,7 @@ void MeshTraversal::Traverse(int minLevel, int maxLevel)
 
   MESH_RUN_OVER_LEVELS_BEGIN(level,minLevel,maxLevel);
 
-  this->OnLevelStart(level);
+  this->OnLevelBegin(level);
 
 #pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct), if(par)
   MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
@@ -137,16 +137,22 @@ int Catalog::NumHalos()
   if(HaloList != 0) return HaloList->num_halos; else return 0;
 }
 
-const struct HALO* Catalog::Halo(int i)
+const halo* Catalog::Halo(int i)
 {
   if(HaloList!=0 && i>=0 && i<HaloList->num_halos) return HaloList->list+i; else return 0;
+}
+
+
+const halo* Catalog::GetHaloById(int id)
+{
+  return find_halo_by_id(HaloList,id);
 }
 
 
 //
 //  Load hlist file for other commands to use
 //
-void Catalog::LoadHalos(const char *path, int Nmin, float Mvir, float Vmax, float Rvir)
+void Catalog::LoadHalos(const char *path, int Nmin, float Mvir, float Vmax, float Rvir, int MaxNumHalos)
 {
 #ifdef COSMOLOGY
   char str[999];
@@ -162,7 +168,7 @@ void Catalog::LoadHalos(const char *path, int Nmin, float Mvir, float Vmax, floa
   else
     {
       sprintf(str,"%s/hlist_%6.4f.dat",path,auni[min_level]);
-      HaloList = load_halo_finder_catalog(str,Nmin,Mvir,Vmax,Rvir);
+      HaloList = load_halo_finder_catalog(str,Nmin,Mvir,Vmax,Rvir,MaxNumHalos);
       if(HaloList == 0)
 	{
 	  cart_error("Failed to read in the halo list from file %s",str);

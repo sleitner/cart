@@ -27,7 +27,7 @@ namespace ng
     public:
 
       void SetNumBins(int nbins);
-      void SetTopLevel(int level);
+      void SetPixelLevel(int level);
       void SetVars(const VarSet& set);
 
     protected:
@@ -38,7 +38,7 @@ namespace ng
       {
 	VarSet& Set;
 	int NumBins[3];
-	int TopLevel;
+	int PixelLevel;
 	Pars(VarSet& set) : Set(set){}
       }
       p;

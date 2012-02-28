@@ -266,6 +266,20 @@ namespace ng
       return rtUmw(cell);
     }
 
+    DECL( cooling_rate, "cooling rate per baryon in ergs/s", 2 )
+    {
+      float cfun, hfun;
+      rtGetCoolingRate(cell,&cfun,&hfun);
+      return cfun;
+    }
+
+    DECL( heating_rate, "heating rate per baryon in ergs/s", 2 )
+    {
+      float cfun, hfun;
+      rtGetCoolingRate(cell,&cfun,&hfun);
+      return hfun;
+    }
+
 #else
 
     const CellDataWorker& HI_fraction(null);
@@ -282,6 +296,8 @@ namespace ng
     const CellDataWorker& H2_number_density(null);
     const CellDataWorker& dust_to_gas_ratio(null);
     const CellDataWorker& interstellar_radiation_field(null);
+    const CellDataWorker& cooling_rate(null);
+    const CellDataWorker& heating_rate(null);
 
 #endif // HYDRO && RADIATIVE_TRANSFER
 

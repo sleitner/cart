@@ -53,7 +53,7 @@ namespace ng
 
   protected:
 
-    virtual void OnLevelStart(int level){}
+    virtual void OnLevelBegin(int level){}
     virtual void OnLevelEnd(int level){}
     virtual void OnAnyCell(int cell){}
     virtual void OnLeafCell(int cell){}
@@ -80,16 +80,17 @@ namespace ng
   public:
 
     static int NumHalos();
-    static const struct HALO* Halo(int i);
+    static const halo* Halo(int i);
+    static const halo* GetHaloById(int id);
 
     //
     //  Load hlist file for other command to use.
     //
-    static void LoadHalos(const char *path, int Nmin = 50, float Mvir = 0.0, float Vmax = 0.0, float Rvir = 0.0);
+    static void LoadHalos(const char *path, int Nmin = 50, float Mvir = 0.0, float Vmax = 0.0, float Rvir = 0.0, int MaxNumHalos = 1000000000);
 
   private:
 
-    static struct HALO_LIST *HaloList;
+    static halo_list *HaloList;
   };
 
 

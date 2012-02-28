@@ -693,7 +693,11 @@ void gicAssignCellData(int cell, float w, float delta, float vx, float vy, float
   cell_HeI_density(cell) = cell_gas_density(cell)*constants->XHe;
   cell_HeII_density(cell) = cell_gas_density(cell)*0.0;
   cell_HeIII_density(cell) = cell_gas_density(cell)*0.0;
+#ifdef RT_CHEMISTRY
   cell_H2_density(cell) = cell_gas_density(cell)*constants->XH*2.0e-6;
+#else
+  cell_H2_density(cell) = cell_gas_density(cell)*constants->XH*1.0e-10;
+#endif
 #endif
 
   if(!cell_is_leaf(cell))
@@ -1227,7 +1231,7 @@ void gic_init()
   */
   for(i=0; i<num_root_cells; i++)
     {
-      cell_gas_density(i) = 1;
+      cell_gas_density(i) = 1e-10;
       cell_momentum(i,0) = 0;
       cell_momentum(i,1) = 0;
       cell_momentum(i,2) = 0;

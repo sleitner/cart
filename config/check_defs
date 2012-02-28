@@ -49,7 +49,7 @@ endif
 #
 #  Names to ignore
 #
-set n2i = '_OPENMP|__STDC__|max|min|nDim|num_octs|num_particles|num_refinement_levels|num_root_grid_refinements|num_star_particles|num_tracers|SFC|SLAB_DIM|rt_num_vars|rt_num_frequencies|rt_num_extra_vars|TEST|CONFIGURED|PARTICLE_FLOAT|PARTICLE_TIMES_FLOAT|PARTICLE_HEADER_MAGIC|RT_OTVET_SOFT_SOLVER|RT_VAR_' 
+set n2i = '_OPENMP|__STDC__|max|min|nDim|num_octs|num_particles|num_refinement_levels|num_root_grid_refinements|num_star_particles|num_tracers|SFC|SLAB_DIM|rt_num_vars|rt_num_frequencies|rt_num_extra_vars|TEST|CONFIGURED|PARTICLE_FLOAT|PARTICLE_TIMES_FLOAT|PARTICLE_HEADER_MAGIC|RT_OTVET_SOFT_SOLVER|RT_VAR_|MPI_COMM_' 
 
 if ( $option_extra == 1 ) then
     set files = `ls -1 ../src/*.h ../src/*.c ../src/*.def ../src/run/*.h ../src/run/*.c  ../cosmology/*/*.c ../src/F/*.F ../src/extra/*.h ../src/extra/*.c | egrep -v 'config.h|cosmology.c|system.c'`
