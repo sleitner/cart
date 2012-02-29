@@ -18,7 +18,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "F/frt_c.h"
+#include "../frt/frt_c.h"
 
 #include "los.h"
 #include "halo_finder.h"

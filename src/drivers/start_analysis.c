@@ -6,23 +6,21 @@
 
 
 #include "auxiliary.h"
-#include "cell_buffer.h"
 #include "cosmology.h"
-#include "density.h"
-#include "hydro.h"
-#include "io.h"
-#include "iterators.h"
-#include "load_balance.h"
-#include "parallel.h"
-#include "particle.h"
-#include "plugin.h"
-#include "rt.h"
 #include "times.h"
-#include "tree.h"
 #include "units.h"
 
-#include "run/step.h"
-#include "run/hydro_step.h"
+#include "../core/cell_buffer.h"
+#include "../core/density.h"
+#include "../core/hydro.h"
+#include "../core/io.h"
+#include "../core/iterators.h"
+#include "../core/load_balance.h"
+#include "../core/parallel.h"
+#include "../core/particle.h"
+#include "../core/plugin.h"
+#include "../core/rt.h"
+#include "../core/tree.h"
 
 #include "start_analysis.h"
 
@@ -155,38 +153,15 @@ struct snapshot_t snapshot_internal_ = { 0, 0 };
 const struct snapshot_t *snapshot = &snapshot_internal_;
 
 
-const int is_running = 0;
-
-
-/*
-//  Dummies for IO to work properly. Should be removed for the
-//  new IO library.
-*/
-DEFINE_LEVEL_ARRAY(double,dtl);
-DEFINE_LEVEL_ARRAY(double,dtl_old);
-
-DEFINE_LEVEL_ARRAY(int,time_refinement_factor);
-DEFINE_LEVEL_ARRAY(int,time_refinement_factor_old);
-
-DEFINE_LEVEL_ARRAY(unsigned int,num_steps_on_level);
-
-DEFINE_LEVEL_ARRAY(double,tl_old);
-#ifdef COSMOLOGY
-DEFINE_LEVEL_ARRAY(double,abox_old);
-#endif /* COSMOLOGY */
-
-int current_step_level = -1;
-
-#ifdef HYDRO
-DEFINE_LEVEL_ARRAY(int,level_sweep_dir);
-#endif
-
 #ifdef USER_PLUGIN
 const plugin_t* add_plugin(int id)
 {
   return NULL;
 }
 #endif
+
+
+extern int current_step_level;
 
 
 /*

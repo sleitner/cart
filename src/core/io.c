@@ -12,10 +12,13 @@
 #include "cosmology.h"
 #include "hydro_tracer.h"
 #include "io.h"
+#include "io_art.h"
+#include "io_cartio.h"
 #include "iterators.h"
 #include "load_balance.h"
 #include "parallel.h"
 #include "particle.h"
+#include "rand.h"
 #include "refinement.h"
 #include "rt_io.h"
 #include "sfc.h"
@@ -26,21 +29,19 @@
 #include "units.h"
 
 
-#include "run/hydro_step.h"
-#include "run/step.h"
-
-#ifdef LOG_STAR_CREATION
-#include "run/logging.h"
-#endif
+extern int step;
 
 
-char output_directory[CONTROL_PARAMETER_STRING_LENGTH];
-char output_directory[CONTROL_PARAMETER_STRING_LENGTH];
-char logfile_directory[CONTROL_PARAMETER_STRING_LENGTH];
-char jobname[CONTROL_PARAMETER_STRING_LENGTH];
-char jobname[CONTROL_PARAMETER_STRING_LENGTH];
-char requeue_command[CONTROL_PARAMETER_STRING_LENGTH];
-char requeue_command[CONTROL_PARAMETER_STRING_LENGTH];
+char output_directory_d[CONTROL_PARAMETER_STRING_LENGTH];
+const char* output_directory = output_directory_d;
+
+char logfile_directory_d[CONTROL_PARAMETER_STRING_LENGTH];
+
+char jobname_d[CONTROL_PARAMETER_STRING_LENGTH];
+const char* jobname = jobname_d;
+
+char requeue_command_d[CONTROL_PARAMETER_STRING_LENGTH];
+const char* requeue_command = requeue_command_d;
 
 int current_output;
 int last_restart_step;
@@ -167,21 +168,23 @@ void config_init_io()
 {
   ControlParameterOps control_parameter_outputs = { control_parameter_set_outputs, control_parameter_list_outputs };
 
+  logfile_directory = logfile_directory_d;
+  
   outputs_size = 100;
   outputs = cart_alloc(float,outputs_size);
 
-  strcpy(jobname,"ART");
-  strcpy(output_directory,".");
-  strcpy(logfile_directory,".");
-  strcpy(requeue_command,"");
+  strcpy(jobname_d,"ART");
+  strcpy(output_directory_d,".");
+  strcpy(logfile_directory_d,".");
+  strcpy(requeue_command_d,"");
 
-  control_parameter_add2(control_parameter_string,jobname,"job-name","jobname","a name for this job. This name can be stored in output files for further reference.");
+  control_parameter_add2(control_parameter_string,jobname_d,"job-name","jobname","a name for this job. This name can be stored in output files for further reference.");
 
-  control_parameter_add2(control_parameter_string,output_directory,"directory:outputs","output_directory","directory for output files.");
+  control_parameter_add2(control_parameter_string,output_directory_d,"directory:outputs","output_directory","directory for output files.");
 
-  control_parameter_add2(control_parameter_string,logfile_directory,"directory:logs","logfile_directory","directory for logs and other auxiliary files.");
+  control_parameter_add2(control_parameter_string,logfile_directory_d,"directory:logs","logfile_directory","directory for logs and other auxiliary files.");
 
-  control_parameter_add2(control_parameter_string,requeue_command,"requeue-command","requeue_command","a command for re-queueing the batch job after the completion of the current one.");
+  control_parameter_add2(control_parameter_string,requeue_command_d,"requeue-command","requeue_command","a command for re-queueing the batch job after the completion of the current one.");
 
 #ifdef COSMOLOGY
   control_parameter_add2(control_parameter_outputs,outputs,"snapshot-epochs","outputs","values for the cosmic scale factor at which to produce the full snalshots from the simulation. Values can be listed either one by one, separated by white space, or in a form '(a1,a2,da)' which expand into a loop from a=a1 to a=a2, with the step da. For example, '(0.1,0.5,0.1)' is equivalent to '0.1 0.2 0.3 0.4 0.5'. An arbitrary number of entries is allowed, so the loop entry does not have to be just one, several of them can be combined together; for example, '(0.1,0.3,0.1) (0.4,1.0,0.2)' will expand to '0.1 0.2 0.3 0.4 0.6 0.8 1.0'. Entries are sorted and repeated entries are automatically deleted, so the user does not need to care about the order of entries or the existence of duplicates.");
@@ -244,73 +247,6 @@ void config_verify_io()
   config_verify_io_cartio();
 }
 
-void write_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
-#ifdef LOG_STAR_CREATION
-	char filename_sclog[256];
-#endif
-
-	start_time( IO_TIMER );
-
-	if ( old_art_io_flag ) {
-		write_art_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
-	} else {
-		write_cartio_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
-	}
-
-#ifdef STARFORM
-#ifdef LOG_STAR_CREATION
-	log_star_creation(-1,-1.0,FILE_CLOSE); //close temp_star files 
-	if ( local_proc_id == MASTER_NODE && grid_filename_flag != NO_WRITE ) { 
-	  switch(grid_filename_flag) //same switch as hydro which is required anyway for LOG_STAR_CREATION
-	    {
-	    case WRITE_SAVE:
-	      {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
-#ifdef COSMOLOGY
-		sprintf( filename_sclog, "%s/%s_a%06.4f.dsc", output_directory, jobname, auni[min_level] );
-#else
-		sprintf( filename_sclog, "%s/%s_a%06d.dsc", output_directory, jobname, step );
-		cart_error("LOG_STAR_CREATION isn't setup to run without cosmology yet");
-#endif /* COSMOLOGY */
-#else
-#ifdef COSMOLOGY
-		sprintf( filename_sclog, "%s/star_creation_a%06.4f.dat", output_directory, auni[min_level] );
-#else
-		sprintf( filename_sclog, "%s/star_creation_a%06d.dat", output_directory, step );
-		cart_error("LOG_STAR_CREATION define isn't setup to run without cosmology yet");
-#endif /* COSMOLOGY */
-#endif
-		combine_star_creation_log(); 
-		finalize_star_creation_log( filename_sclog );
-		break;
-	      }
-	    case WRITE_BACKUP:
-	      {
-		//sprintf( filename_sclog, "%s/%s_2.dsc", output_directory, jobname );
-		combine_star_creation_log(); 
-		break;
-	      }
-	    case WRITE_GENERIC:
-	      {
-		//sprintf( filename_sclog, "%s/%s.dsc", output_directory, jobname );
-		combine_star_creation_log(); 
-		break;
-	      }
-	    }
-	}
-	MPI_Barrier( mpi.comm.run ) ; //prevents files from reopening before append occurs
-	log_star_creation(-1,-1.0,FILE_OPEN); //close temp_star files 
-#endif /* LOG_STAR_CREATION */
-#endif /* STARFORM */
-
-	if ( grid_filename_flag != NO_WRITE ) {
-		save_auxiliary();
-		last_restart_step = step;
-	}
-
-	end_time ( IO_TIMER );
-}
-
 void read_restart( const char *label ) {
 	start_time( IO_TIMER );
 
@@ -324,7 +260,7 @@ void read_restart( const char *label ) {
 		read_cartio_restart(label);
 	}
 
-	units_reset();
+	units_init();
 	units_update(min_level);
 
 #ifdef COSMOLOGY
@@ -339,38 +275,3 @@ void read_restart( const char *label ) {
 	end_time( IO_TIMER );
 }
 
-void save_check() {
-	int grid_save_flag;
-	int particle_save_flag;
-	int tracer_save_flag;
-
-	grid_save_flag = particle_save_flag = tracer_save_flag = NO_WRITE;
-
-	if ( restart_frequency != 0 && step % restart_frequency == 0 ) {
-		if ( step % (2*restart_frequency) == 0 ) {
-			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
-		} else {
-			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
-		}
-#ifdef COSMOLOGY
-	} else if ( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) {
-		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_SAVE;
-		current_output++;
-#endif /* COSMOLOGY */
-	} 
-
-	
-	if ( grid_output_frequency != 0 && step % grid_output_frequency == 0 ) {
-		grid_save_flag = WRITE_SAVE;		
-    }
- 
-	if ( particle_output_frequency != 0 && step % particle_output_frequency == 0 ) {
-		particle_save_flag = WRITE_SAVE;
-	} 
-
-	if ( tracer_output_frequency != 0 && step % tracer_output_frequency == 0 ) {
-		tracer_save_flag = WRITE_SAVE;
-	}
-
-	write_restart( grid_save_flag, particle_save_flag, tracer_save_flag );
-}

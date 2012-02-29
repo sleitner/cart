@@ -12,7 +12,7 @@
 
 
 void FUNCTION( char *particle_header_filename, char *particle_data, float *cell_work, int *constrained_quantities ) {
-	int i, j;
+	int j;
 	int index;
 	int coords[nDim];
 	int page;

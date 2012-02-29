@@ -7,7 +7,7 @@
 
 
 #include <mpi.h>
-#include "fft/ffti.h"
+#include "../fft/ffti.h"
 
 
 typedef struct RootGridFFTData

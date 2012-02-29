@@ -8,5 +8,5 @@ CC      = mpicc
 FFLAGS  = -Ktrap=fp -g -mcmodel=medium
 F77     = mpif77
 CXX     = mpicxx
-EXTRALIBS = -pgf77libs 
+EXTRALIBS = -pgf77libs -L$(GSL_DIR)/lib
 

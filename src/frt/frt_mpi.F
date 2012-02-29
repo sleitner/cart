@@ -1,4 +1,4 @@
-#include "../config.h"      
+#include "frt_config.h"      
 #ifdef RADIATIVE_TRANSFER
 C
 C  Sum/max local buffers and send the result to the global buffer

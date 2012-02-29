@@ -25,7 +25,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "F/frt_c.h"
+#include "../frt/frt_c.h"
 
 
 /*
@@ -357,7 +357,7 @@ void rtInitStep(double dt)
   /*
   //  Units for tauIR factor, assuming kIR = 5 cm^2/g, as in Hopkins et al 1101.4940
   */
-  rt_rp_factor.cd2tauIR = (5*constants->cm*constants->cm/constants->g)*units->density*units->length;
+  rt_rp_factor.cd2tauIR = 5*units->density*units->length;
 
   rt_rp_factor.cd2sigma100 = units->density*units->length/(100*constants->Msun/constants->pc/constants->pc);
 

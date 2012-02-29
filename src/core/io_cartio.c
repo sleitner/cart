@@ -27,10 +27,19 @@
 #include "tree.h"
 #include "units.h"
 
-#include "run/hydro_step.h"
-#include "run/step.h"
+#include "../cartio/cartio.h"
 
-#include "parallelIO/cartio.h"
+extern char *jobname_d;
+extern int step;
+
+DECLARE_LEVEL_ARRAY(double,dtl);
+DECLARE_LEVEL_ARRAY(double,tl_old);
+DECLARE_LEVEL_ARRAY(double,dtl_old);
+DECLARE_LEVEL_ARRAY(int,level_sweep_dir);
+DECLARE_LEVEL_ARRAY(int,time_refinement_factor);
+DECLARE_LEVEL_ARRAY(int,time_refinement_factor_old);
+
+extern double auni_init;
 
 int num_cartio_grid_files = 0;
 int cartio_grid_allocation_strategy = CARTIO_ALLOC_EQUAL_SFC;
@@ -161,10 +170,6 @@ void define_particle_variables( int *num_species, char *species_labels[MAX_PARTI
 
 	int i, j;
 	int num_nbody_species;
-	int primary_label_count = 0;
-	int secondary_label_count = 0;
-	int total_primary_labels;
-	int total_secondary_labels;
 	const char dim[] = { 'X', 'Y', 'Z' };
 
 	*num_species = num_particle_species;
@@ -329,11 +334,10 @@ void write_cartio_restart( int grid_filename_flag, int particle_filename_flag, i
 void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 	int i, j;
 	int sfc;
-	int ioct, icell;
+	int icell;
 	int iroot, ipart;
-	int level, proc;
+	int level;
 	long total;
-	long totaltotal;
 	int num_level_cells, *level_cells;
 	cartio_file handle;
 	int num_file_vars;
@@ -369,7 +373,7 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 	/* write header variables */
 	num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
 
-	cartio_parameter_set_string( handle, "jobname", jobname );
+	cartio_parameter_set_string( handle, "jobname", jobname_d );
 	cart_debug("jobname: %s", jobname );
 
 	cartio_parameter_set_int( handle, "sfc", SFC );
@@ -626,13 +630,10 @@ void write_cartio_grid( cartio_file handle, int num_file_vars, int *var_indices 
 	int i, j;
 	int64_t sfc;
 	int icell, ioct;
-    int refined[num_children];
-    int num_level_octs, num_next_level_octs;
-    int *num_levels_per_root_tree, *num_octs_per_root_tree;
-    int *level_octs, *next_level_octs;
-    int num_levels;
-    int num_octs_per_level[max_level - min_level];
-    int sfc_order;
+	int refined[num_children];
+	int num_level_octs, num_next_level_octs;
+	int *level_octs, *next_level_octs;
+	int num_octs_per_level[max_level - min_level];
 	int level;
 	float variables[num_vars * num_children];                                                          
 	
@@ -845,7 +846,7 @@ void read_cartio_restart( char *label ) {
 	}
 
 	/* load all simulation parameters here */
-	cartio_parameter_get_string( handle, "jobname", jobname );
+	cartio_parameter_get_string( handle, "jobname", jobname_d );
 	cart_debug("jobname: %s", jobname );
 
     cartio_parameter_get_int( handle, "sfc", &sfc_order );
@@ -870,14 +871,14 @@ void read_cartio_restart( char *label ) {
 	}
 #endif
     
-    /* unit parameters */
-    cartio_parameter_get_double( handle, "box_size", &box_size );
+	/* unit parameters */
+	cartio_parameter_get_double( handle, "box_size", &box_size );
 #ifdef COSMOLOGY 
-    cartio_parameter_get_double( handle, "auni_init", &auni_init );
-    cartio_parameter_get_double( handle, "OmegaM", &OmM0 );
-    cartio_parameter_get_double( handle, "OmegaL", &OmL0 );
-    cartio_parameter_get_double( handle, "OmegaB", &OmB0 );
-    cartio_parameter_get_double( handle, "hubble", &h100 );
+	cartio_parameter_get_double( handle, "auni_init", &auni_init );
+	cartio_parameter_get_double( handle, "OmegaM", &OmM0 );
+	cartio_parameter_get_double( handle, "OmegaL", &OmL0 );
+	cartio_parameter_get_double( handle, "OmegaB", &OmB0 );
+	cartio_parameter_get_double( handle, "hubble", &h100 );
 	cartio_parameter_get_double( handle, "DeltaDC", &DelDC );
 
 	cosmology_set(OmegaM,OmM0);
@@ -887,19 +888,19 @@ void read_cartio_restart( char *label ) {
 	cosmology_set(DeltaDC,DelDC);
 		
 #else 
-    cartio_parameter_get_double( handle, "mass_unit", &mass_unit );
-    cartio_parameter_get_double( handle, "time_unit", &time_unit );
-    cartio_parameter_get_double( handle, "length_unit", &length_unit );
+	cartio_parameter_get_double( handle, "mass_unit", &mass_unit );
+	cartio_parameter_get_double( handle, "time_unit", &time_unit );
+	cartio_parameter_get_double( handle, "length_unit", &length_unit );
 
 	units_set( mass_unit, time_unit, length_unit );
 #endif /* COSMOLOGY */
 
 	/* timestepping variables */
-    cartio_parameter_get_int( handle, "step", &step );
-    cartio_parameter_get_double_array( handle, "tl", num_levels, tl );
-    cartio_parameter_get_double_array( handle, "tl_old", num_levels, tl_old );
-    cartio_parameter_get_double_array( handle, "dtl", num_levels, dtl );
-    cartio_parameter_get_double_array( handle, "dtl_old", num_levels, dtl_old );
+	cartio_parameter_get_int( handle, "step", &step );
+	cartio_parameter_get_double_array( handle, "tl", num_levels, tl );
+	cartio_parameter_get_double_array( handle, "tl_old", num_levels, tl_old );
+	cartio_parameter_get_double_array( handle, "dtl", num_levels, dtl );
+	cartio_parameter_get_double_array( handle, "dtl_old", num_levels, dtl_old );
 
 	cartio_parameter_get_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
 	cartio_parameter_get_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );                                              
@@ -986,14 +987,12 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 	int icell, ioct;
 	int *oct_order, *next_level_order;
 	int next_level_octs;
-	int sfc_order;
 
 	int num_sim_variables, num_file_variables;
 	int file_var_indices[num_vars];
 	int sim_var_indices[num_vars];
 	char *sim_var_labels[num_vars];
 
-	int num_file_root_cells;
 	float * root_variables;
 	int num_tree_levels;
 	int *num_octs_per_level;
@@ -1001,12 +1000,6 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 	float * oct_variables;
 	int oct_refined[8];
 	char ** file_variables;
-
-#ifdef COSMOLOGY
-	double OmM0, OmB0, OmL0, h100, DelDC;
-#else
-	double mass_unit, time_unit, length_unit;
-#endif
 
 	/* load list of variables the code expects */
 	define_file_variables(&num_sim_variables, sim_var_labels, sim_var_indices);
@@ -1122,8 +1115,7 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 #ifdef PARTICLES
 void read_cartio_particles( cartio_file handle, int num_species ) {
 	int i, j;
-	int ret;
-	int sfc, icell;
+	int sfc;
 	int64_t pid;
 	int id, ipart;
 	int species;
@@ -1142,7 +1134,6 @@ void read_cartio_particles( cartio_file handle, int num_species ) {
 			sfc < proc_sfc_index[local_proc_id + 1]; sfc++) {
 
 		cartio_particle_read_root_cell_begin(handle, sfc, num_particles_per_species );
-		icell = root_cell_location(sfc);
 
 		for ( species = 0; species < num_species; species++ ) {
 			cartio_particle_read_species_begin(handle, species);

@@ -9,6 +9,7 @@
 #include "control_parameter.h"
 #include "hydro.h"
 #include "starformation_recipes.h"
+#include "rand.h"
 #include "rt.h"
 #include "tree.h"
 #include "units.h"

@@ -18,7 +18,7 @@
 #include "timing.h"
 #include "tree.h"
 
-#include "fft/fft3.h"
+#include "../fft/fft3.h"
 
 
 #define CHECK

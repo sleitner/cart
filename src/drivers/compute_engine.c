@@ -13,13 +13,15 @@
 #include "../core/cell_buffer.h"
 #include "../core/cooling.h"
 #include "../core/hydro_tracer.h"
+#include "../core/io.h"
 #include "../core/parallel.h"
 #include "../core/particle.h"
+#include "../core/rand.h"
 #include "../core/rt.h"
 #include "../core/starformation.h"
 #include "../core/timing.h"
 
-#include "../io/io.h"
+#include "compute_engine.h"
 
 
 /*
@@ -62,7 +64,7 @@ int drive() {
 
 
 int drive_run () {
-	int i, mode;
+	int i;
 	int restart = 0;
 	char c, *restart_label;
 	double aexp;

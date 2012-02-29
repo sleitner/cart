@@ -34,6 +34,8 @@
 #include "output_slice.h"
 const int string_size=256;
 
+extern double auni_init;
+
 const int axis_direction[nDim][nDim-1] = {
 #if nDim == 2
     {1},{0}

@@ -7,6 +7,7 @@
 
 #include "auxiliary.h"
 #include "index_hash.h"
+#include "rand.h"
 #include "tree.h"
 
 const index_hash_entry null_entry = { -1, -1 };

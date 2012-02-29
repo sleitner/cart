@@ -9,6 +9,7 @@
 #include "hydro.h"
 #include "parallel.h"
 #include "particle.h"
+#include "rand.h"
 #include "rt.h"
 #include "starformation.h"
 #include "times.h"

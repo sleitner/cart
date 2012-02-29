@@ -26,8 +26,17 @@
 #include "tree.h"
 #include "units.h"
 
-#include "run/hydro_step.h"
-#include "run/step.h"
+DECLARE_LEVEL_ARRAY(double,tl_old);
+DECLARE_LEVEL_ARRAY(double,dtl);
+DECLARE_LEVEL_ARRAY(double,dtl_old);
+DECLARE_LEVEL_ARRAY(int,level_sweep_dir);
+#ifdef COSMOLOGY
+DECLARE_LEVEL_ARRAY(double,abox_old);
+#endif /* COSMOLOGY */
+extern double auni_init;
+extern int step;
+
+extern char *jobname_d;
 
 #ifndef PARTICLE_HEADER_MAGIC
 #define PARTICLE_HEADER_MAGIC           (0.1234f)
@@ -422,19 +431,13 @@ void set_art_particle_file_mode(int mode)
 void restart_load_balance_art( char *grid_filename, char *particle_header_filename, char *particle_data ) {
 	int i, j;
 	int index;
-	int coords[nDim];
-	int page;
-	int num_read;
 	float *cell_work;	
 	int *constrained_quantities;
 
 	FILE *input;
-	int endian, nbody_flag;
-	int grid_change_flag;
+	int endian;
 	int size, value;
 	int *cellrefined;
-	double rfact;
-	double grid_shift;
 	char filename[256];
 	
 	if ( num_procs == 1 ) {
@@ -2315,10 +2318,10 @@ void read_art_particle_header( char *header_filename, particle_header *header, i
 
 	if ( !control_parameter_is_set("jobname") ) {
 		cart_debug("setting jobname to header value");
-		strcpy( jobname, desc );
+		strcpy( jobname_d, desc );
 
 		/* trim spaces from jobname */
-		p = jobname + strlen(jobname);
+		p = jobname_d + strlen(jobname_d);
 		while (*--p == ' ') *p = '\0';
 	}
 
@@ -3944,7 +3947,7 @@ void read_art_grid_binary( char *filename ) {
 		fread(job, sizeof(char), 256, input );
 		if ( !control_parameter_is_set("jobname") ) {
 		  cart_debug("setting jobname to header value");
-		  strcpy( jobname, job );
+		  strcpy( jobname_d, job );
 		}
 		fread(&size, sizeof(int), 1, input );
 

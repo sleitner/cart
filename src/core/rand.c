@@ -11,6 +11,7 @@
 #include <gsl/gsl_roots.h>
 
 #include "auxiliary.h"
+#include "io.h"
 
 
 unsigned long int rng_seed = 0L;

@@ -20,9 +20,7 @@ extern float *outputs;
 void config_init_io();
 void config_verify_io();
 
-void write_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag );
 void read_restart( const char *label );
-void save_check();
 
 #define NO_WRITE		0
 #define WRITE_GENERIC   1

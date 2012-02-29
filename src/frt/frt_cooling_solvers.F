@@ -1,4 +1,4 @@
-#include "../config.h"
+#include "frt_config.h"
 #ifdef RADIATIVE_TRANSFER
 
 #undef WA2_METHOD2

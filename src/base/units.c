@@ -10,13 +10,13 @@
 
 
 struct Constants constants_internal;
-const struct Constants *constants = &constants_internal;
-
-struct Units units_internal;
-const struct Units *units = &units_internal;
+const struct Constants *constants = NULL;
 
 struct PrimaryUnits unit_factors = { 0, 0.0, 0.0, 0.0 };
-const struct PrimaryUnits *primary_units = &unit_factors;
+const struct PrimaryUnits *primary_units = NULL;
+
+struct Units units_internal;
+const struct Units *units = NULL;
 
 
 double box_size = 0.0;
@@ -58,6 +58,10 @@ void cosmology_set_fixed();
 
 void units_init()
 {
+  constants = &constants_internal;
+  primary_units = &unit_factors;
+  units = &units_internal;
+
   /*
   // Base units
   */

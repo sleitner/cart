@@ -19,7 +19,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "fft/fft3.h"
+#include "../fft/fft3.h"
 
 
 int num_smooth_iterations = 60;   // used to be called MAX_SOR_ITER
