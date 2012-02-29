@@ -162,5 +162,4 @@ extern type *const name
 #define OPENMP_DECLARE_CONST
 #endif
 
-
 #endif

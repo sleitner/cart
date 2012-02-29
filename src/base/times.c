@@ -51,6 +51,7 @@ double max_da = 3e-3;
 int step = 0;
 int steps_before_increasing = 4;
 
+int current_step_level;
 
 /*
 // NG: it is not clear how make all these 4 parameters consistent.

@@ -26,8 +26,6 @@ struct ART_MPI_TYPE mpi = { { MPI_COMM_WORLD, MPI_COMM_WORLD, MPI_COMM_NULL }, M
 #include "tree.h"
 
 
-int num_procs;
-int local_proc_id;
 int tasks_per_node;
 int proc_sfc_index[MAX_PROCS+1];
 

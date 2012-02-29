@@ -120,7 +120,7 @@ void hydro_magic_one_cell( int icell ) {
 	}
 
 	kinetic_energy = cell_gas_kinetic_energy(icell);
-	thermal_energy = units->Emin * cell_gas_density(icell);
+	thermal_energy = gas_temperature_floor/(units->temperature*constants->wmu*(constants->gamma-1)) * cell_gas_density(icell);
 
 	cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
 	cell_gas_energy(icell) = max( cell_gas_energy(icell), thermal_energy+kinetic_energy );

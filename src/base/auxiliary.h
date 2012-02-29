@@ -2,12 +2,11 @@
 #define __AUXILIARY_H__
 
 #include <stdlib.h>
-#include <stdarg.h>
 
-void init_auxiliary();
-void save_auxiliary();
 
-extern unsigned long int rng_seed;
+extern int num_procs;
+extern int local_proc_id;
+
 
 double integrate( double (*f)(double), double a, double b, double epsrel, double epsabs );
 double root_finder( double (*f)(double), double a, double b, double epsrel, double epsabs );
@@ -15,8 +14,6 @@ int compare_ints( const void *a, const void *b );
 int compare_floats( const void *a, const void *b );
 int nearest_int( double x );
 
-double cart_rand();
-double cart_rand_lognormal(double sigma);
 
 void cart_error( const char *fmt, ... );
 
@@ -35,6 +32,7 @@ void cart_debug( const char *fmt, ... );
 #else
 #define cart_assert( x ) assert(x)
 #endif
+
 
 typedef struct {
         int num_eqn;
@@ -58,6 +56,7 @@ void qs1_step( qss_system *sys, double t, double dt, double yf[], void *params )
 void qsn_step( qss_system *sys, double t, double dt, double yf[], void *params );
 void qss_solve( qss_system *sys, double t_begin, double delta_t, double y[], const double err[], void *params );
 
+
 extern int num_options;
 extern const char **options;
 
@@ -65,12 +64,14 @@ int is_option_present(const char* full_name, const char* short_name, int with_ar
 const char* extract_option0(const char* full_name, const char* short_name);
 const char* extract_option1(const char* full_name, const char* short_name, const char *default_value);
 
+
 /*
 // Helper functions
 */
 void linear_array_maxmin(int n, float *arr, float *max, float *min);
 void linear_array_copy_int(int *dest, int *src, int size);
 void linear_array_copy_float(float *dest, float *src, int size);
+
 
 /*
 //  Useful macros
@@ -82,6 +83,7 @@ void linear_array_copy_float(float *dest, float *src, int size);
 #define max(x,y)        (((x) > (y)) ? (x): (y))
 #endif
 #define sign(x,y)       ( (y>=0) ? fabs(x) : -fabs(x) )
+
 
 /*
 //  Macros for memory leak locating

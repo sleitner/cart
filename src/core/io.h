@@ -5,10 +5,10 @@
 #error "Missing config.h include."
 #endif
 
-extern char output_directory[];
-extern char logfile_directory[];
-extern char jobname[];
-extern char requeue_command[];
+extern const char* output_directory;
+extern const char* logfile_directory;
+extern const char* jobname;
+extern const char* requeue_command;
 extern int current_output;
 extern int last_restart_step;
 

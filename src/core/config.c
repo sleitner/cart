@@ -207,7 +207,7 @@ void config_print_to_file(const char *filename, int append)
   fprintf(f,"   GLOBAL SETTINGS\n");
   fprintf(f,title_sep);
 
-#include "../config/list_defines.h"
+#include "../../config/list_defines.h"
 
   fprintf(f,"Primary settings:\n");
   PRINT(HYDRO);
@@ -330,24 +330,9 @@ void config_append_units_to_file(const char *filename)
 #endif /* COSMOLOGY */
 
   fprintf(f,"Primary units:\n");
-  fprintf(f,"   Mass:      %lg g\n",primary_units->mass/constants->g);
-  fprintf(f,"   Time:      %lg s\n",primary_units->time/constants->s);
-  fprintf(f,"   Length:    %lg cm\n",primary_units->length/constants->cm);
-
-#ifdef CHECK_LEGACY_UNITS
-  fprintf(f,"\n");
-  fprintf(f,"Legacy units:\n");
-  fprintf(f,"   H0 = %le\n",legacy_units->H0);
-  fprintf(f,"   r0 = %le\n",legacy_units->r0);
-  fprintf(f,"   t0 = %le\n",legacy_units->t0);
-  fprintf(f,"   v0 = %le\n",legacy_units->v0);
-  fprintf(f,"   rho0 = %le\n",legacy_units->rho0);
-  fprintf(f,"   den0 = %le\n",legacy_units->den0);
-  fprintf(f,"   P0 = %le\n",legacy_units->P0);
-  fprintf(f,"   T0 = %le\n",legacy_units->T0);
-  fprintf(f,"   E0 = %le\n",legacy_units->E0);
-  fprintf(f,"   M0 = %le\n",legacy_units->M0);
-#endif /* CHECK_LEGACY_UNITS */
+  fprintf(f,"   Mass:      %lg g\n",primary_units->mass);
+  fprintf(f,"   Time:      %lg s\n",primary_units->time);
+  fprintf(f,"   Length:    %lg cm\n",primary_units->length);
 
   if(filename != NULL)
     {
@@ -360,12 +345,9 @@ void config_allocate_data(float memory_fraction_mesh);
 
 void config_init()
 {
-  /* This MUST be the first call */
-  config_init_units();
-
   config_init_io();
   config_init_load_balance();
-  config_init_timestep();
+  config_init_times();
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
   config_init_density();
@@ -400,12 +382,9 @@ void config_init()
 
 void config_verify()
 {
-  /* This MUST be the first call */
-  config_verify_units();
-
   config_verify_io();
   config_verify_load_balance();
-  config_verify_timestep();
+  config_verify_times();
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
   config_verify_density();

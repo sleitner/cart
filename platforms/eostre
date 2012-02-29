@@ -1,0 +1,12 @@
+# COMPILE OPTIONS
+
+# eostre (GNU compilers)
+PATH = /bin:/usr/bin:/usr/local/bin
+
+CFLAGS  = -O2 
+CC      = mpicc
+FFLAGS  = -O2 
+F77     = mpif77
+CXX     = mpicxx
+EXTRALIBS = -lg2c -lmpi_f77
+

@@ -35,8 +35,11 @@
 
 
 char output_directory[CONTROL_PARAMETER_STRING_LENGTH];
+char output_directory[CONTROL_PARAMETER_STRING_LENGTH];
 char logfile_directory[CONTROL_PARAMETER_STRING_LENGTH];
 char jobname[CONTROL_PARAMETER_STRING_LENGTH];
+char jobname[CONTROL_PARAMETER_STRING_LENGTH];
+char requeue_command[CONTROL_PARAMETER_STRING_LENGTH];
 char requeue_command[CONTROL_PARAMETER_STRING_LENGTH];
 
 int current_output;

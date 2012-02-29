@@ -9,9 +9,6 @@
 
 struct Constants
 {
-  double cm;
-  double g;
-  double s;
   double K;
   double cms;
   double erg;
@@ -69,31 +66,11 @@ struct Units
   double temperature;
   double energy_density;
   double number_density;
-  double Emin;
 #ifdef COSMOLOGY
   double length_in_chimps;
 #endif /* COSMOLOGY */
 };
 extern const struct Units *units;
-
-
-#ifdef CHECK_LEGACY_UNITS
-struct LegacyUnits {
-  double H0;
-  double r0;
-  double t0;
-  double v0;
-  double rho0;
-  double den0;
-  double P0;
-  double T0;
-  double E0;
-  double M0;
-  double S0;
-  double AL_SD;
-};
-extern const struct LegacyUnits *legacy_units;
-#endif /* CHECK_LEGACY_UNITS */
 
 
 extern double box_size;
@@ -103,10 +80,8 @@ extern double box_size;
 void units_set(double mass, double time, double length);
 #endif /* COSMOLOGY */
 
-void config_init_units();
-void config_verify_units();
 
-void units_reset();
+void units_init();
 void units_update(int level);
 
 #endif

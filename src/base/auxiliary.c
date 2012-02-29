@@ -1,10 +1,11 @@
 #include "config.h"
 
 #include <malloc.h>
-#include <math.h>
+#include <mpi.h>
+//#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <string.h>
 
 #ifdef _OPENMP
@@ -14,58 +15,20 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_math.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_rng.h>
+//#include <gsl/gsl_randist.h>
 #include <gsl/gsl_roots.h>
 
 #include "auxiliary.h"
-#include "parallel.h"
-#include "io.h"
-#include "timing.h"
 
-
-unsigned long int rng_seed = 0L;
-gsl_rng *cart_random_generator;
 
 extern int current_step_level;
+
+extern const char*logfile_directory;
 
 
 int num_options = 0;
 const char **options = NULL;
 
-
-void init_auxiliary() {
-	FILE *state;
-	char filename[256];
-
-	cart_random_generator = gsl_rng_alloc (gsl_rng_mt19937);
-
-	/* attempt to reload state information (just use natural seeding otherwise) */
-	sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
-	state = fopen( filename, "r" );
-	if ( state != NULL ) {
-		gsl_rng_fread( state, cart_random_generator );
-		fclose(state);
-	} else {
-		gsl_rng_set( cart_random_generator, rng_seed );
-	}
-}
-
-void save_auxiliary() {
-	FILE *state;
-	char filename[256];
-
-#ifdef STARFORM
-	sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
-	state = fopen( filename, "w" );
-	if ( state == NULL ) {
-		cart_error("Unable to open %s for saving rng state", filename );
-	}
-
-	gsl_rng_fwrite ( state, cart_random_generator );
-	fclose(state);
-#endif
-}
 
 double gsl_function_wrapper( double x, void *params ) {
         double (*f)(double) = (double (*)(double))params;
@@ -163,48 +126,6 @@ int nearest_int( double x ) {
 	}
 }
 
-double cart_rand() {
-	double ret;
-
-#ifdef UNIQUE_RAND
-	int proc;
-
-	/* ensure unique random number sequence generated on each proc */
-	for ( proc = 0; proc < num_procs; proc++ ) {
-		if ( proc == local_proc_id ) {
-			ret = gsl_rng_uniform( cart_random_generator );
-		} else {
-			gsl_rng_uniform( cart_random_generator );
-		}
-	}
-#else
-	ret = gsl_rng_uniform( cart_random_generator );
-#endif /* UNIQUE_RAND */
-
-	return ret;
-}
-
-double cart_rand_lognormal(double sigma) {
-	double ret;
-	double zeta = -0.5*sigma*sigma;
-
-#ifdef UNIQUE_RAND
-	int proc;
-
-	/* ensure unique random number sequence generated on each proc */
-	for ( proc = 0; proc < num_procs; proc++ ) {
-		if ( proc == local_proc_id ) {
-		  ret = gsl_ran_lognormal( cart_random_generator, zeta, sigma );
-		} else {
-			gsl_ran_lognormal( cart_random_generator, zeta, sigma );
-		}
-	}
-#else
-	ret = gsl_ran_lognormal( cart_random_generator, zeta, sigma );
-#endif /* UNIQUE_RAND */
-
-	return ret;
-}
 	
 void cart_error( const char *fmt, ... ) {
 	char message[256];
@@ -219,14 +140,17 @@ void cart_error( const char *fmt, ... ) {
 	fflush(stderr);
 	va_end( args );
 
-	sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
-	f = fopen(filename,"a");
-	if (f != NULL) {
-		fprintf(f,"ERROR: %s\n",message);
-		fclose(f);
-	}
+	if(logfile_directory != NULL)
+	  {
+	    sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+	    f = fopen(filename,"a");
+	    if (f != NULL) {
+	      fprintf(f,"ERROR: %s\n",message);
+	      fclose(f);
+	    }
+	  }
 
-	MPI_Abort( mpi.comm.world, 1 );
+	MPI_Abort( MPI_COMM_WORLD, 1 );
 }
 
 #ifndef NDEBUG
@@ -256,7 +180,7 @@ void cart_debug( const char *fmt, ... ) {
 	fprintf( stdout, "%u: %s%s\n", local_proc_id, prompt, message );
 	va_end(args);
 
-	if ( f == NULL ) {
+	if ( f==NULL && logfile_directory!=NULL ) {
 		sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
 		f = fopen(filename,"w");
 	}

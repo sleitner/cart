@@ -92,7 +92,7 @@ C
       dimension JLWH2(0:NRH2), tempJ(0:n_lines_file)
       integer jl, ii, i, IOUNIT
       parameter(IOUNIT = 99)
-      character*(*) path
+      character*256 path
 
       XISH2=(lnu_b-lnu_a)/NRH2
       clight=3.e10   ![cm s-1]

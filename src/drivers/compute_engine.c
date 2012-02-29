@@ -7,19 +7,19 @@
 #include <omp.h>
 #endif
 
-#include "agn.h"
-#include "auxiliary.h"
-#include "cell_buffer.h"
-#include "cooling.h"
-#include "hydro_tracer.h"
-#include "io.h"
-#include "parallel.h"
-#include "particle.h"
-#include "rt.h"
-#include "starformation.h"
-#include "timing.h"
+#include "../base/auxiliary.h"
 
-#include "run/step.h"
+#include "../core/agn.h"
+#include "../core/cell_buffer.h"
+#include "../core/cooling.h"
+#include "../core/hydro_tracer.h"
+#include "../core/parallel.h"
+#include "../core/particle.h"
+#include "../core/rt.h"
+#include "../core/starformation.h"
+#include "../core/timing.h"
+
+#include "../io/io.h"
 
 
 /*
@@ -30,36 +30,22 @@ void config_read_file(const char *filename);
 void config_create_file(const char *filename);
 void config_print_to_file(const char *filename, int append);
 
-int main_run();
-int main_fft();
+int drive_run();
+int drive_fft();
 
-int main ( int argc, char *argv[] ) {
-	int i, ret;
 
-	MPI_Init( &argc, &argv );
-
-	/*
-	//  Command-line options need to be set in the very beginning, as
-	//  configure_runtime_setup() uses some of them (-mpi, -omp).
-	*/
-	num_options = argc - 1;
-	/*
-	//  We copy, rather than assign, argv pointers so that
-	//  we could manipulated them later without messing up the
-	//  original argv[] array.
-	*/
-	options = cart_alloc(const char*,argc);
-	for(i=0; i<num_options; i++) options[i] = argv[i+1];
+int drive() {
+	int ret;
 
 	configure_runtime_setup();
 
 	if(mpi.task_type & MPI_TASK_TYPE_RUN)
 	  {
-	    ret = main_run();
+	    ret = drive_run();
 	  }
 	else if(mpi.task_type & MPI_TASK_TYPE_FFT)
 	  {
-	    ret = main_fft();
+	    ret = drive_fft();
 	  }
 	else
 	  {
@@ -75,27 +61,22 @@ int main ( int argc, char *argv[] ) {
 }
 
 
-int main_run () {
+int drive_run () {
 	int i, mode;
 	int restart = 0;
 	char c, *restart_label;
 	double aexp;
 	const char *str;
 
-	MPI_Comm_size( mpi.comm.run, &num_procs );
-	MPI_Comm_rank( mpi.comm.run, &local_proc_id );
-	
-	if ( num_procs > MAX_PROCS ) {
-		cart_error("Number of processors exceeds limit! (%u > %u) The executable must be recompiled.\n", 
-			num_procs, MAX_PROCS );
-	}
+        MPI_Comm_size( mpi.comm.run, &num_procs );
+        MPI_Comm_rank( mpi.comm.run, &local_proc_id );
+        
+        if ( num_procs > MAX_PROCS ) {
+                cart_error("Number of processors exceeds limit! (%u > %u) The executable must be recompiled.\n", 
+                        num_procs, MAX_PROCS );
+        }
 
 	/* load configuration file */
-	init_auxiliary();
-	init_timers();
-
-	start_time( TOTAL_TIME );
-	start_time( INIT_TIMER );
 
 	config_init();
 
@@ -152,6 +133,13 @@ int main_run () {
 #endif
 	      }
 	  }
+
+	/* start actual work */
+	init_rand();
+	init_timers();
+
+	start_time( TOTAL_TIME );
+	start_time( INIT_TIMER );
 
 	/* set up mpi datatypes, timers, units, etc */
 	init_cell_buffer();
