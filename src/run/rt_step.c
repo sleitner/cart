@@ -15,7 +15,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "../frt/frt_c.h"
+#include "frt/frt_c.h"
 
 #include "rt_transfer_step.h"
 #include "step.h"

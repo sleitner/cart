@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define __FFTS_H__
 
 
-#include "../base/auxiliary.h"
+#include "auxiliary.h"
 #define NEW(size)        cart_alloc(fft_t,size)
 #define DEL(ptr)         cart_free(ptr)
 #define FAIL(msg)        cart_error(msg)

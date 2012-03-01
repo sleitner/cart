@@ -17,7 +17,7 @@
 #include "times.h"
 #include "units.h"
 
-#include "../fft/fft3.h"
+#include "../tools/fft/fft3.h"
 
 #include "power.h"
 

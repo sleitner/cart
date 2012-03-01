@@ -23,5 +23,14 @@ test-run-gic: .obj/.phony $(DEFS) $(SIM_OBJS) .obj/gic_reader.o .obj/gic_init.o 
 .obj/gic_init.o: $(DEFS) $(TOP_DIR)/cosmology/gic/gic_init.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/gic_init.o -c $(TOP_DIR)/cosmology/gic/gic_init.c
 
+test-run-hart: .obj/.phony $(DEFS) $(SIM_OBJS) .obj/hart_reader.o .obj/hart_init.o  test-run-gic.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(TOP_DIR)/cosmology/hart $(INCLUDES) $(SIM_OBJS) .obj/hart_reader.o .obj/hart_init.o test-run-hart.c -o test-run-hart $(LIBS) $(EXTRALIBS)
+
+hart_init.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/hart_init.o -c $(TOP_DIR)/cosmology/hart/hart_init.c
+
+hart_reader.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_reader.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -o .obj/hart_reader.o -c $(TOP_DIR)/cosmology/hart/hart_reader.c
+
 clean:
-	rm -rf .obj core *.o test-base test-analysis test-file-converter test-run-gic
+	rm -rf .obj core *.o test-base test-analysis test-file-converter test-run-gic test-run-hart

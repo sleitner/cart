@@ -27,7 +27,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "../cartio/cartio.h"
+#include "../tools/cartio/cartio.h"
 
 extern int step;
 
@@ -776,7 +776,7 @@ void read_cartio_restart( char *label ) {
 	int num_file_procs, num_file_octs, num_file_particles, num_file_star_particles;
 	FILE *restart;
 	int type;
-	char *str;
+	char *str = NULL;
 
 #ifdef COSMOLOGY
 	double OmM0, OmB0, OmL0, h100, DelDC;

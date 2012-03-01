@@ -2315,12 +2315,11 @@ void read_art_particle_header( char *header_filename, particle_header *header, i
 	cart_debug( "Particle header file: %s", desc );
 
 	if ( !control_parameter_is_set("jobname") ) {
+		/* trim spaces from jobname */
+	  p = desc + strlen(desc);
+	  while (*--p == ' ') *p = '\0';
 	  cart_debug("setting jobname to header value: %s",desc);
 	  set_jobname( desc );
-
-		/* trim spaces from jobname */
-		p = jobname + strlen(jobname);
-		while (*--p == ' ') *p = '\0';
 	}
 
 	if ( size != sizeof(particle_header)+45 ) {

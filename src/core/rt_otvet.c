@@ -14,7 +14,7 @@
 #include "timing.h"
 #include "tree.h"
 
-#include "../fft/fft3.h"
+#include "../tools/fft/fft3.h"
 
 
 /*
@@ -546,7 +546,7 @@ void rtOtvetTopLevelFFTWorker(const root_grid_fft_t *config, int id, fft_t *fft_
       for(j=0; j<config->dims[1]; j++)
 	{
 	  offset = fft3_jk_index(j,k,NULL,flags);
-	  if(offset == -1) continue;
+	  if(offset == (size_t)-1) continue;
 	  
 	  offset *= config->dims[0];
 

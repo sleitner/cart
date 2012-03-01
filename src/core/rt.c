@@ -25,7 +25,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "../frt/frt_c.h"
+#include "frt/frt_c.h"
 
 
 /*

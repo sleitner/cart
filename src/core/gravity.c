@@ -19,7 +19,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "../fft/fft3.h"
+#include "../tools/fft/fft3.h"
 
 
 int num_smooth_iterations = 60;   // used to be called MAX_SOR_ITER
@@ -899,7 +899,7 @@ void root_grid_fft_gravity_worker(const root_grid_fft_t *config, int id, fft_t *
       for(j=0; j<config->dims[1]; j++)
 	{
 	  offset = fft3_jk_index(j,k,jk,flags);
-	  if(offset == -1) continue;
+	  if(offset == (size_t)-1) continue;
 
 	  G_jk = green[jk[0]] + green[jk[1]];
 	  offset *= config->dims[0];

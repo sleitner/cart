@@ -10,7 +10,7 @@
 #include "rt_global.h"
 #include "rt_transfer.h"
 
-#include "../frt/frt_c.h"
+#include "frt/frt_c.h"
 
 
 int rtWriteRFHelper(FILE *f, frt_intg n, frt_real *data, int fortran_style)
