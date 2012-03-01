@@ -175,7 +175,7 @@ int drive_run () {
 }
 
 
-int main_fft () {
+int drive_fft () {
 	cart_error("This function is not implemented");
 	return -1;
 }

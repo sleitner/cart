@@ -68,11 +68,15 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	double d, Pq, Pk, wk;
 	float mass_factor, fb;
 	double stellar_mass, total_stellar_mass;
-	int bin, index;
+	int bin;
 	int pads[] = { 1, 0, 0 };
 	int dims[3], bbox[6];
 	int num_power_mesh, jk[2];
 	size_t offset;
+
+	dims[0] = dims[1] = dims[2] = power_mesh_size;
+	num_power_mesh = (size_t)dims[0]*dims[1]*dims[2];
+	mass_factor = ((float)(num_power_mesh)/(float)(num_grid*num_grid*num_grid));
 
 	fb = cosmology->OmegaB / cosmology->OmegaM;
 
@@ -112,9 +116,6 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
-		dims[0] = dims[1] = dims[2] = power_mesh_size;
-		num_power_mesh = (size_t)dims[0]*dims[1]*dims[2];
-
 		fft3_init(MPI_COMM_SELF,dims,pads,bbox);
 		global_mesh = fft3_allocate_data();
 		cart_assert(global_mesh != NULL);
@@ -129,7 +130,6 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 	local_mesh = cart_alloc(fft_t, num_power_mesh );
 
-    mass_factor = ((float)(num_power_mesh)/(float)(num_grid*num_grid*num_grid));
 	cart_debug("mass_factor = %e", mass_factor );
 
 	for ( m = 0; m < num_power_foldings; m++ ) {

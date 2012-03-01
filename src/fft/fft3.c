@@ -238,7 +238,7 @@ size_t fft3_jk_index(int jarr, int karr, int *jk, int flags)
 
   if(jarr<0 || jarr>=d.arr_dims[1] || karr<0 || karr>=d.arr_dims[2])
     {
-      return -1;
+      return (size_t)-1;
     }
 
   if(d.size>1 && (flags & FFT3_FLAG_WACKY_K_SPACE))
@@ -262,7 +262,7 @@ size_t fft3_jk_index(int jarr, int karr, int *jk, int flags)
 
   if(jfft>=d.fft_dims[1] || kfft>=d.fft_dims[2])
     {
-      return -1;
+      return (size_t)-1;
     }
     
   if(jk != NULL)

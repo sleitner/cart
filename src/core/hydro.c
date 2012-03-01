@@ -13,6 +13,9 @@
 #include "units.h"
 
 
+DEFINE_LEVEL_ARRAY(int,level_sweep_dir);
+
+
 int pressure_floor_min_level = max_level; /* NG: that used to be MinL_Jeans define */
 float pressure_floor_factor = 10.0;
 
@@ -36,6 +39,8 @@ double blastwave_time_cut = 1.0e-20;
 
 void config_init_hydro()
 {
+  int level;
+
   control_parameter_add3(control_parameter_float,&gas_temperature_floor,"gas-temperature-floor","gas_temperature_floor","T_min","the minimum temperature for the gas (in K).");
 
   control_parameter_add2(control_parameter_float,&gas_density_floor,"gas-density-floor","gas_density_floor","the minimum densitye for the gas (in code units).");
@@ -51,6 +56,11 @@ void config_init_hydro()
   control_parameter_add(control_parameter_float,&pressure_floor_factor,"@pressure-floor-factor","the factor to scale the pressure floor with. The default, thoroughly tested value is 10. If you change it, make sure you know what you are doing.");
 
   control_parameter_add2(control_parameter_float,&radiation_pressure_factor,"radiation-pressure-factor","radiation_pressure_factor","Hopkins' eta_p factor to scale the radiation pressure term; set it to zero to disable radiation pressure.");
+
+  for(level=min_level; level<=max_level; level++)
+    {
+      level_sweep_dir[level] = 0;
+    }
 }
 
 

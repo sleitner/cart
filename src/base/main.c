@@ -16,6 +16,7 @@ int num_procs;
 int local_proc_id;
 
 const char* logfile_directory = NULL;
+const char* executable_name;
 
 
 int drive();
@@ -42,6 +43,7 @@ int main ( int argc, char *argv[] ) {
 	options = cart_alloc(const char*,argc);
 	for(i=0; i<num_options; i++) options[i] = argv[i+1];
 
+	executable_name = argv[0];
 
 	/* Run the code */
 	ret = drive();

@@ -20,7 +20,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "run/hydro_step.h"
+#include "../run/hydro_step.h"
 
 #include "gic_reader.h"
 
@@ -586,7 +586,7 @@ void gicReadParticleData(const char *rootname, char *type, int dc_off)
   tl[min_level] = tcode_from_abox(abox[min_level]);
   auni[min_level] = auni_from_abox(abox[min_level]);
 
-  units_reset();
+  units_init();
   units_update(min_level);
 
   num_particles_total = fileHeader->Ntot;

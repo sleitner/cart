@@ -147,8 +147,11 @@ void rtLevelUpdateTransferOtvet(int level)
   int num_level_cells, num_all_cells, num_total_cells, *nb;
   int iL, iG, j, offset, index;
   int nit, freq, ivarL, ivarG, nit0;
-  float xiUnit, QFac;
+  float xiUnit;
   int nvars, vars[rt_num_fields];
+#ifdef RT_EXTERNAL_BACKGROUND
+  float QFac;
+#endif
 
   start_time(WORK_TIMER);
 

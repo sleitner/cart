@@ -11,6 +11,12 @@ double t_init = -1.0e38;
 double t_end = 1.0e38;
 
 DEFINE_LEVEL_ARRAY(double,tl);
+DEFINE_LEVEL_ARRAY(double,tl_old);
+DEFINE_LEVEL_ARRAY(double,dtl);
+DEFINE_LEVEL_ARRAY(double,dtl_old);
+
+DEFINE_LEVEL_ARRAY(int,time_refinement_factor);
+DEFINE_LEVEL_ARRAY(int,time_refinement_factor_old);
 
 /*
 //  Time refinement scheme defaults to the old factor-of-two refinement.
@@ -24,6 +30,7 @@ double auni_init = 1.0e-3;
 double auni_end = 1.0;
 DEFINE_LEVEL_ARRAY(double,abox);
 DEFINE_LEVEL_ARRAY(double,auni);
+DEFINE_LEVEL_ARRAY(double,abox_old);
 #endif /* COSMOLOGY */
 
 int max_steps = 0;
@@ -120,8 +127,10 @@ void control_parameter_set_a_inc(const char *value, void *ptr, int ind)
 #endif /* COSMOLOGY */
 
 
-void config_init_timestep()
+void config_init_times()
 {
+  int level;
+
 #ifdef COSMOLOGY
   ControlParameterOps control_parameter_aini = { control_parameter_set_double, control_parameter_list_double };
   ControlParameterOps control_parameter_aend = { control_parameter_set_double, control_parameter_list_double };
@@ -177,10 +186,20 @@ void config_init_timestep()
   control_parameter_add2(control_parameter_int,&max_time_refinement_factor,"time-refinement-factor:max","max_time_refinement_factor","maximum allowed refinement factor between the time-steps on two successive levels. If <time-refinement-factor:min> = <time-refinement-factor:max>, then time refinement is done by a constant factor; <time-refinement-factor:min> = <time-refinement-factor:max> = 2 recovers the old factor-of-two scheme.");
 
   control_parameter_add2(control_parameter_int,&time_refinement_level,"time-refinement-level","time_refinement_level","lowest level at which time refinement is allowed; all higher levels take the same time-steps as this level (a-la FLASH).");
+
+  for(level=min_level; level<=max_level; level++)
+    {
+      tl_old[level] = 0.0;
+      dtl[level] = dtl_old[level] = 0.0;
+      time_refinement_factor[level] = time_refinement_factor_old[level] = 1;
+#ifdef COSMOLOGY
+      abox_old[level] = 0.0;
+#endif
+    }
 }
 
 
-void config_verify_timestep()
+void config_verify_times()
 {
 #ifdef COSMOLOGY
   cart_assert(auni_init>0.0 && !(auni_init>auni_end));

@@ -7,13 +7,14 @@
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "control_parameter.h"
 #include "cosmology.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
-#include "index_hash.h"
-#include "io.h"
+#include "io_art.h"
 #include "iterators.h"
 #include "load_balance.h"
+#include "oct_hash.h"
 #include "parallel.h"
 #include "sfc.h"
 #include "skiplist.h"
@@ -23,9 +24,18 @@
 #include "units.h"
 #include "refinement.h"
 
-#include "run/step.h"
-#include "run/hydro_step.h"
 
+DECLARE_LEVEL_ARRAY(double,tl_old);
+DECLARE_LEVEL_ARRAY(double,dtl);
+DECLARE_LEVEL_ARRAY(double,dtl_old);
+DECLARE_LEVEL_ARRAY(int,level_sweep_dir);
+#ifdef COSMOLOGY
+DECLARE_LEVEL_ARRAY(double,abox_old);
+#endif /* COSMOLOGY */
+extern double auni_init;
+extern int step;
+
+extern char *jobname_d;
 
 #ifdef HYDRO
 
@@ -72,24 +82,20 @@ void read_hart_grid_binary( char *filename ) {
 	int nextras;
 	float extra[10];
 	char lextra[10][256];
-	int refined;
 	int *oct_list;
 	int  *cellrefined_buffer;
 	float *vars_buffer;
 	int endian;
-	int proc;
 	int ret;
 	int level;
 	int index;
 	int next, prev;
 	int iNOLL, iHOLL;
-	int icell, ioct;
-	int cell_counts;
-	int page_size;
+	int icell;
 	int coords[nDim];
-	int ncell0, sfc_order;
+	int ncell0;
 	cell_file_struct *child_cells;
-	index_hash *hart_oct_hash;
+	oct_hash *hart_oct_hash;
 	int num_next_level_octs;
 	int *next_level_cart_octs, *next_level_hart_octs;
 	int iOctFree, nOct;
@@ -117,7 +123,7 @@ void read_hart_grid_binary( char *filename ) {
 	fread(&job, sizeof(char), 256, input );
 	if ( !control_parameter_is_set("jobname") ) {
 	  cart_debug("setting jobname to header value");
-	  strcpy( jobname, job );
+	  strcpy( jobname_d, job );
 	}
 	fread(&size, sizeof(int), 1, input );
 
@@ -283,7 +289,7 @@ void read_hart_grid_binary( char *filename ) {
 	init_tree();
 
 	/* create hash for hart oct index -> our oct index */
-	hart_oct_hash = index_hash_create( ncell0 );
+	hart_oct_hash = oct_hash_create( ncell0 );
 
 	cellrefined_buffer = cart_alloc( int, num_grid*num_grid );
 
@@ -311,7 +317,7 @@ void read_hart_grid_binary( char *filename ) {
 					if ( ret ) {
 						cart_error("Error splitting cell %d\n", icell );
 					}
-					index_hash_add( hart_oct_hash, cellrefined_buffer[i], cell_child_oct[icell] );
+					oct_hash_add( hart_oct_hash, cellrefined_buffer[i], cell_child_oct[icell] );
 				}
 
 				i++;
@@ -516,7 +522,7 @@ void read_hart_grid_binary( char *filename ) {
 		oct_list = cart_alloc( int, iNOLL );
 
 		while ( iHOLL != 0 ) {
-			oct_list[i] = index_hash_lookup( hart_oct_hash, iHOLL );
+			oct_list[i] = oct_hash_lookup( hart_oct_hash, iHOLL );
 			cart_assert( oct_list[i] != NULL_OCT );
 			cart_assert( oct_level[oct_list[i]] == level );
 			
@@ -544,7 +550,7 @@ void read_hart_grid_binary( char *filename ) {
 
 		cart_assert( i == iNOLL );
 
-		index_hash_free( hart_oct_hash );
+		oct_hash_free( hart_oct_hash );
 		next_level_hart_octs = cart_alloc( int, num_children*iNOLL );
 		next_level_cart_octs = cart_alloc( int, num_children*iNOLL );
 		num_next_level_octs = 0;
@@ -639,8 +645,8 @@ void read_hart_grid_binary( char *filename ) {
 			}
 		}
 
-		hart_oct_hash = index_hash_create( 2*num_next_level_octs );
-		index_hash_add_list( hart_oct_hash, num_next_level_octs, 
+		hart_oct_hash = oct_hash_create( 2*num_next_level_octs );
+		oct_hash_add_list( hart_oct_hash, num_next_level_octs, 
 					next_level_hart_octs, next_level_cart_octs );
 
 		cart_free( next_level_hart_octs );
@@ -652,7 +658,7 @@ void read_hart_grid_binary( char *filename ) {
 
 	for(i=0; i<num_children; i++) cart_free(child_cells[i].vars);
 	cart_free( child_cells );
-	index_hash_free( hart_oct_hash );
+	oct_hash_free( hart_oct_hash );
 
 	build_cell_buffer();
 	repair_neighbors();
@@ -718,7 +724,7 @@ void write_hart_grid_binary( char *filename ) {
 
 	size = 256*sizeof(char);
 	fwrite(&size, sizeof(int), 1, output );
-	fwrite(&jobname, sizeof(char), 256, output );
+	fwrite(&jobname_d, sizeof(char), 256, output );
 	fwrite(&size, sizeof(int), 1, output );
 
 	/* istep, t, dt, adum, ainit */

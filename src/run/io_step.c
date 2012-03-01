@@ -1,38 +1,25 @@
 #include "config.h"
 
-//#include <dirent.h>
-//#include <math.h>
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
 
-
-//#include "auxiliary.h"
-//#include "cell_buffer.h"
-//#include "control_parameter.h"
-//#include "cosmology.h"
-//#include "hydro_tracer.h"
 #include "io.h"
-//#include "io_art.h"
-//#include "io_cartio.h"
-//#include "iterators.h"
-//#include "load_balance.h"
-//#include "parallel.h"
-//#include "particle.h"
-//#include "rand.h"
-//#include "refinement.h"
-//#include "rt_io.h"
-//#include "sfc.h"
-//#include "starformation.h"
-//#include "times.h"
-//#include "timing.h"
-//#include "tree.h"
-//#include "units.h"
+#include "io_art.h"
+#include "io_cartio.h"
+#include "rand.h"
+#include "times.h"
+#include "timing.h"
 
+#include "step.h"
 
 #ifdef LOG_STAR_CREATION
 #include "logging.h"
 #endif
+
+
+extern int old_art_io_flag;
+extern int restart_frequency;
+extern int grid_output_frequency;
+extern int particle_output_frequency;
+extern int tracer_output_frequency;
 
 
 void write_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {

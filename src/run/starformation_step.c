@@ -7,6 +7,7 @@
 #include "iterators.h"
 #include "parallel.h"
 #include "particle.h"
+#include "rand.h"
 #include "starformation.h"
 #include "starformation_feedback.h"
 #include "times.h"

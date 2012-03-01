@@ -1,5 +1,5 @@
-#ifndef __IO_H__
-#define __IO_H__
+#ifndef __IO_STEP_H__
+#define __IO_STEP_H__
 
 #ifndef CONFIGURED
 #error "Missing config.h include."

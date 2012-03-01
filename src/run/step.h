@@ -9,7 +9,6 @@
 void run(int restart, const char *restart_label);
 void set_timestepping_scheme();
 
-extern const int is_running;
 
 DECLARE_LEVEL_ARRAY(double,dtl);
 DECLARE_LEVEL_ARRAY(double,dtl_old);
@@ -23,5 +22,7 @@ DECLARE_LEVEL_ARRAY(double,tl_old);
 #ifdef COSMOLOGY
 DECLARE_LEVEL_ARRAY(double,abox_old);
 #endif /* COSMOLOGY */
+
+extern int step;
 
 #endif

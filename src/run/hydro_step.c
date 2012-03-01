@@ -61,7 +61,6 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int mj3, int mj4
 
 float cell_radiation_pressure(int cell);
 
-DEFINE_LEVEL_ARRAY(int,level_sweep_dir);
 const int sweep_dir[2][nDim] = { { 1, 3, 5 }, { 5, 3, 1 } };
 
 int sweep_direction;

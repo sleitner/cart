@@ -31,6 +31,7 @@
 #include "gravity_step.h"
 #include "hydro_step.h"
 #include "hydro_tracer_step.h"
+#include "io_step.h"
 #include "particle_step.h"
 #include "rt_step.h"
 #include "starformation_step.h"
@@ -38,21 +39,12 @@
 #include "step.h"
 
 
-const int is_running = 1;
-
 extern double t_init;
 extern double t_end;
 
 extern int min_time_refinement_factor;
 extern int max_time_refinement_factor;
 extern int time_refinement_level;
-
-DEFINE_LEVEL_ARRAY(double,dtl);
-DEFINE_LEVEL_ARRAY(double,dtl_old);
-DEFINE_LEVEL_ARRAY(double,tl_old);
-
-DEFINE_LEVEL_ARRAY(int,time_refinement_factor);
-DEFINE_LEVEL_ARRAY(int,time_refinement_factor_old);
 
 /*
 //  The variable dt_global is the chosen global time-step without any 
@@ -66,7 +58,6 @@ int cfl_violation = 0;
 #ifdef COSMOLOGY
 extern double auni_init;
 extern double auni_end;
-DEFINE_LEVEL_ARRAY(double,abox_old);
 #endif /* COSMOLOGY */
 
 DEFINE_LEVEL_ARRAY(unsigned int,num_steps_on_level);
