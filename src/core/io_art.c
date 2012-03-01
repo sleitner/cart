@@ -36,8 +36,6 @@ DECLARE_LEVEL_ARRAY(double,abox_old);
 extern double auni_init;
 extern int step;
 
-extern char *jobname_d;
-
 #ifndef PARTICLE_HEADER_MAGIC
 #define PARTICLE_HEADER_MAGIC           (0.1234f)
 #endif
@@ -56,8 +54,8 @@ void config_init_io_art() {
 }
 
 void config_verify_io_art() {
-	cart_assert(num_art_output_files > 0 && num_art_output_files < num_procs);
-	cart_assert(num_art_input_files > 0 && num_art_input_files < num_procs);
+	cart_assert(num_art_output_files > 0 && num_art_output_files <= num_procs);
+	cart_assert(num_art_input_files > 0 && num_art_input_files <= num_procs);
 	cart_assert(art_particle_num_row > 0);
 }
 
@@ -2317,11 +2315,11 @@ void read_art_particle_header( char *header_filename, particle_header *header, i
 	cart_debug( "Particle header file: %s", desc );
 
 	if ( !control_parameter_is_set("jobname") ) {
-		cart_debug("setting jobname to header value");
-		strcpy( jobname_d, desc );
+	  cart_debug("setting jobname to header value: %s",desc);
+	  set_jobname( desc );
 
 		/* trim spaces from jobname */
-		p = jobname_d + strlen(jobname_d);
+		p = jobname + strlen(jobname);
 		while (*--p == ' ') *p = '\0';
 	}
 
@@ -3946,8 +3944,8 @@ void read_art_grid_binary( char *filename ) {
 
 		fread(job, sizeof(char), 256, input );
 		if ( !control_parameter_is_set("jobname") ) {
-		  cart_debug("setting jobname to header value");
-		  strcpy( jobname_d, job );
+		  cart_debug("setting jobname to header value: %s",job);
+		  set_jobname( job );
 		}
 		fread(&size, sizeof(int), 1, input );
 

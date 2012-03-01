@@ -29,7 +29,6 @@
 
 #include "../cartio/cartio.h"
 
-extern char *jobname_d;
 extern int step;
 
 DECLARE_LEVEL_ARRAY(double,dtl);
@@ -373,7 +372,7 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 	/* write header variables */
 	num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
 
-	cartio_parameter_set_string( handle, "jobname", jobname_d );
+	cartio_parameter_set_string( handle, "jobname", jobname );
 	cart_debug("jobname: %s", jobname );
 
 	cartio_parameter_set_int( handle, "sfc", SFC );
@@ -777,6 +776,7 @@ void read_cartio_restart( char *label ) {
 	int num_file_procs, num_file_octs, num_file_particles, num_file_star_particles;
 	FILE *restart;
 	int type;
+	char *str;
 
 #ifdef COSMOLOGY
 	double OmM0, OmB0, OmL0, h100, DelDC;
@@ -846,7 +846,9 @@ void read_cartio_restart( char *label ) {
 	}
 
 	/* load all simulation parameters here */
-	cartio_parameter_get_string( handle, "jobname", jobname_d );
+	cartio_parameter_get_string( handle, "jobname", str );
+	set_jobname( str );
+	free(str);
 	cart_debug("jobname: %s", jobname );
 
     cartio_parameter_get_int( handle, "sfc", &sfc_order );

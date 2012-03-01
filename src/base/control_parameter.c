@@ -205,16 +205,23 @@ void control_parameter_print_hidden(FILE *f, int with_help)
   control_parameters_print_worker(f,with_help,1);
 }
 
+
 void control_parameter_set_bool(const char *value, void *ptr, int ind)
 {
-  if(value[0] == 'T' || value[0] == 't' || value[0] == '1' ) {
-	*(int *)ptr = 1;
-  } else if ( value[0] == 'F' || value[0] == 'f' || value[0] == '0' ) {
-	*(int *)ptr = 0;
-  } else {
-	cart_error("Unable to determine boolean value from string '%s'", value);
-  }
+  if(strcasecmp(value,"t")==0 || strcasecmp(value,"true")==0 || strcasecmp(value,"1")==0)
+    {
+      *(int *)ptr = 1;
+    } 
+  else if(strcasecmp(value,"f")==0 || strcasecmp(value,"false")==0 || strcasecmp(value,"0")==0)
+    {
+      *(int *)ptr = 0;
+    } 
+  else
+    {
+      cart_error("Unable to determine boolean value from string '%s'", value);
+    }
 }
+
 
 void control_parameter_set_int(const char *value, void *ptr, int ind)
 {
@@ -291,8 +298,9 @@ void control_parameter_set_string(const char *value, void *ptr, int ind)
   ((char *)ptr)[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
 }
 
-void control_parameter_list_bool(FILE *stream, const void *ptr) {
-  fprintf(stream, (*(int *)ptr) ? "True" : "False"); 
+void control_parameter_list_bool(FILE *stream, const void *ptr)
+{
+  fprintf(stream,(*(int *)ptr) ? "True" : "False"); 
 }
 
 void control_parameter_list_int(FILE *stream, const void *ptr)

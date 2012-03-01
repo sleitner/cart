@@ -56,11 +56,9 @@ void units_set(double mass, double time, double length)
 void cosmology_set_fixed();
 
 
-void units_init()
+void constants_init()
 {
   constants = &constants_internal;
-  primary_units = &unit_factors;
-  units = &units_internal;
 
   /*
   // Base units
@@ -107,6 +105,13 @@ void units_init()
   constants_internal.gamma = 5.0/3.0;
 
   constants_internal.sigmaT = 6.6524e-25;
+}
+
+
+void units_init()
+{
+  primary_units = &unit_factors;
+  units = &units_internal;
 
 #ifdef COSMOLOGY
   if(!cosmology_is_set())

@@ -21,6 +21,7 @@ void config_init_io();
 void config_verify_io();
 
 void read_restart( const char *label );
+void set_jobname( const char *str );
 
 #define NO_WRITE		0
 #define WRITE_GENERIC   1

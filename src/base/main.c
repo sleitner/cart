@@ -20,6 +20,7 @@ const char* executable_name;
 
 
 int drive();
+void constants_init();
 
 
 int main ( int argc, char *argv[] ) {
@@ -45,10 +46,21 @@ int main ( int argc, char *argv[] ) {
 
 	executable_name = argv[0];
 
-	/* Run the code */
+	/*
+	//  Initialize various physical constants as they can be used anywhere
+	*/
+	constants_init();
+
+
+	/* 
+	//  Run the actual driver
+	*/
 	ret = drive();
 
 
+	/* 
+	//  Clean-up and exit
+	*/
 	cart_free(options);
 
 	MPI_Finalize();

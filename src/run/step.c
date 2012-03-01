@@ -87,7 +87,7 @@ extern double max_da;
 extern int steps_before_increasing;
 
 int step_of_last_increase = 0;
-int current_step_level = -1;
+extern int current_step_level;
 
 double min_courant_velocity = 1.0e-6;
 

@@ -275,3 +275,9 @@ void read_restart( const char *label ) {
 	end_time( IO_TIMER );
 }
 
+
+void set_jobname(const char *str)
+{
+  strncpy(jobname_d,str,CONTROL_PARAMETER_STRING_LENGTH);
+  jobname_d[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
+}

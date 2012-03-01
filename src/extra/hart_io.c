@@ -11,6 +11,7 @@
 #include "cosmology.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
+#include "io.h"
 #include "io_art.h"
 #include "iterators.h"
 #include "load_balance.h"
@@ -35,7 +36,6 @@ DECLARE_LEVEL_ARRAY(double,abox_old);
 extern double auni_init;
 extern int step;
 
-extern char *jobname_d;
 
 #ifdef HYDRO
 
@@ -123,7 +123,7 @@ void read_hart_grid_binary( char *filename ) {
 	fread(&job, sizeof(char), 256, input );
 	if ( !control_parameter_is_set("jobname") ) {
 	  cart_debug("setting jobname to header value");
-	  strcpy( jobname_d, job );
+	  set_jobname( job );
 	}
 	fread(&size, sizeof(int), 1, input );
 
@@ -724,7 +724,7 @@ void write_hart_grid_binary( char *filename ) {
 
 	size = 256*sizeof(char);
 	fwrite(&size, sizeof(int), 1, output );
-	fwrite(&jobname_d, sizeof(char), 256, output );
+	fwrite(jobname, sizeof(char), 256, output );
 	fwrite(&size, sizeof(int), 1, output );
 
 	/* istep, t, dt, adum, ainit */

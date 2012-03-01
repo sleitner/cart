@@ -25,6 +25,8 @@
 #include "start_analysis.h"
 
 extern int max_first_species_id;
+extern int int old_art_io_flag;
+
 
 void config_append_units_to_file(const char *filename);
 void config_print_to_file(const char *filename, int append);
@@ -192,6 +194,14 @@ void run(int restart, const char *restart_label)
   else
     {
       full_mode = 1;
+    }
+
+  if(num_options>0 && (strcmp(options[0],"-o")==0 || strcmp(options[0],"--old-io")==0))
+    {
+      cart_debug("Using the legacy IO format.");
+      num_options--;
+      options++;
+      old_art_io_flag = 1;
     }
 
   for(i=0; i<num_options; i++)

@@ -1,6 +1,7 @@
 #define RT_OUTPUT
 #define RT_TRANSFER
 #define RT_TRANSFER_METHOD RT_METHOD_OTVET
+#define RT_UV
 #define RT_CHEMISTRY 
 #define RT_LWBANDS
 #define RT_SIGNALSPEED_TO_C 
