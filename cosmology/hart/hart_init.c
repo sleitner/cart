@@ -16,7 +16,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "run/hydro_step.h"
+#include "../run/hydro_step.h"
 
 #include "hart_init.h"
 
@@ -38,17 +38,18 @@ void hart_init() {
 	sprintf( filename, "%s/tr_ic.dat", output_directory );
 	read_hart_gas_ic(filename);
 	cart_debug("read in gas");
-
-	hydro_magic( min_level );
-	hydro_eos( min_level );
 #endif /* HYDRO */
 
-	units_reset();
+	units_init();
 	units_update( min_level );
-
 
 	cart_debug("tl[min_level] = %f", tl[min_level] );
 	cart_debug(" a[min_level] = %f", auni[min_level] );
+
+#ifdef HYDRO
+	hydro_magic( min_level );
+	hydro_eos( min_level );
+#endif /* HYDRO */
 
 #ifdef PARTICLES
 	build_mesh();

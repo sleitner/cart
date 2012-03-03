@@ -2,10 +2,8 @@
 
 #include <malloc.h>
 #include <mpi.h>
-//#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
-//#include <stdlib.h>
 #include <string.h>
 
 #ifdef _OPENMP
@@ -15,7 +13,6 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_math.h>
-//#include <gsl/gsl_randist.h>
 #include <gsl/gsl_roots.h>
 
 #include "auxiliary.h"
@@ -771,21 +768,19 @@ void dmuUnRegister(void *ptr, const char *file, int line)
 }
 
 
-#include "particle.h"
-#include "starformation.h"
-#include "tree.h"
-
 void dmuPrintRegistryContents()
 {
   int i;
   size_t tot = dmuLarge.Size*sizeof(struct dmuItem) + dmuSmall.Size*sizeof(struct dmuItem);
 
+#ifdef num_octs
   cart_debug("DMU: num_octs=%d",num_octs);
-#ifdef PARTICLES
-  cart_debug("DMU: num_particles=%d",num_particles);
-#ifdef STARFORM
-  cart_debug("DMU: num_star_particles=%d",num_star_particles);
 #endif
+#ifdef num_particle
+  cart_debug("DMU: num_particles=%d",num_particles);
+#endif
+#ifdef num_star_particles
+  cart_debug("DMU: num_star_particles=%d",num_star_particles);
 #endif
   cart_debug("DMU: Large allocated chunks:");
   for(i=0; i<dmuLarge.NumItems; i++)

@@ -7,11 +7,14 @@
 #include "cosmology.h"
 #include "hydro.h"
 #include "io.h"
+#include "io_art.h"
 #include "parallel.h"
 #include "sfc.h"
 #include "times.h"
 #include "tree.h"
 #include "units.h"
+
+extern double auni_init;
 
 #ifdef HYDRO 
 

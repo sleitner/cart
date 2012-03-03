@@ -9,6 +9,7 @@
 #include "cosmology.h"
 #include "hydro.h"
 #include "io.h"
+#include "io_art.h"
 #include "iterators.h"
 #include "parallel.h"
 #include "particle.h"
@@ -19,7 +20,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "run/hydro_step.h"
+#include "../run/hydro_step.h"
 
 #include "../gic/gic_reader.h"
 
@@ -181,7 +182,7 @@ void cosmics_init()
   tl[min_level] = tcode_from_auni(auni[min_level]);
   abox[min_level] = abox_from_auni(auni[min_level]);
 
-  units_reset();
+  units_init();
   units_update(min_level);
 
   /*
