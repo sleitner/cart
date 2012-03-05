@@ -6,7 +6,7 @@
 #include "cell_buffer.h"
 #include "hydro.h"
 #include "io.h"
-#include "io_art.h"
+#include "io_cart.h"
 #include "load_balance.h"
 #include "parallel.h"
 #include "particle.h"
@@ -28,9 +28,9 @@ void hart_init() {
 	sprintf( filename, "%s/PMcrd.DAT", output_directory );
 	sprintf( filename2, "%s/PMcrs0.DAT", output_directory );
 
-	restart_load_balance_art( NULL, filename, filename2 );
+	restart_load_balance_cart( NULL, filename, filename2 );
 
-	read_art_particles( filename, filename2, NULL, NULL, 0, NULL );
+	read_cart_particles( filename, filename2, NULL, NULL, 0, NULL );
 	cart_debug("read in particles");
 #endif
 

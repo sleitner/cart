@@ -84,7 +84,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 #endif /* STARFORM */
 
 	if ( local_proc_id == MASTER_NODE ) {
-		read_art_particle_header( header_filename, &header, &endian, &nbody_flag );
+		read_cart_particle_header( header_filename, &header, &endian, &nbody_flag );
 
 		cart_debug("auni  = %e", header.aunin );
 		cart_debug("auni0 = %e", header.auni0 );
@@ -134,7 +134,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 		if(header.h100 > 0.0) /* legacy units */
 		  {
-		    units_set_art(header.OmM0,header.h100,box_size);
+		    units_set_cart(header.OmM0,header.h100,box_size);
 		  }
 		else
 		  {
@@ -144,7 +144,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 #endif /* COSMOLOGY */
 
 		step                  = header.istep;
-		art_particle_num_row  = header.Nrow;
+		cart_particle_num_row  = header.Nrow;
 	
 		if ( nbody_flag ) {
 			vfact = 2.0/sqrt(header.OmM0);
@@ -346,7 +346,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
-		MPI_Bcast( &art_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &cart_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
@@ -837,7 +837,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 		MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
-		MPI_Bcast( &art_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &cart_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );

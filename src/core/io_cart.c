@@ -12,7 +12,7 @@
 #include "cosmology.h"
 #include "hydro_tracer.h"
 #include "io.h"
-#include "io_art.h"
+#include "io_cart.h"
 #include "iterators.h"
 #include "load_balance.h"
 #include "parallel.h"
@@ -40,26 +40,26 @@ extern int step;
 #define PARTICLE_HEADER_MAGIC           (0.1234f)
 #endif
 
-int art_particle_num_row = num_grid;
-int num_art_output_files = 1;
-int num_art_input_files = 1;
+int cart_particle_num_row = num_grid;
+int num_cart_output_files = 1;
+int num_cart_input_files = 1;
     
 int art_grid_file_mode = 0;
 int art_particle_file_mode = 0;
 
-void config_init_io_art() {
-	control_parameter_add2(control_parameter_int,&num_art_output_files,"num-art-output-files","num_art_output_files","Number of parallel output files in the old art format.");
-	control_parameter_add2(control_parameter_int,&num_art_input_files,"num-art-input-files","num_art_input_files","Number of parallel input files in the old art format.");
-	control_parameter_add2(control_parameter_int,&art_particle_num_row,"art-particle-num-row","art_particle_num_row","Page size for old style ART particle format.");
+void config_init_io_cart() {
+	control_parameter_add2(control_parameter_int,&num_cart_output_files,"num-cart-output-files","num_cart_output_files","Number of parallel output files in the old art format.");
+	control_parameter_add2(control_parameter_int,&num_cart_input_files,"num-cart-input-files","num_cart_input_files","Number of parallel input files in the old art format.");
+	control_parameter_add2(control_parameter_int,&cart_particle_num_row,"cart-particle-num-row","cart_particle_num_row","Page size for old style ART particle format.");
 }
 
-void config_verify_io_art() {
-	cart_assert(num_art_output_files > 0 && num_art_output_files <= num_procs);
-	cart_assert(num_art_input_files > 0 && num_art_input_files <= num_procs);
-	cart_assert(art_particle_num_row > 0);
+void config_verify_io_cart() {
+	cart_assert(num_cart_output_files > 0 && num_cart_output_files <= num_procs);
+	cart_assert(num_cart_input_files > 0 && num_cart_input_files <= num_procs);
+	cart_assert(cart_particle_num_row > 0);
 }
 
-void write_art_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
+void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
 	FILE *restart;
 	char filename[256];
 	char filename1[256];
@@ -101,12 +101,12 @@ void write_art_restart( int grid_filename_flag, int particle_filename_flag, int 
 		    }
 		  default:
 			{
-				cart_error("Invalid value for grid_filename_flag in write_art_restart!");
+				cart_error("Invalid value for grid_filename_flag in write_cart_restart!");
 			}
 		}
 
 		start_time( GAS_WRITE_IO_TIMER );
-		write_art_grid_binary( filename_gas );
+		write_cart_grid_binary( filename_gas );
 		end_time( GAS_WRITE_IO_TIMER );
 	}
 
@@ -151,12 +151,12 @@ void write_art_restart( int grid_filename_flag, int particle_filename_flag, int 
 #endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  default:
 			{
-				cart_error("Invalid value for tracer_filename_flag in write_art_restart!");
+				cart_error("Invalid value for tracer_filename_flag in write_cart_restart!");
 			}
 		}
 
 		start_time( PARTICLE_WRITE_IO_TIMER );
-		write_art_hydro_tracers( filename_tracers );
+		write_cart_hydro_tracers( filename_tracers );
 		end_time( PARTICLE_WRITE_IO_TIMER );
 	}
 #endif /* HYDRO_TRACERS */
@@ -219,15 +219,15 @@ void write_art_restart( int grid_filename_flag, int particle_filename_flag, int 
 #endif  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  default :
 			{
-				cart_error("Invalid value for particle_filename_flag in write_art_restart!");
+				cart_error("Invalid value for particle_filename_flag in write_cart_restart!");
 			}
 		}
 		
 		start_time( PARTICLE_WRITE_IO_TIMER );
 #ifdef STARFORM
-		write_art_particles( filename1, filename2, filename3, filename4 );
+		write_cart_particles( filename1, filename2, filename3, filename4 );
 #else
-		write_art_particles( filename1, filename2, filename3, NULL );
+		write_cart_particles( filename1, filename2, filename3, NULL );
 #endif /* STARFORM */
 		end_time( PARTICLE_WRITE_IO_TIMER );
 	}
@@ -258,11 +258,11 @@ void write_art_restart( int grid_filename_flag, int particle_filename_flag, int 
 #endif /* PARTICLES */
 	
 		fclose(restart);
-		num_art_input_files = num_art_output_files;
+		num_cart_input_files = num_cart_output_files;
 	}
 }
 
-void read_art_restart( const char *label ) {
+void read_cart_restart( const char *label ) {
 	FILE *restart;
 	char filename[256];
 	char filename_gas[256];
@@ -341,7 +341,7 @@ void read_art_restart( const char *label ) {
 
     if ( partition == NULL ) {
         /* do load balancing */
-        restart_load_balance_art( filename_gas, filename1, filename2 );
+        restart_load_balance_cart( filename_gas, filename1, filename2 );
     } else {
 		fscanf( partition, "%u %u\n", &partition_num_procs, &partition_num_grid );
 
@@ -359,18 +359,18 @@ void read_art_restart( const char *label ) {
 	}
 #else
 	/* do load balancing */
-	restart_load_balance_art( filename_gas, filename1, filename2 );
+	restart_load_balance_cart( filename_gas, filename1, filename2 );
 #endif
 
 	cart_debug("Reading grid restart...");
 	start_time( GAS_READ_IO_TIMER );
-	read_art_grid_binary( filename_gas );
+	read_cart_grid_binary( filename_gas );
 	end_time( GAS_READ_IO_TIMER );
 
 #ifdef HYDRO
 #ifdef HYDRO_TRACERS
 	start_time( PARTICLE_READ_IO_TIMER );
-	read_art_hydro_tracers( filename_tracers );
+	read_cart_hydro_tracers( filename_tracers );
 	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* HYDRO_TRACERS */
 
@@ -382,9 +382,9 @@ void read_art_restart( const char *label ) {
 	cart_debug("Reading particle restart...");
 	start_time( PARTICLE_READ_IO_TIMER );
 #ifdef STARFORM
-	read_art_particles( filename1, filename2, filename3, filename4, 0, NULL );
+	read_cart_particles( filename1, filename2, filename3, filename4, 0, NULL );
 #else
-	read_art_particles( filename1, filename2, filename3, NULL, 0, NULL );
+	read_cart_particles( filename1, filename2, filename3, NULL, 0, NULL );
 #endif /* STARFORM */
 	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* PARTICLES */
@@ -401,13 +401,13 @@ void reorder( char *buffer, int size ) {
 	}
 }
 
-void set_art_grid_file_mode(int mode)
+void set_cart_grid_file_mode(int mode)
 {
   if(mode>=-4 && mode<=4) art_grid_file_mode = mode;
 }
 
 #ifdef PARTICLES
-void set_art_particle_file_mode(int mode)
+void set_cart_particle_file_mode(int mode)
 {
   if(mode>=-2 && mode<=2) art_particle_file_mode = mode;
 }
@@ -417,16 +417,16 @@ void set_art_particle_file_mode(int mode)
 //  Create multiple versions of restart_load_balance using
 //  C-style templates
 */
-#define FUNCTION                      restart_load_balance_art_particle_float
+#define FUNCTION                      restart_load_balance_cart_particle_float
 #define PARTICLE_FLOAT                float
-#include "io_art1.def"
+#include "io_cart1.def"
 
-#define FUNCTION                      restart_load_balance_art_particle_double
+#define FUNCTION                      restart_load_balance_cart_particle_double
 #define PARTICLE_FLOAT                double
-#include "io_art1.def"
+#include "io_cart1.def"
 #endif /* PARTICLES */
 
-void restart_load_balance_art( char *grid_filename, char *particle_header_filename, char *particle_data ) {
+void restart_load_balance_cart( char *grid_filename, char *particle_header_filename, char *particle_data ) {
 	int i, j;
 	int index;
 	float *cell_work;	
@@ -465,11 +465,11 @@ void restart_load_balance_art( char *grid_filename, char *particle_header_filena
 				case 0:
 				case 1:
 				case -1:
-					restart_load_balance_art_particle_double(particle_header_filename,particle_data,cell_work,constrained_quantities);
+					restart_load_balance_cart_particle_double(particle_header_filename,particle_data,cell_work,constrained_quantities);
 					break;
 				case 2:
 				case -2:
-					restart_load_balance_art_particle_float(particle_header_filename,particle_data,cell_work,constrained_quantities);
+					restart_load_balance_cart_particle_float(particle_header_filename,particle_data,cell_work,constrained_quantities);
 					break;
 				default:
 					cart_error("Invalid art_particle_file_mode=%d",art_particle_file_mode);
@@ -479,8 +479,8 @@ void restart_load_balance_art( char *grid_filename, char *particle_header_filena
 
 		if ( grid_filename != NULL ) {
 			index = 0;
-			for ( i = 0; i < num_art_input_files; i++ ) {
-				if ( num_art_input_files == 1 ) {
+			for ( i = 0; i < num_cart_input_files; i++ ) {
+				if ( num_cart_input_files == 1 ) {
 					sprintf( filename, "%s", grid_filename );
 				} else {
 					sprintf( filename, "%s.%03u", grid_filename, i );
@@ -580,7 +580,7 @@ int compare_particle_ids( const void *a, const void *b ) {
 	return ( particle_id[*(int *)a] - particle_id[*(int *)b] );
 }
 
-void write_art_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename ) {
+void write_cart_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename ) {
 	int i;
 	int num_parts;
 	char desc[46];
@@ -623,7 +623,7 @@ void write_art_particles( char *header_filename, char *data_filename, char *time
 
 	if(art_particle_file_mode > 0) art_particle_file_mode = 0; /* Auto-reset */
 
-	num_parts_per_page = art_particle_num_row*art_particle_num_row;
+	num_parts_per_page = cart_particle_num_row*cart_particle_num_row;
 	num_parts_per_proc_page = num_parts_per_page/num_procs;
 	num_pages = (num_particles_total-1) / num_parts_per_page + 1;
 
@@ -681,7 +681,7 @@ void write_art_particles( char *header_filename, char *data_filename, char *time
 		header.ekin2	= 0.0;
 		header.au0		= au0;
 		header.aeu0		= aeu0;
-		header.Nrow		= art_particle_num_row;
+		header.Nrow		= cart_particle_num_row;
 		header.Ngrid	= num_grid;
 		header.Nspecies	= num_particle_species;
 		header.Nseed	= 0.0;
@@ -2291,7 +2291,7 @@ void write_art_particles( char *header_filename, char *data_filename, char *time
 	cart_free( particle_order );
 }
 
-void read_art_particle_header( char *header_filename, particle_header *header, int *endian, int *nbody_flag ) {
+void read_cart_particle_header( char *header_filename, particle_header *header, int *endian, int *nbody_flag ) {
 	int i;
 	FILE *input;
 	nbody_particle_header nbody_header;
@@ -2448,47 +2448,47 @@ void read_art_particle_header( char *header_filename, particle_header *header, i
 //  Create multiple versions of read_particles using
 //  C-style templates
 */
-#define FUNCTION                      read_art_particles_float_time_float
+#define FUNCTION                      read_cart_particles_float_time_float
 #define PARTICLE_FLOAT                float
 #define MPI_PARTICLE_FLOAT            MPI_FLOAT
 #define PARTICLE_TIMES_FLOAT          float
 #define MPI_PARTICLE_TIMES_FLOAT      MPI_FLOAT
-#include "io_art2.def"
+#include "io_cart2.def"
 
-#define FUNCTION                      read_art_particles_double_time_float
+#define FUNCTION                      read_cart_particles_double_time_float
 #define PARTICLE_FLOAT                double
 #define MPI_PARTICLE_FLOAT            MPI_DOUBLE
 #define PARTICLE_TIMES_FLOAT          float
 #define MPI_PARTICLE_TIMES_FLOAT      MPI_FLOAT
-#include "io_art2.def"
+#include "io_cart2.def"
 
-#define FUNCTION                      read_art_particles_double_time_double
+#define FUNCTION                      read_cart_particles_double_time_double
 #define PARTICLE_FLOAT                double
 #define MPI_PARTICLE_FLOAT            MPI_DOUBLE
 #define PARTICLE_TIMES_FLOAT          double
 #define MPI_PARTICLE_TIMES_FLOAT      MPI_DOUBLE
-#include "io_art2.def"
+#include "io_cart2.def"
 
-void read_art_particles( char *header_filename, char *data_filename, 
+void read_cart_particles( char *header_filename, char *data_filename, 
 			char *timestep_filename, char *stellar_filename,
 			int num_sfcs, int *sfc_list ) {
   switch(art_particle_file_mode)
     {
     case 0:
       {
-	read_art_particles_double_time_double(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	read_cart_particles_double_time_double(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
 	break;
       }
     case 1:
     case -1:
       {
-	read_art_particles_double_time_float(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	read_cart_particles_double_time_float(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
 	break;
       }
     case 2:
     case -2:
       {
-	read_art_particles_float_time_float(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
+	read_cart_particles_float_time_float(header_filename,data_filename,timestep_filename,stellar_filename,num_sfcs,sfc_list);
 	break;
       }
     default:
@@ -2507,7 +2507,7 @@ int compare_tracer_ids( const void *a, const void *b ) {
 	return ( tracer_id[*(int *)a] - tracer_id[*(int *)b] );
 }
 
-void write_art_hydro_tracers( char *filename ) {
+void write_cart_hydro_tracers( char *filename ) {
 	int i, j, k;
 	FILE *output;
 	int size;
@@ -2881,7 +2881,7 @@ void write_art_hydro_tracers( char *filename ) {
 	cart_free( tracer_order );
 }
 
-void read_art_hydro_tracers( char *filename ) {
+void read_cart_hydro_tracers( char *filename ) {
 	int i, j;
 	FILE *input;
 	int size, endian;
@@ -3155,11 +3155,11 @@ void read_art_hydro_tracers( char *filename ) {
 
 
 /* two helpers */
-void write_art_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells);
-void write_art_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells, int level, int current_level_count, int *current_level);
+void write_cart_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells);
+void write_cart_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells, int level, int current_level_count, int *current_level);
 
 
-void write_art_grid_binary( char *filename ) {
+void write_cart_grid_binary( char *filename ) {
 	int i, j, k;
 	int size;
 	FILE *output;
@@ -3246,17 +3246,17 @@ void write_art_grid_binary( char *filename ) {
 	page_size = num_grid*num_grid;
 
 	/* determine parallel output options */
-	file_index = local_proc_id * num_art_output_files / num_procs;
+	file_index = local_proc_id * num_cart_output_files / num_procs;
 
 	file_parent = local_proc_id;
 	while ( file_parent > 0 && 
-			(file_parent-1)*num_art_output_files / num_procs == file_index ) {
+			(file_parent-1)*num_cart_output_files / num_procs == file_index ) {
 		file_parent--;
 	}	
 
 	file_num_procs = 1;
 	while ( file_parent + file_num_procs < num_procs &&
-			(file_parent+file_num_procs)*num_art_output_files / num_procs == file_index ) {
+			(file_parent+file_num_procs)*num_cart_output_files / num_procs == file_index ) {
 		file_num_procs++;
 	}	
 
@@ -3271,7 +3271,7 @@ void write_art_grid_binary( char *filename ) {
 
 	/* open file handle if parent of parallel file */
 	if ( local_proc_id == file_parent ) {
-		if ( num_art_output_files == 1 ) {
+		if ( num_cart_output_files == 1 ) {
 			output = fopen(filename,"w");
 		} else {
 			sprintf( parallel_filename, "%s.%03u", filename, file_index );
@@ -3480,10 +3480,10 @@ void write_art_grid_binary( char *filename ) {
 	}
 
 	/* now write pages of root level hydro variables */
-	write_art_grid_binary_top_level_vars(num_hydro_vars,hydro_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells);
+	write_cart_grid_binary_top_level_vars(num_hydro_vars,hydro_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells);
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-	write_art_grid_binary_top_level_vars(num_other_vars,other_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells);
+	write_cart_grid_binary_top_level_vars(num_other_vars,other_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 	/* then write each level's cells in turn */
@@ -3559,10 +3559,10 @@ void write_art_grid_binary( char *filename ) {
 		}
 
 		/* now write pages of lower level hydro variables */
-		write_art_grid_binary_lower_level_vars(num_hydro_vars,hydro_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells,level,current_level_count,current_level);
+		write_cart_grid_binary_lower_level_vars(num_hydro_vars,hydro_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells,level,current_level_count,current_level);
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-		write_art_grid_binary_lower_level_vars(num_other_vars,other_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells,level,current_level_count,current_level);
+		write_cart_grid_binary_lower_level_vars(num_other_vars,other_vars,output,file_parent,file_num_procs,total_cells,page_size,proc_num_cells,level,current_level_count,current_level);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 		cart_free( current_level );
@@ -3584,7 +3584,7 @@ void write_art_grid_binary( char *filename ) {
 }
 
 
-void write_art_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells)
+void write_cart_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells)
 {
   int i, j;
   int size;
@@ -3660,7 +3660,7 @@ void write_art_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE *
 }
 
 
-void write_art_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells, int level, int current_level_count, int *current_level)
+void write_cart_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE *output, int file_parent, int file_num_procs, long *total_cells, int page_size, int *proc_num_cells, int level, int current_level_count, int *current_level)
 {
   int i, j, k, m;
   int size;
@@ -3738,11 +3738,11 @@ void write_art_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FILE
 
 
 /* two helpers */
-void read_art_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, long *proc_cell_index, int *file_sfc_index);
-void read_art_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level);
+void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, long *proc_cell_index, int *file_sfc_index);
+void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level);
 
 
-void read_art_grid_binary( char *filename ) {
+void read_cart_grid_binary( char *filename ) {
 	int i, j;
 	int size;
 	int num_read, flag;
@@ -3894,26 +3894,26 @@ void read_art_grid_binary( char *filename ) {
 	    }
 	  }
 
-	cart_assert( num_art_input_files >= 1 && num_art_input_files <= num_procs );
+	cart_assert( num_cart_input_files >= 1 && num_cart_input_files <= num_procs );
 
 	page_size = num_grid*num_grid;
 
 	/* set up global file information */
 	proc = 0;	
-	for ( i = 0; i < num_art_input_files; i++ ) {
-		while ( proc*num_art_input_files / num_procs != i ) {
+	for ( i = 0; i < num_cart_input_files; i++ ) {
+		while ( proc*num_cart_input_files / num_procs != i ) {
 			proc++;
 		}
 		file_parent_proc[i] = proc;
 	}
 
 	/* determine parallel output options */
-	file_index = local_proc_id * num_art_input_files / num_procs;
+	file_index = local_proc_id * num_cart_input_files / num_procs;
 	file_parent = file_parent_proc[file_index];
 
 	/* open file handle if parent of parallel file */
 	if ( local_proc_id == file_parent ) {
-		if ( num_art_input_files == 1 ) {
+		if ( num_cart_input_files == 1 ) {
 			input = fopen(filename,"r");
 		} else {
 			sprintf( parallel_filename, "%s.%03u", filename, file_index );
@@ -4176,7 +4176,7 @@ void read_art_grid_binary( char *filename ) {
 
 	/* h100 == 0 specifies user-defined units, > 0 implies ART standard */
 	if(h100 > 0.0) {
-		units_set_art(OmM0,h100,box_size);                                                                      
+		units_set_cart(OmM0,h100,box_size);                                                                      
 	} else {
 		MPI_Bcast( &OmB0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &OmL0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
@@ -4229,7 +4229,7 @@ void read_art_grid_binary( char *filename ) {
 			cell_counts = local_file_root_cells;
 
 			file_sfc_index[0] = 0;
-			for ( i = 1; i < num_art_input_files; i++ ) {
+			for ( i = 1; i < num_cart_input_files; i++ ) {
 				/* need to know how many root cells are in each file */
 				/* receive cellrefined */
 				file_sfc_index[i] = cell_counts;
@@ -4237,7 +4237,7 @@ void read_art_grid_binary( char *filename ) {
 					0, mpi.comm.run, &status );	
 				cell_counts += file_sfc_index[i+1];
 			}
-			file_sfc_index[num_art_input_files] = cell_counts;
+			file_sfc_index[num_cart_input_files] = cell_counts;
 
 			cart_assert( cell_counts == num_root_cells );
 		} else {
@@ -4247,14 +4247,14 @@ void read_art_grid_binary( char *filename ) {
 	}
 
 	/* send block information */
-	MPI_Bcast( file_sfc_index, num_art_input_files+1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( file_sfc_index, num_cart_input_files+1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
 	/* determine how many cells to expect from each processor */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		proc_num_cells[proc] = 0;
 	}
 
-	for ( i = 0; i < num_art_input_files; i++ ) {
+	for ( i = 0; i < num_cart_input_files; i++ ) {
 		if ( proc_sfc_index[local_proc_id] < file_sfc_index[i+1] &&
 				proc_sfc_index[local_proc_id+1] >= file_sfc_index[i] ) {
 			proc_num_cells[ file_parent_proc[i] ] = 
@@ -4357,10 +4357,10 @@ void read_art_grid_binary( char *filename ) {
 
 	cart_free( cellrefined[local_proc_id] );
 	//snl1
-	read_art_grid_binary_top_level_vars(num_in_hydro_vars,skip_hvar,num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
+	read_cart_grid_binary_top_level_vars(num_in_hydro_vars,skip_hvar,num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-	read_art_grid_binary_top_level_vars(num_in_other_vars,skip_ovar,num_other_vars,other_vars,input,endian,file_parent,file_index,
+	read_cart_grid_binary_top_level_vars(num_in_other_vars,skip_ovar,num_other_vars,other_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
@@ -4639,12 +4639,12 @@ void read_art_grid_binary( char *filename ) {
 
 		cart_assert( count == next_level_count );
 
-		read_art_grid_binary_lower_level_vars(num_in_hydro_vars,skip_hvar,num_hydro_vars,hydro_vars,input,endian,file_parent,
+		read_cart_grid_binary_lower_level_vars(num_in_hydro_vars,skip_hvar,num_hydro_vars,hydro_vars,input,endian,file_parent,
 					file_index,total_cells,page_size,proc_num_cells,level,first_page_count,
 					proc_first_index,proc_cell_index,current_level);
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-		read_art_grid_binary_lower_level_vars(num_in_other_vars,skip_ovar,num_other_vars,other_vars,input,endian,file_parent,file_index,
+		read_cart_grid_binary_lower_level_vars(num_in_other_vars,skip_ovar,num_other_vars,other_vars,input,endian,file_parent,file_index,
 					total_cells,page_size,proc_num_cells,level,first_page_count,proc_first_index,
 					proc_cell_index,current_level);
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
@@ -4686,7 +4686,7 @@ float set_skipped_var(int jskip){
 #endif /* BLASTWAVE_FEEDBACK */
 }
 
-void read_art_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, 
+void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, 
 		int file_parent, int file_index, int local_file_root_cells, int page_size, int *proc_num_cells, 
 		long *proc_cell_index, int *file_sfc_index) {
         int i, j, m, jout;
@@ -4723,7 +4723,7 @@ void read_art_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out
 			/* set up receive */
 			proc_page_count[proc] = min( proc_num_cells[proc], 
 					page_size - ( proc_cell_index[proc] - 
-					file_sfc_index[(int)((proc * num_art_input_files)/ num_procs)]) % page_size);
+					file_sfc_index[(int)((proc * num_cart_input_files)/ num_procs)]) % page_size);
 			cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
 			MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
 					mpi.comm.run, &requests[proc] );
@@ -4885,7 +4885,7 @@ void read_art_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_out
 }
 
 
-void read_art_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level)
+void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_out_vars, int *out_var, FILE *input, int endian, int file_parent, int file_index, long *total_cells, int page_size, int *proc_num_cells, int level, long *first_page_count, long *proc_first_index, long *proc_cell_index, int *current_level)
 {
   int i, j, m, jout;
   int size;

@@ -14,7 +14,7 @@
 #include "../core/cooling.h"
 #include "../core/hydro_tracer.h"
 #include "../core/io.h"
-#include "../core/io_art.h"
+#include "../core/io_cart.h"
 #include "../core/parallel.h"
 #include "../core/particle.h"
 #include "../core/rand.h"
@@ -37,7 +37,7 @@ int drive_run();
 int drive_fft();
 
 
-extern int old_art_io_flag;
+extern int old_cart_io_flag;
 
 
 int drive() {
@@ -146,21 +146,21 @@ int drive_run () {
         str = extract_option0("old-io","o");
         if(str != NULL)
           {
-	    old_art_io_flag = 1;
+	    old_cart_io_flag = 1;
           }
 
         /*
         //  Support -pfm/--particle-file-mode=<mode> option
         */
         str = extract_option1("particle-file-mode","pfm",NULL);
-        if(str!=NULL && old_art_io_flag)
+        if(str!=NULL && old_cart_io_flag)
           {
 #ifdef PARTICLES
             if(sscanf(str,"%d",&mode)==0 || mode<0 || mode>2)
               {
                 cart_error("--particle-file-mode=<mode> option requires an integer <mode> between 0 and 2 as an argument.");
               }
-            set_art_particle_file_mode(mode);
+            set_cart_particle_file_mode(mode);
 #else
             cart_debug("Particle support is not compiled in; ignoring --particle-file-mode option.");
 #endif /* PARTICLES */
@@ -170,13 +170,13 @@ int drive_run () {
         //  Support -gfm/--grid-file-mode=<mode> option
         */
         str = extract_option1("grid-file-mode","gfm",NULL);
-        if(str!=NULL && old_art_io_flag)
+        if(str!=NULL && old_cart_io_flag)
           {
             if(sscanf(str,"%d",&mode)==0 || mode<0 || mode>4)
               {
                 cart_error("--grid-file-mode=<mode> requires an integer <mode> between 0 and 3 as an argument.");
               }
-            set_art_grid_file_mode(mode);
+            set_cart_grid_file_mode(mode);
           }
 
 	/* start actual work */

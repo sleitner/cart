@@ -12,7 +12,7 @@
 #include "cosmology.h"
 #include "hydro_tracer.h"
 #include "io.h"
-#include "io_art.h"
+#include "io_cart.h"
 #include "io_cartio.h"
 #include "iterators.h"
 #include "load_balance.h"
@@ -56,7 +56,7 @@ int num_outputs = 0;
 int outputs_size = 0;
 float *outputs = NULL;
 
-int old_art_io_flag = 0;
+int old_cart_io_flag = 0;
 
 /*
 //  For backward compatibility
@@ -200,9 +200,9 @@ void config_init_io()
 
   control_parameter_add2(control_parameter_int,&grid_output_frequency,"frequency:grid-output","grid_output_frequency","frequency (in global time steps) of calling producing grid output files. Every time a grid file is writtent to disk, particle and tracer files are also written, irrespectively of the values of <frequency:particle-output> and <frequency:tracer-output> parameters. Zero frequency disables regular output of grid files; however, outputs are still produced in cosmological simulations at cosmic scale factors set by <snapshot-epochs> parameter.");
 
-  control_parameter_add2(control_parameter_bool,&old_art_io_flag,"io:use-old-art-format","old-art-format","Disable using the new (default) I/O library in favor of the original ART particle and grid formats (either T or F).");
+  control_parameter_add2(control_parameter_bool,&old_cart_io_flag,"io:use-old-cart-format","old-cart-format","Disable using the new (default) I/O library in favor of the original ART particle and grid formats (either T or F).");
 
-  config_init_io_art();
+  config_init_io_cart();
   config_init_io_cartio();
 }
 
@@ -241,9 +241,9 @@ void config_verify_io()
 
   cart_assert(grid_output_frequency >= 0);
 
-  cart_assert(old_art_io_flag == 0 || old_art_io_flag == 1);
+  cart_assert(old_cart_io_flag == 0 || old_cart_io_flag == 1);
 
-  config_verify_io_art();
+  config_verify_io_cart();
   config_verify_io_cartio();
 }
 
@@ -254,8 +254,8 @@ void read_restart( const char *label ) {
 		destroy_cell_buffer();
 	}
 
-	if ( old_art_io_flag ) {
-		read_art_restart(label);	
+	if ( old_cart_io_flag ) {
+		read_cart_restart(label);	
 	} else {
 		read_cartio_restart(label);
 	}

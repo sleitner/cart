@@ -2,7 +2,7 @@
 
 
 #include "io.h"
-#include "io_art.h"
+#include "io_cart.h"
 #include "io_cartio.h"
 #include "rand.h"
 #include "times.h"
@@ -15,7 +15,7 @@
 #endif
 
 
-extern int old_art_io_flag;
+extern int old_cart_io_flag;
 extern int restart_frequency;
 extern int grid_output_frequency;
 extern int particle_output_frequency;
@@ -29,8 +29,8 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 
 	start_time( IO_TIMER );
 
-	if ( old_art_io_flag ) {
-		write_art_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
+	if ( old_cart_io_flag ) {
+		write_cart_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
 	} else {
 		write_cartio_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
 	}

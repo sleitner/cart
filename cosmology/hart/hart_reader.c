@@ -7,7 +7,7 @@
 #include "cosmology.h"
 #include "hydro.h"
 #include "io.h"
-#include "io_art.h"
+#include "io_cart.h"
 #include "parallel.h"
 #include "sfc.h"
 #include "times.h"

@@ -12,7 +12,7 @@
 #include "cosmology.h"
 #include "iterators.h"
 #include "hydro.h"
-#include "io_art.h"
+#include "io_cart.h"
 #include "parallel.h"
 #include "particle.h"
 #include "sfc.h"

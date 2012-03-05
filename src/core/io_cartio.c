@@ -372,7 +372,7 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 	/* write header variables */
 	num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
 
-	cartio_parameter_set_string( handle, "jobname", jobname );
+	cartio_parameter_set_string( handle, "jobname", (char *)jobname );
 	cart_debug("jobname: %s", jobname );
 
 	cartio_parameter_set_int( handle, "sfc", SFC );

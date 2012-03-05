@@ -12,7 +12,7 @@
 #include "hydro.h"
 #include "hydro_tracer.h"
 #include "io.h"
-#include "io_art.h"
+#include "io_cart.h"
 #include "iterators.h"
 #include "load_balance.h"
 #include "oct_hash.h"

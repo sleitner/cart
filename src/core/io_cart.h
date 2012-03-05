@@ -1,12 +1,12 @@
-#ifndef __IO_ART_H__
-#define __IO_ART_H__
+#ifndef __IO_CART_H__
+#define __IO_CART_H__
 
 #ifndef CONFIGURED
 #error "Missing config.h include."
 #endif
 
-void config_init_io_art();
-void config_verify_io_art();
+void config_init_io_cart();
+void config_verify_io_cart();
 void reorder( char *buffer, int size );
 
 #ifdef PARTICLES
@@ -76,22 +76,22 @@ typedef struct {
 	float fill[75];
 } nbody_particle_header;
 
-void write_art_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename );
-void read_art_particles(  char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename, 
+void write_cart_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename );
+void read_cart_particles(  char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename, 
 			int num_sfcs, int *sfc_list );
-void read_art_particle_header( char *header_filename, particle_header *header, int *endian, int *nbody_flag ); 
+void read_cart_particle_header( char *header_filename, particle_header *header, int *endian, int *nbody_flag ); 
 #endif /* PARTICLES */
 
-void read_art_restart(const char *);
-void write_art_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag );
+void read_cart_restart(const char *);
+void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag );
 
-void restart_load_balance_art( char *grid_filename, char *particle_header_filename, char *particle_data );
-void write_art_grid_binary( char *filename );
-void read_art_grid_binary( char *filename );
+void restart_load_balance_cart( char *grid_filename, char *particle_header_filename, char *particle_data );
+void write_cart_grid_binary( char *filename );
+void read_cart_grid_binary( char *filename );
 
 #ifdef HYDRO_TRACERS
-void read_art_hydro_tracers( char *filename );
-void write_art_hydro_tracers( char *filename );
+void read_cart_hydro_tracers( char *filename );
+void write_cart_hydro_tracers( char *filename );
 #endif /* HYDRO_TRACERS */
 
 /*
@@ -107,11 +107,11 @@ void write_art_hydro_tracers( char *filename );
 //  Other setting in the other run must be the same as in the current one (i.e.
 //  no reading a cooing data file into an adiabatic run).
 */
-void set_art_grid_file_mode(int mode);
-void set_art_particle_file_mode(int mode);
+void set_cart_grid_file_mode(int mode);
+void set_cart_particle_file_mode(int mode);
 
-extern int art_particle_num_row;
-extern int num_art_output_files;
-extern int num_art_input_files;
+extern int cart_particle_num_row;
+extern int num_cart_output_files;
+extern int num_cart_input_files;
 
 #endif
