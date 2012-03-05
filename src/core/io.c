@@ -13,7 +13,7 @@
 #include "hydro_tracer.h"
 #include "io.h"
 #include "io_cart.h"
-#include "io_cartio.h"
+#include "io_artio.h"
 #include "iterators.h"
 #include "load_balance.h"
 #include "parallel.h"
@@ -203,7 +203,7 @@ void config_init_io()
   control_parameter_add2(control_parameter_bool,&old_cart_io_flag,"io:use-old-cart-format","old-cart-format","Disable using the new (default) I/O library in favor of the original ART particle and grid formats (either T or F).");
 
   config_init_io_cart();
-  config_init_io_cartio();
+  config_init_io_artio();
 }
 
 
@@ -244,7 +244,7 @@ void config_verify_io()
   cart_assert(old_cart_io_flag == 0 || old_cart_io_flag == 1);
 
   config_verify_io_cart();
-  config_verify_io_cartio();
+  config_verify_io_artio();
 }
 
 void read_restart( const char *label ) {
@@ -257,7 +257,7 @@ void read_restart( const char *label ) {
 	if ( old_cart_io_flag ) {
 		read_cart_restart(label);	
 	} else {
-		read_cartio_restart(label);
+		read_artio_restart(label);
 	}
 
 	units_init();

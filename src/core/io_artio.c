@@ -12,7 +12,7 @@
 #include "hydro.h"
 #include "index_hash.h"
 #include "io.h"
-#include "io_cartio.h"
+#include "io_artio.h"
 #include "iterators.h"
 #include "load_balance.h"
 #include "parallel.h"
@@ -27,7 +27,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "../tools/cartio/cartio.h"
+#include "../tools/artio/artio.h"
 
 extern int step;
 
@@ -40,19 +40,19 @@ DECLARE_LEVEL_ARRAY(int,time_refinement_factor_old);
 
 extern double auni_init;
 
-int num_cartio_grid_files = 0;
-int cartio_grid_allocation_strategy = CARTIO_ALLOC_EQUAL_SFC;
+int num_artio_grid_files = 0;
+int artio_grid_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 
 #ifdef PARTICLES
-int num_cartio_particle_files = 0;
-int cartio_particle_allocation_strategy = CARTIO_ALLOC_EQUAL_SFC;
+int num_artio_particle_files = 0;
+int artio_particle_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 #endif /* PARTICLES */
 
 void control_parameter_set_allocation_strategy(const char *value, void *ptr, int ind) {
-	if ( strcmp( value, "CARTIO_ALLOC_EQUAL_SFC" ) == 0 ) {
-		*(int *)ptr = CARTIO_ALLOC_EQUAL_SFC;
-	} else if ( strcmp( value, "CARTIO_ALLOC_EQUAL_PROC" ) == 0 ) {
-		*(int *)ptr = CARTIO_ALLOC_EQUAL_PROC;
+	if ( strcmp( value, "ARTIO_ALLOC_EQUAL_SFC" ) == 0 ) {
+		*(int *)ptr = ARTIO_ALLOC_EQUAL_SFC;
+	} else if ( strcmp( value, "ARTIO_ALLOC_EQUAL_PROC" ) == 0 ) {
+		*(int *)ptr = ARTIO_ALLOC_EQUAL_PROC;
 	} else {
 		cart_error("Invalid allocation strategy %s", value );
 	}
@@ -60,46 +60,46 @@ void control_parameter_set_allocation_strategy(const char *value, void *ptr, int
 
 void control_parameter_list_allocation_strategy(FILE *stream, const void *ptr) {
 	switch( *(int *)ptr ) {
-		case CARTIO_ALLOC_EQUAL_SFC :
-			fprintf(stream,"CARTIO_ALLOC_EQUAL_SFC");
-		case CARTIO_ALLOC_EQUAL_PROC :
-			fprintf(stream,"CARTIO_ALLOC_EQUAL_PROC");
+		case ARTIO_ALLOC_EQUAL_SFC :
+			fprintf(stream,"ARTIO_ALLOC_EQUAL_SFC");
+		case ARTIO_ALLOC_EQUAL_PROC :
+			fprintf(stream,"ARTIO_ALLOC_EQUAL_PROC");
 		default :
 			fprintf(stream,"UNKNOWN");
 	}
 }
 
-void config_init_io_cartio() {
+void config_init_io_artio() {
 	ControlParameterOps control_parameter_allocation_strategy = { 
 		control_parameter_set_allocation_strategy, 
 		control_parameter_list_allocation_strategy };
 
-	num_cartio_grid_files = num_procs;
-	control_parameter_add2(control_parameter_int,&num_cartio_grid_files,"io:num-grid-files","num_grid_files","Number of output grid files. Defaults to the number of MPI tasks.");
-	control_parameter_add2(control_parameter_allocation_strategy,&cartio_grid_allocation_strategy,"io:grid-file-allocation-strategy","grid_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: CARTIO_ALLOC_EQUAL_SFC, CARTIO_ALLOC_EQUAL_PROC");
+	num_artio_grid_files = num_procs;
+	control_parameter_add2(control_parameter_int,&num_artio_grid_files,"io:num-grid-files","num_grid_files","Number of output grid files. Defaults to the number of MPI tasks.");
+	control_parameter_add2(control_parameter_allocation_strategy,&artio_grid_allocation_strategy,"io:grid-file-allocation-strategy","grid_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: ARTIO_ALLOC_EQUAL_SFC, ARTIO_ALLOC_EQUAL_PROC");
 
 #ifdef PARTICLES
-	num_cartio_particle_files = num_procs;
-	control_parameter_add2(control_parameter_int,&num_cartio_particle_files,"io:num-particle-files","num_particle_files","Number of output particle files.  Defaults to the number of MPI tasks.");
-	control_parameter_add2(control_parameter_allocation_strategy,&cartio_particle_allocation_strategy,"io:particle-file-allocation-strategy","particle_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: CARTIO_ALLOC_EQUAL_SFC, CARTIO_ALLOC_EQUAL_PROC");
+	num_artio_particle_files = num_procs;
+	control_parameter_add2(control_parameter_int,&num_artio_particle_files,"io:num-particle-files","num_particle_files","Number of output particle files.  Defaults to the number of MPI tasks.");
+	control_parameter_add2(control_parameter_allocation_strategy,&artio_particle_allocation_strategy,"io:particle-file-allocation-strategy","particle_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: ARTIO_ALLOC_EQUAL_SFC, ARTIO_ALLOC_EQUAL_PROC");
 #endif /* PARTICLES */
 }
 
-void config_verify_io_cartio() {
-	cart_assert( num_cartio_grid_files > 0 && num_cartio_grid_files < max_sfc_index );
-	cart_assert( cartio_grid_allocation_strategy == CARTIO_ALLOC_EQUAL_SFC || cartio_grid_allocation_strategy == CARTIO_ALLOC_EQUAL_PROC );
+void config_verify_io_artio() {
+	cart_assert( num_artio_grid_files > 0 && num_artio_grid_files < max_sfc_index );
+	cart_assert( artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
 #ifdef PARTICLES 
-	cart_assert( num_cartio_particle_files > 0 && num_cartio_particle_files < max_sfc_index );
-	cart_assert( cartio_particle_allocation_strategy == CARTIO_ALLOC_EQUAL_SFC || cartio_particle_allocation_strategy == CARTIO_ALLOC_EQUAL_PROC );
+	cart_assert( num_artio_particle_files > 0 && num_artio_particle_files < max_sfc_index );
+	cart_assert( artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
 #endif /* PARTICLES */
 }
 
-void read_cartio_grid( cartio_file handle, int file_max_level );
-void write_cartio_grid( cartio_file handle, int num_file_vars, int *var_indices );
+void read_artio_grid( artio_file handle, int file_max_level );
+void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices );
 
 #ifdef PARTICLES
-void read_cartio_particles( cartio_file handle, int num_species );
-void write_cartio_particles( cartio_file handle, int *root_tree_particle_list,
+void read_artio_particles( artio_file handle, int num_species );
+void write_artio_particles( artio_file handle, int *root_tree_particle_list,
             int *num_particles_per_species_per_root_tree );
 #endif /* PARTICLES */
 
@@ -271,7 +271,7 @@ int compare_particle_species_id( const void *a, const void *b ) {
 }
 #endif /* PARTICLES */
 
-void create_cartio_filename( int filename_flag, char *label, char *filename ) {
+void create_artio_filename( int filename_flag, char *label, char *filename ) {
 	switch(filename_flag) {
 		case WRITE_SAVE:
 			sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
@@ -285,9 +285,9 @@ void create_cartio_filename( int filename_flag, char *label, char *filename ) {
 	}
 }
 
-void write_cartio_restart_worker( char *filename, int fileset_write_options );
+void write_artio_restart_worker( char *filename, int fileset_write_options );
 
-void write_cartio_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) { 
+void write_artio_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) { 
 	/* ignores tracer_filename_flag for now... */
 	char label[256];
 	char filename[256];
@@ -300,37 +300,37 @@ void write_cartio_restart( int grid_filename_flag, int particle_filename_flag, i
 
 	if ( particle_filename_flag == NO_WRITE ) {
 		if ( grid_filename_flag != NO_WRITE ) {
-			create_cartio_filename(grid_filename_flag, label, filename);
-			write_cartio_restart_worker( filename, WRITE_GRID );
+			create_artio_filename(grid_filename_flag, label, filename);
+			write_artio_restart_worker( filename, WRITE_GRID );
 		}
 	} else {
 		if ( particle_filename_flag == grid_filename_flag ) {
-			create_cartio_filename(particle_filename_flag, label, filename);
-			write_cartio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
+			create_artio_filename(particle_filename_flag, label, filename);
+			write_artio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
 		} else {
 			if ( grid_filename_flag == WRITE_BACKUP || grid_filename_flag == WRITE_GENERIC ) {
-				create_cartio_filename(grid_filename_flag, label, filename);
-				write_cartio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
+				create_artio_filename(grid_filename_flag, label, filename);
+				write_artio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
 
-				create_cartio_filename(particle_filename_flag, label, filename);
-				write_cartio_restart_worker( filename, WRITE_PARTICLES );
+				create_artio_filename(particle_filename_flag, label, filename);
+				write_artio_restart_worker( filename, WRITE_PARTICLES );
 			} else if ( grid_filename_flag == WRITE_SAVE ) {
 				/* implies particle_filename_flag == BACKUP || GENERIC */
-				create_cartio_filename(particle_filename_flag, label, filename);
-				write_cartio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
+				create_artio_filename(particle_filename_flag, label, filename);
+				write_artio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
 
-				create_cartio_filename(grid_filename_flag, label, filename);
-				write_cartio_restart_worker( filename, WRITE_GRID );
+				create_artio_filename(grid_filename_flag, label, filename);
+				write_artio_restart_worker( filename, WRITE_GRID );
 			} else {
 				/* implies particle_filename_flag == WRITE_SAVE */
-				create_cartio_filename(particle_filename_flag, label, filename);
-				write_cartio_restart_worker( filename, WRITE_PARTICLES );
+				create_artio_filename(particle_filename_flag, label, filename);
+				write_artio_restart_worker( filename, WRITE_PARTICLES );
 			}
 		}
 	}
 }
 
-void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
+void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	int i, j;
 	int sfc;
 	int icell;
@@ -338,7 +338,7 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 	int level;
 	long total;
 	int num_level_cells, *level_cells;
-	cartio_file handle;
+	artio_file handle;
 	int num_file_vars;
 	int var_indices[num_vars];
 	char *var_labels[num_vars];
@@ -363,86 +363,86 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 #endif
 
 	/* create new parallel file */
-    cart_debug("creating parallel file %s", filename );
+	cart_debug("creating parallel file %s", filename );
 
-    handle = cartio_fileset_create( filename, num_root_cells,
+	handle = artio_fileset_create( filename, num_root_cells,
             proc_sfc_index[local_proc_id],
             proc_sfc_index[local_proc_id+1]-1 );
 
 	/* write header variables */
 	num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
 
-	cartio_parameter_set_string( handle, "jobname", (char *)jobname );
+	artio_parameter_set_string( handle, "jobname", (char *)jobname );
 	cart_debug("jobname: %s", jobname );
 
-	cartio_parameter_set_int( handle, "sfc", SFC );
-	cartio_parameter_set_int( handle, "max_refinement_level", num_levels-1 );
+	artio_parameter_set_int( handle, "sfc", SFC );
+	artio_parameter_set_int( handle, "max_refinement_level", num_levels-1 );
 	
 	/* timestepping variables */
-	cartio_parameter_set_int( handle, "step", step );
-	cartio_parameter_set_double_array( handle, "tl", num_levels, tl );
-	cartio_parameter_set_double_array( handle, "tl_old", num_levels, tl_old );
-	cartio_parameter_set_double_array( handle, "dtl", num_levels, dtl );
-    cartio_parameter_set_double_array( handle, "dtl_old", num_levels, dtl_old );
+	artio_parameter_set_int( handle, "step", step );
+	artio_parameter_set_double_array( handle, "tl", num_levels, tl );
+	artio_parameter_set_double_array( handle, "tl_old", num_levels, tl_old );
+	artio_parameter_set_double_array( handle, "dtl", num_levels, dtl );
+	artio_parameter_set_double_array( handle, "dtl_old", num_levels, dtl_old );
 
-	cartio_parameter_set_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
-	cartio_parameter_set_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );
+	artio_parameter_set_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
+	artio_parameter_set_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );
 
 #ifdef HYDRO	
-	cartio_parameter_set_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
+	artio_parameter_set_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
 #endif
 	
 	/* unit parameters */
-	cartio_parameter_set_double( handle, "box_size", box_size );
+	artio_parameter_set_double( handle, "box_size", box_size );
 #ifdef COSMOLOGY 
-	cartio_parameter_set_double( handle, "OmegaM", cosmology->OmegaM );
-	cartio_parameter_set_double( handle, "OmegaL", cosmology->OmegaL );
-	cartio_parameter_set_double( handle, "OmegaB", cosmology->OmegaB );
-	cartio_parameter_set_double( handle, "hubble", cosmology->h );
-	cartio_parameter_set_double( handle, "DeltaDC", cosmology->DeltaDC );
+	artio_parameter_set_double( handle, "OmegaM", cosmology->OmegaM );
+	artio_parameter_set_double( handle, "OmegaL", cosmology->OmegaL );
+	artio_parameter_set_double( handle, "OmegaB", cosmology->OmegaB );
+	artio_parameter_set_double( handle, "hubble", cosmology->h );
+	artio_parameter_set_double( handle, "DeltaDC", cosmology->DeltaDC );
 
-	cartio_parameter_set_double( handle, "auni_init", auni_init );
-	cartio_parameter_set_double_array( handle, "abox", num_levels, abox );
-	cartio_parameter_set_double_array( handle, "auni", num_levels, auni );
+	artio_parameter_set_double( handle, "auni_init", auni_init );
+	artio_parameter_set_double_array( handle, "abox", num_levels, abox );
+	artio_parameter_set_double_array( handle, "auni", num_levels, auni );
 
-	cartio_parameter_set_double( handle, "Hbox", Hubble(abox[min_level]) );
+	artio_parameter_set_double( handle, "Hbox", Hubble(abox[min_level]) );
 #endif /* COSMOLOGY */
 
 	/* write unit conversion factors independent of cosmology flag */
-	cartio_parameter_set_double( handle, "mass_unit", primary_units->mass );
-	cartio_parameter_set_double( handle, "time_unit", primary_units->time );
-	cartio_parameter_set_double( handle, "length_unit", primary_units->length );
+	artio_parameter_set_double( handle, "mass_unit", primary_units->mass );
+	artio_parameter_set_double( handle, "time_unit", primary_units->time );
+	artio_parameter_set_double( handle, "length_unit", primary_units->length );
 
 #ifdef PARTICLES
 	/* energy conservation variables */	
-	cartio_parameter_set_double( handle, "energy:tintg", tintg );
-	cartio_parameter_set_double( handle, "energy:ekin", ekin );
-	cartio_parameter_set_double( handle, "energy:ekin1", ekin1 );
-	cartio_parameter_set_double( handle, "energy:ekin2", ekin2 );
-	cartio_parameter_set_double( handle, "energy:au0", au0 );
-	cartio_parameter_set_double( handle, "energy:aeu0", aeu0 );
-	cartio_parameter_set_double( handle, "energy:ap0", ap0 );
+	artio_parameter_set_double( handle, "energy:tintg", tintg );
+	artio_parameter_set_double( handle, "energy:ekin", ekin );
+	artio_parameter_set_double( handle, "energy:ekin1", ekin1 );
+	artio_parameter_set_double( handle, "energy:ekin2", ekin2 );
+	artio_parameter_set_double( handle, "energy:au0", au0 );
+	artio_parameter_set_double( handle, "energy:aeu0", aeu0 );
+	artio_parameter_set_double( handle, "energy:ap0", ap0 );
 #endif /* PARTICLES */
 
 	/* refinement boundaries */
-	cartio_parameter_set_float_array( handle, "refinement_volume_min", 
+	artio_parameter_set_float_array( handle, "refinement_volume_min", 
 			nDim, refinement_volume_min );
-	cartio_parameter_set_float_array( handle, "refinement_volume_max", 
+	artio_parameter_set_float_array( handle, "refinement_volume_max", 
 			nDim, refinement_volume_max );
 
 #ifdef STARFORM
-	cartio_parameter_set_float_array( handle, "star_formation_volume_min", 
+	artio_parameter_set_float_array( handle, "star_formation_volume_min", 
 			nDim, star_formation_volume_min );
-	cartio_parameter_set_float_array( handle, "star_formation_volume_max", 
+	artio_parameter_set_float_array( handle, "star_formation_volume_max", 
 			nDim, star_formation_volume_max );
 #endif /* STARFORM */
 
 	/* load balance parameters */
-	cartio_parameter_set_int( handle, "num_octs_per_mpi_task", num_octs );
+	artio_parameter_set_int( handle, "num_octs_per_mpi_task", num_octs );
 #ifdef PARTICLES
-	cartio_parameter_set_int( handle, "num_particles_per_mpi_task", num_particles );
+	artio_parameter_set_int( handle, "num_particles_per_mpi_task", num_particles );
 #ifdef STARFORM
-	cartio_parameter_set_int( handle, "num_star_particles_per_mpi_task", num_star_particles );
+	artio_parameter_set_int( handle, "num_star_particles_per_mpi_task", num_star_particles );
 #endif /* STARFORM */
 #endif /* PARTICLES */
 
@@ -450,7 +450,7 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 		local_proc_sfc_index[i] = proc_sfc_index[i];
 	}
 
-	cartio_parameter_set_long_array( handle, "mpi_task_sfc_index", num_procs+1, local_proc_sfc_index );
+	artio_parameter_set_long_array( handle, "mpi_task_sfc_index", num_procs+1, local_proc_sfc_index );
 
 	if ( fileset_write_options & WRITE_GRID ) {
 		/* build list of variables to write */
@@ -466,8 +466,8 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 			num_octs_per_root_tree[sfc-proc_sfc_index[local_proc_id]] = tree_oct_count( icell );
 		}
 
-		cartio_fileset_add_grid( handle,
-				num_cartio_grid_files, cartio_grid_allocation_strategy,
+		artio_fileset_add_grid( handle,
+				num_artio_grid_files, artio_grid_allocation_strategy,
 				num_file_vars, var_labels,
 				num_levels_per_root_tree,
 				num_octs_per_root_tree );
@@ -479,7 +479,7 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 		cart_free( num_levels_per_root_tree );
 		cart_free( num_octs_per_root_tree );
 
-		write_cartio_grid( handle, num_file_vars, var_indices );
+		write_artio_grid( handle, num_file_vars, var_indices );
 	}
 
 #ifdef PARTICLES
@@ -569,9 +569,9 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 			cart_free( order );	
 		}
 
-		cartio_fileset_add_particles( handle,
-				num_cartio_particle_files, 
-				cartio_particle_allocation_strategy,
+		artio_fileset_add_particles( handle,
+				num_artio_particle_files, 
+				artio_particle_allocation_strategy,
 				num_species, 
 				species_labels,
 				num_primary_variables,
@@ -594,12 +594,12 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
 			}
 		}
 
-		cartio_parameter_set_int_array( handle, "particle_species_num", 
+		artio_parameter_set_int_array( handle, "particle_species_num", 
 				num_particle_species, particle_species_num );
-		cartio_parameter_set_float_array( handle, "particle_species_mass", 
+		artio_parameter_set_float_array( handle, "particle_species_mass", 
 				num_particle_species, particle_species_mass );
 
-		write_cartio_particles( handle, root_tree_particle_list, num_particles_per_species_per_root_tree );
+		write_artio_particles( handle, root_tree_particle_list, num_particles_per_species_per_root_tree );
 		cart_free( num_particles_per_species_per_root_tree );
 		cart_free( root_tree_particle_list );
 
@@ -622,10 +622,10 @@ void write_cartio_restart_worker( char *filename, int fileset_write_options ) {
         fclose(restart);
 	}
 
-	cartio_fileset_close(handle);
+	artio_fileset_close(handle);
 }
 
-void write_cartio_grid( cartio_file handle, int num_file_vars, int *var_indices ) {
+void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices ) {
 	int i, j;
 	int64_t sfc;
 	int icell, ioct;
@@ -644,7 +644,7 @@ void write_cartio_grid( cartio_file handle, int num_file_vars, int *var_indices 
 		level = 1;
 		while ( level <= max_level && num_octs_per_level[level-1] > 0 ) level++;
 
-		cartio_grid_write_root_cell_begin(handle,sfc,variables, level-1, num_octs_per_level);
+		artio_grid_write_root_cell_begin(handle,sfc,variables, level-1, num_octs_per_level);
 
 		level = min_level+1;
 
@@ -665,7 +665,7 @@ void write_cartio_grid( cartio_file handle, int num_file_vars, int *var_indices 
 				next_level_octs = cart_alloc( int, num_children*num_level_octs );
 			}
 
-			cart_assert( cartio_grid_write_level_begin(handle, level) != -1 );
+			cart_assert( artio_grid_write_level_begin(handle, level) != -1 );
 			for ( i = 0; i < num_level_octs; i++ ) {
 				ioct = level_octs[i];
 				for ( j = 0; j < num_children; j++ ) {
@@ -679,20 +679,20 @@ void write_cartio_grid( cartio_file handle, int num_file_vars, int *var_indices 
 					}
 				}
 
-				cartio_grid_write_oct(handle, variables, refined );
+				artio_grid_write_oct(handle, variables, refined );
 			}
 
 			cart_free( level_octs );
-			cartio_grid_write_level_end(handle);
+			artio_grid_write_level_end(handle);
 			level++;
 		}
 
-		cartio_grid_write_root_cell_end(handle);
+		artio_grid_write_root_cell_end(handle);
 	}
 }
 
 #ifdef PARTICLES
-void write_cartio_particles( cartio_file handle, int *root_tree_particle_list, 
+void write_artio_particles( artio_file handle, int *root_tree_particle_list, 
 			int *num_particles_per_species_per_root_tree ) {
 	int i, j, k, m;
 	int sfc;
@@ -708,12 +708,12 @@ void write_cartio_particles( cartio_file handle, int *root_tree_particle_list,
 
 		num_particles_per_species = &num_particles_per_species_per_root_tree[num_particle_species*i];
 
-		cartio_particle_write_root_cell_begin(handle,sfc,num_particles_per_species);
+		artio_particle_write_root_cell_begin(handle,sfc,num_particles_per_species);
 
 		/* this code assumes two types of particles: N-body, Stars */
 		ipart = root_tree_particle_list[i];
 		for ( j = 0; j < num_particle_species; j++ ) {
-			cartio_particle_write_species_begin( handle, j );
+			artio_particle_write_species_begin( handle, j );
 
 			for ( k = 0; k < num_particles_per_species[j]; k++ ) {
 				id = particle_id[ipart];
@@ -750,22 +750,22 @@ void write_cartio_particles( cartio_file handle, int *root_tree_particle_list,
 				}
 #endif /* STARFORM */
 
-				cartio_particle_write_particle( handle, id, subspecie, primary_variables, secondary_variables );
+				artio_particle_write_particle( handle, id, subspecie, primary_variables, secondary_variables );
 				ipart = particle_list_prev[ipart];
 			}
 
-			cartio_particle_write_species_end(handle);
+			artio_particle_write_species_end(handle);
 		}
 
-		cartio_particle_write_root_cell_end(handle);
+		artio_particle_write_root_cell_end(handle);
 	}
 }
 #endif /* PARTICLES */
 
-void read_cartio_restart( char *label ) {
+void read_artio_restart( char *label ) {
 	int i;
 	int num_species;
-	cartio_file handle;
+	artio_file handle;
 	int sfc_order;
 	int64_t num_file_root_cells;
 	int level;
@@ -800,15 +800,15 @@ void read_cartio_restart( char *label ) {
 		sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
 	}	
 
-	type = CARTIO_OPEN_GRID;
+	type = ARTIO_OPEN_GRID;
 #ifdef PARTICLES
-	type |= CARTIO_OPEN_PARTICLES;
+	type |= ARTIO_OPEN_PARTICLES;
 #endif
 
-	handle = cartio_fileset_open(filename, type);
+	handle = artio_fileset_open(filename, type);
 	cart_assert( handle != NULL );
 
-	cartio_parameter_get_long(handle, "num_root_cells", &num_file_root_cells);
+	artio_parameter_get_long(handle, "num_root_cells", &num_file_root_cells);
 
 	if (num_file_root_cells != num_root_cells) {
 		cart_error( "Number of root cells in file %s header does not match compiled value: %d vs %d",
@@ -816,14 +816,14 @@ void read_cartio_restart( char *label ) {
 	}
 
 	/* try to load balance */
-	cartio_parameter_get_length( handle, "mpi_task_sfc_index", &num_file_procs );
+	artio_parameter_get_length( handle, "mpi_task_sfc_index", &num_file_procs );
 	num_file_procs -= 1;
 
-    cartio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs );
+    artio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs );
 #ifdef PARTICLES
-	cartio_parameter_get_int( handle, "num_particles_per_mpi_task", &num_file_particles );
+	artio_parameter_get_int( handle, "num_particles_per_mpi_task", &num_file_particles );
 #ifdef STARFORM
-	cartio_parameter_get_int( handle, "num_star_particles_per_mpi_task", &num_file_star_particles );
+	artio_parameter_get_int( handle, "num_star_particles_per_mpi_task", &num_file_star_particles );
 #endif /* STARFORM */
 #endif /* PARTICLES */
 
@@ -838,7 +838,7 @@ void read_cartio_restart( char *label ) {
 	) {
 		cart_error("ERROR: fileset has load balance that may be incompatible with current parameters. Recomputing...");
 	} else {
-		cartio_parameter_get_long_array( handle, "mpi_task_sfc_index", num_procs+1, mpi_task_sfc_index );
+		artio_parameter_get_long_array( handle, "mpi_task_sfc_index", num_procs+1, mpi_task_sfc_index );
 		for ( i = 0; i < num_procs+1; i++ ) {
 			proc_sfc_index[i] = mpi_task_sfc_index[i];
 		}
@@ -846,19 +846,19 @@ void read_cartio_restart( char *label ) {
 	}
 
 	/* load all simulation parameters here */
-	cartio_parameter_get_string( handle, "jobname", str );
+	artio_parameter_get_string( handle, "jobname", str );
 	set_jobname( str );
 	free(str);
 	cart_debug("jobname: %s", jobname );
 
-    cartio_parameter_get_int( handle, "sfc", &sfc_order );
+        artio_parameter_get_int( handle, "sfc", &sfc_order );
 
 	if ( sfc_order != SFC ) {
 		cart_error("Grid fileset has different sfc indexing than compiled code!");
 	}
 
 	/* check maximum level */
-	cartio_parameter_get_int( handle, "max_refinement_level", &file_max_level );
+	artio_parameter_get_int( handle, "max_refinement_level", &file_max_level );
 
 	if ( file_max_level > max_level ) {
 		cart_error("Grid fileset contains more levels than compiled code!");
@@ -867,21 +867,21 @@ void read_cartio_restart( char *label ) {
 	num_levels = file_max_level+1;
     
 #ifdef HYDRO    
-    cartio_parameter_get_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
+    artio_parameter_get_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
 	for ( level = file_max_level+1; level < max_level; level++ ) {
 		level_sweep_dir[level] = 0;
 	}
 #endif
     
 	/* unit parameters */
-	cartio_parameter_get_double( handle, "box_size", &box_size );
+	artio_parameter_get_double( handle, "box_size", &box_size );
 #ifdef COSMOLOGY 
-	cartio_parameter_get_double( handle, "auni_init", &auni_init );
-	cartio_parameter_get_double( handle, "OmegaM", &OmM0 );
-	cartio_parameter_get_double( handle, "OmegaL", &OmL0 );
-	cartio_parameter_get_double( handle, "OmegaB", &OmB0 );
-	cartio_parameter_get_double( handle, "hubble", &h100 );
-	cartio_parameter_get_double( handle, "DeltaDC", &DelDC );
+	artio_parameter_get_double( handle, "auni_init", &auni_init );
+	artio_parameter_get_double( handle, "OmegaM", &OmM0 );
+	artio_parameter_get_double( handle, "OmegaL", &OmL0 );
+	artio_parameter_get_double( handle, "OmegaB", &OmB0 );
+	artio_parameter_get_double( handle, "hubble", &h100 );
+	artio_parameter_get_double( handle, "DeltaDC", &DelDC );
 
 	cosmology_set(OmegaM,OmM0);
 	cosmology_set(OmegaL,OmL0);
@@ -890,30 +890,30 @@ void read_cartio_restart( char *label ) {
 	cosmology_set(DeltaDC,DelDC);
 		
 #else 
-	cartio_parameter_get_double( handle, "mass_unit", &mass_unit );
-	cartio_parameter_get_double( handle, "time_unit", &time_unit );
-	cartio_parameter_get_double( handle, "length_unit", &length_unit );
+	artio_parameter_get_double( handle, "mass_unit", &mass_unit );
+	artio_parameter_get_double( handle, "time_unit", &time_unit );
+	artio_parameter_get_double( handle, "length_unit", &length_unit );
 
 	units_set( mass_unit, time_unit, length_unit );
 #endif /* COSMOLOGY */
 
 	/* timestepping variables */
-	cartio_parameter_get_int( handle, "step", &step );
-	cartio_parameter_get_double_array( handle, "tl", num_levels, tl );
-	cartio_parameter_get_double_array( handle, "tl_old", num_levels, tl_old );
-	cartio_parameter_get_double_array( handle, "dtl", num_levels, dtl );
-	cartio_parameter_get_double_array( handle, "dtl_old", num_levels, dtl_old );
+	artio_parameter_get_int( handle, "step", &step );
+	artio_parameter_get_double_array( handle, "tl", num_levels, tl );
+	artio_parameter_get_double_array( handle, "tl_old", num_levels, tl_old );
+	artio_parameter_get_double_array( handle, "dtl", num_levels, dtl );
+	artio_parameter_get_double_array( handle, "dtl_old", num_levels, dtl_old );
 
-	cartio_parameter_get_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
-	cartio_parameter_get_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );                                              
+	artio_parameter_get_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
+	artio_parameter_get_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );                                              
 
 #ifdef COSMOLOGY
-	cartio_parameter_get_double( handle, "auni_init", &auni_init );
-	cartio_parameter_get_double_array( handle, "abox", num_levels, abox );
-	cartio_parameter_get_double_array( handle, "auni", num_levels, auni );
+	artio_parameter_get_double( handle, "auni_init", &auni_init );
+	artio_parameter_get_double_array( handle, "abox", num_levels, abox );
+	artio_parameter_get_double_array( handle, "auni", num_levels, auni );
 #endif /* COSMOLOGY */
 
-    for ( level = file_max_level+1; level < max_level; level++ ) {
+        for ( level = file_max_level+1; level < max_level; level++ ) {
         tl[level] = tl[file_max_level];
         tl_old[level] = tl_old[file_max_level];
         dtl[level] = dtl[level-1];
@@ -927,33 +927,33 @@ void read_cartio_restart( char *label ) {
 
 #ifdef PARTICLES
 	/* energy conservation variables */ 
-	cartio_parameter_get_double( handle, "energy:tintg", &tintg );
-	cartio_parameter_get_double( handle, "energy:ekin", &ekin );
-	cartio_parameter_get_double( handle, "energy:ekin1", &ekin1 );
-	cartio_parameter_get_double( handle, "energy:ekin2", &ekin2 );
-	cartio_parameter_get_double( handle, "energy:au0", &au0 );
-	cartio_parameter_get_double( handle, "energy:aeu0", &aeu0 );
-	cartio_parameter_get_double( handle, "energy:ap0", &ap0 );
+	artio_parameter_get_double( handle, "energy:tintg", &tintg );
+	artio_parameter_get_double( handle, "energy:ekin", &ekin );
+	artio_parameter_get_double( handle, "energy:ekin1", &ekin1 );
+	artio_parameter_get_double( handle, "energy:ekin2", &ekin2 );
+	artio_parameter_get_double( handle, "energy:au0", &au0 );
+	artio_parameter_get_double( handle, "energy:aeu0", &aeu0 );
+	artio_parameter_get_double( handle, "energy:ap0", &ap0 );
 #endif /* PARTICLES */
 
     /* refinement boundaries */
-	cartio_parameter_get_float_array( handle, "refinement_volume_min", 
+	artio_parameter_get_float_array( handle, "refinement_volume_min", 
 			nDim, refinement_volume_min );
-	cartio_parameter_get_float_array( handle, "refinement_volume_max", 
+	artio_parameter_get_float_array( handle, "refinement_volume_max", 
 			nDim, refinement_volume_max );
 
 #ifdef STARFORM
-	cartio_parameter_get_float_array( handle, "star_formation_volume_min", 
+	artio_parameter_get_float_array( handle, "star_formation_volume_min", 
 			nDim, star_formation_volume_min );
-	cartio_parameter_get_float_array( handle, "star_formation_volume_max", 
+	artio_parameter_get_float_array( handle, "star_formation_volume_max", 
 			nDim, star_formation_volume_max );
 #endif /* STARFORM */
 
-	read_cartio_grid(handle, file_max_level);
+	read_artio_grid(handle, file_max_level);
 	cart_debug("done reading grid");
 
 #ifdef PARTICLES
-	cartio_parameter_get_int( handle, "num_particle_species", &num_species);
+	artio_parameter_get_int( handle, "num_particle_species", &num_species);
 
 	if ( num_species > MAX_PARTICLE_SPECIES ) {
 		cart_error("Ran out of particle species!");
@@ -961,8 +961,8 @@ void read_cartio_restart( char *label ) {
 
 	num_particle_species = num_species;
 
-	cartio_parameter_get_int_array( handle, "particle_species_num", num_species, particle_species_num );
-	cartio_parameter_get_float_array( handle, "particle_species_mass", num_species, particle_species_mass );
+	artio_parameter_get_int_array( handle, "particle_species_num", num_species, particle_species_num );
+	artio_parameter_get_float_array( handle, "particle_species_mass", num_species, particle_species_mass );
 
 	for ( i = 0; i < num_species; i++ ) {
 		cart_debug("particle species %u: %u particles, %e mass", particle_species_num[i], particle_species_mass[i] );
@@ -973,16 +973,16 @@ void read_cartio_restart( char *label ) {
 		particle_species_indices[i+1] = particle_species_indices[i] + particle_species_num[i];
 	}
 
-	read_cartio_particles(handle, num_species );
+	read_artio_particles(handle, num_species );
 
 	cart_debug("num_local_particles = %u", num_local_particles );
 	build_particle_list();
 #endif /* PARTICLES */
 
-	cartio_fileset_close(handle);	
+	artio_fileset_close(handle);	
 }
 
-void read_cartio_grid( cartio_file handle, int file_max_level ) {
+void read_artio_grid( artio_file handle, int file_max_level ) {
 	int i, j;
 	int ret;
 	int64_t sfc;
@@ -1006,7 +1006,7 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 	/* load list of variables the code expects */
 	define_file_variables(&num_sim_variables, sim_var_labels, sim_var_indices);
 
-	cartio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
+	artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
 
 	if (num_file_variables < num_sim_variables) {
 		cart_error("Not enough variables in file header!" );
@@ -1020,7 +1020,7 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 	oct_variables = cart_alloc(float, 8 * num_file_variables);
 	file_variables = cart_alloc(char *, num_file_variables);
 
-	cartio_parameter_get_string_array(handle, "grid_variable_labels", num_file_variables, file_variables );
+	artio_parameter_get_string_array(handle, "grid_variable_labels", num_file_variables, file_variables );
 
 	/* match expected variables with variables in file */
 	for (i = 0; i < num_sim_variables; i++) {
@@ -1039,20 +1039,20 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 	}
 
 	for ( i = 0; i < num_file_variables; i++ ) {
-		free(file_variables[i]); /* using free since allocated in cartio... how do we handle this? */
+		free(file_variables[i]); /* using free since allocated in artio... how do we handle this? */
 	}
 	cart_free( file_variables );
 
 	num_octs_per_level = cart_alloc( int, file_max_level );
 
 	/* cache file offsets */
-	cartio_grid_cache_sfc_range( handle, proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1]-1 );
+	artio_grid_cache_sfc_range( handle, proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1]-1 );
 
 	/* load each space-filling-curve index in turn */
 	for (sfc = proc_sfc_index[local_proc_id]; 
 			sfc < proc_sfc_index[local_proc_id + 1]; sfc++) {
 
-		cartio_grid_read_root_cell_begin(handle, sfc, root_variables,
+		artio_grid_read_root_cell_begin(handle, sfc, root_variables,
 				&num_tree_levels, num_octs_per_level);
 		icell = root_cell_location(sfc);
 		unpack_cell_vars(icell, num_sim_variables, sim_var_indices,
@@ -1070,7 +1070,7 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 		}
 
 		for (level = 0; level < num_tree_levels; level++) {
-			cartio_grid_read_level_begin(handle, level+1);
+			artio_grid_read_level_begin(handle, level+1);
 
 			oct_order = next_level_order;
 			cart_assert(num_octs_per_level[level] == next_level_octs);
@@ -1084,7 +1084,7 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 
 			for (i = 0; i < num_octs_per_level[level]; i++) {
 				ioct = oct_order[i];
-				cartio_grid_read_oct(handle, oct_variables, oct_refined);
+				artio_grid_read_oct(handle, oct_variables, oct_refined);
 
 				for (j = 0; j < num_children; j++) {
 					icell = oct_child(ioct, j);
@@ -1103,10 +1103,10 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 			}
 
 			cart_free(oct_order);
-			cartio_grid_read_level_end(handle);
+			artio_grid_read_level_end(handle);
 		}
 
-		cartio_grid_read_root_cell_end(handle);
+		artio_grid_read_root_cell_end(handle);
 	}
 
 	cart_free( num_octs_per_level );
@@ -1115,7 +1115,7 @@ void read_cartio_grid( cartio_file handle, int file_max_level ) {
 }
 
 #ifdef PARTICLES
-void read_cartio_particles( cartio_file handle, int num_species ) {
+void read_artio_particles( artio_file handle, int num_species ) {
 	int i, j;
 	int sfc;
 	int64_t pid;
@@ -1129,19 +1129,19 @@ void read_cartio_particles( cartio_file handle, int num_species ) {
 	int num_particles_per_species[MAX_PARTICLE_SPECIES];
 	
 	/* cache file offsets */
-	cartio_particle_cache_sfc_range( handle, proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1]-1 );
+	artio_particle_cache_sfc_range( handle, proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1]-1 );
 
 	/* load each space-filling-curve index in turn */
 	for (sfc = proc_sfc_index[local_proc_id]; 
 			sfc < proc_sfc_index[local_proc_id + 1]; sfc++) {
 
-		cartio_particle_read_root_cell_begin(handle, sfc, num_particles_per_species );
+		artio_particle_read_root_cell_begin(handle, sfc, num_particles_per_species );
 
 		for ( species = 0; species < num_species; species++ ) {
-			cartio_particle_read_species_begin(handle, species);
+			artio_particle_read_species_begin(handle, species);
 
 			for ( i = 0; i < num_particles_per_species[species]; i++ ) {
-				cartio_particle_read_particle(handle, &pid, &subspecies,
+				artio_particle_read_particle(handle, &pid, &subspecies,
 						primary_variables, secondary_variables );
 
 				/* unpack variables */
@@ -1184,10 +1184,10 @@ void read_cartio_particles( cartio_file handle, int num_species ) {
 #endif /* STARFORM */
 			}
 
-			cartio_particle_read_species_end(handle);
+			artio_particle_read_species_end(handle);
 		}
 
-		cartio_particle_read_root_cell_end(handle);
+		artio_particle_read_root_cell_end(handle);
 	}
 }
 #endif /* PARTICLES */

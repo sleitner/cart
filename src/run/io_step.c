@@ -3,7 +3,7 @@
 
 #include "io.h"
 #include "io_cart.h"
-#include "io_cartio.h"
+#include "io_artio.h"
 #include "rand.h"
 #include "times.h"
 #include "timing.h"
@@ -32,7 +32,7 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 	if ( old_cart_io_flag ) {
 		write_cart_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
 	} else {
-		write_cartio_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
+		write_artio_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
 	}
 
 #ifdef STARFORM
