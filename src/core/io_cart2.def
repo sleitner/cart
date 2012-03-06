@@ -131,15 +131,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 		tl[min_level]  = header.abox;
 		dt = 0.0;
-
-		if(header.h100 > 0.0) /* legacy units */
-		  {
-		    units_set_cart(header.OmM0,header.h100,box_size);
-		  }
-		else
-		  {
-		    units_set(header.OmM0,header.OmB0,header.OmL0);
-		  }
+		units_set(header.OmM0,header.OmB0,header.OmL0);
 
 #endif /* COSMOLOGY */
 

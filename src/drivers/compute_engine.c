@@ -146,7 +146,7 @@ int drive_run () {
         str = extract_option0("old-io","o");
         if(str != NULL)
           {
-	    old_cart_io_flag = 1;
+	    old_cart_io_flag = -1;
           }
 
         /*

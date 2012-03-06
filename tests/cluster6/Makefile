@@ -5,11 +5,14 @@ compile:	cart
 
 include $(TOP_DIR)/Make.config
 
-hart_reader.o: $(DEFS) hart_reader.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -c hart_reader.c
+.obj/hart_init.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/hart_init.o -c $(TOP_DIR)/cosmology/hart/hart_init.c
 
-cart: .obj $(OBJS) hart_reader.o defs.h start_cosmology.c 
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) hart_reader.o start_cosmology.c -o cart $(LIBS) $(EXTRALIBS)
+.obj/hart_reader.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_reader.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/hart_reader.o -c $(TOP_DIR)/cosmology/hart/hart_reader.c
+
+cart: .obj/.phony $(DEFS) $(SIM_OBJS) .obj/hart_init.o .obj/hart_reader.o start_cosmology.c 
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) .obj/hart_init.o .obj/hart_reader.o start_cosmology.c -o cart $(LIBS) $(EXTRALIBS)
 
 DAT:
 	@mkdir DAT
@@ -23,4 +26,4 @@ ICs:
 prep: DAT logs ICs 
 
 clean:
-	rm -rf $(OBJS) .obj *.il core start_cosmology.o hart_reader.o cart
+	rm -rf .obj core start_cosmology.o cart

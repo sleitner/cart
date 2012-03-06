@@ -16,6 +16,8 @@
 #include "units.h"
 #include "cosmology.h"
 
+#include "../run/step.h"
+
 
 #define BottomLevel     1
 
@@ -128,7 +130,7 @@ void init_run()
    units_set_art(cosmology->OmegaM,cosmology->h,box_size);
    abox[min_level] = astart;
 
-   units_reset();
+   units_init();
    
    for ( i = 0; i < nDim; i++ )
      {

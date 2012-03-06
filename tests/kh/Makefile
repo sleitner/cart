@@ -14,8 +14,8 @@ logs:
 
 include $(TOP_DIR)/Make.config
 
-kh: .obj $(OBJS) defs.h start_kh.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start_kh.c -o kh $(LIBS) $(EXTRALIBS)
+kh: .obj/.phony $(SIM_OBJS) defs.h start_kh.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) start_kh.c -o kh $(LIBS) $(EXTRALIBS)
 
 clean:
-	rm -rf .obj *.il core start_kh.o kh
+	rm -rf .obj core start_kh.o kh

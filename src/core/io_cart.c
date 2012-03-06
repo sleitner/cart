@@ -2501,7 +2501,6 @@ void read_cart_particles( char *header_filename, char *data_filename,
 
 
 #ifdef HYDRO
-
 #ifdef HYDRO_TRACERS
 int compare_tracer_ids( const void *a, const void *b ) {
 	return ( tracer_id[*(int *)a] - tracer_id[*(int *)b] );
@@ -3146,6 +3145,7 @@ void read_cart_hydro_tracers( char *filename ) {
 }
 
 #endif /* HYDRO_TRACERS */
+#endif /* HYDRO */
 
 /*
 // NG: Slightly re-written form of grid binary I/O that (a) eliminates 
@@ -4174,15 +4174,10 @@ void read_cart_grid_binary( char *filename ) {
 	MPI_Bcast( &h100, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( &OmM0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
-	/* h100 == 0 specifies user-defined units, > 0 implies ART standard */
-	if(h100 > 0.0) {
-		units_set_cart(OmM0,h100,box_size);                                                                      
-	} else {
-		MPI_Bcast( &OmB0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
-		MPI_Bcast( &OmL0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &OmB0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &OmL0, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
-		units_set(OmM0,OmB0,OmL0);
-	}
+	units_set(OmM0,OmB0,OmL0);
 #endif /* COSMOLOGY */
 
 	MPI_Bcast( tl, maxlevel-minlevel+1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
@@ -5120,4 +5115,3 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
     }
 }
 
-#endif /* HYDRO */

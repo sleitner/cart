@@ -17,7 +17,7 @@
 #include "cell_buffer.h"
 #include "iterators.h"
 #include "load_balance.h"
-#include "run/step.h"
+#include "../run/step.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
@@ -40,6 +40,8 @@
 #include "start_radp.h"
 void create_star_particle( int icell, float mass, int type );
     
+extern double auni_init, t_init;
+
 
 const int central_cell=num_grid/2;
 double tot_energy0=0;
@@ -289,7 +291,7 @@ void init_run() {
     units_set(1.0,1.0,1.0); //mass time length
 #endif
     
-    units_reset();
+    units_init();
     units_update( min_level );
         
 ////////////////////////////////////////////////////

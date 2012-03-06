@@ -7,8 +7,6 @@ extern "C"
 #include "io.h"
 #include "system.h"
 #include "times.h"
-
-#include "extra/start_analysis.h"
 }
 
 

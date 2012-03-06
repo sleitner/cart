@@ -26,9 +26,11 @@
 #include "tree.h"
 #include "units.h"
 
-#include "run/step.h"
+#include "../run/step.h"
 
-#include "extra/viewdump.h"
+#include "../extra/viewdump.h"
+
+extern double auni_init;
 
 /* setup as in Springel 2009 */
 /* No shocking until a_cross */
@@ -446,7 +448,7 @@ void init_run() {
         box_size = Lbox0;
         
 	units_set_art(cosmology->OmegaM,cosmology->h,box_size);
-        units_reset();
+        units_init();
         build_cell_buffer();
         repair_neighbors();
         
@@ -462,7 +464,6 @@ void init_run() {
             abox[i] = abox[min_level];
         }
         
-        units_reset();
         units_update(min_level);
         cart_debug("tl[min_level] = %f", tl[min_level] );
         cart_debug("au[min_level] = %f", auni[min_level] );

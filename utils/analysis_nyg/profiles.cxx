@@ -4,8 +4,8 @@
 
 extern "C"
 {
-#include "extra/ism.h"
-#include "extra/start_analysis.h"
+#include "../extra/ism.h"
+#include "../drivers/start_analysis.h"
 }
 
 

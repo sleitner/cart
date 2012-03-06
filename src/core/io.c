@@ -256,6 +256,7 @@ void read_restart( const char *label ) {
 
 	if ( old_cart_io_flag ) {
 		read_cart_restart(label);	
+		if ( old_cart_io_flag < 0 ) old_cart_io_flag = 0;
 	} else {
 		read_artio_restart(label);
 	}

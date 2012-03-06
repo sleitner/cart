@@ -14,7 +14,6 @@
 #include "density.h"
 #include "hydro.h"
 #include "iterators.h"
-//#include "logging.h"
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
@@ -23,15 +22,18 @@
 #include "tree.h"
 #include "units.h"
 
-#include "extra/healpix.h"
-#include "extra/ifrit.h"
+#include "../run/step.h"
+
+#include "../extra/healpix.h"
+#include "../extra/ifrit.h"
+
+#include "../et/oldstyle_units.h"
+
 
 const int BottomLevel = 6;
 
 extern float rtSingleSourceValue;
 extern double rtSingleSourcePos[nDim];
-
-void units_set_art(double OmegaM, double h, double Lbox);
 
 
 void refine_level( int cell, int level )
@@ -242,10 +244,7 @@ void init_run()
   /* set units */
   astart = 1;
   hubble = 1;
-  units_set_art(1.0e-3*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*6.6e-3/(astart*hubble));
-
-  units_reset();
-  units_update(min_level);
+  oldstyle_units_set(1.0e-3*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*6.6e-3/(astart*hubble));
 
   /* source */
   rtSingleSourceValue = 1.0;

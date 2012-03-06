@@ -20,6 +20,10 @@
 #include "rt_debug.h"
 #endif
 
+#include "../run/step.h"
+
+#include "../et/oldstyle_units.h"
+
 const float T_i = 1.0e2;
 
 
@@ -88,10 +92,7 @@ void init_run()
 
   /* set units */
   hubble = 1;
-  units_set_art(1.0e-0/(1.123e-5*hubble*hubble),hubble,2*15e-3/hubble);
-
-  units_reset();
-  units_update(min_level);
+  oldstyle_units_set(1.0e-0/(1.123e-5*hubble*hubble),hubble,2*15e-3/hubble);
 
   for ( i = 0; i < nDim; i++ )
     {

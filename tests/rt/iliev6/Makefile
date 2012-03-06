@@ -5,8 +5,12 @@ compile: art
 
 include $(TOP_DIR)/Make.config
 
-art: .obj  $(OBJS) defs.h rt_defs.h start_rt.c .obj/extra/ifrit.o .obj/extra/utils.o
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) .obj/extra/ifrit.o start_rt.c -o art $(LIBS) $(EXTRALIBS) .obj/extra/utils.o
+.obj/oldstyle_units.o: ../et/oldstyle_units.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base $(INCLUDES) -o .obj/oldstyle_units.o -c ../et/oldstyle_units.c
+
+art: .obj/.phony $(SIM_OBJS) defs.h rt_defs.h start_rt.c .obj/healpix.o .obj/ifrit.o .obj/utils.o .obj/oldstyle_units.o
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) start_rt.c -o art $(LIBS) $(EXTRALIBS) .obj/healpix.o .obj/ifrit.o .obj/utils.o .obj/oldstyle_units.o
+	which mpirun
 
 clean:
-	rm -rf .obj *.il core start_rc.o art
+	rm -rf .obj start_rt.o art core

@@ -6,9 +6,9 @@ extern "C"
 {
 #include "hydro.h"
 #include "rt.h"
-#include "extra/ism.h"
-#include "extra/start_analysis.h"
-#include "extra/utils.h"
+#include "../extra/ism.h"
+#include "../extra/utils.h"
+#include "../drivers/start_analysis.h"
 }
 
 

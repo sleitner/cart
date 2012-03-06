@@ -4,8 +4,8 @@
 
 extern "C"
 {
-#include "extra/ifrit.h"
-#include "extra/start_analysis.h"
+#include "../extra/ifrit.h"
+#include "../drivers/start_analysis.h"
 }
 
 

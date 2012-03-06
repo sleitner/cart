@@ -16,7 +16,8 @@
 #include "tree.h"
 #include "units.h"
 
-#include "extra/ifrit.h"
+#include "../extra/ifrit.h"
+#include "../run/step.h"
 
 
 #define depth  (max_level-min_level-3)
@@ -160,7 +161,7 @@ void init_run()
   double r, pos[3];
 
   units_set(constants->Msun/num_root_cells,pow(scale,1.5)*constants->yr,scale*constants->pc/206264.806);
-  units_reset();
+  units_init();
 
   cart_debug("in init");
 

@@ -19,6 +19,9 @@
 #include "iterators.h"
 #include "auxiliary.h"
 #include "cosmology.h"
+#include "../run/step.h"
+
+extern double t_init;
 
 void run_output() {
 	char filename[256];
@@ -113,7 +116,7 @@ void init_run() {
     set_hydro_tracers( min_level );
 #endif /* HYDRO_TRACERS */
 
-	units_reset();
+	units_init();
 
 	/* set time variables */
 	tl[min_level] = t_init;

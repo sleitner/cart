@@ -4,10 +4,10 @@
 
 extern "C"
 {
-#include "extra/ifrit.h"
-#include "extra/igm.h"
-#include "extra/ism.h"
-#include "extra/start_analysis.h"
+#include "../extra/ifrit.h"
+#include "../extra/igm.h"
+#include "../extra/ism.h"
+#include "../drivers/start_analysis.h"
 }
 
 

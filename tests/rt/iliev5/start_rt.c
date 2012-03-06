@@ -19,8 +19,11 @@
 #include "rt_debug.h"
 #endif
 
-#include "extra/healpix.h"
-#include "extra/ifrit.h"
+#include "../extra/healpix.h"
+#include "../extra/ifrit.h"
+#include "../run/step.h"
+
+#include "../et/oldstyle_units.h"
 
 
 const float N50 = 0.05;
@@ -152,10 +155,7 @@ void init_run()
    /* set units */
    astart = 1;
    hubble = 1;
-   units_set_art(n0*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*15e-3/(astart*hubble));
-
-   units_reset();
-   units_update(min_level);
+   oldstyle_units_set(n0*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*15e-3/(astart*hubble));
 
    cart_debug("in init");
 

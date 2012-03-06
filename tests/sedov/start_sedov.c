@@ -31,10 +31,14 @@
 #include "auxiliary.h"
 
 #ifdef VIEWDUMP
-#include "extras/viewdump.h"
+#include "../extras/viewdump.h"
 #endif
 
-#include "extra/ifrit.h"
+#include "../extra/ifrit.h"
+#include "../run/step.h"
+
+extern double t_init;
+
 
 #define refine_radius	(4.5)
 #define r0		(1.0/num_grid)
@@ -456,7 +460,7 @@ void init_run() {
 	cart_debug("in init");
 
  	units_set(1.0,1.0,1.0);
- 	units_reset();
+ 	units_init();
 
 	/* build buffer */
 	build_cell_buffer();

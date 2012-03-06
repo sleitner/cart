@@ -793,7 +793,7 @@ int timestep( int level, MPI_Comm level_com )
 #ifdef COSMOLOGY
                 dtl[level]*units->time/constants->Myr, "Myr",
 #else
-                dtl[level]*units->time/constants->s, "s",
+                dtl[level]*units->time, "s",
 #endif
                 num_steps_on_level[level] );
 
@@ -1096,7 +1096,7 @@ void set_timestepping_scheme()
 #ifdef COSMOLOGY
 		 dtl[min_level]*units->time/constants->Myr, "Myr",
 #else
-		 dtl[min_level]*units->time/constants->s, "s",
+		 dtl[min_level]*units->time, "s",
 #endif
 		 frac_dt );
 
@@ -1108,7 +1108,7 @@ void set_timestepping_scheme()
 #ifdef COSMOLOGY
 		     dtl[level]*units->time/constants->Myr, "Myr",
 #else
-		     dtl[level]*units->time/constants->s, "s",
+		     dtl[level]*units->time, "s",
 #endif
 		     time_refinement_factor[level],work);
 	}

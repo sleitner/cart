@@ -9,5 +9,5 @@ void run_output() {
 
 
 void init_run() {
-	hart_init();
+	hart_init(NULL);
 }

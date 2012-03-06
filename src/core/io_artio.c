@@ -62,8 +62,10 @@ void control_parameter_list_allocation_strategy(FILE *stream, const void *ptr) {
 	switch( *(int *)ptr ) {
 		case ARTIO_ALLOC_EQUAL_SFC :
 			fprintf(stream,"ARTIO_ALLOC_EQUAL_SFC");
+			break;
 		case ARTIO_ALLOC_EQUAL_PROC :
 			fprintf(stream,"ARTIO_ALLOC_EQUAL_PROC");
+			break;
 		default :
 			fprintf(stream,"UNKNOWN");
 	}
@@ -632,7 +634,7 @@ void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices ) 
 	int refined[num_children];
 	int num_level_octs, num_next_level_octs;
 	int *level_octs, *next_level_octs;
-	int num_octs_per_level[max_level - min_level];
+	int num_octs_per_level[max_level - min_level + 1];
 	int level;
 	float variables[num_vars * num_children];                                                          
 	

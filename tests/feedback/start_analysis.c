@@ -33,28 +33,31 @@
 #include "starformation.h"
 #include "plugin.h"
 
-#include "extra/output_slice.h"
+#include "../extra/output_slice.h"
 
 #include "start_radp.h"
 
 
-#include "run/gravity_step.h"
-#include "run/hydro_step.h"
-#include "run/hydro_tracer_step.h"
-#include "run/particle_step.h"
-#include "run/rt_step.h"
-#include "run/starformation_step.h"
-#include "run/starformation_feedback_step.h"
-#include "run/step.h"
+#include "../run/gravity_step.h"
+#include "../run/hydro_step.h"
+#include "../run/hydro_tracer_step.h"
+#include "../run/particle_step.h"
+#include "../run/rt_step.h"
+#include "../run/starformation_step.h"
+#include "../run/starformation_feedback_step.h"
+#include "../run/step.h"
+
+
+extern double auni_init, t_init;
 
 
 void Out4IFrIT();
 
 
 #ifdef VIEWDUMP
-#include "extra/viewdump.h"
+#include "../extra/viewdump.h"
 #endif
-#include "extra/ifrit.h"
+#include "../extra/ifrit.h"
 
 #define OUTLEVEL (max_level)
 #ifndef STARFORM
@@ -452,7 +455,7 @@ void run_output(){
 
 
 
-#include "extra/ifrit.h"
+#include "../extra/ifrit.h"
 
 
 void Out4IFrIT()

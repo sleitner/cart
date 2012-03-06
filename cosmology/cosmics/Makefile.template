@@ -9,7 +9,7 @@
 #    will be created automatically during the first compilation. You can 
 #    then modify it as you see fit. 
 #
-TOP_DIR = # Needs to be set
+TOP_DIR = <NEEDS-TO-BE-SET>
 #
 #  The rest of this file does not need to be changed
 #
@@ -22,15 +22,15 @@ include $(TOP_DIR)/Make.config
 start.c: 
 	cp -i $(TOP_DIR)/cosmology/cosmics/start.c.template start.c
 
-gic_reader.o: $(TOP_DIR)/cosmology/gic/gic_reader.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) -c $(TOP_DIR)/cosmology/gic/gic_reader.c
+.obj/gic_reader.o: $(TOP_DIR)/cosmology/gic/gic_reader.c
+	$(CC) $(CFLAGS) -I. $(INCLUDES) -o .obj/gic_reader.o -c $(TOP_DIR)/cosmology/gic/gic_reader.c
 
-cosmics_init.o: $(DEFS) $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
-	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/gic -I$(SRC_DIR) $(INCLUDES) -c $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
+.obj/cosmics_init.o: $(DEFS) $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/gic -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/cosmics_init.o -c $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
 
-art: .obj $(DEFS) $(OBJS) start.c gic_reader.o cosmics_init.o
-	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/cosmics -I$(SRC_DIR) $(INCLUDES) $(OBJS) cosmics_init.o gic_reader.o start.c -o art $(LIBS) $(EXTRALIBS)
+art: .obj/.phony $(DEFS) $(SIM_OBJS) start.c .obj/gic_reader.o .obj/cosmics_init.o
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/cosmics -I$(SRC_DIR)/base -I$(SRC_DIR)/core  $(INCLUDES) $(SIM_OBJS) .obj/cosmics_init.o .obj/gic_reader.o start.c -o art $(LIBS) $(EXTRALIBS)
 	which mpirun
 
 clean:
-	rm -rf .obj *.il core start.o gic_reader.o cosmics_init.o art
+	rm -rf .obj core start.o art

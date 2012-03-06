@@ -15,15 +15,17 @@
 #include "tree.h"
 #include "units.h"
 
-#include "run/logging.h"
-
-#include "extra/healpix.h"
-#include "extra/ifrit.h"
+#include "../extra/healpix.h"
+#include "../extra/ifrit.h"
 
 
 #ifdef RT_DEBUG
 #include "rt_debug.h"
 #endif
+
+#include "../run/step.h"
+
+#include "../et/oldstyle_units.h"
 
 const float N50 = 0.05;
 const float T_i = 1.0e4;
@@ -273,10 +275,7 @@ void init_run()
    /* set units */
    astart = 1;
    hubble = 1;
-   units_set_art(n0*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*6.6e-3/(astart*hubble));
-
-   units_reset();
-   units_update(min_level);
+   oldstyle_units_set(n0*pow(astart,3)/(1.123e-5*hubble*hubble),hubble,4*6.6e-3/(astart*hubble));
 
    cart_debug("in init");
 

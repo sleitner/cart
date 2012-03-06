@@ -305,7 +305,7 @@ int tree_oct_count( int icell ) {
 	return count;
 }
 
-void root_tree_level_oct_count( int icell, int level_oct_count[max_level-min_level] ) {
+void root_tree_level_oct_count( int icell, int level_oct_count[max_level-min_level+1] ) {
 	int i;
 
 	cart_assert( cell_level(icell) == min_level );
@@ -318,7 +318,7 @@ void root_tree_level_oct_count( int icell, int level_oct_count[max_level-min_lev
 }
     
 
-void tree_level_oct_count( int icell, int level_oct_count[max_level-min_level] ) {
+void tree_level_oct_count( int icell, int level_oct_count[max_level-min_level+1] ) {
 	int i;
 
 	if ( cell_is_refined(icell) ) {

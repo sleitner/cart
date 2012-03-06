@@ -24,5 +24,6 @@ DECLARE_LEVEL_ARRAY(double,abox_old);
 #endif /* COSMOLOGY */
 
 extern int step;
+extern double max_dt;
 
 #endif

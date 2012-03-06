@@ -20,13 +20,15 @@
 
 #include "hart_init.h"
 
-void hart_init() {
+void hart_init(const char *path) {
 	int i;
 	char filename[256], filename2[256];
 
+	if ( path == NULL ) path = output_directory;
+
 #ifdef PARTICLES
-	sprintf( filename, "%s/PMcrd.DAT", output_directory );
-	sprintf( filename2, "%s/PMcrs0.DAT", output_directory );
+	sprintf( filename, "%s/PMcrd.DAT", path );
+	sprintf( filename2, "%s/PMcrs0.DAT", path );
 
 	restart_load_balance_cart( NULL, filename, filename2 );
 
@@ -35,7 +37,7 @@ void hart_init() {
 #endif
 
 #ifdef HYDRO
-	sprintf( filename, "%s/tr_ic.dat", output_directory );
+	sprintf( filename, "%s/tr_ic.dat", path );
 	read_hart_gas_ic(filename);
 	cart_debug("read in gas");
 #endif /* HYDRO */

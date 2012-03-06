@@ -5,12 +5,15 @@ compile: art
 
 include $(TOP_DIR)/Make.config
 
-art: .obj defs.h rt_defs.h $(OBJS) start.c 
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) start.c -o art $(LIBS) $(EXTRALIBS) 
+.obj/hart_init.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/hart_init.o -c $(TOP_DIR)/cosmology/hart/hart_init.c
+
+.obj/hart_reader.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_reader.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/hart_reader.o -c $(TOP_DIR)/cosmology/hart/hart_reader.c
+
+art: .obj/.phony $(DEFS) $(SIM_OBJS) start.c .obj/hart_init.o .obj/hart_reader.o
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) start.c .obj/hart_init.o .obj/hart_reader.o -o art $(LIBS) $(EXTRALIBS) 
 	which mpirun
 
-analysis: .obj $(OBJS) $(EXT_OBJS) defs.h rt_defs.h analysis.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) $(INCLUDES) $(OBJS) $(EXT_OBJS) analysis.c -o analysis $(LIBS) $(EXTRALIBS)
-
 clean:
-	rm -rf .obj *.il core start.o art analysis 
+	rm -rf .obj core start.o art

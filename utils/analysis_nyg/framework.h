@@ -19,7 +19,7 @@ extern "C"
 #include "parallel.h"
 #include "tree.h"
 #include "units.h"
-#include "extra/halo_finder.h"
+#include "../extra/halo_finder.h"
 
   struct DUMP_WORKER;
 }
