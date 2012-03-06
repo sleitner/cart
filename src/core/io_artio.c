@@ -778,7 +778,7 @@ void read_artio_restart( char *label ) {
 	int num_file_procs, num_file_octs, num_file_particles, num_file_star_particles;
 	FILE *restart;
 	int type;
-	char *str = NULL;
+	char str[CONTROL_PARAMETER_STRING_LENGTH];
 
 #ifdef COSMOLOGY
 	double OmM0, OmB0, OmL0, h100, DelDC;
@@ -848,9 +848,8 @@ void read_artio_restart( char *label ) {
 	}
 
 	/* load all simulation parameters here */
-	artio_parameter_get_string( handle, "jobname", str );
+	artio_parameter_get_string( handle, "jobname", str, CONTROL_PARAMETER_STRING_LENGTH);
 	set_jobname( str );
-	free(str);
 	cart_debug("jobname: %s", jobname );
 
         artio_parameter_get_int( handle, "sfc", &sfc_order );
@@ -1022,7 +1021,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 	oct_variables = cart_alloc(float, 8 * num_file_variables);
 	file_variables = cart_alloc(char *, num_file_variables);
 
-	artio_parameter_get_string_array(handle, "grid_variable_labels", num_file_variables, file_variables );
+	artio_parameter_get_string_array(handle, "grid_variable_labels", num_file_variables, file_variables, 256 );
 
 	/* match expected variables with variables in file */
 	for (i = 0; i < num_sim_variables; i++) {
