@@ -28,6 +28,7 @@
 #include "units.h"
 
 #include "../tools/artio/artio.h"
+#include "../tools/artio/artio_mpi.h"
 
 extern int step;
 
@@ -351,6 +352,8 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	FILE *restart;
 	char restart_filename[256];
 
+	struct artio_context_struct con = { mpi.comm.run };
+
 #ifdef PARTICLES
 	int num_species;
 	char *species_labels[MAX_PARTICLE_SPECIES];
@@ -369,7 +372,7 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 
 	handle = artio_fileset_create( filename, num_root_cells,
             proc_sfc_index[local_proc_id],
-            proc_sfc_index[local_proc_id+1]-1 );
+	    proc_sfc_index[local_proc_id+1]-1, &con );
 
 	/* write header variables */
 	num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
@@ -780,6 +783,8 @@ void read_artio_restart( char *label ) {
 	int type;
 	char str[CONTROL_PARAMETER_STRING_LENGTH];
 
+	struct artio_context_struct con = { mpi.comm.run };
+
 #ifdef COSMOLOGY
 	double OmM0, OmB0, OmL0, h100, DelDC;
 #else
@@ -807,7 +812,7 @@ void read_artio_restart( char *label ) {
 	type |= ARTIO_OPEN_PARTICLES;
 #endif
 
-	handle = artio_fileset_open(filename, type);
+	handle = artio_fileset_open(filename, type, &con);
 	cart_assert( handle != NULL );
 
 	artio_parameter_get_long(handle, "num_root_cells", &num_file_root_cells);
@@ -868,7 +873,7 @@ void read_artio_restart( char *label ) {
 	num_levels = file_max_level+1;
     
 #ifdef HYDRO    
-    artio_parameter_get_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
+	artio_parameter_get_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
 	for ( level = file_max_level+1; level < max_level; level++ ) {
 		level_sweep_dir[level] = 0;
 	}
@@ -1020,6 +1025,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 	root_variables = cart_alloc(float, num_file_variables);
 	oct_variables = cart_alloc(float, 8 * num_file_variables);
 	file_variables = cart_alloc(char *, num_file_variables);
+	for(i=0; i<num_file_variables; i++) file_variables[i] = cart_alloc(char, 256);
 
 	artio_parameter_get_string_array(handle, "grid_variable_labels", num_file_variables, file_variables, 256 );
 
@@ -1039,9 +1045,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 		cart_free(sim_var_labels[i]);
 	}
 
-	for ( i = 0; i < num_file_variables; i++ ) {
-		free(file_variables[i]); /* using free since allocated in artio... how do we handle this? */
-	}
+	for(i=0; i<num_file_variables; i++) cart_free( file_variables[i] );
 	cart_free( file_variables );
 
 	num_octs_per_level = cart_alloc( int, file_max_level );
@@ -1123,6 +1127,7 @@ void read_artio_particles( artio_file handle, int num_species ) {
 	int id, ipart;
 	int species;
 	int subspecies;
+	long num_particles_local = 0L;
 
 	double primary_variables[7];
 	float secondary_variables[5];
@@ -1140,6 +1145,8 @@ void read_artio_particles( artio_file handle, int num_species ) {
 
 		for ( species = 0; species < num_species; species++ ) {
 			artio_particle_read_species_begin(handle, species);
+
+			num_particles_local += num_particles_per_species[species];
 
 			for ( i = 0; i < num_particles_per_species[species]; i++ ) {
 				artio_particle_read_particle(handle, &pid, &subspecies,
@@ -1190,5 +1197,8 @@ void read_artio_particles( artio_file handle, int num_species ) {
 
 		artio_particle_read_root_cell_end(handle);
 	}
+
+	MPI_Allreduce( &num_particles_local, &num_particles_total, 1, MPI_LONG, MPI_SUM, mpi.comm.run );
+
 }
 #endif /* PARTICLES */

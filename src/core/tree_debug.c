@@ -187,7 +187,10 @@ void check_map() {
 
 	for ( i = 0; i < num_particles; i++ ) {
 		if ( particle_level[i] != FREE_PARTICLE_LEVEL ) {
-			cart_assert( particle_id[i] < num_particles_total );
+			if( particle_id[i] >= num_particles_total )
+			  {
+			    cart_error("Incorrect particle[%d] id=%d, num_particles_total=%d",i,particle_id[i],num_particles_total);
+			  }
 			count++;
 			species_count[ particle_species( particle_id[i] ) ]++;
 		}
