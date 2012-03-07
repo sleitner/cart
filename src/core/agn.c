@@ -9,12 +9,12 @@
 #include "cell_buffer.h"
 #include "control_parameter.h"
 #include "cosmology.h"
+#include "io.h"
 #include "iterators.h"
 #include "parallel.h"
 #include "particle.h"
 #include "particle_buffer.h"
 #include "starformation.h"
-#include "io.h"
 #include "starformation_feedback.h"
 #include "times.h"
 #include "tree.h"
@@ -291,7 +291,7 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 
 		if ( sync_flag[i] ) {
 			MPI_Irecv( &recv_sample_count[i], 1, MPI_INT, i, 0, 
-					MPI_COMM_WORLD, &recv_sample_requests[i] );
+					mpi.comm.run, &recv_sample_requests[i] );
 		} else {
 			recv_sample_requests[i] = MPI_REQUEST_NULL;
 		}
@@ -346,7 +346,7 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( sync_flag[i] ) {
 			MPI_Isend( &send_sample_count[i], 1, MPI_INT, i, 0,
-					MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					mpi.comm.run, &send_requests[num_send_requests++] );
 			if ( send_sample_count[i] > 0 ) {
 				sample_agn_index[i] = cart_alloc( int, send_sample_count[i] );
 				sample_agn_point[i] = cart_alloc( int, send_sample_count[i] );
@@ -397,14 +397,14 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( send_sample_count[i] > 0 ) {
 			MPI_Isend( send_positions[i], nDim*send_sample_count[i], MPI_DOUBLE,
-					i, 0, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					i, 0, mpi.comm.run, &send_requests[num_send_requests++] );
 			recv_cell_indices[i] = cart_alloc( int, send_sample_count[i] );
 			recv_cell_values[i] = cart_alloc(float, num_agn_cell_vars*send_sample_count[i] );
 
 			MPI_Irecv( recv_cell_indices[i], send_sample_count[i], MPI_INT,
-					i, 1, MPI_COMM_WORLD, &recv_cell_indices_requests[i] );
+					i, 1, mpi.comm.run, &recv_cell_indices_requests[i] );
 			MPI_Irecv( recv_cell_values[i], num_agn_cell_vars*send_sample_count[i], 
-					MPI_FLOAT, i, 1, MPI_COMM_WORLD, 
+					MPI_FLOAT, i, 1, mpi.comm.run, 
 					&recv_cell_values_requests[i] );
 		} else {
 			recv_cell_indices_requests[i] = MPI_REQUEST_NULL;
@@ -420,7 +420,7 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 				recv_positions = cart_alloc( double, nDim*recv_sample_count[i] );
 
 				MPI_Recv( recv_positions, nDim*recv_sample_count[i], MPI_DOUBLE,
-						i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+						i, 0, mpi.comm.run, MPI_STATUS_IGNORE );
 
 				send_cell_indices[i] = cart_alloc( int, recv_sample_count[i] );
 				send_cell_values[i] = cart_alloc( float, num_agn_cell_vars*recv_sample_count[i] );
@@ -439,9 +439,9 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 				}
 
 				MPI_Isend( send_cell_indices[i], recv_sample_count[i], MPI_INT,
-						i, 1, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+						i, 1, mpi.comm.run, &send_requests[num_send_requests++] );
 				MPI_Isend( send_cell_values[i], num_agn_cell_vars*recv_sample_count[i],
-						MPI_FLOAT, i, 1, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+						MPI_FLOAT, i, 1, mpi.comm.run, &send_requests[num_send_requests++] );
 				cart_free( recv_positions );
 			}
 		}
@@ -522,7 +522,7 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 
 		if ( sync_flag[i] ) {
 			MPI_Irecv( &recv_sample_count[i], 1, MPI_INT, i, 0, 
-					MPI_COMM_WORLD, &recv_sample_requests[i] );
+					mpi.comm.run, &recv_sample_requests[i] );
 		} else {
 			recv_sample_requests[i] = MPI_REQUEST_NULL;
 		}
@@ -539,7 +539,7 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 	for ( i = 0; i < num_procs; i++ ) {
 	  if ( sync_flag[i] ) {
 			MPI_Isend( &send_sample_count[i], 1, MPI_INT, i, 0,
-					MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					mpi.comm.run, &send_requests[num_send_requests++] );
 
 			if ( send_sample_count[i] > 0 ) {
 				send_cell_indices[i] = cart_alloc( int, send_sample_count[i] );
@@ -595,9 +595,9 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 	for ( i = 0; i < num_procs; i++ ) {
 		if ( send_sample_count[i] > 0 ) {
 			MPI_Isend( send_cell_indices[i], send_sample_count[i], MPI_INT, i, 
-					1, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					1, mpi.comm.run, &send_requests[num_send_requests++] );
 			MPI_Isend( send_cell_deltas[i], num_agn_cell_vars*send_sample_count[i], 
-					MPI_FLOAT, i, 1, MPI_COMM_WORLD, &send_requests[num_send_requests++] );
+					MPI_FLOAT, i, 1, mpi.comm.run, &send_requests[num_send_requests++] );
 		}
 	}
 
@@ -609,9 +609,9 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 				recv_cell_deltas[i] = cart_alloc( float, num_agn_cell_vars*recv_sample_count[i] );
 
 				MPI_Recv( recv_cell_indices[i], recv_sample_count[i], MPI_INT, i, 
-						1, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+						1, mpi.comm.run, MPI_STATUS_IGNORE );
 				MPI_Recv( recv_cell_deltas[i], num_agn_cell_vars*recv_sample_count[i], 
-						MPI_FLOAT, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+						MPI_FLOAT, i, 1, mpi.comm.run, MPI_STATUS_IGNORE );
 
 				/* process received sample requests */
 				for ( j = 0; j < recv_sample_count[i]; j++ ) {
