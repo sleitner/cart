@@ -1,0 +1,27 @@
+compile_analysis: analysis
+
+SRC_DIR = $(TOP_DIR)/src
+NYG_DIR = $(TOP_DIR)/utils/analysis_nyg
+include $(TOP_DIR)/Make.config
+
+NYG_SRCS = framework.cxx \
+           celldata.cxx \
+           ifrit.cxx \
+           profiles.cxx \
+           current.cxx 
+
+NYG_OBJS = $(patsubst %.cxx,.obj/ng/%.o,$(NYG_SRCS))
+
+.obj/ng/.phony: .obj/.phony
+	mkdir .obj/ng
+	echo "aaa" > .obj/ng/.phony
+
+.obj/ng/%.o: $(DEFS) $(NYG_DIR)/%.cxx
+	$(CXX) $(CXXFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(NYG_DIR) $(INCLUDES) -o $@ -c $(NYG_DIR)/$(*F).cxx
+
+analysis: .obj/ng/.phony $(DEFS) $(ANL_OBJS) $(NYG_OBJS) analysis.cxx
+	$(CXX) $(CXXFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(NYG_DIR) $(INCLUDES) $(ANL_OBJS) $(NYG_OBJS) analysis.cxx -o analysis $(LIBS) $(EXTRALIBS)
+	which mpirun
+
+CLEAN += analysis
+

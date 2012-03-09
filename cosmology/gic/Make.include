@@ -1,0 +1,28 @@
+
+ifdef EXEC
+ART = $(EXEC)
+START = $(EXEC)
+else
+ART = art
+START = start
+endif
+
+compile: $(ART)
+
+SRC_DIR = $(TOP_DIR)/src
+include $(TOP_DIR)/Make.config
+
+start.c: 
+	cp -i $(TOP_DIR)/cosmology/gic/start.c.template start.c
+
+.obj/gic_reader.o: $(TOP_DIR)/cosmology/gic/gic_reader.c
+	$(CC) $(CFLAGS) -I. $(INCLUDES) -o .obj/gic_reader.o -c $(TOP_DIR)/cosmology/gic/gic_reader.c
+
+.obj/gic_init.o: $(DEFS) $(TOP_DIR)/cosmology/gic/gic_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/gic_init.o -c $(TOP_DIR)/cosmology/gic/gic_init.c
+
+$(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/gic_init.o .obj/gic_reader.o
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/gic -I$(SRC_DIR)/base $(INCLUDES) $(SIM_OBJS) .obj/gic_reader.o .obj/gic_init.o $(START).c -o $(ART) $(LIBS) $(EXTRALIBS)
+	which mpirun
+
+CLEAN += $(ART) $(START).o

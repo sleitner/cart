@@ -222,7 +222,8 @@ double sf_recipe3_rate(int cell)
   double Lambda = log(1+g*pow(Dmw,3.0/7.0)*pow(Umw/15,4.0/7.0));
   double SigmaC = 20*pow(Lambda,4.0/7.0)/(Dmw*sqrt(1+Umw*Dmw*Dmw));
 
-  double rhoH = cell_HI_density(cell) + 2*cell_H2_density(cell);
+  //double rhoH = cell_HI_density(cell) + 2*cell_H2_density(cell);
+  double rhoH = 0.76*cell_gas_density(cell);
   double SigmaH = units->density*units->length/constants->Msun*constants->pc*constants->pc*rhoH*cell_sobolev_length(cell);
   double fac1 = SigmaH/(SigmaH+SigmaC);
 

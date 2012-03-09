@@ -25,8 +25,7 @@ start_analysis.o: start_radp.h start_analysis.c
 radp: .obj/.phony $(SIM_OBJS) defs.h start_radp.h start_radp.c start_analysis.c $(VIEWOBJ) start_analysis.o
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) $(VIEWOBJ) start_analysis.o start_radp.c -o radp  $(LIBS) $(EXTRALIBS)
 
-clean:
-	@rm -rf .obj radp core *.o *.log
+CLEAN_LIST += radp *.o *.log
 
 clearfile: 
 	@touch totmompress.dat
