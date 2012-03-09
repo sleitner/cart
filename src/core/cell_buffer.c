@@ -327,7 +327,7 @@ void build_root_cell_buffer() {
 	int *buffer_indices;
 	int index;
 
-    start_time( BUILD_CELL_BUFFER_TIMER );
+	start_time( BUILD_CELL_BUFFER_TIMER );
 
 	if ( num_procs > 1 ) {
 		buffer_list = skiplist_init();

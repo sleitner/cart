@@ -87,9 +87,6 @@ const char *timer_name[][2] = {
 { "max_level", "red" },
 { "communication", "red" },
 { "lower_level", "white" },  /* this is for internal accouting only */
-#ifdef USER_PLUGIN
-{ "plugin", "gray" },
-#endif
 { "work", "green" },
 #ifdef RADIATIVE_TRANSFER
 { "RT_tables", "green" },

@@ -32,15 +32,15 @@
 extern int step;
 
 
-char output_directory_d[CONTROL_PARAMETER_STRING_LENGTH];
+char output_directory_d[CONTROL_PARAMETER_STRING_LENGTH] = ".";
 const char* output_directory = output_directory_d;
 
-char logfile_directory_d[CONTROL_PARAMETER_STRING_LENGTH];
+char logfile_directory_d[CONTROL_PARAMETER_STRING_LENGTH] = ".";
 
-char jobname_d[CONTROL_PARAMETER_STRING_LENGTH];
+char jobname_d[CONTROL_PARAMETER_STRING_LENGTH] = "ART";
 const char* jobname = jobname_d;
 
-char requeue_command_d[CONTROL_PARAMETER_STRING_LENGTH];
+char requeue_command_d[CONTROL_PARAMETER_STRING_LENGTH] = "";
 const char* requeue_command = requeue_command_d;
 
 int current_output;
@@ -172,11 +172,6 @@ void config_init_io()
   
   outputs_size = 100;
   outputs = cart_alloc(float,outputs_size);
-
-  strcpy(jobname_d,"ART");
-  strcpy(output_directory_d,".");
-  strcpy(logfile_directory_d,".");
-  strcpy(requeue_command_d,"");
 
   control_parameter_add2(control_parameter_string,jobname_d,"job-name","jobname","a name for this job. This name can be stored in output files for further reference.");
 

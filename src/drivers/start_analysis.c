@@ -154,15 +154,14 @@ struct snapshot_t snapshot_internal_ = { 0, 0 };
 const struct snapshot_t *snapshot = &snapshot_internal_;
 
 
-#ifdef USER_PLUGIN
-const plugin_t* add_plugin(int id)
-{
-  return NULL;
-}
-#endif
-
-
 extern int current_step_level;
+
+/*
+//  Default plugin callback
+*/
+void run_output()
+{
+}
 
 
 /*

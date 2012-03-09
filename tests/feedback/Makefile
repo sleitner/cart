@@ -11,11 +11,13 @@ run: dumps radp
 dumps:
 	@mkdir dumps
 
+PLUGIN = /no_default
+
 include $(TOP_DIR)/Make.config
 
 #all: .obj/start_analysis.o radp
 
-VIEWOBJ = .obj/viewdump.o .obj/ifrit.o .obj/utils.o .obj/output_slice.o 
+VIEWOBJ = .obj/extra/viewdump.o .obj/extra/ifrit.o .obj/extra/utils.o .obj/extra/output_slice.o 
 
 start_analysis.o: start_radp.h start_analysis.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(VIEWOBJ) -c start_analysis.c 

@@ -7,6 +7,8 @@
 
 #include "../core/cell_buffer.h"
 #include "../core/parallel.h"
+#include "../core/plugin.h"
+#include "../core/rand.h"
 #include "../core/timing.h"
 #include "../core/tree.h"
 
@@ -14,25 +16,28 @@
 extern const char* executable_name;
 
 void config_init();
+void set_plugin(struct Plugin *not_used)
+{
+}
 
 
+void init();
 void read_file(const char* fname);
 void write_file(const char* fname);
 
 
 int drive() {
 
-	if ( num_options != 2 ) {
-	  cart_error("Usage: %s <input> <output>",executable_name);
-	}
+	init();
 
 	init_timers();
 
 	config_init();
 
+	init_rand();
 	init_parallel_grid();
-	init_tree();
 	init_cell_buffer();
+	init_tree();
 
 	read_file(options[0]);
 	

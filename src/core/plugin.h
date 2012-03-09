@@ -5,7 +5,6 @@
 #error "Missing config.h include."
 #endif
 
-#ifdef USER_PLUGIN
 
 #include <mpi.h>
 
@@ -13,38 +12,38 @@
 //  This file contains prototypes for user plugin functions.
 //  These functions are combined in a single structure to
 //  simplify extensibility: if a new plugin point is created,
-//  it needs to be set to NULL by default. That way old codes
+//  it will be set to NULL by default. That way old codes
 //  do NOT need to be modified. All non-NULL functions need to be 
 //  defined and linked in at compile time.
+//  The order in which plugin points appear in this structure is
+//  irrelevant, so it is recommended that you add your points at the end.
 */
-typedef struct PLUGIN_TYPE
+struct Plugin
 {
   void (*RunBegin)();
   void (*RunEnd)();
   void (*GlobalStepBegin)();
   void (*GlobalStepEnd)();
-  void (*AfterCFLRestart)();
   void (*LevelStepBegin)(int level, MPI_Comm level_com);
   void (*LevelStepEnd)(int level, MPI_Comm level_com);
   void (*LevelStepFail)(int level, MPI_Comm level_com);
-  void (*StarformationFeedbackEnd)(int level, int cell);
+  /* void (*AfterCFLRestart)(); -- not used? */
+  /* void (*StarformationFeedbackEnd)(int level, int cell); -- not used? */
 }
-plugin_t;
+;
 
-struct PLUGIN_LIST_TYPE
-{
-  int index;
-  const plugin_t **list;
-};
+extern const struct Plugin *plugin;
 
-extern struct PLUGIN_LIST_TYPE plugins;
+/*
+//  This function must be implemented by your plugin code. The pointer
+//  plugin comes non-NULL, but all its members are set to NULL. Reset
+//  those of them that you actually need to your own defined funtions.
+*/
+void set_plugin(struct Plugin *plugin);
+
 
 #define PLUGIN_POINT(call) \
-  for(plugins.index=0; plugins.list[plugins.index]!=NULL; plugins.index++) if(plugins.list[plugins.index]->call != NULL) plugins.list[plugins.index]->call
-
-const plugin_t* add_plugin(int id);
-
-#endif /* USER_PLUGIN */
+  if(plugin->call != NULL) plugin->call
 
 #endif
 

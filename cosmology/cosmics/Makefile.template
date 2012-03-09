@@ -11,9 +11,10 @@
 #
 TOP_DIR = <NEEDS-TO-BE-SET>
 #
-#  List your plugins here
+#  List your plugin file(s) here (if needed).
+#  Adding /extra will cause all code from src/extra linked in as well.
 #
-PLUGINS = 
+PLUGIN = 
 #
 #  The rest of this file does not need to be changed
 #
@@ -32,8 +33,8 @@ start.c:
 .obj/cosmics_init.o: $(DEFS) $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
 	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/gic -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/cosmics_init.o -c $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
 
-art: .obj/.phony $(DEFS) $(SIM_OBJS) start.c .obj/gic_reader.o .obj/cosmics_init.o $(PLUGIN_DEPS) $(EXTRAS_OBJS)
-	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/cosmics -I$(SRC_DIR)/base -I$(SRC_DIR)/core  $(INCLUDES) $(SIM_OBJS) .obj/cosmics_init.o .obj/gic_reader.o $(PLUGIN_OBJS) $(EXTRAS_OBJS) start.c -o art $(LIBS) $(EXTRALIBS)
+art: .obj/.phony $(DEFS) $(SIM_OBJS) start.c .obj/gic_reader.o .obj/cosmics_init.o
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/cosmics -I$(SRC_DIR)/base -I$(SRC_DIR)/core  $(INCLUDES) $(SIM_OBJS) .obj/cosmics_init.o .obj/gic_reader.o start.c -o art $(LIBS) $(EXTRALIBS)
 	which mpirun
 
 clean:

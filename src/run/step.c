@@ -219,14 +219,7 @@ void run( int restart, const char *restart_label ) {
 	dt_global = max_dt;
 	frac_dt = 1.0;
 
-#ifdef USER_PLUGIN
-	config_plugins();
 	PLUGIN_POINT(RunBegin)();
-#else
-	start_time( OUTPUT_TIMER );
-	run_output();
-	end_time( OUTPUT_TIMER );
-#endif
 
 	while ( 1 ) {
 
@@ -315,13 +308,6 @@ void run( int restart, const char *restart_label ) {
 			step++;
 			current_steps++;
 
-#ifndef USER_PLUGIN
-			if ( output_frequency > 0 && step % output_frequency == 0 ) {
-				start_time( OUTPUT_TIMER );
-				run_output();
-				end_time( OUTPUT_TIMER );
-			}
-#endif
 			save_check();
 			/*
 			//  If we started from a labeled file and wrote the 
@@ -342,9 +328,7 @@ void run( int restart, const char *restart_label ) {
 		}
 	}
 
-#ifdef USER_PLUGIN
 	PLUGIN_POINT(RunEnd)();
-#endif
 
 	/* destroy buffer */
 	if ( buffer_enabled ) {
@@ -408,9 +392,8 @@ int global_timestep() {
 	last_star_id = particle_species_indices[num_particle_species]-1;
 #endif /* STARFORM */
 
-#ifdef USER_PLUGIN
 	PLUGIN_POINT(GlobalStepBegin)();
-#endif
+
 	ret = timestep( min_level, mpi.comm.run );
 	current_step_level = -1;
 
@@ -455,9 +438,7 @@ int global_timestep() {
 		rtStepEnd();
 #endif /* RADIATIVE_TRANSFER */
 
-#ifdef USER_PLUGIN
 		PLUGIN_POINT(GlobalStepEnd)();
-#endif
 
 	} else {
 		start_time( COMMUNICATION_TIMER );
@@ -495,9 +476,7 @@ int timestep( int level, MPI_Comm level_com )
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
 	
-#ifdef USER_PLUGIN
 	PLUGIN_POINT(LevelStepBegin)(level,level_com);
-#endif
 
 	start_time( LOWER_LEVEL_TIMER );  /* this is for internal accounting only */
 
@@ -670,9 +649,7 @@ int timestep( int level, MPI_Comm level_com )
 		end_time( COMMUNICATION_TIMER );
 
 		if ( true_ret < 0 ) {
-#ifdef USER_PLUGIN
 		        PLUGIN_POINT(LevelStepFail)(level,level_com);
-#endif
 			end_time( LEVEL_TIMER );
 			end_timing_level( level ); 
 			return true_ret;
@@ -785,9 +762,7 @@ int timestep( int level, MPI_Comm level_com )
 	  }
 #endif /* REFINEMENT */
 
-#ifdef USER_PLUGIN
 	PLUGIN_POINT(LevelStepEnd)(level,level_com);
-#endif
 
         cart_debug("timestep(%u, %9.3e %s, %d)", level, 
 #ifdef COSMOLOGY

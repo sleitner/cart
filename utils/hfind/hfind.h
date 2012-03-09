@@ -19,12 +19,12 @@ c     ----------------------------------------------------------------
       parameter ( ncold  = nrow**3   )           !
       parameter ( npage  = nrow**2   )           !
       parameter ( nrecl  = npage * 6 )           !
-      parameter ( ngrid  = 64        )           ! # of grid cells in 1D
+      parameter ( ngrid  = 128        )           ! # of grid cells in 1D
       parameter ( nll    = ngrid       )           ! # of chain mesh cells in 1D
       parameter ( ncell  = ngrid**3  )           ! total # of grid cells
       parameter ( ncell0 = ngrid**3  )           ! # of 0-level cells in the original sim.
       parameter ( nh     = 400000    )            ! max # of haloes
-      parameter ( floatsize = 4      )
+      parameter ( floatsize = 8      )
       parameter ( nbyteword = 1      )  
       parameter ( rhoaver= 1.0       )           ! average density of particles
       parameter ( rinit  = 100.0     )           ! initial halo radius in kpc
@@ -111,9 +111,9 @@ c
      &                   QSCALE, SCALEL
 
 c     Change to real*4 for single-precision particle files
-      real*4        XPAR(npage), YPAR(npage), ZPAR(npage),
+      real*8        XPAR(npage), YPAR(npage), ZPAR(npage),
      &                  VXX(npage), VYY(npage), VZZ(npage)
-      real*4		RECDAT(NRECL)
+      real*8		RECDAT(NRECL)
 	  common / ROW / xpar, ypar, zpar, vxx, vyy, vzz
 
       DIMENSION      wspecies(10),lspecies(10)

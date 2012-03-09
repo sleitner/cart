@@ -72,18 +72,13 @@ void record_momentum_input(int level, int cell, double dU);
 void outslice();
 void outslicebegin();
 void outsliceCFL();
-plugin_t outslicePlugin = {NULL};
-const plugin_t* add_plugin(int id){
-    if(id==0){
-        outslicePlugin.AfterCFLRestart = outsliceCFL;
-        outslicePlugin.RunBegin = outslicebegin;
-        outslicePlugin.GlobalStepEnd = outslice;
+
+void set_plugin(struct Plugin *p){
+  //        p->AfterCFLRestart = outsliceCFL;
+        p->RunBegin = outslicebegin;
+        p->GlobalStepEnd = outslice;
 //snl1
-//        outslicePlugin.StarformationFeedbackEnd = record_momentum_input;
-        return &outslicePlugin;
-    }else{
-        return NULL;
-    }
+//      p->StarformationFeedbackEnd = record_momentum_input;
 }
 
 /* double dmom_from_press =0; */

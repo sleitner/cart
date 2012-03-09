@@ -798,7 +798,7 @@ void read_artio_restart( char *label ) {
 
 		if ( restart == NULL ) {
 			cart_debug("Unable to locate restart.dat, trying default filename!");
-            sprintf( filename, "%s/%s", output_directory, jobname );
+			sprintf( filename, "%s/%s", output_directory, jobname );
 		} else {
 			fscanf( restart, "%s\n", filename );
 			fclose(restart);
@@ -826,7 +826,7 @@ void read_artio_restart( char *label ) {
 	artio_parameter_get_length( handle, "mpi_task_sfc_index", &num_file_procs );
 	num_file_procs -= 1;
 
-    artio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs );
+	artio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs );
 #ifdef PARTICLES
 	artio_parameter_get_int( handle, "num_particles_per_mpi_task", &num_file_particles );
 #ifdef STARFORM
@@ -971,7 +971,7 @@ void read_artio_restart( char *label ) {
 	artio_parameter_get_float_array( handle, "particle_species_mass", num_species, particle_species_mass );
 
 	for ( i = 0; i < num_species; i++ ) {
-		cart_debug("particle species %u: %u particles, %e mass", particle_species_num[i], particle_species_mass[i] );
+		cart_debug("particle species %d: %u particles, %e mass", i, particle_species_num[i], particle_species_mass[i] );
 	}
 
 	particle_species_indices[0] = 0;                                                                                     

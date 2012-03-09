@@ -21,7 +21,7 @@
 #include "../tools/fft/fft3.h"
 
 
-#define CHECK
+#define __CHECK
 
 
 #ifndef ROOT_GRID_FFT_IJK_TYPE
@@ -728,7 +728,7 @@ void root_grid_fft_internal_send_data(cache_t *run2fft, cache_t *fft2run, int nu
 	    {
 	      ptr = rbuffers[lidx] + i;
 
-#ifdef CHECK
+#ifdef __CHECK
 	      ijk_t index = ptr->index;
 	      for(j=0; j<nDim; j++)
 		{

@@ -504,7 +504,7 @@ void crude_stellar_mass_fractions( halo_list *halos ) {
 
 #endif /* STARFORM */
 
-#ifdef CHECK_LEGACY_UNITS
+#ifdef __THIS_IS_CRASHES_ON_ME
 void compute_halo_properties( char *analysis_directory, int halo_section, halo_list *halos ) {
 	int i, j, k;
 	int coords[nDim];
@@ -2848,7 +2848,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 		fclose( rlist[i] );
 	}
 }
-#endif /* CHECK_LEGACY_UNITS */
+#endif /* __THIS_IS_CRASHES_ON_ME */
 
 
 int halo_level( const halo *h, MPI_Comm local_comm )
