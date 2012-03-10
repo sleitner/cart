@@ -1,4 +1,4 @@
-TOP_DIR = ../../
+TOP_DIR = ../
 SRC_DIR = $(TOP_DIR)/src
 
 compile: demo-base demo-analysis demo-file-converter demo-run-gic demo-run-hart demo-run-cosmics

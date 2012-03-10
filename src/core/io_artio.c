@@ -767,7 +767,7 @@ void write_artio_particles( artio_file handle, int *root_tree_particle_list,
 }
 #endif /* PARTICLES */
 
-void read_artio_restart( char *label ) {
+void read_artio_restart( const char *label ) {
 	int i;
 	int num_species;
 	artio_file handle;

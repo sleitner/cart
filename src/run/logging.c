@@ -40,11 +40,6 @@ FILE *dependency;
 FILE *star_log;
 #endif /* STARFORM */
 
-
-#ifdef DEBUG_MEMORY_USE
-unsigned long dmuReportAllocatedMemory();
-#endif /* DEBUG_MEMORY_USE */
-
 #ifdef STARFORM
 #ifdef LOG_STAR_CREATION
 

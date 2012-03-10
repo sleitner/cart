@@ -22,8 +22,8 @@ void set_plugin(struct Plugin *not_used)
 
 
 void init();
-void read_file(const char* fname);
-void write_file(const char* fname);
+void read_file();
+void write_file();
 
 
 int drive() {
@@ -39,7 +39,7 @@ int drive() {
 	init_cell_buffer();
 	init_tree();
 
-	read_file(options[0]);
+	read_file();
 	
 	units_init();
 #ifdef COSMOLOGY
@@ -54,7 +54,7 @@ int drive() {
 	cart_debug("abox = %e", abox[min_level] );
 	cart_debug("done reading data...");
 
-	write_file(options[1]);
+	write_file();
 
 	return 0;
 }

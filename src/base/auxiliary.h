@@ -63,6 +63,7 @@ extern const char **options;
 int is_option_present(const char* full_name, const char* short_name, int with_argument);
 const char* extract_option0(const char* full_name, const char* short_name);
 const char* extract_option1(const char* full_name, const char* short_name, const char *default_value);
+void die_on_unknown_options();
 
 
 /*

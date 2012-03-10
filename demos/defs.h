@@ -19,7 +19,7 @@
 
 #define num_root_grid_refinements	7
 #define num_refinement_levels		9
-#define num_octs			6000000
-#define num_particles		        19000000
-#define num_star_particles              19000000
+#define num_octs			100000
+#define num_particles		        1000000
+#define num_star_particles              1000000
 

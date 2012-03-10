@@ -471,6 +471,24 @@ const char* extract_option1(const char* full_name, const char* short_name, const
 
 
 /*
+//  If any command-line options un-extracted, report them as errors.
+*/
+void die_on_unknown_options()
+{
+  int i;
+
+  if(num_options > 0)
+    {
+      for(i=0; i<num_options; i++)
+	{
+	  cart_debug("Unknown command-line option: %s",options[i]);
+	}
+      cart_error("Unknown command-line options are not allowed.");
+    }
+}
+
+
+/*
 //  Compute the maxium and minimum of a (cached) 1-component array.
 */
 void linear_array_maxmin(int n, float *arr, float *max, float *min)

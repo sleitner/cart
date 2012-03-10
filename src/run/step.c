@@ -221,6 +221,11 @@ void run( int restart, const char *restart_label ) {
 
 	PLUGIN_POINT(RunBegin)();
 
+	/*
+	//  Plugin should use-up all un-extracted options
+	*/
+	die_on_unknown_options();
+
 	while ( 1 ) {
 
 #ifdef COSMOLOGY
