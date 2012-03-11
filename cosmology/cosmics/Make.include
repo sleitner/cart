@@ -1,0 +1,30 @@
+
+ifneq ($(EXEC),)
+ART = $(EXEC)
+START = $(EXEC)
+else
+ART = art
+START = start
+endif
+
+compile: $(ART)
+
+SRC_DIR = $(TOP_DIR)/src
+include $(TOP_DIR)/Make.config
+
+start.c: 
+	cp -i $(TOP_DIR)/cosmology/cosmics/start.c.template start.c
+
+.obj/gic_reader.o: $(TOP_DIR)/cosmology/gic/gic_reader.c
+	$(CC) $(CFLAGS) -I. $(INCLUDES) -o .obj/gic_reader.o -c $(TOP_DIR)/cosmology/gic/gic_reader.c
+
+.obj/cosmics_init.o: $(DEFS) $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/gic -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/cosmics_init.o -c $(TOP_DIR)/cosmology/cosmics/cosmics_init.c
+
+$(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/gic_reader.o .obj/cosmics_init.o
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/cosmics -I$(SRC_DIR)/base -I$(SRC_DIR)/core  $(INCLUDES) $(SIM_OBJS) .obj/cosmics_init.o .obj/gic_reader.o $(START).c -o $(ART) $(LIBS) $(EXTRALIBS)
+	which mpirun
+
+EXEC =
+CLEAN += $(ART) $(START).o
+

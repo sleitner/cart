@@ -1,0 +1,28 @@
+
+ifneq ($(EXEC),)
+ART = $(EXEC)
+START = $(EXEC)
+else
+ART = art
+START = start
+endif
+
+compile: $(ART)
+
+SRC_DIR = $(TOP_DIR)/src
+include $(TOP_DIR)/Make.config
+
+start.c: 
+	cp -i $(TOP_DIR)/cosmology/hart/start.c.template start.c
+
+.obj/hart_init.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/hart_init.o -c $(TOP_DIR)/cosmology/hart/hart_init.c
+
+.obj/hart_reader.o: $(DEFS) $(TOP_DIR)/cosmology/hart/hart_reader.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/hart_reader.o -c $(TOP_DIR)/cosmology/hart/hart_reader.c
+
+$(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/hart_init.o .obj/hart_reader.o
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/hart -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) .obj/hart_init.o .obj/hart_reader.o $(START).c -o $(ART) $(LIBS) $(EXTRALIBS)
+
+EXEC = 
+CLEAN += $(ART) $(START).o
