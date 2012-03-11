@@ -125,14 +125,14 @@ int nearest_int( double x ) {
 
 	
 void cart_error( const char *fmt, ... ) {
-	char message[256];
+	char message[10000];
 	char filename[256];
 	FILE *f;
 
 	va_list args;
 
 	va_start( args, fmt );
-	vsnprintf( message, 256, fmt, args );
+	vsnprintf( message, 10000, fmt, args );
 	fprintf(stderr, "%u: %s\n", local_proc_id, message );
 	fflush(stderr);
 	va_end( args );

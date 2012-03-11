@@ -32,6 +32,7 @@ void config_init();
 void config_read_file(const char *filename);
 void config_create_file(const char *filename);
 void config_print_to_file(const char *filename, int append);
+void config_plugin();
 
 int drive_run();
 int drive_fft();
@@ -211,6 +212,8 @@ int drive_run () {
 	init_cooling();
 #endif /* COOLING */
 #endif /* RADIATIVE_TRANSFER */
+
+	config_plugin();
 
 	run(restart,restart_label);
 

@@ -32,12 +32,15 @@ int drive() {
 
 	init_timers();
 
-	config_init();
+	//config_init();
 
 	init_rand();
 	init_parallel_grid();
 	init_cell_buffer();
 	init_tree();
+#ifdef PARTICLES
+	init_particles();
+#endif
 
 	read_file();
 	

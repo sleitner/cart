@@ -9,7 +9,7 @@
 struct Plugin plugin_internal = { NULL };
 const struct Plugin *plugin = &plugin_internal;
 
-void config_plugins()
+void config_plugin()
 {
   set_plugin(&plugin_internal);
 }

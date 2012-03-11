@@ -15,6 +15,7 @@
 
 extern const char* executable_name;
 extern char output_directory_d[]; 
+extern char logfile_directory_d[]; 
 
 
 #define H2C   1
@@ -69,24 +70,28 @@ void init()
       ufc_mode = -C2A;
     }
 
+  options++;
+  num_options--;
+
   str = extract_option1("job-name","j",NULL);
 
   if(ufc_mode==0 || str==NULL)
     {
       cart_error("Usage: %s <conversion-spec> -j/--job-name=<name> [options].\n"
 		 "Valid conversion specifications:\n"
-		 "hart-to-cart or cart-to-hart (shorthand h2c/c2h)\n"
-		 "hart-to-artio or artio-to-hart (shorthand h2a/a2h)\n"
-		 "cart-to-artio or artio-to-cart (shorthand c2a/a2c)\n"
+		 "  hart-to-cart or cart-to-hart (shorthand h2c/c2h)\n"
+		 "  hart-to-artio or artio-to-hart (shorthand h2a/a2h)\n"
+		 "  cart-to-artio or artio-to-cart (shorthand c2a/a2c)\n"
 		 "Valid options:\n"
-		 "  -d, --data-directory=<dir>       set data directory where files are located (default is the current directory)"
+		 "  -d, --data-directory=<dir>       set data directory where files are located (default is the current directory)\n"
 		 "  -l, --file-label=<label>         set the label for the fileset\n"
 		 "  -hf, --hart-file-name=<name>     set the name for the HART grid file (default uses a .dh suffix)"
 		 "  -nc, --num-cart_files=<number>   set the number of cart files\n"
 		 "  -na, --num-artio_files=<number>  set the number of artio files\n"
 #ifdef PARTICLES
 		 "  -p, --particle-only              convert particle files only (for artio-to-* conversion)\n"
-		 "  -g, --grid-only                  convert grid files only (for artio-to-* conversion)."
+		 "  -g, --grid-only                  convert grid files only (for artio-to-* conversion)\n"
+		 "  -nrow, --cart-num-row=<number>   set the NROW parameter of hart/cart particle files\n"
 #endif
 ,executable_name);
     }
@@ -116,7 +121,7 @@ void init()
     {
       if(sscanf(str,"%d%c",&n,&c)!=1 || n<1 || n>num_procs)
 	{
-	  cart_error("Option --num-cart-files must have an integer number between 1 and %d as an argument.",num_procs);
+	  cart_error("Option --num-cart-files must have an integer number between 1 and %d as its argument.",num_procs);
 	}
       num_cart_output_files = n;      
     }
@@ -126,7 +131,7 @@ void init()
     {
       if(sscanf(str,"%d%c",&n,&c)!=1 || n<1)
 	{
-	  cart_error("Option --num-artio-files must have a positive integer number as an argument.");
+	  cart_error("Option --num-artio-files must have a positive integer number as its argument.");
 	}
       num_artio_grid_files = n;
 #ifdef PARTICLES
@@ -135,6 +140,16 @@ void init()
     }
 
 #ifdef PARTICLES
+  str = extract_option1("cart-num-row","nrow",NULL);
+  if(str != NULL)
+    {
+      if(sscanf(str,"%d%c",&n,&c)!=1 || n<1)
+	{
+	  cart_error("Option --cart-num-row must have a positive integer number as its argument.",num_procs);
+	}
+      cart_particle_num_row = n;      
+    }
+  
   str = extract_option0("particle-only","p");
   if(str != NULL)
     {

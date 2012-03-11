@@ -25,6 +25,7 @@ void constants_init();
 
 int main ( int argc, char *argv[] ) {
 	int i, ret;
+	const char **buffer;
 
 	MPI_Init( &argc, &argv );
 
@@ -41,7 +42,7 @@ int main ( int argc, char *argv[] ) {
 	//  we could manipulated them later without messing up the
 	//  original argv[] array.
 	*/
-	options = cart_alloc(const char*,argc);
+	buffer = options = cart_alloc(const char*,argc);
 	for(i=0; i<num_options; i++) options[i] = argv[i+1];
 
 	executable_name = argv[0];
@@ -61,7 +62,7 @@ int main ( int argc, char *argv[] ) {
 	/* 
 	//  Clean-up and exit
 	*/
-	cart_free(options);
+	cart_free(buffer);
 
 	MPI_Finalize();
 
