@@ -86,23 +86,23 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		  {
 		  case WRITE_SAVE:
 		    {
-		      sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
-		      break;
+			sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
+			break;
 		    }
 		  case WRITE_BACKUP:
 		    {
-		      sprintf( filename_gas, "%s/%s_2.d", output_directory, jobname );
-		      break;
+			sprintf( filename_gas, "%s/%s_2.d", output_directory, jobname );
+			break;
 		    }
 		  case WRITE_GENERIC:
 		    {
-		      sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
-			  break;
+			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
+			break;
 		    }
 		  default:
-			{
-				cart_error("Invalid value for grid_filename_flag in write_cart_restart!");
-			}
+		    {
+			cart_error("Invalid value for grid_filename_flag in write_cart_restart!");
+		    }
 		}
 
 		start_time( GAS_WRITE_IO_TIMER );
@@ -119,40 +119,40 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 		  case WRITE_SAVE:
 		    {
-		      sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
-		      break;
+			sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
+			break;
 		    }
 		  case WRITE_BACKUP:
 		    {
-		      sprintf( filename_tracers, "%s/%s_2.dtr", output_directory, jobname );
-		      break;
+			sprintf( filename_tracers, "%s/%s_2.dtr", output_directory, jobname );
+			break;
 		    }
 		  case WRITE_GENERIC:
 		    {
-		      sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
-			  break;
+			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
+			break;
 		    }
 #else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  case WRITE_SAVE:
 		    {
-		      sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
-		      break;
+			sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
+			break;
 		    }
 		  case WRITE_BACKUP:
 		    {
-		      sprintf( filename_tracers, "%s/tracers_2.dat", output_directory );
-		      break;
+			sprintf( filename_tracers, "%s/tracers_2.dat", output_directory );
+			break;
 		    }
 		  case WRITE_GENERIC:
 		    {
-		      sprintf( filename_tracers, "%s/tracers.dat", output_directory );
-			  break;
+			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
+			break;
 		    }
 #endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  default:
-			{
-				cart_error("Invalid value for tracer_filename_flag in write_cart_restart!");
-			}
+		    {
+			cart_error("Invalid value for tracer_filename_flag in write_cart_restart!");
+		    }
 		}
 
 		start_time( PARTICLE_WRITE_IO_TIMER );
@@ -170,11 +170,11 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 		  case WRITE_SAVE:
 		    {
-		      sprintf( filename1, "%s/%s_%s.dph", output_directory, jobname, label );
-		      sprintf( filename2, "%s/%s_%s.dxv", output_directory, jobname, label );
-		      sprintf( filename3, "%s/%s_%s.dpt", output_directory, jobname, label );
-		      sprintf( filename4, "%s/%s_%s.dst", output_directory, jobname, label );
-		      break;
+			sprintf( filename1, "%s/%s_%s.dph", output_directory, jobname, label );
+			sprintf( filename2, "%s/%s_%s.dxv", output_directory, jobname, label );
+			sprintf( filename3, "%s/%s_%s.dpt", output_directory, jobname, label );
+			sprintf( filename4, "%s/%s_%s.dst", output_directory, jobname, label );
+			break;
 		    }
 		  case WRITE_BACKUP:
 		    {
@@ -190,15 +190,16 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 			sprintf( filename2, "%s/%s.dxv", output_directory, jobname);
 			sprintf( filename3, "%s/%s.dpt", output_directory, jobname);
 			sprintf( filename4, "%s/%s.dst", output_directory, jobname);
+			break;
 		    }
 #else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  case WRITE_SAVE:
 		    {
-		      sprintf( filename1, "%s/PMcrd%s.DAT", output_directory, label );
-		      sprintf( filename2, "%s/PMcrs0%s.DAT", output_directory, label );
-		      sprintf( filename3, "%s/pt%s.dat", output_directory, label );
-		      sprintf( filename4, "%s/stars_%s.dat", output_directory, label );
-		      break;
+			sprintf( filename1, "%s/PMcrd%s.DAT", output_directory, label );
+			sprintf( filename2, "%s/PMcrs0%s.DAT", output_directory, label );
+			sprintf( filename3, "%s/pt%s.dat", output_directory, label );
+			sprintf( filename4, "%s/stars_%s.dat", output_directory, label );
+			break;
 		    }
 		  case WRITE_BACKUP:
 		    {
@@ -218,9 +219,9 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		    }
 #endif  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  default :
-			{
-				cart_error("Invalid value for particle_filename_flag in write_cart_restart!");
-			}
+		    {
+			cart_error("Invalid value (%d) for particle_filename_flag in write_cart_restart!", particle_filename_flag);
+		    }
 		}
 		
 		start_time( PARTICLE_WRITE_IO_TIMER );
