@@ -767,6 +767,101 @@ void write_artio_particles( artio_file handle, int *root_tree_particle_list,
 }
 #endif /* PARTICLES */
 
+void artio_restart_load_balance( artio_file handle ) {
+	int i;
+	int *constrained_quantities;
+	float *cell_work;
+	int page;
+	int64_t sfc, end_sfc;
+	float *variables;
+	int *num_octs_per_level;
+	int num_file_variables;
+	int num_file_species;
+	int *num_particles_per_species;
+	
+	if ( num_procs == 1 ) {
+		proc_sfc_index[0] = 0;
+		proc_sfc_index[1] = num_root_cells;
+		init_tree();
+		return;
+	}
+
+	if ( local_proc_id == MASTER_NODE ) {
+        constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
+        cell_work = cart_alloc(float, num_root_cells );
+
+        for ( i = 0; i < num_root_cells; i++ ) {
+            cell_work[i] = 0.0;
+        }
+
+        for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
+            constrained_quantities[i] = 0;
+        }
+
+		/* load grid information */
+		artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
+		artio_parameter_get_int( handle, "max_refinement_level", &file_max_level );
+		variables = cart_alloc(float, num_file_variables);
+		num_octs_per_level = cart_alloc( int, file_max_level );
+
+		for ( page = 0; sfc = 0; page < num_grid; page++ ) {
+			end_sfc = min( sfc + num_grid*num_grid, num_root_cells ) - 1;
+			artio_grid_cache_sfc_range(handle, sfc, end_sfc );
+			
+			for ( ; sfc <= end_sfc; sfc++ ) {
+				artio_grid_read_root_cell_begin(handle, sfc, variables, 
+						&num_oct_levels, num_octs_per_level );
+
+				/* contribution from root cell */
+				constrained_quantities[num_constraints*sfc]++;
+				cell_work[index] += cost_per_cell;
+
+				for ( i = 0; i < num_oct_levels; i++ ) {
+					constrained_quantities[num_constraints*sfc] += num_children*num_octs_per_level[i];
+					cell_work[index] += cost_per_cell*(float)(2<<i)*num_children*num_octs_per_level[i];
+				}
+	
+				artio_grid_read_root_cell_end();
+			}	
+		}
+
+		cart_free( num_octs_per_level );
+		cart_free( num_file_variables );
+
+#ifdef PARTICLES
+		artio_parameter_get_int( handle, "num_particle_species", &num_species);
+		num_particles_per_species = cart_alloc(int, num_species);
+
+		for ( page = 0; sfc = 0; page < num_grid; page++ ) {
+			end_sfc = min( sfc + num_grid*num_grid, num_root_cells ) - 1;
+			artio_particle_cache_sfc_range(handle, sfc, end_sfc );
+
+			for ( ; sfc <= end_sfc; sfc++ ) {
+				artio_particle_read_root_cell_begin( handle, sfc, num_particles_per_species );
+
+				for ( i = 0; i < num_file_species; i++ ) {
+					constrained_quantities[num_constraints*sfc+1] += num_particles_per_species[i];
+					cell_work[sfc] += cost_per_particle*num_particles_per_species[i];
+				}
+
+				artio_particle_read_root_cell_end();
+			}   
+		}
+
+		cart_free( num_particles_per_species );
+#endif /* PARTICLES */
+
+		load_balance_entire_volume( cell_work, constrained_quantities, proc_sfc_index );
+
+		cart_free( cell_work );
+		cart_free( constrained_quantities );
+	}
+
+	/* let all other processors know what their new workload is */
+	MPI_Bcast( proc_sfc_index, num_procs+1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	init_tree();
+}
+
 void read_artio_restart( const char *label ) {
 	int i;
 	int num_species;
@@ -843,7 +938,7 @@ void read_artio_restart( const char *label ) {
 #endif /* STARFORM */
 #endif /* PARTICLES */
 	) {
-		cart_error("ERROR: fileset has load balance that may be incompatible with current parameters. Recomputing...");
+		artio_restart_load_balance( handle );
 	} else {
 		artio_parameter_get_long_array( handle, "mpi_task_sfc_index", num_procs+1, mpi_task_sfc_index );
 		for ( i = 0; i < num_procs+1; i++ ) {
@@ -1006,7 +1101,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 	int *num_octs_per_level;
 	int level;
 	float * oct_variables;
-	int oct_refined[8];
+	int oct_refined[num_children];
 	char ** file_variables;
 
 	/* load list of variables the code expects */
