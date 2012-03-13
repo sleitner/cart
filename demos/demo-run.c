@@ -11,7 +11,7 @@ void run_output()
 
 /*
 // Here you can include your initial conditions reader. None is
-// included in this demo, also it can be used with full functionality
+// included in this demo, although it includes full functionality
 // for restarting a simulation from an existing snapshot.
 //
 // Supported IC readers for cosmological simulations are available 

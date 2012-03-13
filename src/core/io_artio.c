@@ -39,6 +39,10 @@ DECLARE_LEVEL_ARRAY(int,level_sweep_dir);
 DECLARE_LEVEL_ARRAY(int,time_refinement_factor);
 DECLARE_LEVEL_ARRAY(int,time_refinement_factor_old);
 
+#ifdef COSMOLOGY
+DECLARE_LEVEL_ARRAY(double,abox_old);
+#endif
+
 extern double auni_init;
 
 int num_artio_grid_files = 0;
@@ -48,6 +52,8 @@ int artio_grid_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 int num_artio_particle_files = 0;
 int artio_particle_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 #endif /* PARTICLES */
+
+void artio_restart_load_balance( artio_file handle );
 
 void control_parameter_set_allocation_strategy(const char *value, void *ptr, int ind) {
 	if ( strcmp( value, "ARTIO_ALLOC_EQUAL_SFC" ) == 0 ) {
@@ -771,13 +777,13 @@ void artio_restart_load_balance( artio_file handle ) {
 	int i;
 	int *constrained_quantities;
 	float *cell_work;
-	int page;
+	int page, file_max_level, num_oct_levels;
 	int64_t sfc, end_sfc;
 	float *variables;
 	int *num_octs_per_level;
 	int num_file_variables;
 	int num_file_species;
-	int *num_particles_per_species;
+	int num_species, *num_particles_per_species;
 	
 	if ( num_procs == 1 ) {
 		proc_sfc_index[0] = 0;
@@ -787,16 +793,17 @@ void artio_restart_load_balance( artio_file handle ) {
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
-        constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
-        cell_work = cart_alloc(float, num_root_cells );
+                /* do load balancing */
+        	constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
+        	cell_work = cart_alloc(float, num_root_cells );
 
-        for ( i = 0; i < num_root_cells; i++ ) {
-            cell_work[i] = 0.0;
-        }
+        	for ( i = 0; i < num_root_cells; i++ ) {
+        		cell_work[i] = 0.0;
+        	}
 
-        for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
-            constrained_quantities[i] = 0;
-        }
+        	for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
+        		constrained_quantities[i] = 0;
+        	}
 
 		/* load grid information */
 		artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
@@ -804,7 +811,7 @@ void artio_restart_load_balance( artio_file handle ) {
 		variables = cart_alloc(float, num_file_variables);
 		num_octs_per_level = cart_alloc( int, file_max_level );
 
-		for ( page = 0; sfc = 0; page < num_grid; page++ ) {
+		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
 			end_sfc = min( sfc + num_grid*num_grid, num_root_cells ) - 1;
 			artio_grid_cache_sfc_range(handle, sfc, end_sfc );
 			
@@ -814,25 +821,25 @@ void artio_restart_load_balance( artio_file handle ) {
 
 				/* contribution from root cell */
 				constrained_quantities[num_constraints*sfc]++;
-				cell_work[index] += cost_per_cell;
+				cell_work[sfc] += cost_per_cell;
 
 				for ( i = 0; i < num_oct_levels; i++ ) {
 					constrained_quantities[num_constraints*sfc] += num_children*num_octs_per_level[i];
-					cell_work[index] += cost_per_cell*(float)(2<<i)*num_children*num_octs_per_level[i];
+					cell_work[sfc] += cost_per_cell*(float)(2<<i)*num_children*num_octs_per_level[i];
 				}
 	
-				artio_grid_read_root_cell_end();
+				artio_grid_read_root_cell_end(handle);
 			}	
 		}
 
 		cart_free( num_octs_per_level );
-		cart_free( num_file_variables );
+		cart_free( variables );
 
 #ifdef PARTICLES
 		artio_parameter_get_int( handle, "num_particle_species", &num_species);
 		num_particles_per_species = cart_alloc(int, num_species);
 
-		for ( page = 0; sfc = 0; page < num_grid; page++ ) {
+		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
 			end_sfc = min( sfc + num_grid*num_grid, num_root_cells ) - 1;
 			artio_particle_cache_sfc_range(handle, sfc, end_sfc );
 
@@ -844,7 +851,7 @@ void artio_restart_load_balance( artio_file handle ) {
 					cell_work[sfc] += cost_per_particle*num_particles_per_species[i];
 				}
 
-				artio_particle_read_root_cell_end();
+				artio_particle_read_root_cell_end(handle);
 			}   
 		}
 
@@ -1012,17 +1019,22 @@ void read_artio_restart( const char *label ) {
 	artio_parameter_get_double( handle, "auni_init", &auni_init );
 	artio_parameter_get_double_array( handle, "abox", num_levels, abox );
 	artio_parameter_get_double_array( handle, "auni", num_levels, auni );
+
+        for ( level = min_level; level <= file_max_level; level++ ) {
+		abox_old[level] = abox_from_tcode(tl_old[level]);
+	}
 #endif /* COSMOLOGY */
 
         for ( level = file_max_level+1; level < max_level; level++ ) {
-        tl[level] = tl[file_max_level];
-        tl_old[level] = tl_old[file_max_level];
-        dtl[level] = dtl[level-1];
-        dtl_old[level] = dtl[level-1];
+        	tl[level] = tl[file_max_level];
+        	tl_old[level] = tl_old[file_max_level];
+        	dtl[level] = dtl[level-1];
+        	dtl_old[level] = dtl[level-1];
 
 #ifdef COSMOLOGY
 		abox[level] = abox[file_max_level];
 		auni[level] = abox[file_max_level];
+		abox_old[level] = abox_old[file_max_level];
 #endif /* COSMOLOGY */
 	}
 
