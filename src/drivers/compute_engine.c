@@ -17,6 +17,7 @@
 #include "../core/io_cart.h"
 #include "../core/parallel.h"
 #include "../core/particle.h"
+#include "../core/plugin.h"
 #include "../core/rand.h"
 #include "../core/rt.h"
 #include "../core/starformation.h"
@@ -32,7 +33,6 @@ void config_init();
 void config_read_file(const char *filename);
 void config_create_file(const char *filename);
 void config_print_to_file(const char *filename, int append);
-void config_plugin();
 
 int drive_run();
 int drive_fft();
@@ -59,8 +59,6 @@ int drive() {
 	    cart_debug("Hooray! I am on vacation this time!");
 	    ret = 0;
 	  }
-
-	cart_free(options);
 
 	MPI_Finalize();
 
@@ -212,8 +210,6 @@ int drive_run () {
 	init_cooling();
 #endif /* COOLING */
 #endif /* RADIATIVE_TRANSFER */
-
-	config_plugin();
 
 	run(restart,restart_label);
 

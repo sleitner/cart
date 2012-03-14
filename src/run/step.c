@@ -123,12 +123,14 @@ void run( int restart, const char *restart_label ) {
 			time variables tl, dtl) on min_level only
 		*/
 		init_run();
+		tl_old[min_level] = tl[min_level];
 #ifdef COSMOLOGY
 		abox[min_level] = abox_from_tcode(tl[min_level]);
 		auni[min_level] = auni_from_tcode(tl[min_level]);
 #endif /* COSMOLOGY */
 		for ( level = min_level+1; level <= max_level; level++ ) {
 			tl[level] = tl[min_level];
+			tl_old[level] = tl[min_level];
 #ifdef COSMOLOGY
 			abox[level] = abox[min_level];
 			auni[level] = auni[min_level];
@@ -767,8 +769,6 @@ int timestep( int level, MPI_Comm level_com )
 	  }
 #endif /* REFINEMENT */
 
-	PLUGIN_POINT(LevelStepEnd)(level,level_com);
-
         cart_debug("timestep(%u, %9.3e %s, %d)", level, 
 #ifdef COSMOLOGY
                 dtl[level]*units->time/constants->Myr, "Myr",
@@ -776,6 +776,8 @@ int timestep( int level, MPI_Comm level_com )
                 dtl[level]*units->time, "s",
 #endif
                 num_steps_on_level[level] );
+
+	PLUGIN_POINT(LevelStepEnd)(level,level_com);
 
 	num_steps_on_level[level]++;
 

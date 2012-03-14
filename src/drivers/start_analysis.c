@@ -283,9 +283,6 @@ void run(int restart, const char *restart_label)
 	  break;
 	}
     }
-
-  MPI_Finalize();
-  exit(0);
 }
 
 

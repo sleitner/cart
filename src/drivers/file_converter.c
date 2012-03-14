@@ -7,6 +7,7 @@
 
 #include "../core/cell_buffer.h"
 #include "../core/parallel.h"
+#include "../core/particle.h"
 #include "../core/plugin.h"
 #include "../core/rand.h"
 #include "../core/timing.h"
@@ -16,8 +17,9 @@
 extern const char* executable_name;
 
 void config_init();
-void set_plugin(struct Plugin *not_used)
+const plugin_t* add_plugin(int id)
 {
+  return NULL;
 }
 
 

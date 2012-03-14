@@ -11,8 +11,6 @@ const char *output;
 
 void init()
 {
-  const char *str;
-
   cart_debug("First, we check some command-line options.");
 
   /*

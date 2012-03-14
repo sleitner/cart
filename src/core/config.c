@@ -16,6 +16,7 @@
 #include "load_balance.h"
 #include "parallel.h"
 #include "particle.h"
+#include "plugin.h"
 #include "refinement.h"
 #include "rt.h"
 #include "starformation.h"
@@ -345,6 +346,8 @@ void config_allocate_data(float memory_fraction_mesh);
 
 void config_init()
 {
+  config_init_plugins();
+
   config_init_io();
   config_init_load_balance();
   config_init_times();
@@ -382,6 +385,8 @@ void config_init()
 
 void config_verify()
 {
+  config_verify_plugins();
+
   config_verify_io();
   config_verify_load_balance();
   config_verify_times();
