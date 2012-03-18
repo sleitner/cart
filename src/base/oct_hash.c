@@ -6,9 +6,6 @@
 
 #include "auxiliary.h"
 #include "oct_hash.h"
-#include "parallel.h"
-#include "tree.h"
-
 
 /*******************************************************
  * next_largest_prime
@@ -71,8 +68,8 @@ oct_hash *oct_hash_create( int size )
 
 	/* initialize the hash array to empty entries */
 	for ( i = 0; i < hash->hash_size; i++ ) {
-		hash->hash_array[i].remote_index = NULL_OCT;
-		hash->hash_array[i].local_index = NULL_OCT;
+		hash->hash_array[i].remote_index = OCT_HASH_NULL_ENTRY;
+		hash->hash_array[i].local_index = OCT_HASH_NULL_ENTRY;
 	}
 
 	return hash;
@@ -110,8 +107,8 @@ void oct_hash_resize( oct_hash *hash, int new_size ) {
 
 	count = 0;
 	for ( i = 0; i < hash->hash_size; i++ ) {
-		if ( old_hash[i].remote_index != NULL_OCT &&
-				old_hash[i].remote_index != DELETED_ENTRY ) {
+		if ( old_hash[i].remote_index != OCT_HASH_NULL_ENTRY &&
+				old_hash[i].remote_index != OCT_HASH_DELETED_ENTRY ) {
 			old_remote[count] = old_hash[i].remote_index;
 			old_local[count] = old_hash[i].local_index;
 			count++;
@@ -126,8 +123,8 @@ void oct_hash_resize( oct_hash *hash, int new_size ) {
 
 	/* initialize the hash array to empty entries */
 	for ( i = 0; i < hash->hash_size; i++ ) {
-		hash->hash_array[i].remote_index = NULL_OCT;
-		hash->hash_array[i].local_index = NULL_OCT;
+		hash->hash_array[i].remote_index = OCT_HASH_NULL_ENTRY;
+		hash->hash_array[i].local_index = OCT_HASH_NULL_ENTRY;
 	}
 
 	old_entries = hash->num_entries;
@@ -138,8 +135,8 @@ void oct_hash_resize( oct_hash *hash, int new_size ) {
 
 	count = 0;
 	for ( i = 0; i < hash->hash_size; i++ ) {
-		if ( hash->hash_array[i].remote_index != DELETED_ENTRY &&
-			hash->hash_array[i].remote_index != NULL_OCT ) {
+		if ( hash->hash_array[i].remote_index != OCT_HASH_DELETED_ENTRY &&
+			hash->hash_array[i].remote_index != OCT_HASH_NULL_ENTRY ) {
 			count++;
 		}
 	}
@@ -190,8 +187,8 @@ void oct_hash_add( oct_hash *hash, int remote_index, int local_index )
 		cart_assert( h >= 0 && h < hash->hash_size );
 		cart_assert( hash->hash_array[h].remote_index != remote_index );
 
-		if ( hash->hash_array[h].remote_index == NULL_OCT ||
-				hash->hash_array[h].remote_index == DELETED_ENTRY ) {
+		if ( hash->hash_array[h].remote_index == OCT_HASH_NULL_ENTRY ||
+				hash->hash_array[h].remote_index == OCT_HASH_DELETED_ENTRY ) {
 			break;
 		}
 		h = ( h + q ) % hash->hash_size;
@@ -209,8 +206,8 @@ void oct_hash_add( oct_hash *hash, int remote_index, int local_index )
 			t = ( p + j * c) % hash->hash_size;
 			
 			/* if this is a better place, switch entry at p to t and place in p */
-			if ( hash->hash_array[t].remote_index == NULL_OCT || 
-					hash->hash_array[t].remote_index == DELETED_ENTRY ) {
+			if ( hash->hash_array[t].remote_index == OCT_HASH_NULL_ENTRY || 
+					hash->hash_array[t].remote_index == OCT_HASH_DELETED_ENTRY ) {
 				hash->hash_array[t].remote_index = hash->hash_array[p].remote_index;
 				hash->hash_array[t].local_index = hash->hash_array[p].local_index;
 				hash->hash_array[p].remote_index = remote_index;
@@ -232,8 +229,8 @@ void oct_hash_add( oct_hash *hash, int remote_index, int local_index )
 
 	placed = 0;
 	for ( i = 0; i < hash->hash_size; i++ ) {
-		if ( hash->hash_array[i].remote_index != NULL_OCT &&
-			hash->hash_array[i].remote_index != DELETED_ENTRY ) {
+		if ( hash->hash_array[i].remote_index != OCT_HASH_NULL_ENTRY &&
+			hash->hash_array[i].remote_index != OCT_HASH_DELETED_ENTRY ) {
 
 			placed++;
 		}
@@ -279,8 +276,8 @@ void oct_hash_add_list( oct_hash *hash, int num_indices, int *remote_index, int 
 			/* ensure no duplicate entries */
 			cart_assert( hash->hash_array[h].remote_index != remote_index[index] );
 
-			if ( hash->hash_array[h].remote_index == NULL_OCT ||
-					hash->hash_array[h].remote_index == DELETED_ENTRY ) {
+			if ( hash->hash_array[h].remote_index == OCT_HASH_NULL_ENTRY ||
+					hash->hash_array[h].remote_index == OCT_HASH_DELETED_ENTRY ) {
 				break;
 			}
 			h = ( h + q ) % hash->hash_size;
@@ -299,8 +296,8 @@ void oct_hash_add_list( oct_hash *hash, int num_indices, int *remote_index, int 
 				cart_assert( t >= 0 && t < hash->hash_size );
 
 				/* if this is a better place, switch entry at p to t and place in p */
-				if ( hash->hash_array[t].remote_index == NULL_OCT ||
-						hash->hash_array[t].remote_index == DELETED_ENTRY ) {
+				if ( hash->hash_array[t].remote_index == OCT_HASH_NULL_ENTRY ||
+						hash->hash_array[t].remote_index == OCT_HASH_DELETED_ENTRY ) {
 
 					hash->hash_array[t].remote_index = hash->hash_array[p].remote_index;
 					hash->hash_array[t].local_index = hash->hash_array[p].local_index;
@@ -338,12 +335,12 @@ void oct_hash_delete( oct_hash *hash, int local_index )
 	count = 0;
 	deleted = 0;
 	for ( j = 0; j < hash->hash_size; j++ ) {
-		if ( hash->hash_array[j].remote_index != DELETED_ENTRY &&
-				hash->hash_array[j].remote_index != NULL_OCT ) {
+		if ( hash->hash_array[j].remote_index != OCT_HASH_DELETED_ENTRY &&
+				hash->hash_array[j].remote_index != OCT_HASH_NULL_ENTRY ) {
 			count++;
 		}
 
-		if ( hash->hash_array[j].remote_index == DELETED_ENTRY ) {
+		if ( hash->hash_array[j].remote_index == OCT_HASH_DELETED_ENTRY ) {
 			deleted++;
 		}
 	}
@@ -359,14 +356,14 @@ void oct_hash_delete( oct_hash *hash, int local_index )
 	
 	for ( i = 0; i < hash->hash_size; i++ ) {
 		if ( hash->hash_array[i].local_index == local_index ) {
-			hash->hash_array[i].remote_index = DELETED_ENTRY;
-			hash->hash_array[i].local_index = NULL_OCT;
+			hash->hash_array[i].remote_index = OCT_HASH_DELETED_ENTRY;
+			hash->hash_array[i].local_index = OCT_HASH_NULL_ENTRY;
 			hash->num_entries--;
 
 			count = 0;
 			for ( j = 0; j < hash->hash_size; j++ ) {
-				if ( hash->hash_array[j].remote_index != DELETED_ENTRY &&
-					hash->hash_array[j].remote_index != NULL_OCT ) {
+				if ( hash->hash_array[j].remote_index != OCT_HASH_DELETED_ENTRY &&
+					hash->hash_array[j].remote_index != OCT_HASH_NULL_ENTRY ) {
 					count++;
 				}
 			}
@@ -393,21 +390,21 @@ int oct_hash_lookup ( oct_hash *hash, int remote_index )
 {
 	int h, q, i;
 
-	if ( remote_index != NULL_OCT ) {
+	if ( remote_index != OCT_HASH_NULL_ENTRY ) {
 		h = remote_index % hash->hash_size;
 		q = (remote_index % (hash->hash_size - 2)) + 1;
 
 		for ( i = 0; i < hash->hash_size; i++ ) {
-			if ( hash->hash_array[h].remote_index == NULL_OCT ) {
-				return NULL_OCT;
+			if ( hash->hash_array[h].remote_index == OCT_HASH_NULL_ENTRY ) {
+				return OCT_HASH_NULL_ENTRY;
 			} else if ( hash->hash_array[h].remote_index == remote_index ) {
 				return hash->hash_array[h].local_index;
 			} else {
-				/* note we're skipping over DELETED_ENTRY spaces */
+				/* note we're skipping over OCT_HASH_DELETED_ENTRY spaces */
 				h = (h+q) % hash->hash_size;
 			}
 		}
 	}
 
-	return NULL_OCT;
+	return OCT_HASH_NULL_ENTRY;
 }

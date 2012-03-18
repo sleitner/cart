@@ -28,7 +28,7 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	double p1, ul_0, ur_0, p_0, p_1, xxl, w2l, ul1, xxr, w2r, ur1;
 	double p2, devi, dev, u, rho_s, u_s, p_s, bgam_s, gam_s;
 	double a_s, b_s, c_s, w_s, rho, gam, xx4, xx5;
-	double a2, a3, fs, indd, ind_r;
+	double a2, a3, fs, indd;
 
 	int iter;
 
@@ -114,9 +114,6 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	}
 
 	u	= 0.5 * ( ul_0 + ur_0 );
-	ind_r = floor( 0.9 - sign( 0.5, u ) );
-	cart_assert( ind_r == 0 || ind_r == 1.0 );
-
 	if ( u >= 0.0 ) {
 		rho_s = stl[0];
 		u_s = stl[1];
@@ -156,8 +153,11 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	}
 
 	fs = -a2/a3;
-	if ( fs < 0.0 ) fs = 0.0;
-	if ( fs > 1.0 ) fs = 1.0;
+	if ( fs < 0.0 ) { 
+		fs = 0.0;
+	} else if ( fs > 1.0 ) {
+		fs = 1.0;
+	}
 
 	sta[0] = rho	+ fs * ( rho_s - rho );
 	sta[1] = u	    + fs * ( u_s - u );

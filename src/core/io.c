@@ -243,6 +243,8 @@ void config_verify_io()
 }
 
 void read_restart( const char *label ) {
+	char filename[256];
+
 	start_time( IO_TIMER );
 
 	if ( buffer_enabled ) {
@@ -255,6 +257,10 @@ void read_restart( const char *label ) {
 	} else {
 		read_artio_restart(label);
 	}
+
+	/* load random number generator state */
+	sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
+	cart_rand_load_state( filename, 0 );
 
 	units_init();
 	units_update(min_level);

@@ -431,8 +431,8 @@ int global_timestep() {
 
 #ifdef STARFORM
 #ifdef AGN               
-                /* do agn mergers */
-                agn_find_mergers();
+		/* do agn mergers */
+		agn_find_mergers();
 
         /* do agn formation */
 #endif /* AGN */
@@ -730,8 +730,8 @@ int timestep( int level, MPI_Comm level_com )
 	end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 #endif /* STARFORM */
 
-        move_particles( level );
-        update_particle_list( level );
+	move_particles( level );
+	update_particle_list( level );
 #endif /* PARTICLES */
 
 	/* advance time on level */
@@ -744,9 +744,9 @@ int timestep( int level, MPI_Comm level_com )
 	auni[level] = auni_from_tcode( tl[level] );
 #endif
 
-        start_time( WORK_TIMER );
-        units_update(level);
-        end_time( WORK_TIMER );
+	start_time( WORK_TIMER );
+	units_update(level);
+	end_time( WORK_TIMER );
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 	assign_density( level );
@@ -754,7 +754,6 @@ int timestep( int level, MPI_Comm level_com )
 
 #ifdef GRAVITY
 	/* recompute potential */
-
 #ifdef HYDRO
 	copy_potential( level );
 #endif
@@ -771,7 +770,7 @@ int timestep( int level, MPI_Comm level_com )
 
         cart_debug("timestep(%u, %9.3e %s, %d)", level, 
 #ifdef COSMOLOGY
-                dtl[level]*units->time/constants->Myr, "Myr",
+				dtl[level]*units->time/constants->Myr, "Myr",
 #else
                 dtl[level]*units->time, "s",
 #endif

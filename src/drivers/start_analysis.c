@@ -4,11 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
-
-#include "auxiliary.h"
-#include "cosmology.h"
-#include "times.h"
-#include "units.h"
+#include "../base/auxiliary.h"
+#include "../base/cosmology.h"
+#include "../base/times.h"
+#include "../base/units.h"
 
 #include "../core/cell_buffer.h"
 #include "../core/density.h"

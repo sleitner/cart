@@ -11,44 +11,37 @@
 #include <gsl/gsl_roots.h>
 
 #include "auxiliary.h"
-#include "io.h"
 
-
-unsigned long int rng_seed = 0L;
 gsl_rng *cart_random_generator;
 
-
 void init_rand() {
-	FILE *state;
-	char filename[256];
-
 	cart_random_generator = gsl_rng_alloc (gsl_rng_mt19937);
+}
 
-	/* attempt to reload state information (just use natural seeding otherwise) */
-	sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
-	state = fopen( filename, "r" );
+void cart_rand_set_seed( unsigned long int seed ) {
+	cart_assert( cart_random_generator != NULL );
+	gsl_rng_set( cart_random_generator, seed );
+}
+
+void cart_rand_load_state( const char *state_filename, int fail_on_error ) {
+	FILE *state = fopen( state_filename, "r" );
 	if ( state != NULL ) {
 		gsl_rng_fread( state, cart_random_generator );
 		fclose(state);
-	} else {
-		gsl_rng_set( cart_random_generator, rng_seed );
-	}
+	} else if ( fail_on_error ) {
+		cart_error("Unable to load random number generator state file %s!", state_filename );
+	} /* otherwise silently skip over the error */
 }
 
-void save_rand() {
+void cart_rand_save_state( const char *state_filename ) {
 	FILE *state;
-	char filename[256];
 
-#ifdef STARFORM
-	sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
-	state = fopen( filename, "w" );
+	state = fopen( state_filename, "w" );
 	if ( state == NULL ) {
-		cart_error("Unable to open %s for saving rng state", filename );
+		cart_error("Unable to open %s for saving randomnumber generator state!", state_filename );
 	}
-
 	gsl_rng_fwrite ( state, cart_random_generator );
 	fclose(state);
-#endif
 }
 
 double cart_rand() {
@@ -93,3 +86,24 @@ double cart_rand_lognormal(double sigma) {
 
 	return ret;
 }
+
+unsigned int cart_rand_poisson( double mu ) {
+	int ret;
+
+#ifdef UNIQUE_RAND
+	int proc;
+
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( proc == local_proc_id ) {
+			ret = gsl_ran_poisson( cart_random_generator, mu );
+		} else {
+			gsl_ran_poisson( cart_random_generator, mu );
+		}
+	}
+#else
+    ret = gsl_ran_poisson( cart_random_generator, mu );
+#endif /* UNIQUE_RAND */
+
+	return ret;
+}
+

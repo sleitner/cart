@@ -8,6 +8,7 @@
 #endif
 
 #include "../base/auxiliary.h"
+#include "../base/rand.h"
 
 #include "../core/agn.h"
 #include "../core/cell_buffer.h"
@@ -18,7 +19,6 @@
 #include "../core/parallel.h"
 #include "../core/particle.h"
 #include "../core/plugin.h"
-#include "../core/rand.h"
 #include "../core/rt.h"
 #include "../core/starformation.h"
 #include "../core/timing.h"

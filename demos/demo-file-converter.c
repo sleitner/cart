@@ -36,7 +36,7 @@ void read_file()
 }
 
 
-void write_file(const char* fname)
+void write_file()
 {
   cart_debug("Last, we write the output data file %s.",output);
 }

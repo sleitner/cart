@@ -8,7 +8,6 @@
 #include "auxiliary.h"
 #include "index_hash.h"
 #include "rand.h"
-#include "tree.h"
 
 const index_hash_entry null_entry = { -1, -1 };
 
@@ -192,7 +191,7 @@ int index_hash_lookup ( index_hash *hash, int remote_index )
 {
 	int h, k;
 
-	if ( remote_index != NULL_OCT ) {
+	if ( remote_index != INDEX_HASH_NULL_ENTRY ) {
 		h = (int)(((int64_t)remote_index*hash->a0 + hash->b0) % hash->p) % hash->hash_size;      
 
 		if ( hash->n[h] > 0 ) {
@@ -203,7 +202,7 @@ int index_hash_lookup ( index_hash *hash, int remote_index )
 		}
 	}
 
-	return NULL_OCT;
+	return INDEX_HASH_NULL_ENTRY;
 }
 
 void index_hash_free( index_hash *hash ) {

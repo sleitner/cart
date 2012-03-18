@@ -2,6 +2,8 @@
 #define __INDEX_HASH_H__
 
 #include <sys/types.h>
+
+#define INDEX_HASH_NULL_ENTRY		(-1)
                                                                                                                                               
 typedef struct INDEX_HASH_ENTRY {
 	int local_index;

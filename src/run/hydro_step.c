@@ -368,6 +368,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	double t_begin, t_end;
 	double Zlog, Hdum;
 	double Tfac, Tfac_cell, Emin_cell, blastwave_time;
+	double Eminfac;
 	double rhog2, nHlog;
 	double e_curr;
 	double unit_cl = units->time*pow(constants->XH*units->number_density,2.0)/units->energy_density;
@@ -386,11 +387,12 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 
 	/* Note: removed 10^4 K normalization since it wasn't used - DHR */
 	Tfac = units->temperature*constants->wmu*( constants->gamma-1 )/constants->K;
+	Eminfac = gas_temperature_floor/(units->temperature*constants->wmu*(constants->gamma-1));
 
 #ifdef BLASTWAVE_FEEDBACK
-#pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
+#pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,Eminfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
 #else
-#pragma omp parallel default(none), shared(num_level_cells,level_cells,t_begin,Tfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys)
+#pragma omp parallel default(none), shared(num_level_cells,level_cells,t_begin,Tfac,Eminfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys)
 #endif /* BLASTWAVE_FEEDBACK*/
 	{
 	  sys = qss_alloc( 1, &qss_getcooling, &adjust_internalenergy );
@@ -415,7 +417,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 #endif /* ENRICH */
 			  
 		    Tfac_cell = Tfac/cell_gas_density(icell);
-		    Emin_cell = units->Emin*cell_gas_density(icell);
+		    Emin_cell = Eminfac*cell_gas_density(icell);
 		    
 		    e_curr = cell_gas_internal_energy(icell);
 
@@ -434,13 +436,13 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 		    cell_gas_internal_energy(icell) = max(Emin_cell,e_curr);
 		    cell_gas_energy(icell) = cell_gas_kinetic_energy(icell) + cell_gas_internal_energy(icell);
 #ifdef BLASTWAVE_FEEDBACK
-		  }else { 
-		    blastwave_time -= dtl[level]*units->time/constants->yr; 
-		    if(blastwave_time < blastwave_time_cut ){
-		      blastwave_time = blastwave_time_floor;
-		    }
-		    cell_blastwave_time(icell) = cell_gas_density(icell) * blastwave_time;
-		  }
+			} else { 
+				blastwave_time -= dtl[level]*units->time/constants->yr; 
+				if(blastwave_time < blastwave_time_cut ){
+					blastwave_time = blastwave_time_floor;
+				}
+				cell_blastwave_time(icell) = cell_gas_density(icell) * blastwave_time;
+			}
 #endif /* BLASTWAVE_FEEDBACK */
 		  }
 		}
@@ -500,6 +502,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	double t_begin, t_end;
 	double Zlog, Hdum;
 	double Tfac, Tfac_cell, Emin_cell;
+	double Eminfac;
 	double rhog2, nHlog;
 	double unit_cl = units->time*pow(constants->XH*units->number_density,2.0)/units->energy_density;
 
@@ -514,11 +517,12 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 
 	/* Note: removed 10^4 K term since it isn't used - DHR */
 	Tfac = units->temperature*constants->wmu*(constants->gamma-1)/constants->K;
+	Eminfac = gas_temperature_floor/(units->temperature*constants->wmu*(constants->gamma-1));
 
 #ifdef BLASTWAVE_FEEDBACK
-#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
+#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,Eminfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
 #else
-#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
+#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,Eminfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
 #endif /* BLASTWAVE_FEEDBACK*/ 
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
@@ -540,7 +544,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 #endif /* ENRICH */
 
 			Tfac_cell = Tfac/cell_gas_density(icell);
-			Emin_cell = units->Emin*cell_gas_density(icell);
+			Emin_cell = Eminfac*cell_gas_density(icell);
 
 			hydro_cool_one_cell(icell,t_begin,t_end,Hdum,Zlog,nHlog,rhog2,Tfac_cell,Emin_cell,unit_cl);
 			

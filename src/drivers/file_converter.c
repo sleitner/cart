@@ -2,6 +2,7 @@
 
 #include "../base/auxiliary.h"
 #include "../base/cosmology.h"
+#include "../base/rand.h"
 #include "../base/times.h" 
 #include "../base/units.h"
 
@@ -9,7 +10,6 @@
 #include "../core/parallel.h"
 #include "../core/particle.h"
 #include "../core/plugin.h"
-#include "../core/rand.h"
 #include "../core/timing.h"
 #include "../core/tree.h"
 

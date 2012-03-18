@@ -23,6 +23,8 @@ extern int tracer_output_frequency;
 
 
 void write_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
+	char filename[256];
+
 #ifdef LOG_STAR_CREATION
 	char filename_sclog[256];
 #endif
@@ -82,7 +84,9 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 #endif /* STARFORM */
 
 	if ( grid_filename_flag != NO_WRITE ) {
-		save_rand();
+		sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
+		cart_rand_save_state( filename );
+
 		last_restart_step = step;
 	}
 

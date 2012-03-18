@@ -1,6 +1,9 @@
 #ifndef __OCT_HASH_H__
 #define __OCT_HASH_H__
 
+#define OCT_HASH_NULL_ENTRY			(-1)
+#define OCT_HASH_DELETED_ENTRY		(-2)
+
 typedef struct OCT_HASH_ENTRY {
 	int local_index;
 	int remote_index;
@@ -11,8 +14,6 @@ typedef struct OCT_HASH {
 	int num_entries;
 	oct_hash_entry *hash_array;
 } oct_hash;
-
-#define DELETED_ENTRY		-2
 
 oct_hash *oct_hash_create( int size );
 void oct_hash_free( oct_hash *hash );
