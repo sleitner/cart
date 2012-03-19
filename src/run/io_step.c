@@ -4,6 +4,7 @@
 #include "io.h"
 #include "io_cart.h"
 #include "io_artio.h"
+#include "parallel.h"
 #include "rand.h"
 #include "times.h"
 #include "timing.h"

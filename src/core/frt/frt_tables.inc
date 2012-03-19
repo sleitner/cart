@@ -201,3 +201,4 @@ C  Cross sections: meatl species for CF fits
 C
 	common/RT_TAB_S/ csO8(NRAD), csS16(NRAD), csFe26(NRAD),
      .			 csO8tr, csS16tr, csFe26tr
+	common/RT_TAB_T/ lrO8tr, lrS16tr, lrFe26tr

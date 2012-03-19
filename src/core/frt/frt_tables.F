@@ -358,6 +358,21 @@ C
       if(lrG1rB .eq. 0) lrG1rB = 1
       if(lrG2rB .eq. 0) lrG2rB = 1
 C
+      lrO8tr = 0
+      lrS16tr = 0
+      lrFe26tr = 0
+      do lr=1,NRAD
+         if(lrO8tr.eq.0 .and. csO8(lr).gt.VSMALL) lrO8tr = lr
+         if(lrS16tr.eq.0 .and. csS16(lr).gt.VSMALL) lrS16tr = lr
+         if(lrFe26tr.eq.0 .and. csFe26(lr).gt.VSMALL) lrFe26tr = lr
+      enddo
+      if(lrO8tr .eq. 0) lrO8tr = 1
+      if(lrS16tr .eq. 0) lrS16tr = 1
+      if(lrFe26tr .eq. 0) lrFe26tr = 1
+      csO8tr = csO8(lrO8tr)
+      csS16tr = csS16(lrS16tr)
+      csFe26tr = csFe26(lrFe26tr)
+C
       lrDUtr = 0
       do lr=1,NRAD
          if(lrDUtr.eq.0 .and. csDust(lr).gt.VSMALL) lrDUtr = lr
@@ -473,7 +488,7 @@ C
       acLTstp = (acLTmax-acLTmin)/(real(NTEM)-1)
 
 C$OMP PARALLEL DO DEFAULT(NONE), 
-C$OMP+PRIVATE(lc,tem,altem,q,p,alt10,srt,alH1,alG1,alG2,s,
+C$OMP+PRIVATE(lc,tem,altem,q,p,alt10,altev,srt,alH1,alG1,alG2,s,
 C$OMP+ tev,x,itl,itu,so,sp,rC1a,rC2e,rC2a,rN1e,
 C$OMP+ rO1a,rMg2e,rSi2e,rSi2a,rS2e,rFe2e,rFe2a,rO1e)
 C$OMP+SHARED(acLTmin,acLTstp,acLT,acTEM,acSQT,RateAtom,RateChem,
@@ -491,6 +506,7 @@ C$OMP+ dsd93,nsd93,sd93lt,sd93c0,sd93c1,RateHigh)
 
          alt10 = log10(tem)
          tev = tem/T1eV
+         altev = log(tev)
 C
 C  Atomic rates
 C
@@ -778,9 +794,9 @@ C
 #elif (RT_H2_RATE == 2)
          s = 0.0
 #else
-         s = exp(-18.018+2.36*altem-2.83e-1*altem**2+1.62e-2*altem**3-
-     .        3.37e-2*altem**4+1.18e-2*altem**5-1.66e-3*altem**6+
-     .        1.07e-4*altem**7-2.63e-6*altem**8)
+         s = exp(-18.018+2.36*altev-2.83e-1*altev**2+1.62e-2*altev**3-
+     .        3.37e-2*altev**4+1.18e-2*altev**5-1.66e-3*altev**6+
+     .        1.07e-4*altev**7-2.63e-6*altev**8)
 #endif
          RateChem(irateMHi14,lc) = s
 C
@@ -792,12 +808,12 @@ C
          s = 0.0
 #else
          if(tev .lt. 0.1) then
-            s = 2.56e-9*tem**1.78
+            s = 2.56e-9*tev**1.78
          else
-            s = exp(-20.372+1.14*altem-1.42e-1*altem**2+
-     .           8.46e-3*altem**3-1.43e-3*altem**4+2.01e-4*altem**5+
-     .           8.66e-5*altem**6-2.59e-5*altem**7+2.46e-6*altem**8-
-     .           8.07e-8*altem**9)
+            s = exp(-20.372+1.14*altev-1.42e-1*altev**2+
+     .           8.46e-3*altev**3-1.43e-3*altev**4+2.01e-4*altev**5+
+     .           8.66e-5*altev**6-2.59e-5*altev**7+2.46e-6*altev**8-
+     .           8.07e-8*altev**9)
          endif
 #endif
          RateChem(irateMHi15,lc) = s
@@ -1282,6 +1298,7 @@ C
          wpTab(iptabPhG1,lr) = csG1(lr)*(Txi(lr)-TG1)
          wpTab(iptabPiG2,lr) = csG2(lr)
          wpTab(iptabPhG2,lr) = csG2(lr)*(Txi(lr)-TG2)
+         wpTab(iptabPiO8,lr) = csO8(lr)
          wpTab(iptabCiLW,lr) = csMHLW(lr)
 #ifdef RT_CHEMISTRY
          wpTab(iptabCi27,lr) = csMH27(lr)
@@ -1300,6 +1317,7 @@ C
       uvFac(iptabPhG1) = csUVn(lrG1tr)
       uvFac(iptabPiG2) = csUVn(lrG2tr)
       uvFac(iptabPhG2) = csUVn(lrG2tr)
+      uvFac(iptabPiO8) = csUVn(lrO8tr)
       uvFac(iptabCiLW) = 1.0
 #ifdef RT_CHEMISTRY
       uvFac(iptabCi27) = 1.0
