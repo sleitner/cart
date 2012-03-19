@@ -1,0 +1,9 @@
+# COMPILE OPTIONS
+
+CFLAGS  = -fast -mp -mcmodel=medium -dynamic
+CC      = cc
+FFLAGS  = -fast -mp -mcmodel=medium -dynamic
+F77     = ftn
+INCLUDES = -I/usr/common/usg/gsl/1.14/include
+EXTRALIBS = -L/usr/common/usg/gsl/1.14/lib
+
