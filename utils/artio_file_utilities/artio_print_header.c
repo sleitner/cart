@@ -28,13 +28,12 @@ int main( int argc, char *argv[] ) {
 	while ( artio_parameter_iterate( handle, key, &type, &length ) == ARTIO_SUCCESS ) {
 		switch (type) {
 			case ARTIO_TYPE_STRING :
-				printf("key = %s, length = %d\n", key, length );
 				tmp_string = (char **)malloc( length*sizeof(char *) );
 				for ( i = 0; i < length; i++ ) {
 					tmp_string[i] = (char *)malloc( 256*sizeof(char) );
 				}
 				artio_parameter_get_string_array(handle, key, length, tmp_string, 256 );
-				printf("%32s | %6s |", key, "STRING"); 
+				printf("%36s | %6s |", key, "STRING"); 
 				for ( i = 0; i < length; i++ ) {
 					printf(" '%s'", tmp_string[i] );
 					free( tmp_string[i] );
@@ -45,7 +44,7 @@ int main( int argc, char *argv[] ) {
 			case ARTIO_TYPE_FLOAT :
 				tmp_float = (float *)malloc( length * sizeof(float) );
 				artio_parameter_get_float_array(handle, key, length, tmp_float);
-				printf("%32s | %6s |", key, "FLOAT"); 
+				printf("%36s | %6s |", key, "FLOAT"); 
 				for ( i = 0; i < length; i++ ) {
 					printf(" %e", tmp_float[i] );
 				}
@@ -56,7 +55,7 @@ int main( int argc, char *argv[] ) {
 				tmp_double = (double *)malloc( length * sizeof(double) );
 				artio_parameter_get_double_array(handle, key, length, tmp_double);
 
-				printf("%32s | %6s |", key, "DOUBLE"); 
+				printf("%36s | %6s |", key, "DOUBLE"); 
 				for ( i = 0; i < length; i++ ) {
 					printf(" %e", tmp_double[i] );
 				}
@@ -67,7 +66,7 @@ int main( int argc, char *argv[] ) {
 				tmp_int = (int *)malloc( length * sizeof(int) );
 				artio_parameter_get_int_array(handle, key, length, tmp_int);
 
-				printf("%32s | %6s |", key, "INT"); 
+				printf("%36s | %6s |", key, "INT"); 
 				for ( i = 0; i < length; i++ ) {
 					printf(" %d", tmp_int[i] );
 				}
@@ -78,7 +77,7 @@ int main( int argc, char *argv[] ) {
 				tmp_long = (int64_t *)malloc( length * sizeof(int64_t) );
 				artio_parameter_get_long_array(handle, key, length, tmp_long);
 
-				printf("%32s | %6s | ", key, "LONG"); 
+				printf("%36s | %6s |", key, "LONG"); 
 				for ( i = 0; i < length; i++ ) {
 					printf(" %ld", tmp_long[i] );
 				}
