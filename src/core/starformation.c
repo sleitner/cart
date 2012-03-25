@@ -7,7 +7,7 @@
 #include "cosmology.h"
 #include "hydro.h"
 #include "starformation.h"
-#include "starformation_recipes.h"
+#include "starformation_recipe.h"
 #include "starformation_feedback.h"
 #include "tree.h"
 #include "units.h"
@@ -77,7 +77,7 @@ void config_init_star_formation()
 
   control_parameter_add2(control_parameter_float,&sf_metallicity_floor,"sf:metallicity-floor","sf_metallicity_floor","the minimum amount of metallicity (in solar units) sprinkled in the cell where a stellar particle is created. This parameter is designed to emulate metal enrichment from the first stars and/or early, unresolved episode of star formation. Just BEFORE a stellar particle is created, if the metallicity in the cell is less than this value, it is increased to this value. Thus, all stellar particles are created in the gas with at least this metallicity. This value is NOT taken into account when computing the SFR, only when actually creating a stellar particle. It is not related to rt:dust-to-gas floor, which MAY affect the SFR.");
 
-  config_init_star_formation_recipes();
+  config_init_star_formation_recipe();
   config_init_star_formation_feedback();
 }
 
@@ -102,7 +102,7 @@ void config_verify_star_formation()
   cart_assert(!(sf_metallicity_floor < 0.0));
 
 
-  config_verify_star_formation_recipes();
+  config_verify_star_formation_recipe();
   config_verify_star_formation_feedback();
 }
 
@@ -142,7 +142,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
   rho_min = max(rho_min,sf_min_overdensity*cosmology->OmegaB/cosmology->OmegaM);
 #endif
 
-  sf_recipe->setup(level);
+  sf_recipe->level_setup(level);
 
   for(i=0; i<num_level_cells; i++)
     {

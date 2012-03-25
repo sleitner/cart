@@ -11,16 +11,17 @@
 
 struct StarFormationRecipe
 {
-  void (*setup)(int level);
-  double (*rate)(int cell);
-  int id;
   const char *name;
+  void (*config_init)();
+  void (*config_verify)();
+  void (*level_setup)(int level);
+  double (*rate)(int cell);
 };
 
 extern const struct StarFormationRecipe *sf_recipe;
 
-void config_init_star_formation_recipes();
-void config_verify_star_formation_recipes();
+void config_init_star_formation_recipe();
+void config_verify_star_formation_recipe();
 
 #endif /* HYDRO && STARFORM */
 

@@ -17,6 +17,11 @@
 #endif
 
 
+#if defined(STARFORM) && !defined(HYDRO)
+#error "STARFORM cannot be defined without HYDRO"
+#endif
+
+
 #if defined(RADIATIVE_TRANSFER) && !defined(HYDRO)
 #error "RADIATIVE_TRANSFER cannot be defined without HYDRO"
 #endif
