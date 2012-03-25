@@ -925,7 +925,7 @@ void read_artio_restart( const char *label ) {
 	}
 
 	/* try to load balance */
-	artio_parameter_get_length( handle, "mpi_task_sfc_index", &num_file_procs );
+	artio_parameter_get_array_length( handle, "mpi_task_sfc_index", &num_file_procs );
 	num_file_procs -= 1;
 
 	artio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs );

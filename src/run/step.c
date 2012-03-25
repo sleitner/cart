@@ -112,6 +112,8 @@ void run( int restart, const char *restart_label ) {
 	int current_steps;
 	int level;
 
+	start_time( INIT_TIMER );
+
 	init_logging( restart );
 
 	if ( !restart ) {
@@ -342,7 +344,7 @@ void run( int restart, const char *restart_label ) {
 		destroy_cell_buffer();
 	}
 	
-	cart_debug("total time = %f", end_time(TOTAL_TIME) );
+	cart_debug("total time = %f", total_time(TOTAL_TIME,min_level-1) );
 
 	finalize_logging();
 }

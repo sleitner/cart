@@ -60,8 +60,6 @@ int drive() {
 	    ret = 0;
 	  }
 
-	MPI_Finalize();
-
 	return ret;
 }
 
@@ -143,7 +141,7 @@ int drive_run () {
         //  Allow to read old-style IO
         */
         str = extract_option0("old-io","o");
-        if(str != NULL)
+        if(str!=NULL && old_cart_io_flag==0)
           {
 	    old_cart_io_flag = -1;
           }
@@ -182,8 +180,8 @@ int drive_run () {
 	init_rand();
 	init_timers();
 
-	start_time( TOTAL_TIME );
-	start_time( INIT_TIMER );
+	start_time(TOTAL_TIME);
+	start_time(INIT_TIMER);
 
 	/* set up mpi datatypes, timers, units, etc */
 	init_cell_buffer();
@@ -211,7 +209,11 @@ int drive_run () {
 #endif /* COOLING */
 #endif /* RADIATIVE_TRANSFER */
 
+	end_time(INIT_TIMER);
+
 	run(restart,restart_label);
+
+	end_time(TOTAL_TIME);
 
 	return 0;
 }
