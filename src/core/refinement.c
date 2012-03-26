@@ -28,7 +28,7 @@ int cells_to_refine[num_octs];
 int num_cells_to_refine;
 
 int refinement_is_static        = 0;
-int spatially_limited_refinement = 1;
+int spatially_limited_refinement = 0;
 int refinement_volume_level     = min_level;
 
 float split_tolerance		= 0.8;

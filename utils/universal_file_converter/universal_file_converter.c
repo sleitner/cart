@@ -73,9 +73,7 @@ void init()
   options++;
   num_options--;
 
-  str = extract_option1("job-name","j",NULL);
-
-  if(ufc_mode==0 || str==NULL)
+  if(ufc_mode==0 || !is_option_present("job-name","j",1))
     {
       cart_error("Usage: %s <conversion-spec> -j/--job-name=<name> [options].\n"
 		 "Valid conversion specifications:\n"
@@ -96,6 +94,9 @@ void init()
 ,executable_name);
     }
 
+  str = extract_option1("job-name","j",NULL);
+
+  control_parameter_add2(control_parameter_string,(char *)jobname,"job-name","jobname","");
   set_jobname(str);
 
   str = extract_option1("data-directory","d",NULL);
