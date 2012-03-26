@@ -33,7 +33,7 @@ void init()
 {
   const char *str;
   char c;
-  int n;
+  int n, mode;
 
   if(strcmp(options[0],"hart-to-cart")==0 || strcmp(options[0],"h2c")==0)
     {
@@ -81,16 +81,18 @@ void init()
 		 "  hart-to-artio or artio-to-hart (shorthand h2a/a2h)\n"
 		 "  cart-to-artio or artio-to-cart (shorthand c2a/a2c)\n"
 		 "Valid options:\n"
-		 "  -d, --data-directory=<dir>       set data directory where files are located (default is the current directory)\n"
-		 "  -l, --file-label=<label>         set the label for the fileset\n"
-		 "  -hf, --hart-file-name=<name>     set the name for the HART grid file (default uses a .dh suffix)"
-		 "  -nc, --num-cart_files=<number>   set the number of cart files\n"
-		 "  -na, --num-artio_files=<number>  set the number of artio files\n"
+		 "  -d, --data-directory=<dir>         set data directory where files are located (default is the current directory)\n"
+		 "  -l, --file-label=<label>           set the label for the fileset\n"
+		 "  -hf, --hart-file-name=<name>       set the name for the HART grid file (default uses a .dh suffix)"
+		 "  -nc, --num-cart_files=<number>     set the number of cart files\n"
+		 "  -na, --num-artio_files=<number>    set the number of artio files\n"
 #ifdef PARTICLES
-		 "  -p, --particle-only              convert particle files only (for artio-to-* conversion)\n"
-		 "  -g, --grid-only                  convert grid files only (for artio-to-* conversion)\n"
-		 "  -nrow, --cart-num-row=<number>   set the NROW parameter of hart/cart particle files\n"
+		 "  -p, --particle-only                convert particle files only (for artio-to-* conversion)\n"
+		 "  -g, --grid-only                    convert grid files only (for artio-to-* conversion)\n"
+		 "  -nrow, --cart-num-row=<number>     set the NROW parameter of hart/cart particle files\n"
+		 "  -pfm, --particle-file-mode=<mode>  set the old-style particle file mode for reading legacy files\n"
 #endif
+		 "  -gfm, --grid-file-mode=<mode>      set the old-style grid file mode for reading legacy files\n"
 ,executable_name);
     }
 
@@ -174,7 +176,33 @@ void init()
 	}
       ufc_flag = 1;
     }
-#endif
+
+  /*
+  //  Support -pfm/--particle-file-mode=<mode> option
+  */
+  str = extract_option1("particle-file-mode","pfm",NULL);
+  if(str != NULL)
+    {
+      if(sscanf(str,"%d",&mode)==0 || mode<0 || mode>2)
+	{
+	  cart_error("--particle-file-mode=<mode> option requires an integer <mode> between 0 and 2 as an argument.");
+	}
+      set_cart_particle_file_mode(mode);
+    }
+#endif /* PARTICLES */
+
+  /*
+  //  Support -gfm/--grid-file-mode=<mode> option
+  */
+  str = extract_option1("grid-file-mode","gfm",NULL);
+  if(str != NULL)
+    {
+      if(sscanf(str,"%d",&mode)==0 || mode<0 || mode>4)
+	{
+	  cart_error("--grid-file-mode=<mode> requires an integer <mode> between 0 and 3 as an argument.");
+	}
+      set_cart_grid_file_mode(mode);
+    }
 
   die_on_unknown_options();
 
