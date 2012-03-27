@@ -61,8 +61,14 @@ const int HART_nvarMax = (2 + (rt_num_et_vars+rt_num_disk_vars));
 const int HART_nvarMax = 2 ; //potential vars
 #endif /* RADIATIVE_TRANSFER */
 
-const int HART_num_hydro_vars = (num_hydro_vars + HART_num_enrichment_species - num_enrichment_species + HART_rt_num_chem_species - rt_num_chem_species);
-
+const int HART_num_hydro_vars = (num_hydro_vars + HART_num_enrichment_species - num_enrichment_species + HART_rt_num_chem_species - rt_num_chem_species)
+#if defined(BLASTWAVE_FEEDBACK) && defined(CONVERT_FOR_IFRIT)
+  + 1
+#endif 
+#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
+  +1
+#endif 
+  ;
 
 typedef struct {
 	int cell;
@@ -895,6 +901,8 @@ void write_hart_grid_binary( char *filename ) {
 			}
 		}
 		
+		cart_debug("%d",i);
+		cart_assert(i == HART_num_hydro_vars*page_size);
 		fwrite( cellhvars, sizeof(float), HART_num_hydro_vars*page_size, output );
 	}
 	fwrite( &size, sizeof(int), 1, output );

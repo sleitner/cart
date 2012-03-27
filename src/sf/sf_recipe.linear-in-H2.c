@@ -83,6 +83,16 @@ double sfr_rate(int cell)
     }
 }
 
+
+struct StarFormationRecipe sf_recipe_internal =
+{
+  "linear-in-H2",
+  sfr_init,
+  sfr_verify,
+  sfr_setup,
+  sfr_rate
+};
+
 #else
 
 #error "SF Recipe line-in-H2 only works with RADIATIVE_TRANSFER and ENRICH activated."
