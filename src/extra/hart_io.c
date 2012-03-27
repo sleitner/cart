@@ -847,10 +847,8 @@ void write_hart_grid_binary( char *filename ) {
 	size = HART_num_hydro_vars * ncell0 * sizeof(float);
 	fwrite( &size, sizeof(int), 1, output );
 
-	i = size/sizeof(float)/num_grid;
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
 	        cart_debug("0-level: %d/%d",coords[0],num_grid);
-	        cart_assert(i == size/sizeof(float)/num_grid);
 		idx = 0 ;
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
 			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {

@@ -2,6 +2,7 @@
 compile_ufc: ufc
 
 SRC_DIR = $(TOP_DIR)/src
+SF_RECIPE = hart
 include $(TOP_DIR)/Make.config
 
 ufc: .obj/.phony $(DEFS) $(FIC_OBJS) .obj/extra/hart_io.o $(TOP_DIR)/utils/universal_file_converter/universal_file_converter.c

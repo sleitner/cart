@@ -32,8 +32,9 @@ int ufc_flag = 3;     /* convert everything */
 void init()
 {
   const char *str;
-  char c;
+  char c, *tmp;
   int n, mode;
+  float v;
 
   if(strcmp(options[0],"hart-to-cart")==0 || strcmp(options[0],"h2c")==0)
     {
@@ -73,33 +74,95 @@ void init()
   options++;
   num_options--;
 
-  if(ufc_mode==0 || !is_option_present("job-name","j",1))
+  if(ufc_mode==0 || (!is_option_present("job-name","j",1) && !is_option_present("input","i",1)))
     {
-      cart_error("Usage: %s <conversion-spec> -j/--job-name=<name> [options].\n"
+      cart_error("Usage: %s <conversion-spec> -i/--input=<filename> [options].\n"
+		 "   or: %s <conversion-spec> -j/--job-name=<name> [options].\n"
 		 "Valid conversion specifications:\n"
 		 "  hart-to-cart or cart-to-hart (shorthand h2c/c2h)\n"
 		 "  hart-to-artio or artio-to-hart (shorthand h2a/a2h)\n"
 		 "  cart-to-artio or artio-to-cart (shorthand c2a/a2c)\n"
 		 "Valid options:\n"
-		 "  -d, --data-directory=<dir>         set data directory where files are located (default is the current directory)\n"
+		 "  -j, --job-name=<name>              set the job name for the fileset\n" 
+		 "  -d, --data-directory=<dir>         set the data directory where files are\n" 
+		 "                                     located (default is the current directory)\n"
 		 "  -l, --file-label=<label>           set the label for the fileset\n"
-		 "  -hf, --hart-file-name=<name>       set the name for the HART grid file (default uses a .dh suffix)"
+		 "  -i, --input=<filename>             set the input grid filename; this option\n"
+		 "                                     combines -j, -d, and -l in one option, i.e.\n"
+		 "                                     <filename> = <dir>/<name>_<label>.ext where\n"
+		 "                                     .ext is either .d or .art\n" 
+		 "  -hf, --hart-file-name=<name>       set the name for the HART grid file\n"
+		 "                                     (default uses a .dh suffix)\n"
 		 "  -nc, --num-cart_files=<number>     set the number of cart files\n"
 		 "  -na, --num-artio_files=<number>    set the number of artio files\n"
 #ifdef PARTICLES
-		 "  -p, --particle-only                convert particle files only (for artio-to-* conversion)\n"
-		 "  -g, --grid-only                    convert grid files only (for artio-to-* conversion)\n"
-		 "  -nrow, --cart-num-row=<number>     set the NROW parameter of hart/cart particle files\n"
-		 "  -pfm, --particle-file-mode=<mode>  set the old-style particle file mode for reading legacy files\n"
+		 "  -p, --particle-only                convert particle files only\n"
+		 "                                     (for artio-to-* conversion)\n"
+		 "  -g, --grid-only                    convert grid files only\n"
+		 "                                     (for artio-to-* conversion)\n"
+		 "  -nrow, --cart-num-row=<number>     set the NROW parameter of hart/cart\n"
+		 "                                     particle files\n"
+		 "  -pfm, --particle-file-mode=<mode>  set the old-style particle file mode\n"
+		 "                                     for reading legacy files\n"
 #endif
-		 "  -gfm, --grid-file-mode=<mode>      set the old-style grid file mode for reading legacy files\n"
+		 "  -gfm, --grid-file-mode=<mode>      set the old-style grid file mode for\n"
+		 "                                     reading legacy files\n"
 ,executable_name);
     }
 
-  str = extract_option1("job-name","j",NULL);
-
   control_parameter_add2(control_parameter_string,(char *)jobname,"job-name","jobname","");
-  set_jobname(str);
+
+  str = extract_option1("input","i",NULL);
+  if(str != NULL)
+    {
+      tmp = strrchr(str,'.');
+      if(tmp != NULL)
+	{
+	  /*
+	  //  Chop off the extension
+	  */
+	  *tmp = 0;
+	  tmp++;
+	}
+      if(tmp==NULL || (strcmp(tmp,"d")!=0 && strcmp(tmp,"art")!=0))
+	{
+	  cart_error("Input grid file must end on .d or .art.");
+	}
+
+      tmp = strrchr(str,'/');
+      if(tmp != NULL)
+	{
+	  /*
+	  //  Detach the leading directory path
+	  */
+	  *tmp = 0;
+	  strncpy(output_directory_d,str,CONTROL_PARAMETER_STRING_LENGTH);
+	  output_directory_d[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
+	  str = tmp + 1;
+	  if(strlen(str) == 0)
+	    {
+	      cart_error("Missing the file name after the last /.");
+	    }
+	}
+
+      tmp = strrchr(str,'_');
+      if(tmp != NULL)
+	{
+	  if(sscanf(tmp,"_a%f%c",&v,&c)==1 || sscanf(tmp,"_%d%c",&n,&c)==1)
+	    {
+	      ufc_label = tmp + 1;
+	      *tmp = 0;
+	    }
+	}
+
+      set_jobname(str);
+    }
+
+  str = extract_option1("job-name","j",NULL);
+  if(str != NULL)
+    {
+      set_jobname(str);
+    }
 
   str = extract_option1("data-directory","d",NULL);
   if(str != NULL)
@@ -108,7 +171,11 @@ void init()
       output_directory_d[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
     }
 
-  ufc_label = extract_option1("file-label","l",NULL);
+  str = extract_option1("file-label","l",NULL);
+  if(str != NULL)
+    {
+      ufc_label = str;
+    }
 
   ufc_hart_fname = extract_option1("hart-file-name","hf",NULL);
   if(ufc_hart_fname != NULL)
