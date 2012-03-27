@@ -172,10 +172,7 @@ void accelerate_particles( int level ) {
 				 *
 				 * Also note, the a2cs term in HART is computed in compute_accelerations_particles
 				 */
-				pconst = tl[level] - particle_t[ipart] + 0.5*( dtl[level] + particle_dt[ipart] ) + 1e-30;
-
-				pt3 = pconst * t3;
-				pd3 = pconst * d3;
+				pconst = tl[level] - particle_t[ipart] + 0.5*( dtl[level] + particle_dt[ipart] );
 
 				t3t2t1 = pt3 * t2t1;
 				t3t2d1 = pt3 * t2d1;
@@ -194,7 +191,7 @@ void accelerate_particles( int level ) {
 							d3t2t1 * cell_potential(c[4]) +
 							d3t2d1 * cell_potential(c[5]) +
 							d3d2t1 * cell_potential(c[6]) +
-							d3d2d1 * cell_potential(c[7]) ) / pconst;
+							d3d2d1 * cell_potential(c[7]) );
 
 				ax = 	t3t2t1 * cell_accel(c[0], 0) +
 					t3t2d1 * cell_accel(c[1], 0) +
@@ -223,9 +220,9 @@ void accelerate_particles( int level ) {
 					d3d2t1 * cell_accel(c[6], 2) +
 					d3d2d1 * cell_accel(c[7], 2);
 
-				particle_v[ipart][0] += ax;
-				particle_v[ipart][1] += ay;
-				particle_v[ipart][2] += az;
+				particle_v[ipart][0] += ax*pconst;
+				particle_v[ipart][1] += ay*pconst;
+				particle_v[ipart][2] += az*pconst;
 			}
 
 			ipart = particle_list_next[ipart];

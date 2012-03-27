@@ -128,7 +128,7 @@ void units_init()
 
   if(!unit_factors.set)
     {
-      cart_error("Units has not been set in init_run().\nPlease set units with units_set(...) call.");
+      cart_error("Units have not been set in init_run().\nPlease set units with units_set(...) call.");
     }
 
 #endif /* COSMOLOGY */
@@ -141,7 +141,7 @@ void units_update(int level)
 
   if(!unit_factors.set)
     {
-      cart_error("units_reset() must be called before the first call to units_update(...).");
+      cart_error("Units have not been set prior to first call to units_update(...).");
     }
 
 #ifdef COSMOLOGY

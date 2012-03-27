@@ -414,9 +414,9 @@ void init_logging( int restart ) {
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
-			fprintf(steptimes,"# step tl dtl auni abox dabox\n");
+			fprintf(steptimes,"# step tl [Gyr] dtl [Myr] auni abox dabox dtl[levels] [code units]\n");
 #else
-			fprintf(steptimes,"# step tl dtl\n");
+			fprintf(steptimes,"# step tl dt dtl[levels] [code units]\n");
 #endif /* COSMOLOGY */
 		}
 
@@ -547,6 +547,7 @@ void log_diagnostics() {
 	double total_particle_kinetic, total_particle_potential;
 	double error;
 	double da;
+	double dtyears, current_age, current_dt;
 
 #ifdef STARFORM
 	double stellar_mass, stellar_initial_mass;
@@ -555,9 +556,17 @@ void log_diagnostics() {
 	double resolved_volume[max_level-min_level+1];
 	double local_resolved_volume[max_level-min_level+1];
 	double total_resolved_volume;
-	double dtyears, current_age;
 	double sfr;
 #endif /* STARFORM */
+
+	dtyears = dtl[min_level]*units->time/constants->yr;
+#ifdef COSMOLOGY
+	current_age = tphys_from_abox(abox[min_level]);
+	current_dt = dtyears;
+#else
+	current_age = tl[min_level]*units->time/constants->s;
+	current_dt = dtl[min_level]*units->time/constants->s;
+#endif
 
 #ifdef PARTICLES
 #ifdef COSMOLOGY
@@ -678,24 +687,11 @@ void log_diagnostics() {
 #endif /* HYDRO */
 
 #ifdef STARFORM
-	dtyears = dtl[min_level] * units->time / constants->yr;
-#ifdef COSMOLOGY
-	current_age = tphys_from_abox(abox[min_level]);
-#else
-	current_age = tl[min_level];
-#endif
 	old_stellar_mass = total_stellar_mass;
 	old_stellar_initial_mass = total_stellar_initial_mass;
 
-	cart_debug("stellar_mass = %e", stellar_mass );
-	cart_debug("stellar_initial_mass = %e", stellar_initial_mass );
-
 	MPI_Reduce( &stellar_mass, &total_stellar_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 	MPI_Reduce( &stellar_initial_mass, &total_stellar_initial_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
-
-	if ( local_proc_id == MASTER_NODE ) {
-		cart_debug("total_stellar_mass = %e", total_stellar_mass );
-	}
 
 	d_stellar_mass = total_stellar_mass - old_stellar_mass;
 	d_stellar_initial_mass = total_stellar_initial_mass - old_stellar_initial_mass;
@@ -723,7 +719,6 @@ void log_diagnostics() {
 		/* sum resolved volume over all levels except min_level (works for MMR simulations) */
 		total_resolved_volume = 0.0;
 		for ( level = min_level; level <= max_level; level++ ) {
-			cart_debug("resolved_volume[%u] = %e", level, resolved_volume[level] );
 			total_resolved_volume += resolved_volume[level];
 		}
 #ifdef COSMOLOGY
@@ -731,9 +726,6 @@ void log_diagnostics() {
 #else
 		total_resolved_volume *= pow(units->length/constants->Mpc,3.0);
 #endif /* COSMOLOGY */
-
-
-		cart_debug("total_resolved_volume = %e", total_resolved_volume);
 
 		if ( total_resolved_volume > 0.0 ) {
 			sfr = d_stellar_initial_mass * units->mass / constants->Msun / dtyears / total_resolved_volume;
@@ -780,18 +772,18 @@ void log_diagnostics() {
 	MPI_Reduce( &particle_kinetic, &total_particle_kinetic, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 	MPI_Reduce( &particle_potential, &total_particle_potential, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 
-	total_particle_kinetic *= 0.5/(ap1*ap1);
+	total_particle_kinetic *= 0.5;
 	total_particle_potential *= 0.5;
 #endif
 
 	if ( local_proc_id == MASTER_NODE ) {
 #ifdef PARTICLES
-		ekin = total_particle_kinetic;
+		ekin = total_particle_kinetic/(ap1*ap1);
 
 #ifdef COSMOLOGY
 		if ( step == 1 ) {
 			au0 = abox_old[min_level]*total_particle_potential;
-			aeu0 = au0 + abox_old[min_level]*total_particle_kinetic;
+			aeu0 = au0 + abox_old[min_level]*ekin;
 			tintg = 0.0;
 			error = 0.0;
 		} else {
@@ -803,7 +795,7 @@ void log_diagnostics() {
 #else
 		if ( step == 1 ) {
 			au0 = total_particle_potential;
-			aeu0 = au0 + total_particle_kinetic;
+			aeu0 = au0 + ekin;
 			tintg = 0.0;
 			error = 0.0;
 		} else {
@@ -831,15 +823,20 @@ void log_diagnostics() {
 		fflush(energy);
 
 #ifdef COSMOLOGY
-		fprintf(steptimes, "%u %e %e %e %e %e\n", step, tl[min_level], dtl[min_level], auni[min_level], abox[min_level], abox[min_level]-abox_old[min_level] );
+		fprintf(steptimes, "%u %e %e %e %e %e", 
+				step, current_age, current_dt, auni[min_level], abox[min_level], 
+				abox[min_level]-abox_old[min_level] );
 #else
-		fprintf(steptimes, "%u %e %e\n", step, tl[min_level], dtl[min_level] );
+		fprintf(steptimes, "%u %e %e\n", step, current_age, current_dt );
 #endif /* COSMOLOGY */
+		for ( i = min_level; i <= max_level; i++ ) {
+			fprintf(steptimes, " %e", dtl[i] );
+		}
 		fflush(steptimes);
 	}
 
 #ifdef PARTICLES
-	ekin1 = total_particle_kinetic;
+	ekin1 = ekin;
 	ap0 = ap1;
 #endif
 

@@ -512,6 +512,20 @@ void cache_reorder_particles() {
 		particle_mass[ipart] = backup_floats[ipart];
 	}
 
+#ifdef GRAVITY
+	for ( ipart = 0; ipart < num_particles; ipart++ ) {
+		if ( old_particle_index[ipart] != -1 ) {
+			backup_floats[ipart] = particle_pot[ old_particle_index[ipart] ];                       
+		} else {
+			backup_floats[ipart] = 0.0;
+		}
+	}
+
+	for ( ipart = 0; ipart < num_particles; ipart++ ) {
+		particle_pot[ipart] = backup_floats[ipart];
+	}
+#endif /* GRAVITY */
+
 #ifdef STARFORM
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
