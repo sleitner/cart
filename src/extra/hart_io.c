@@ -25,6 +25,8 @@
 #include "units.h"
 #include "refinement.h"
 
+	  /* warning: hart format does not retain star_formation_volume or refinement_volume arrays */
+	  /*  this will lead to a <=48byte difference between *.d->*.dh->*.d files */
 
 DECLARE_LEVEL_ARRAY(double,tl_old);
 DECLARE_LEVEL_ARRAY(double,dtl);
@@ -281,9 +283,10 @@ void read_hart_grid_binary( char *filename ) {
 #endif
 	  refinement_volume_min[i] = 0;
 	  refinement_volume_max[i] = num_grid;
-	  /* warning: hart format does not retain star_formation_volume or refinement_volume arrays */
-	  /*  this will lead to a 48byte difference between reverted files */
 	}
+	cart_debug("warning: hart format does not retain star_formation_volume or refinement_volume arrays ");
+	cart_debug("this will lead to a <=48byte difference between *.d->*.dh->*.d files ");
+	  
 
 
 	/* ncell0 */
