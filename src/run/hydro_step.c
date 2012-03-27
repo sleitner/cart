@@ -10,6 +10,7 @@
 #include "cosmology.h"
 #include "hydro.h"
 #include "iterators.h"
+#include "qss.h"
 #include "times.h"
 #include "timing.h"
 #include "tree.h"

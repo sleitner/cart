@@ -30,9 +30,6 @@ extern double sf_timescale;
 extern double sf_min_stellar_particle_mass;
 
 
-void create_star_particle( int icell, float mass, int type );
-
-
 #ifdef HYDRO
 
 void star_formation( int level, int time_multiplier )
@@ -41,158 +38,50 @@ void star_formation( int level, int time_multiplier )
   int icell;
   int num_level_cells;
   int *level_cells;
-  double cell_fraction;
-  double dm_star;
   double dt_SF;
   double dt_eff, dm_star_min;
-  double P_SF, P_mass, mstar;
+  double mstar;
   float *sfr;
 
-  if ( level < sf_min_level) return;
+  if ( level < sf_min_level ) return;
 
   start_time( WORK_TIMER );
 
-  cell_fraction = 0.667 * cell_volume[level];
   dm_star_min = sf_min_stellar_particle_mass * constants->Msun / units->mass; 
 
   dt_SF = sf_timescale * constants->yr / units->time;
   dt_eff = dtl[level] * time_multiplier;
 
-  /* probability of forming a star is Poisson with <t> = tau_SF */
-  P_SF = exp( -dt_eff / dt_SF );
-
   select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
   sfr = cart_alloc(float,num_level_cells);
-
   star_formation_rate(level,num_level_cells,level_cells,sfr);
 
-  for ( i = 0; i < num_level_cells; i++ ) if ( sfr[i] > 0.0 )
-    {
-      icell = level_cells[i];
+  for ( i = 0; i < num_level_cells; i++ ) { 
+	  if ( sfr[i] > 0.0 ) {
+		icell = level_cells[i];
+		mstar = max(dm_star_min, sfr[i]*dt_SF*cell_volume[level]);
 
-      /*
-      // NEW PART ADDED BY OLEG
-      */
+		/* draw number of star formation events 0...\inf from poisson distribution */
+		mstar *= (double)cart_rand_poisson( sfr[i]*cell_volume[level]*dt_eff/mstar );
 
-      mstar = sfr[i]*dt_SF*cell_volume[level];
-      if(mstar < dm_star_min) P_mass = 1 - mstar/dm_star_min; else P_mass = 0;
-
-      /* randomly generate particle on timescale tau_SF_eff */
-      //      if(cart_rand()>P_SF && cart_rand()>P_mass)
-      if(cart_rand() > P_SF+P_mass-P_SF*P_mass)
-	{
-	  dm_star = min( max(mstar,dm_star_min), cell_fraction * cell_gas_density(icell) );
-
-	  /*
-	  // NEW PART ENDS HERE
-	  */
-
-	  /* create the new star */
+		if ( mstar > 0.0 ) {
+			/* create the new star */
 #ifdef LOG_STAR_CREATION	  
-	  log_star_creation( icell, dm_star, FILE_RECORD);
+		  	log_star_creation( icell, mstar, FILE_RECORD);
 #endif
-	  create_star_particle( icell, dm_star, STAR_TYPE_NORMAL );
+	   		create_star_particle( icell, mstar, dtl[level], STAR_TYPE_NORMAL );
 
 #ifdef BLASTWAVE_FEEDBACK
-	  init_blastwave(icell);
+			init_blastwave(icell);
 #endif /* BLASTWAVE_FEEDBACK */
-	}
-    }
+		}
+	 }
+  }
 
   cart_free( sfr );
   cart_free( level_cells );
 
   end_time( WORK_TIMER );
-}
-
-/*
-//  NG: I haven't modified Doug's code below.
-*/
-void create_star_particle( int icell, float mass, int type ) {
-	int i;
-	int ipart;
-	int id;
-	int level;
-	double pos[nDim];
-	float new_density;
-	float density_fraction, thermal_pressure;
-
-	cart_assert( icell >= 0 && icell < num_cells );
-	cart_assert( mass > 0.0 );
-
-	id = last_star_id + local_proc_id + 1;
-	last_star_id += num_procs;
-	num_new_stars++;
-
-	ipart = particle_alloc( id );
-	cart_assert( ipart < num_star_particles );
-
-	/*
-	//  This is an obscure parameter, read its help string in 
-	//  config_init_star_formation().
-	*/
-#ifdef ENRICH
-	if(sf_metallicity_floor>0.0 && cell_gas_metal_density_II(icell)<sf_metallicity_floor*constants->Zsun*cell_gas_density(icell))
-	  {
-	    cell_gas_metal_density_II(icell) =  sf_metallicity_floor*constants->Zsun*cell_gas_density(icell);
-	  }
-#endif
-
-#ifdef STAR_PARTICLE_TYPES
-	star_particle_type[ipart] = type;
-#endif
-
-	/* place particle at center of cell with cell momentum */
-	cell_center_position(icell, pos );
-	level = cell_level(icell);
-
-	for ( i = 0; i < nDim; i++ ) {
-		particle_x[ipart][i] = pos[i];
-	}
-
-	for ( i = 0; i < nDim; i++ ) {
-		particle_v[ipart][i] = cell_momentum(icell,i) / cell_gas_density(icell);
-	}
-
-	particle_t[ipart] = tl[level];
-	particle_dt[ipart] = dtl[level];
-
-	star_tbirth[ipart] = tl[level];
-	particle_mass[ipart] = mass;
-	star_initial_mass[ipart] = mass;
-
-#ifdef ENRICH
-	star_metallicity_II[ipart] = cell_gas_metal_density_II(icell) / cell_gas_density(icell);
-#ifdef ENRICH_SNIa
-	star_metallicity_Ia[ipart] = cell_gas_metal_density_Ia(icell) / cell_gas_density(icell);
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
-	
-	/* insert particle into cell linked list */
-	insert_particle( icell, ipart );
-
-	/* adjust cell values */
-	new_density = cell_gas_density(icell) - mass * cell_volume_inverse[level];
-	density_fraction = new_density / cell_gas_density(icell);
-
-	/*
-	// NG: this is to allow non-thermal pressure contribution
-	*/
-	thermal_pressure = max((cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell),0.0);
-	cell_gas_pressure(icell) = max(0.0,cell_gas_pressure(icell)-thermal_pressure);
-
-	cell_gas_density(icell) = new_density;
-	cell_gas_energy(icell) *= density_fraction;
-	cell_gas_internal_energy(icell) *= density_fraction;
-	cell_momentum(icell,0) *= density_fraction;
-	cell_momentum(icell,1) *= density_fraction;
-	cell_momentum(icell,2) *= density_fraction;
-		
-	cell_gas_pressure(icell) += thermal_pressure*density_fraction;
-
-	for ( i = 0; i < num_chem_species; i++ ) {
-		cell_advected_variable(icell,i) *= density_fraction;
-	}
 }
 
 #endif /* HYDRO */
