@@ -45,7 +45,11 @@ void config_init_star_formation_recipe()
 void config_verify_star_formation_recipe()
 {
   char recipe_internal_name[99];
+#ifdef SF_RECIPE
   const char *recipe_external_name = to_string(SF_RECIPE);
+#else
+  const char *recipe_external_name = "";
+#endif
 
   cart_assert(sf_recipe_internal.name != NULL);
   cart_assert(sf_recipe_internal.rate != NULL);

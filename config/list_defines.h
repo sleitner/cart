@@ -468,31 +468,37 @@ d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 1;
 #else
 d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 0;
 #endif
-#define idSTARFORM  78
+#define idSF_RECIPE  78
+#ifdef SF_RECIPE
+d_flag[idSF_RECIPE] = 1;
+#else
+d_flag[idSF_RECIPE] = 0;
+#endif
+#define idSTARFORM  79
 #ifdef STARFORM
 d_flag[idSTARFORM] = 1;
 #else
 d_flag[idSTARFORM] = 0;
 #endif
-#define idSTAR_FORMATION  79
+#define idSTAR_FORMATION  80
 #ifdef STAR_FORMATION
 d_flag[idSTAR_FORMATION] = 1;
 #else
 d_flag[idSTAR_FORMATION] = 0;
 #endif
-#define idSTAR_PARTICLE_TYPES  80
+#define idSTAR_PARTICLE_TYPES  81
 #ifdef STAR_PARTICLE_TYPES
 d_flag[idSTAR_PARTICLE_TYPES] = 1;
 #else
 d_flag[idSTAR_PARTICLE_TYPES] = 0;
 #endif
-#define idUNIQUE_RAND  81
+#define idUNIQUE_RAND  82
 #ifdef UNIQUE_RAND
 d_flag[idUNIQUE_RAND] = 1;
 #else
 d_flag[idUNIQUE_RAND] = 0;
 #endif
-#define idnum_particle  82
+#define idnum_particle  83
 #ifdef num_particle
 d_flag[idnum_particle] = 1;
 #else
@@ -577,6 +583,7 @@ PRINT(RT_VARIABLE_RF) \
 PRINT(RT_XLF_BUG_FIX1) \
 PRINT(RT_XRAYS) \
 PRINT(SAVE_LOAD_BALANCE_PARTITION) \
+PRINT(SF_RECIPE) \
 PRINT(STARFORM) \
 PRINT(STAR_FORMATION) \
 PRINT(STAR_PARTICLE_TYPES) \
