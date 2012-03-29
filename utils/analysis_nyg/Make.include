@@ -1,3 +1,4 @@
+
 compile_analysis: analysis
 
 SRC_DIR = $(TOP_DIR)/src
@@ -23,5 +24,6 @@ analysis: .obj/ng/.phony $(DEFS) $(ANL_OBJS) $(NYG_OBJS) analysis.cxx
 	$(CXX) $(CXXFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(NYG_DIR) $(INCLUDES) $(ANL_OBJS) $(NYG_OBJS) analysis.cxx -o analysis $(LIBS) $(EXTRALIBS)
 	which mpirun
 
+ALL += analysis
 CLEAN += analysis
 

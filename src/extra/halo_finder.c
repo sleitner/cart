@@ -424,7 +424,7 @@ void destroy_halo_list( halo_list *halos ) {
 	cart_free( halos );
 }
 
-#ifdef STARFORM_OLD
+#ifdef STAR_FORMATION_OLD
 
 void crude_stellar_mass_fractions( halo_list *halos ) {
 	int i, j, k;
@@ -502,7 +502,7 @@ void crude_stellar_mass_fractions( halo_list *halos ) {
 	}
 }
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #ifdef __THIS_IS_CRASHES_ON_ME
 void compute_halo_properties( char *analysis_directory, int halo_section, halo_list *halos ) {
@@ -689,7 +689,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	rfact = 1.0e3 * units->length * constants->pc; /* proper kpc -> code units */
 	vfact = units->velocity;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	tnewstar = constants->Gyr * new_star_age / units->time ;
 #endif
 
@@ -824,13 +824,13 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	}
 #endif /* HYDRO */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	sprintf( filename, "%sbzpro%s", prefix, suffix );
 	bzpro = fopen( filename, "w" );
 	if ( bzpro == NULL ) {
 		cart_error("Unable to open %s for writing.", filename );
 	}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	sprintf( filename, "%shvpro%s", prefix, suffix );
 	bvpro = fopen( filename, "w" );
@@ -853,13 +853,13 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	}
 #endif /* HYDRO */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	sprintf( filename, "%sbzpro_%s%s", prefix, radii_label[virial_radius_index], suffix );
 	bzprovir = fopen( filename, "w" );
 	if ( bzprovir == NULL ) {
 		cart_error("Unable to open %s for writing.", filename );
 	}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	sprintf( filename, "%sbvpro_%s%s", prefix, radii_label[virial_radius_index], suffix );
 	bvprovir = fopen( filename, "w" );
@@ -1002,7 +1002,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 #endif /* HYDRO */
 
 		/* star and metallicity profiles */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
                 fprintf( bzpro, "# Binning: %u bins, %f to %f\n", num_bins, rbinmin, rbinmax );
                 fprintf( bzpro, "# Monte carlo points per cell = %u\n", points_per_cell );
                 fprintf( bzpro, "# Tcold = %fK, new_star_age = %f Gyr\n", Tcold, new_star_age );
@@ -1030,7 +1030,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 		fprintf( bzprovir, "# Profile Columns:\n");
 		fprintf( bzprovir, "# rmid rr [/h kpc] Zg_II Zg_Ia Z*_II Z*_Ia Z*new_II Z*new_Ia <t*> [Gyr]\n");
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		for ( i = 0; i < num_radii; i++ ) {
 			fprintf( rlist[i], "# Binning: %u bins, %f to %f\n", num_bins, rbinmin, rbinmax );
@@ -1186,7 +1186,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 						}
 
 						if ( bin < num_bins ) {
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 							if ( particle_is_star(ipart) ) {
 								bin_star_num[bin]++;
 								bin_star_mass[bin] += particle_mass[ipart];
@@ -1245,7 +1245,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 									particle_v[ipart][0]*particle_v[ipart][0] +
 									particle_v[ipart][1]*particle_v[ipart][1] +
 									particle_v[ipart][2]*particle_v[ipart][2] );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 						}
 					}
 				}
@@ -1297,13 +1297,13 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 #if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
 					/* take code density -> log10(n_H [cm^-3]) */
 					rhogl = log10(cell_gas_density(icell)) + fact_nH;
-#ifdef ENRICH
+#ifdef ENRICHMENT
 					Zdum = max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell)));
 					Zldum = log10(Zdum);
 #else
 					Zdum = 0.0;
 					Zldum = 0.0;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 #ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 					dEcell = cooling_rate( rhogl, Tcell*1e-4, Zldum ) * 
 						cell_gas_density(icell)*cell_gas_density(icell) *
@@ -1413,10 +1413,10 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 								bin_gas_tcool[min_bin] += cell_mass*tcool;
 #endif /* COOLING */
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 							bin_gas_metallicity_II[min_bin] += cell_gas_metal_density_II(icell)*rhogi*cell_mass;
 							bin_gas_metallicity_Ia[min_bin] += cell_gas_metal_density_Ia(icell)*rhogi*cell_mass;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 							bin_gas_velocity[0][min_bin] += cell_vx*cell_mass;
 							bin_gas_velocity[1][min_bin] += cell_vy*cell_mass;
@@ -1479,13 +1479,13 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 									bin_gas_tcool[bin] += tcool*mass_fraction;
 #endif /* COOLING */
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 									bin_gas_metallicity_II[bin] += cell_gas_metal_density_II(icell) *
 										rhogi * mass_fraction; 
 									bin_gas_metallicity_Ia[bin] += cell_gas_metal_density_Ia(icell) *
 										rhogi * mass_fraction;
 
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 									bin_gas_velocity[0][bin] += cell_vx*mass_fraction;
 									bin_gas_velocity[1][bin] += cell_vy*mass_fraction;
@@ -1520,10 +1520,10 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 						bin_gas_coolingrate[bin] += dEcell*cell_volume[level]*volume_fraction;
 						bin_gas_tcool[bin] += tcool*mass_fraction;
 #endif /* COOLING */
-#ifdef ENRICH
+#ifdef ENRICHMENT
 						bin_gas_metallicity_II[bin] += cell_gas_metal_density_II(icell)*rhogi*cell_mass;
 						bin_gas_metallicity_Ia[bin] += cell_gas_metal_density_Ia(icell)*rhogi*cell_mass;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 						bin_gas_velocity[0][bin] += cell_vx*cell_mass;
 						bin_gas_velocity[1][bin] += cell_vy*cell_mass;
 						bin_gas_velocity[2][bin] += cell_vz*cell_mass;
@@ -1770,13 +1770,13 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 							aM_gas = log_interpolate( bin_total_gas_mass, bin, rlout, rri, rll );
 							aM_cold_gas = log_interpolate( bin_total_cold_gas_mass, bin, rlout, rri, rll );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 							aM_stars = log_interpolate( bin_total_star_mass, bin, rlout, rri, rll );
 							aM_new_stars = log_interpolate( bin_total_new_star_mass, bin, rlout, rri, rll );
 #else
 							aM_stars = 0.0;
 							aM_new_stars = 0.0;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 							aM_dark = log_interpolate( bin_total_dark_mass, bin, rlout, rri, rll );
 						
@@ -1853,13 +1853,13 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 								aM_gas_r[i] = log_interpolate( bin_total_gas_mass, bin, rlout, rri, rll );
 								aM_cold_gas_r[i] = log_interpolate( bin_total_cold_gas_mass, bin, rlout, rri, rll );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 								aM_stars_r[i] = log_interpolate( bin_total_star_mass, bin, rlout, rri, rll );
 								aM_new_stars_r[i] = log_interpolate( bin_total_new_star_mass, bin, rlout, rri, rll );
 #else
 								aM_stars_r[i] = 0.0;
 								aM_new_stars_r[i] = 0.0;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 								aM_dark_r[i] = log_interpolate( bin_total_dark_mass, bin, rlout, rri, rll );
 
@@ -2094,7 +2094,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					fflush(bgpro);
 #endif /* HYDRO */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 					fprintf( bzpro, "# %u %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %.3f\n",
 							halos->list[ihalo].id, rdout, rvdout, 
 							aM_gas, aM_cold_gas, aM_stars, aM_new_stars, aM_baryons,
@@ -2121,7 +2121,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					}
 
 					fflush(bzpro);
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 				} else {
 					/* send bin values to halo owner */
 					MPI_Send( bin_dark_num, num_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
@@ -2251,7 +2251,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 
 						cart_assert( bin >= 0 );
 						if ( bin < num_vir_bins ) {
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 							if ( particle_is_star(ipart) ) {
 								bin_star_num[bin]++;
 								bin_star_mass[bin] += particle_mass[ipart];
@@ -2309,7 +2309,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 									particle_v[ipart][0]*particle_v[ipart][0] +
 									particle_v[ipart][1]*particle_v[ipart][1] +
 									particle_v[ipart][2]*particle_v[ipart][2] );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 						}
 					}
 				}
@@ -2338,13 +2338,13 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 #if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
 					/* take code density -> log10(n_H [cm^-3]) */
 					rhogl = log10(cell_gas_density(icell)) + fact_nH;
-#ifdef ENRICH
+#ifdef ENRICHMENT
 					Zdum = max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell)));
 					Zldum = log10( Zdum );
 #else
 					Zdum = 0.0;
 					Zldum = 0.0;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 #ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 					dEcell = cooling_rate( rhogl, Tcell*1e-4, Zldum ) *
 						cell_gas_density(icell)*cell_gas_density(icell) *
@@ -2419,10 +2419,10 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 							bin_gas_tcool[min_bin] += tcool*cell_mass;
 #endif /* COOLING */
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 							bin_gas_metallicity_II[min_bin] += cell_gas_metal_density_II(icell)*rhogi*cell_mass;
 							bin_gas_metallicity_Ia[min_bin] += cell_gas_metal_density_Ia(icell)*rhogi*cell_mass;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 							bin_gas_velocity[0][min_bin] += cell_vx*cell_mass;
 							bin_gas_velocity[1][min_bin] += cell_vy*cell_mass;
@@ -2476,10 +2476,10 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 									bin_gas_tcool[min_bin] += tcool*mass_fraction;
 #endif /* COOLING */
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 									bin_gas_metallicity_II[bin] += cell_gas_metal_density_II(icell)*rhogi*mass_fraction;
 									bin_gas_metallicity_Ia[bin] += cell_gas_metal_density_Ia(icell)*rhogi*mass_fraction;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 									bin_gas_velocity[0][bin] += cell_vx*mass_fraction;
 									bin_gas_velocity[1][bin] += cell_vy*mass_fraction;
@@ -2506,10 +2506,10 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 						bin_gas_tcool[bin] += tcool*cell_mass;
 #endif /* COOLING */
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 						bin_gas_metallicity_II[bin] += cell_gas_metal_density_II(icell)*rhogi*cell_mass;
 						bin_gas_metallicity_Ia[bin] += cell_gas_metal_density_Ia(icell)*rhogi*cell_mass;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 						bin_gas_velocity[0][bin] += cell_vx*cell_mass;
 						bin_gas_velocity[1][bin] += cell_vy*cell_mass;
 						bin_gas_velocity[2][bin] += cell_vz*cell_mass;
@@ -2746,7 +2746,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					fflush(bgprovir);
 #endif /* HYDRO */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 					fprintf( bzprovir, "# %u %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %.3f\n",
 							halos->list[ihalo].id, 
 							rdout, rvdout, aM_gas, aM_cold_gas, 
@@ -2775,7 +2775,7 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 					}
 
 					fflush(bzprovir);
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 				} else {
 					/* send bin values to halo owner */
 					MPI_Send( bin_dark_num, num_vir_bins, MPI_INT, halos->list[ihalo].proc, ihalo, mpi.comm.run );
@@ -2839,10 +2839,10 @@ void compute_halo_properties( char *analysis_directory, int halo_section, halo_l
 	fclose( bgprovir );
 #endif /* HYDRO */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	fclose( bzpro );
 	fclose( bzprovir );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	for ( i = 0; i < num_radii; i++ ) {
 		fclose( rlist[i] );

@@ -157,11 +157,11 @@ extern int size_cell_array;
     #define rt_num_chem_species			0
   #endif /* RADIATIVE_TRANSFER */
 
-  #ifdef ENRICH /* turn on enrichment by stars */
+  #ifdef ENRICHMENT /* turn on enrichment by stars */
     #define HVAR_METAL_DENSITY_II		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species)
     #define cell_gas_metal_density_II(c)	(cell_var(c,HVAR_METAL_DENSITY_II))
 
-    #ifdef ENRICH_SNIa
+    #ifdef ENRICHMENT_SNIa
       #define num_enrichment_species		2
       #define HVAR_METAL_DENSITY_Ia		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
       #define cell_gas_metal_density_Ia(c)	(cell_var(c,HVAR_METAL_DENSITY_Ia))
@@ -169,10 +169,10 @@ extern int size_cell_array;
     #else
       #define num_enrichment_species		1
       #define cell_gas_metal_density(c)		cell_gas_metal_density_II(c)
-    #endif /* ENRICH_SNIa */
+    #endif /* ENRICHMENT_SNIa */
   #else
     #define num_enrichment_species		0
-  #endif /* ENRICH */
+  #endif /* ENRICHMENT */
 
   #ifdef BLASTWAVE_FEEDBACK
     #define HVAR_BLASTWAVE_TIME			(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+num_enrichment_species)

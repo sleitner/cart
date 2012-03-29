@@ -36,7 +36,7 @@ int free_tracer_list = NULL_TRACER;
 
 int tracer_list_enabled = 0;
 
-#if defined(ENRICH) && defined(ENRICH_SNIa)
+#if defined(ENRICHMENT) && defined(ENRICHMENT_SNIa)
 int num_hydro_vars_traced = 4;
 int hydro_vars_traced[] = {		
 	HVAR_GAS_DENSITY,
@@ -48,7 +48,7 @@ char *hydro_vars_traced_labels[] = {
 	"internal energy",
 	"SNII metallicity",
 	"SNIa metallicity" };
-#else  /* ENRICH && ENRICH_SNIa */
+#else  /* ENRICHMENT && ENRICHMENT_SNIa */
 int num_hydro_vars_traced = 3;
 int hydro_vars_traced[] = { 
 	HVAR_GAS_DENSITY,
@@ -58,7 +58,7 @@ char *hydro_vars_traced_labels[] = {
 	"density",
 	"total energy",
 	"internal energy" };
-#endif /* ENRICH && ENRICH_SNIa */
+#endif /* ENRICHMENT && ENRICHMENT_SNIa */
 
 
 void init_hydro_tracers() { 

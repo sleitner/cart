@@ -2,8 +2,6 @@
 
 #include <math.h>
 #include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
@@ -36,11 +34,11 @@ FILE *energy;
 FILE *workload;
 FILE *dependency;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 FILE *star_log;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 #ifdef LOG_STAR_CREATION
 
 void output_star_creation( int icell, double mass, FILE *f ){
@@ -56,7 +54,7 @@ void output_star_creation( int icell, double mass, FILE *f ){
   double sfrbelow_UP;
   double tem_max , rho_min ;
   double sf_max_gas_temperature = 2.0e4;
-  tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature); //assumes the default value 
+  tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature); 
   rho_min = 0.5/(constants->XH*units->number_density);
 
   //true, but useless id = last_star_id + local_proc_id + 1;
@@ -389,7 +387,7 @@ void copy_file(char *file_path_from, char *file_path_to){
 
 
 #endif //LOG_STAR_CREATION
-#endif //STARFORM
+#endif //STAR_FORMATION
 
 void init_logging( int restart ) {
 	int i;
@@ -435,7 +433,7 @@ void init_logging( int restart ) {
 #endif /* COSMOLOGY */
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		sprintf( filename, "%s/sf.log", logfile_directory );
 		star_log = fopen(filename, mode);
 
@@ -450,7 +448,7 @@ void init_logging( int restart ) {
 			fprintf(star_log, "# step t dt t [Gyrs] dt [yrs] N* M* dM* Mi* dMi* [Msun] SFR [Msun/yr/Mpc^3]\n");  
 #endif /* COSMOLOGY */
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 	}
 
 	sprintf(filename, "%s/timing.%03u.log", logfile_directory, local_proc_id );
@@ -549,7 +547,7 @@ void log_diagnostics() {
 	double da;
 	double dtyears, current_age, current_dt;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	double stellar_mass, stellar_initial_mass;
 	double old_stellar_mass, old_stellar_initial_mass;
 	double d_stellar_mass, d_stellar_initial_mass;
@@ -557,15 +555,15 @@ void log_diagnostics() {
 	double local_resolved_volume[max_level-min_level+1];
 	double total_resolved_volume;
 	double sfr;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	dtyears = dtl[min_level]*units->time/constants->yr;
 #ifdef COSMOLOGY
 	current_age = tphys_from_abox(abox[min_level]);
 	current_dt = dtyears;
 #else
-	current_age = tl[min_level]*units->time/constants->s;
-	current_dt = dtl[min_level]*units->time/constants->s;
+	current_age = tl[min_level]*units->time;
+	current_dt = dtl[min_level]*units->time;
 #endif
 
 #ifdef PARTICLES
@@ -666,7 +664,7 @@ void log_diagnostics() {
 	}
 
 	/* add stellar mass to gas mass */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	stellar_mass = 0.0;
 	stellar_initial_mass = 0.0;
 	for ( i = 0; i < num_star_particles; i++ ) {
@@ -676,7 +674,7 @@ void log_diagnostics() {
 			stellar_initial_mass += star_initial_mass[i];
 		}
 	}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	MPI_Reduce( &gas_thermal, &total_gas_thermal, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 	MPI_Reduce( &gas_kinetic, &total_gas_kinetic, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
@@ -686,7 +684,7 @@ void log_diagnostics() {
 	MPI_Reduce( &gas_mass, &total_gas_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 #endif /* HYDRO */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	old_stellar_mass = total_stellar_mass;
 	old_stellar_initial_mass = total_stellar_initial_mass;
 
@@ -748,7 +746,7 @@ void log_diagnostics() {
 
 		fflush(star_log);
 	}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 
 	particle_kinetic = particle_potential = 0.0;

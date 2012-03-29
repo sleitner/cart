@@ -363,7 +363,7 @@ void cache_reorder_particles() {
 		old_particle_index[index] = -1;
 	}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	num_normal_particles = num_local_particles-num_local_star_particles;
 	star_particle_order = cart_alloc(int, num_local_star_particles );
 	particle_order = cart_alloc(int, num_normal_particles );
@@ -467,7 +467,7 @@ void cache_reorder_particles() {
 	/* set up allocation variables */
 	next_free_particle = num_local_particles;
 	free_particle_list = NULL_PARTICLE;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	/* now put particles into proper order */
 	backup_doubles = cart_alloc(double, num_particles );
@@ -526,7 +526,7 @@ void cache_reorder_particles() {
 	}
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_floats[ipart] = star_tbirth[ old_particle_index[ipart] ];
@@ -551,7 +551,7 @@ void cache_reorder_particles() {
 		star_initial_mass[ipart] = backup_floats[ipart];
 	}
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_floats[ipart] = star_metallicity_II[ old_particle_index[ipart] ];
@@ -563,9 +563,9 @@ void cache_reorder_particles() {
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		star_metallicity_II[ipart] = backup_floats[ipart];
 	}
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_floats[ipart] = star_metallicity_Ia[ old_particle_index[ipart] ];
@@ -577,9 +577,9 @@ void cache_reorder_particles() {
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		star_metallicity_Ia[ipart] = backup_floats[ipart];
 	}
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	cart_free( backup_floats );
 
@@ -609,7 +609,7 @@ void cache_reorder_particles() {
 		particle_level[ipart] = backup_ints[ipart];
 	}
 
-#if defined(STARFORM) && defined(STAR_PARTICLE_TYPES)
+#if defined(STAR_FORMATION) && defined(STAR_PARTICLE_TYPES)
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
 			backup_ints[ipart] = star_particle_type[ old_particle_index[ipart] ];
@@ -621,7 +621,7 @@ void cache_reorder_particles() {
 	for ( ipart = 0; ipart < num_local_star_particles; ipart++ ) {
 		star_particle_type[ipart] = backup_ints[ipart];
 	}
-#endif /* STARFORM && STAR_PARTICLE_TYPES */
+#endif /* STAR_FORMATION && STAR_PARTICLE_TYPES */
 
 	cart_free( backup_ints );
 

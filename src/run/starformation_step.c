@@ -1,5 +1,5 @@
 #include "config.h"
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #include <math.h>
 
@@ -160,4 +160,4 @@ void remap_star_ids() {
 	end_time( COMMUNICATION_TIMER );
 }
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */

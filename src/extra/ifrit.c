@@ -23,7 +23,7 @@
 float** ifritUniformGrid_Sample(int level, int nbin[3], double pcen[3], int nvar, const int *varid);
 
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 extern double sf_min_stellar_particle_mass;
 #endif
 
@@ -137,7 +137,7 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
   long ntot, nloc = 0L;
   double tot = 0.0;
   FILE *F;
-#ifdef STARFORM
+#ifdef STAR_FORMATION
   float dm_star_min = sf_min_stellar_particle_mass * constants->Msun / units->mass;
 #endif
 
@@ -172,7 +172,7 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
 	  for(j=0; j<num_particles; j++)
 	    {
 	      if(particle_id[j]!=NULL_PARTICLE &&
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		 particle_id_is_star(particle_id[j])==(flags&I_FLAG_STARS) &&
 #endif
 		 particle_x[j][0]>bb[0] && particle_x[j][0]<bb[1]
@@ -185,7 +185,7 @@ long ifritParticles_WriteArray(const char *filename, double *bb, int flags, floa
 		 )
 		{
 		  nsub = 1;
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		  if(particle_id_is_star(particle_id[j])==(flags&I_FLAG_STARS) && (flags&I_FLAG_SPLIT_STARS))
 		    {
 		      nsub = (int)(0.5+particle_mass[j]/dm_star_min);
@@ -315,7 +315,7 @@ void ifritOutputParticles(const char *fileroot, double *bb)
   strcat(str,"-parts.bin");
   ifritParticles_WriteBasicFile(str,bb,0);
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
   /*
   //  Stellar particles
   */
@@ -340,14 +340,14 @@ void ifritOutputParticles(const char *fileroot, double *bb)
 
   cart_free(arr);
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
   ifritParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_II,-1,ntot);
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
   ifritParticles_WriteArray(str,bb,I_FLAG_STARS,star_metallicity_Ia,-1,ntot);
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 }
 #endif /* PARTICLES */
 
@@ -533,7 +533,7 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 			    buf[var][l] = local_proc_id;
 			    break;
 			  }
-#ifdef ENRICH
+#ifdef ENRICHMENT
 			case I_GAS_METAL_DENSITY:
 			  {
 			    buf[var][l] = cell_gas_metal_density(cell);
@@ -544,7 +544,7 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 			    buf[var][l] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 			    break;
 			  }
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 
 

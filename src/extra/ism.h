@@ -38,14 +38,14 @@ void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers,
 /*
 //  SF law from stellar particles
 */
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
 void extStarFormationLaw(const char *fname, float spatial_scale, float time_scale, float stellar_age_limit, const struct HALO_LIST *halos);
 #endif
 
 /*
 //  SF law for instantaneous star formation from gas only
 */
-#if defined (HYDRO) && defined(STARFORM)
+#if defined (HYDRO) && defined(STAR_FORMATION)
 void extStarFormationLaw2(const char *fname, float spatial_scale, const struct HALO_LIST *halos);
 #endif
 

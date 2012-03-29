@@ -17,7 +17,7 @@
 #include "halo_finder.h"
 
 
-#if defined (HYDRO) && defined(STARFORM) && defined(RADIATIVE_TRANSFER)
+#if defined (HYDRO) && defined(STAR_FORMATION) && defined(RADIATIVE_TRANSFER)
 /*
 //  Dump ISRF and a variable var[cell] with a hierarchy of levels
 */

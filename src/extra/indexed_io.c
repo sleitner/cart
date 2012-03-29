@@ -242,7 +242,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			}
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		/* star formation volume */
 		fread( &size, sizeof(int), 1, input );
 		fread( star_formation_volume_min, sizeof(float), nDim, input );
@@ -255,7 +255,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 				reorder( (char *)&star_formation_volume_max[i], sizeof(float) );
 			}
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		/* read in variable strings */
 		size = sizeof(int);
@@ -299,12 +299,12 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 				varindex[i] = HVAR_MOMENTUM+1;
 			} else if ( strncmp( varname, "hydro_momentum_z", 32 ) == 0 ) {
 				varindex[i] = HVAR_MOMENTUM+2;
-#ifdef ENRICH
+#ifdef ENRICHMENT
 			} else if ( strncmp( varname, "hydro_metallicity_II", 32 ) == 0 ) {
 				varindex[i] = HVAR_METALLICITY_II;
 			} else if ( strncmp( varname, "hydro_metallicity_Ia", 32 ) == 0 ) {
 				varindex[i] = HVAR_METALLICITY_Ia;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 			} else {
 				varindex[i] = -1;
 			}
@@ -345,10 +345,10 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	MPI_Bcast( star_formation_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( star_formation_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	MPI_Bcast( &num_file_vars, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 	

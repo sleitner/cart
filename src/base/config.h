@@ -10,6 +10,31 @@
 
 
 /*
+//  Keep both sets of names for some clauses
+*/
+#if defined(STARFORM) && !defined(STAR_FORMATION)
+#define STAR_FORMATION
+#endif
+#if !defined(STARFORM) && defined(STAR_FORMATION)
+#define STARFORM
+#endif
+
+#if defined(ENRICH) && !defined(ENRICHMENT)
+#define ENRICHMENT
+#endif
+#if !defined(ENRICH) && defined(ENRICHMENT)
+#define ENRICH
+#endif
+
+#if defined(ENRICH_SNIa) && !defined(ENRICHMENT_SNIa)
+#define ENRICHMENT_SNIa
+#endif
+#if !defined(ENRICH_SNIa) && defined(ENRICHMENT_SNIa)
+#define ENRICH_SNIa
+#endif
+
+
+/*
 //  The consistency of defs.h settings can be checked here...
 */
 #if defined(COOLING) && !defined(HYDRO)
@@ -17,8 +42,8 @@
 #endif
 
 
-#if defined(STARFORM) && !defined(HYDRO)
-#error "STARFORM cannot be defined without HYDRO"
+#if defined(STAR_FORMATION) && !defined(HYDRO)
+#error "STAR_FORMATION cannot be defined without HYDRO"
 #endif
 
 
@@ -27,8 +52,8 @@
 #endif
 
 
-#if defined(ENRICH_SNIa) && !defined(ENRICH)
-#error "ENRICH_SNIa cannot be defined without ENRICH"
+#if defined(ENRICHMENT_SNIa) && !defined(ENRICHMENT)
+#error "ENRICHMENT_SNIa cannot be defined without ENRICHMENT"
 #endif
 
 
@@ -67,7 +92,7 @@
 
 
 #if defined(METALCOOLING) || defined(NO_METALCOOLING)
-#error "Switches METALCOOLING and NO_METALCOOLING are now obsolete; metal cooling is on by default (as physically meaningful), to disable metal cooling do not use ENRICH define."
+#error "Switches METALCOOLING and NO_METALCOOLING are now obsolete; metal cooling is on by default (as physically meaningful), to disable metal cooling do not use ENRICHMENT define."
 #endif
 
 
@@ -111,11 +136,11 @@
 /*
 //  Default to num_star_particles = num_particles if not set.
 */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 #if defined(num_particles) && !defined(num_star_particles)
 #define num_star_particles num_particles
 #endif
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 
 /*

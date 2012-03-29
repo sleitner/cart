@@ -2,14 +2,16 @@
 #define HYDRO
 #define GRAVITY
 #define COOLING
-#define STARFORM
 #define COSMOLOGY
 #define PARTICLES
 #define REFINEMENT
+#define STAR_FORMATION
 #define RADIATIVE_TRANSFER
 
-#define ENRICH
-#define ENRICH_SNIa
+#define SF_RECIPE                      <gk10-full>
+
+#define ENRICHMENT
+#define ENRICHMENT_SNIa
 
 #define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
 

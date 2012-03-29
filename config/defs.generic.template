@@ -3,18 +3,20 @@
 ?#define HYDRO
 ?#define GRAVITY
 ?#define COOLING
-?#define STARFORM
 ?#define COSMOLOGY
 ?#define PARTICLES
 ?#define REFINEMENT
+?#define STAR_FORMATION
 ?#define RADIATIVE_TRANSFER
 ?#define ELECTRON_ION_NONEQUILIBRIUM
 
-?#define ENRICH
-?#define ENRICH_SNIa
+?#define ENRICHMENT
+?#define ENRICHMENT_SNIa
 ?#define LOG_STAR_CREATION
 ?#define BLASTWAVE_FEEDBACK
 ?#define STAR_PARTICLE_TYPES
+
+?#define SF_RECIPE			<value>
 
 ?#define UNIQUE_RAND
 ?#define HYDRO_TRACERS 

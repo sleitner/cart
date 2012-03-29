@@ -396,10 +396,10 @@ int global_timestep() {
 #endif /* COOLING */
 #endif /* RADIATIVE_TRANSFER */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	num_new_stars = 0;
 	last_star_id = particle_species_indices[num_particle_species]-1;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	PLUGIN_POINT(GlobalStepBegin)();
 
@@ -431,7 +431,7 @@ int global_timestep() {
 		}
 #endif /* REFINEMENT */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 #ifdef AGN               
 		/* do agn mergers */
 		agn_find_mergers();
@@ -441,7 +441,7 @@ int global_timestep() {
 
 		/* now remap ids of stars created in this timestep */
 		remap_star_ids();
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #ifdef RADIATIVE_TRANSFER	
 		rtStepEnd();
@@ -701,11 +701,11 @@ int timestep( int level, MPI_Comm level_com )
 #ifdef PARTICLES
 
 #ifdef HYDRO
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	if ( num_steps_on_level[level] % star_formation_frequency[level] == 0 ) {
 		star_formation( level, star_formation_frequency[level] );
 	}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif /* HYDRO */
 
 #ifdef GRAVITY
@@ -718,7 +718,7 @@ int timestep( int level, MPI_Comm level_com )
         accelerate_particles(level);
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
         star_particle_feedback(level);
 
 	/* update cell values changed by starformation and feedback */
@@ -730,7 +730,7 @@ int timestep( int level, MPI_Comm level_com )
         }
 #endif /* AGN */
 	end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	move_particles( level );
 	update_particle_list( level );
@@ -1097,7 +1097,7 @@ void set_timestepping_scheme()
 	}
     }
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
   start_time( WORK_TIMER );
   /* compute frequency of star formation calls */
   work = 1.0;
@@ -1107,7 +1107,7 @@ void set_timestepping_scheme()
       star_formation_frequency[level] = max(1,nearest_int(min(work,sf_sampling_timescale*constants->yr/(units->time*dtl[level]))));
     }
   end_time( WORK_TIMER );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
   end_time( CHOOSE_TIMESTEP_TIMER );
 }

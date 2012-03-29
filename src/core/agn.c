@@ -1,5 +1,5 @@
 #include "config.h"
-#if defined(STARFORM) && defined(AGN)
+#if defined(STAR_FORMATION) && defined(AGN)
 
 #include <math.h>
 #include <stdio.h>
@@ -763,9 +763,9 @@ void agn_compute_agn_physics( int num_level_agn, agn_sink_data *agn_list, int le
 
 		Efb = Efbfact*newMacc;
 		Efb_print = Efb;
-#ifndef ENRICH 
+#ifndef ENRICHMENT 
 #error "Enrichment required for AGN stored feedback energy"
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 		star_metallicity_II[ipart] += Efb;  /* Add feedback energy from this timestep to stored energy */
 
 		if ( star_metallicity_II[ipart] < Eagncritfact*sink_mass ) {  
@@ -1094,4 +1094,4 @@ int sort_particles_by_mass( const void *a, const void *b ) {
 	}
 } 
 
-#endif /* STARFORM && AGN */
+#endif /* STAR_FORMATION && AGN */

@@ -436,7 +436,7 @@ void rtComputeAbsLevel(int level, int num_level_cells, int *level_cells, int fre
 #ifdef RT_ABSORPTION_CALLBACK_FULL
       rtPackCellData(level,cell,var,NULL);
 #else  /* RT_ABSORPTION_CALLBACK_FULL */
-#ifdef ENRICH
+#ifdef ENRICHMENT
       var[0] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
       var[0] = 0.0;

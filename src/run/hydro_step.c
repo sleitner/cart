@@ -411,11 +411,11 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 		    rhog2 = cell_gas_density(icell)*cell_gas_density(icell);
 		    /* take code density -> log10(n_H [cm^-3]) */
 		    nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
-#ifdef ENRICH
+#ifdef ENRICHMENT
 		    Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
 #else
 		    Zlog = -10.0;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 			  
 		    Tfac_cell = Tfac/cell_gas_density(icell);
 		    Emin_cell = Eminfac*cell_gas_density(icell);
@@ -538,11 +538,11 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 			/* take code density -> log10(n_H [cm^-3]) */
 			nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 			Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
 #else
 			Zlog = -10.0;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 			Tfac_cell = Tfac/cell_gas_density(icell);
 			Emin_cell = Eminfac*cell_gas_density(icell);

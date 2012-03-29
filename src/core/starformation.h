@@ -6,7 +6,7 @@
 #endif
 
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #ifdef STAR_PARTICLE_TYPES
 extern int star_particle_type[num_star_particles];
@@ -32,12 +32,12 @@ extern double total_stellar_initial_mass;
 extern float star_tbirth[num_star_particles];
 extern float star_initial_mass[num_star_particles];
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 extern float star_metallicity_II[num_star_particles];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 extern float star_metallicity_Ia[num_star_particles];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 
 void config_init_star_formation();
 void config_verify_star_formation();
@@ -50,6 +50,6 @@ void create_star_particle( int icell, float mass, double pdt, int type );
 
 extern double sf_sampling_timescale;
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #endif

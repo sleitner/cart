@@ -15,5 +15,4 @@ art: .obj/.phony $(DEFS) $(SIM_OBJS) start.c .obj/hart_init.o .obj/hart_reader.o
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) start.c .obj/hart_init.o .obj/hart_reader.o -o art $(LIBS) $(EXTRALIBS) 
 	which mpirun
 
-clean:
-	rm -rf .obj core start.o art
+CLEAN := start.o art

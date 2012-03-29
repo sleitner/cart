@@ -11,5 +11,4 @@ include $(TOP_DIR)/Make.config
 art: .obj/.phony $(SIM_OBJS) $(DEFS) start_rt.c .obj/extra/healpix.o .obj/extra/ifrit.o .obj/extra/utils.o .obj/oldstyle_units.o
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) start_rt.c -o art $(LIBS) $(EXTRALIBS) .obj/extra/healpix.o .obj/extra/ifrit.o .obj/extra/utils.o .obj/oldstyle_units.o
 
-clean:
-	rm -rf .obj start_rt.o art core
+CLEAN := start_rt.o art

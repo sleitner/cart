@@ -52,11 +52,11 @@ int rtIsThereWork()
   return (rtSingleSourceValue > 0.0);
 #endif
 
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
   return 1;
 #else
   return 0;
-#endif /* PARTICLES && STARFORM */
+#endif /* PARTICLES && STAR_FORMATION */
 }
 
 

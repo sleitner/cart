@@ -443,7 +443,7 @@ void extMassFractions(const char *fname, halo_list *halos)
   /*
   // Measure stellar masses
   */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
   for(j=0; j<num_particles; j++) if(particle_is_star(j))
     {
       cell = cell_find_position(particle_x[j]);

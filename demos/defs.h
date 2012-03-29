@@ -3,15 +3,17 @@
 #define HYDRO
 #define GRAVITY
 #define COOLING
-#define STARFORM
 #define COSMOLOGY
 #define PARTICLES
 #define REFINEMENT
+#define STAR_FORMATION
 #define RADIATIVE_TRANSFER
 #define BLASTWAVE_FEEDBACK
 
-#define ENRICH
-#define ENRICH_SNIa
+#define SF_RECIPE                       <hart>
+
+#define ENRICHMENT
+#define ENRICHMENT_SNIa
 
 #define DEBUG_MEMORY_USE
 

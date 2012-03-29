@@ -695,7 +695,7 @@ void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers,
 }
 
 
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
 void extStarFormationLaw(const char *fname, float spatial_scale, float time_scale, float stellar_age_limit, const halo_list *halos)
 {
   int i, j, ih, level, size, rank, lstarted, gstarted, select;
@@ -776,12 +776,12 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
 	  if(dt < stellar_age_limit)
 	    {
 	      mst[index[cell]] += particle_mass[j];
-#ifdef ENRICH
+#ifdef ENRICHMENT
 	      zst[index[cell]] += particle_mass[j]*star_metallicity_II[j];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 	      zst[index[cell]] += particle_mass[j]*star_metallicity_Ia[j];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 	    }
 	}
     }
@@ -923,10 +923,10 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
   cart_free(level_cells);
 
 }
-#endif /* PARTICLES && STARFORM */
+#endif /* PARTICLES && STAR_FORMATION */
 
 
-#if defined (HYDRO) && defined(STARFORM)
+#if defined (HYDRO) && defined(STAR_FORMATION)
 void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_list *halos)
 {
   int i, j, ih, level, ll, size, rank, lstarted, gstarted, select;
@@ -1151,10 +1151,10 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_lis
   cart_free(level_cells);
 
 }
-#endif /* HYDRO && STARFORM */
+#endif /* HYDRO && STAR_FORMATION */
 
 
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
 void extHaloStars(const char *fname, const halo *h, float rmax)
 {
   int i, j, ntot, rank, size;
@@ -1223,12 +1223,12 @@ void extHaloStars(const char *fname, const halo *h, float rmax)
 			  uTime*star_tbirth[j]
 #endif /* COSMOLOGY */
 			  );
-#ifdef ENRICH
+#ifdef ENRICHMENT
 		  fprintf(f," %9.3e",star_metallicity_II[j]/constants->Zsun);
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 		  fprintf(f," %9.3e",star_metallicity_Ia[j]/constants->Zsun);
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 		  fprintf(f,"\n");
 		}
 	    }
@@ -1236,5 +1236,5 @@ void extHaloStars(const char *fname, const halo *h, float rmax)
 	}
     }
 }
-#endif /* PARTICLES && STARFORM */
+#endif /* PARTICLES && STAR_FORMATION */
 

@@ -25,5 +25,4 @@ ICs:
 
 prep: DAT logs ICs 
 
-clean:
-	rm -rf .obj core start_cosmology.o cart
+CLEAN := start_cosmology.o cart

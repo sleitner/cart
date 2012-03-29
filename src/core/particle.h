@@ -55,10 +55,10 @@ extern int next_free_particle;
 extern int free_particle_list;
 extern int particle_list_enabled;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 extern int next_free_star_particle;
 extern int free_star_particle_list;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 int particle_alloc( int id );
 void particle_free( int ipart );
@@ -78,10 +78,10 @@ void delete_particle( int cell, int part );
 void rebuild_particle_list();
 int particle_species( int id );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 #define particle_id_is_star(id)		(id >= particle_species_indices[num_particle_species-1])
 #define particle_is_star(index)		(particle_id_is_star( particle_id[index] ))
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #endif /* PARTICLES */
 

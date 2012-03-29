@@ -38,7 +38,7 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 		write_artio_restart( grid_filename_flag, particle_filename_flag, tracer_filename_flag );
 	}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 #ifdef LOG_STAR_CREATION
 	log_star_creation(-1,-1.0,FILE_CLOSE); //close temp_star files 
 	if ( local_proc_id == MASTER_NODE && grid_filename_flag != NO_WRITE ) { 
@@ -82,7 +82,7 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 	MPI_Barrier( mpi.comm.run ) ; //prevents files from reopening before append occurs
 	log_star_creation(-1,-1.0,FILE_OPEN); //close temp_star files 
 #endif /* LOG_STAR_CREATION */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	if ( grid_filename_flag != NO_WRITE ) {
 		sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );

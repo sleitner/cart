@@ -144,12 +144,12 @@ void define_file_variables(int *num_variables, char *variable_labels[num_vars],
 	add_variable( "RT_HVAR_HeIII", RT_HVAR_OFFSET+4 );
 	add_variable( "RT_HVAR_H2", RT_HVAR_OFFSET+5 );
 #endif /* RADIATIVE_TRANSFER */
-#ifdef ENRICH
+#ifdef ENRICHMENT
 	add_variable( "HVAR_METAL_DENSITY_II", HVAR_METAL_DENSITY_II );
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 	add_variable( "HVAR_METAL_DENSITY_Ia", HVAR_METAL_DENSITY_Ia );
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 #endif /* HYDRO */
 
 #ifdef GRAVITY
@@ -182,11 +182,11 @@ void define_particle_variables( int *num_species, char *species_labels[MAX_PARTI
 
 	*num_species = num_particle_species;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	num_nbody_species = num_particle_species - 1;
 #else
 	num_nbody_species = num_particle_species;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	for ( i = 0; i < num_nbody_species; i++ ) {
 		species_labels[i] = cart_alloc(char, 64);
@@ -195,20 +195,20 @@ void define_particle_variables( int *num_species, char *species_labels[MAX_PARTI
 		num_secondary_variables[i] = 0;
 	}
 
-#ifdef STARFORM 
+#ifdef STAR_FORMATION 
 	species_labels[num_nbody_species] = cart_alloc(char, 64);
 	snprintf(species_labels[num_nbody_species], 64, "STAR");
 	num_primary_variables[num_nbody_species] = 2*nDim+1;
 
-#ifdef ENRICH
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT
+#ifdef ENRICHMENT_SNIa
 	num_secondary_variables[num_nbody_species] = 5;
 #else
 	num_secondary_variables[num_nbody_species] = 4;
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 #else
 	num_secondary_variables[num_nbody_species] = 3;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 	secondary_variable_labels[num_nbody_species] = cart_alloc( char *, num_secondary_variables[num_nbody_species] );
 
@@ -221,16 +221,16 @@ void define_particle_variables( int *num_species, char *species_labels[MAX_PARTI
 	secondary_variable_labels[num_nbody_species][2] = cart_alloc( char, 64 );
 	snprintf( secondary_variable_labels[num_nbody_species][2], 64, "MASS" );	
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 	secondary_variable_labels[num_nbody_species][3] = cart_alloc( char, 64 );
 	snprintf( secondary_variable_labels[num_nbody_species][3], 64, "METALLICITY_SNII" );    
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 	secondary_variable_labels[num_nbody_species][4] = cart_alloc( char, 64 );
     snprintf( secondary_variable_labels[num_nbody_species][4], 64, "METALLICITY_SNIa" );
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	/* copy primary variable names */
 	for ( i = 0; i < *num_species; i++ ) {
@@ -441,20 +441,20 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	artio_parameter_set_float_array( handle, "refinement_volume_max", 
 			nDim, refinement_volume_max );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	artio_parameter_set_float_array( handle, "star_formation_volume_min", 
 			nDim, star_formation_volume_min );
 	artio_parameter_set_float_array( handle, "star_formation_volume_max", 
 			nDim, star_formation_volume_max );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	/* load balance parameters */
 	artio_parameter_set_int( handle, "num_octs_per_mpi_task", num_octs );
 #ifdef PARTICLES
 	artio_parameter_set_int( handle, "num_particles_per_mpi_task", num_particles );
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	artio_parameter_set_int( handle, "num_star_particles_per_mpi_task", num_star_particles );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif /* PARTICLES */
 
 	for ( i = 0; i < num_procs+1; i++ ) {
@@ -737,7 +737,7 @@ void write_artio_particles( artio_file handle, int *root_tree_particle_list,
 					primary_variables[nDim+m] = particle_v[ipart][m];
 				}
 				primary_variables[2*nDim] = particle_dt[ipart];
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				if ( j == num_particle_species - 1 ) {
 					cart_assert( particle_is_star(ipart) );
 
@@ -748,18 +748,18 @@ void write_artio_particles( artio_file handle, int *root_tree_particle_list,
 					secondary_variables[0] = star_tbirth[ipart];
 					secondary_variables[1] = star_initial_mass[ipart];
 					secondary_variables[2] = particle_mass[ipart];
-#ifdef ENRICH
+#ifdef ENRICHMENT
 					secondary_variables[3] = star_metallicity_II[ipart];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 					secondary_variables[4] = star_metallicity_Ia[ipart];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 #ifdef STAR_PARTICLE_TYPES
 				} else {
 					subspecie = 0;
 #endif /* STAR_PARTICLE_TYPES */
 				}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 				artio_particle_write_particle( handle, id, subspecie, primary_variables, secondary_variables );
 				ipart = particle_list_prev[ipart];
@@ -931,18 +931,18 @@ void read_artio_restart( const char *label ) {
 	artio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs );
 #ifdef PARTICLES
 	artio_parameter_get_int( handle, "num_particles_per_mpi_task", &num_file_particles );
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	artio_parameter_get_int( handle, "num_star_particles_per_mpi_task", &num_file_star_particles );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif /* PARTICLES */
 
 	if ( num_file_procs != num_procs ||
 			num_file_octs > num_octs 
 #ifdef PARTICLES
 			|| num_file_particles > num_particles
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			|| num_file_star_particles > num_star_particles 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif /* PARTICLES */
 	) {
 		artio_restart_load_balance( handle );
@@ -1055,12 +1055,12 @@ void read_artio_restart( const char *label ) {
 	artio_parameter_get_float_array( handle, "refinement_volume_max", 
 			nDim, refinement_volume_max );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	artio_parameter_get_float_array( handle, "star_formation_volume_min", 
 			nDim, star_formation_volume_min );
 	artio_parameter_get_float_array( handle, "star_formation_volume_max", 
 			nDim, star_formation_volume_max );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	read_artio_grid(handle, file_max_level);
 	cart_debug("done reading grid");
@@ -1275,7 +1275,7 @@ void read_artio_particles( artio_file handle, int num_species ) {
 				particle_dt[ipart] = primary_variables[2*nDim];
 				particle_t[ipart] = tl[min_level];
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				if ( species == num_species - 1 ) {
 #ifdef STAR_PARTICLE_TYPES
 					star_particle_type[ipart] = subspecie;
@@ -1285,18 +1285,18 @@ void read_artio_particles( artio_file handle, int num_species ) {
 					star_initial_mass[ipart] = secondary_variables[1];
 					particle_mass[ipart] = secondary_variables[2];
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 					star_metallicity_II[ipart] = secondary_variables[3];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 					star_metallicity_Ia[ipart] = secondary_variables[4];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 				} else {
 					particle_mass[ipart] = particle_species_mass[particle_species(id)];
 				}
 #else
 				particle_mass[ipart] = particle_species_mass[particle_species(id)];
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 			}
 
 			artio_particle_read_species_end(handle);

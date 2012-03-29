@@ -2,13 +2,13 @@
 #define HYDRO
 #define GRAVITY
 #define COOLING
-#define STARFORM
 #define COSMOLOGY
 #define PARTICLES
 #define REFINEMENT
+#define STAR_FORMATION
 
-#define ENRICH
-#define ENRICH_SNIa
+#define ENRICHMENT
+#define ENRICHMENT_SNIa
 
 #define num_root_grid_refinements	<set value here>
 #define num_refinement_levels		<set value here>

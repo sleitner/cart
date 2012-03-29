@@ -1,5 +1,5 @@
 #include "config.h"
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #include "auxiliary.h"
 #include "iterators.h"
@@ -83,4 +83,4 @@ void star_particle_feedback(int level) {
 	end_time( WORK_TIMER );
 }
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */

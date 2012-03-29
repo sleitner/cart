@@ -1,11 +1,12 @@
 #include "config.h"
-#if defined(HYDRO) && defined(STARFORM)
+#if defined(HYDRO) && defined(STAR_FORMATION)
 
 #include <math.h>
 
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "starformation_recipe.h"
+#include "starformation_feedback.h"
 #include "tree.h"
 #include "units.h"
 
@@ -27,7 +28,7 @@ struct
 sfr = { 0.0, 0.005, 0.1, 50.0, 1.0e99, 1.0e6, 1.0, -1 }; 
 
 
-void sfr_init()
+void sfr_config_init()
 {
   control_parameter_add3(control_parameter_double,&sfr.efficiency,"sfr:efficiency","sfr.efficiency","sf:recipe=1.efficiency","the efficiency of the star formation law in molecular gas per free-fall time (a-la Krumholz and Tan 2006).");
 
@@ -45,7 +46,7 @@ void sfr_init()
 }
 
 
-void sfr_verify()
+void sfr_config_verify()
 {
   cart_assert(sfr.efficiency > 0.0);
   cart_assert(sfr.min_molecular_fraction > 0.0);
@@ -55,7 +56,15 @@ void sfr_verify()
 }
 
 
-void sfr_setup(int level)
+void sfr_setup_feedback()
+{
+  add_feedback(sf_feedback.snII);
+  add_feedback(sf_feedback.snIa);
+  add_feedback(sf_feedback.ml);
+}
+
+
+void sfr_setup_level(int level)
 {
   sfr.factor = sfr.efficiency*units->time*sqrt(32*constants->G*constants->XH*constants->mp/(3*M_PI)); 
 }
@@ -87,13 +96,13 @@ double sfr_rate(int cell)
     }
   else
     {
-#ifdef ENRICH
+#ifdef ENRICHMENT
       zSol_cell = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
       D_MW = max(1.0e-3,zSol_cell);
 #else
-      cart_error("SF Recipe gk10-lite with D_MW<0 only works with ENRICH activated.");
+      cart_error("SF Recipe gk10-lite with D_MW<0 only works with ENRICHMENT activated.");
       D_MW = 1.0e-3;
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
     }
   
   alpha = 5 * ( U_MW/2. )/( 1 + pow(U_MW/2.,2)  ); 
@@ -126,11 +135,12 @@ double sfr_rate(int cell)
 
 struct StarFormationRecipe sf_recipe_internal =
 {
-  "gh10-lite",
-  sfr_init,
-  sfr_verify,
-  sfr_setup,
-  sfr_rate
+  "gk10-lite",
+  sfr_rate,
+  sfr_config_init,
+  sfr_config_verify,
+  sfr_setup_feedback,
+  sfr_setup_level
 };
 
-#endif /* HYDRO && STARFORM */
+#endif /* HYDRO && STAR_FORMATION */

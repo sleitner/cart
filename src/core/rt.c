@@ -132,15 +132,15 @@ void rtInitSource(int level)
 float rtSource(int ipart)
 {
   int istar;
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
 #ifdef RT_OLDSTYLE_SOURCE_FUNCTION
   float x1;
 #else
   float x1, x2, dx;
 #endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
-#endif /* PARTICLES && STARFORM */
+#endif /* PARTICLES && STAR_FORMATION */
 
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
   if(!particle_is_star(ipart)) return 0.0;
 #endif
 
@@ -148,7 +148,7 @@ float rtSource(int ipart)
   return 1.0;
 #endif
 
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
   /*
   //  The convention is different from HART
   */
@@ -203,7 +203,7 @@ float rtSource(int ipart)
     }
 #else
   return 1.0;
-#endif /* PARTICLES && STARFORM */
+#endif /* PARTICLES && STAR_FORMATION */
 }
 
 
@@ -478,7 +478,7 @@ void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf)
   /*
   //  Metallicity in units of solar
   */
-#ifdef ENRICH
+#ifdef ENRICHMENT
   var[FRT_Metallicity] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
   var[FRT_Metallicity] = 0.0;
@@ -609,7 +609,7 @@ float rtDmw(int cell)
   rtPackCellData(cell_level(cell),cell,var,NULL);
   return frtCall(dusttogas)(var);
 #else  /* RT_CUSTOM_DUST_TO_GAS */
-#ifdef ENRICH
+#ifdef ENRICHMENT
   return cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
   return 0.0;

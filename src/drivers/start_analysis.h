@@ -27,10 +27,10 @@ extern const struct snapshot_t *snapshot;
 #ifdef GRAVITY
 #define VAR_TOTAL_DENSITY            VAR_TOTAL_MASS
 #define cell_total_density(cell)     cell_total_mass(cell)
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 #define VAR_STELLAR_DENSITY          VAR_FIRST_SPECIES_MASS
 #define cell_stellar_density(cell)   cell_first_species_mass(cell)
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif /* GRAVITY */
 
 #endif  /* __START_ANALYSIS_H__ */

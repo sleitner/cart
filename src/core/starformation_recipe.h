@@ -1,5 +1,5 @@
-#ifndef __STARFORMATION_RECIPES_H__
-#define __STARFORMATION_RECIPES_H__
+#ifndef __STAR_FORMATION_RECIPES_H__
+#define __STAR_FORMATION_RECIPES_H__
 
 
 #ifndef CONFIGURED
@@ -7,15 +7,18 @@
 #endif
 
 
-#if defined(HYDRO) && defined(STARFORM)
+#if defined(HYDRO) && defined(STAR_FORMATION)
+
+struct StarFormationFeedback;
 
 struct StarFormationRecipe
 {
   const char *name;
-  void (*config_init)();
-  void (*config_verify)();
-  void (*level_setup)(int level);
   double (*rate)(int cell);
+  void (*config_init)();           /* can be NULL */
+  void (*config_verify)();         /* can be NULL */
+  void (*setup_feedback)();        /* can be NULL */
+  void (*setup_level)(int level);  /* can be NULL */
 };
 
 extern const struct StarFormationRecipe *sf_recipe;
@@ -23,6 +26,6 @@ extern const struct StarFormationRecipe *sf_recipe;
 void config_init_star_formation_recipe();
 void config_verify_star_formation_recipe();
 
-#endif /* HYDRO && STARFORM */
+#endif /* HYDRO && STAR_FORMATION */
 
 #endif

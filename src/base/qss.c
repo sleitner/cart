@@ -1,5 +1,6 @@
 #include "config.h"
 
+#include <math.h>
 #include <stdio.h>
 
 #include "auxiliary.h"

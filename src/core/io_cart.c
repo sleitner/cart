@@ -225,11 +225,11 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		}
 		
 		start_time( PARTICLE_WRITE_IO_TIMER );
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		write_cart_particles( filename1, filename2, filename3, filename4 );
 #else
 		write_cart_particles( filename1, filename2, filename3, NULL );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 		end_time( PARTICLE_WRITE_IO_TIMER );
 	}
 #endif /* PARTICLES */
@@ -253,9 +253,9 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		fprintf( restart, "%s\n", filename1 );
 		fprintf( restart, "%s\n", filename2 );
 		fprintf( restart, "%s\n", filename3 );
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		fprintf( restart, "%s\n", filename4 );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif /* PARTICLES */
 	
 		fclose(restart);
@@ -312,9 +312,9 @@ void read_cart_restart( const char *label ) {
 			fscanf( restart, "%s\n", filename1 );
 			fscanf( restart, "%s\n", filename2 );
 			fscanf( restart, "%s\n", filename3 );
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			fscanf( restart, "%s\n", filename4 );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 			fclose(restart);
 		}
 	} else {
@@ -382,11 +382,11 @@ void read_cart_restart( const char *label ) {
 #ifdef PARTICLES
 	cart_debug("Reading particle restart...");
 	start_time( PARTICLE_READ_IO_TIMER );
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	read_cart_particles( filename1, filename2, filename3, filename4, 0, NULL );
 #else
 	read_cart_particles( filename1, filename2, filename3, NULL, 0, NULL );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* PARTICLES */
 }
@@ -609,7 +609,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 	int leftproc, rightproc, rootproc, smallestproc;
 	int proc;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	FILE *stellar_output;
 	int num_stars;
 	int first_star;
@@ -620,7 +620,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 	int *output_types;
 	int *star_type_page[MAX_PROCS];
 #endif /* STAR_PARTICLE_TYPES */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	if(art_particle_file_mode > 0) art_particle_file_mode = 0; /* Auto-reset */
 
@@ -976,7 +976,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			cart_free( page[i] );
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( stellar_filename != NULL ) {
 			stellar_output = fopen(stellar_filename, "w");
 
@@ -1560,7 +1560,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 			fwrite( &size, sizeof(int), 1, stellar_output );
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 			/* star_metallicity_II (zstII) */
 			fwrite( &size, sizeof(int), 1, stellar_output );
 
@@ -1736,8 +1736,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			}
 
 			fwrite( &size, sizeof(int), 1, stellar_output );
-#endif /* ENRICH */
-#ifdef ENRICH_SNIa
+#endif /* ENRICHMENT */
+#ifdef ENRICHMENT_SNIa
 			/* star_metallicity_Ia (zstIa) */
 			fwrite( &size, sizeof(int), 1, stellar_output );
 
@@ -1914,7 +1914,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 			fwrite( &size, sizeof(int), 1, stellar_output );
 
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 
 #ifdef STAR_PARTICLE_TYPES
 			for ( i = 1; i < num_procs; i++ ) {
@@ -2117,7 +2117,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 			fclose( stellar_output );
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		for ( i = 0; i < num_procs; i++ ) {
 			cart_free( page_ids[i] );
@@ -2168,7 +2168,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			cart_free( times_page[local_proc_id] );
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( stellar_filename != NULL ) {
 			first_star = 0;
 			while ( first_star < num_local_particles && !particle_is_star( particle_order[first_star] ) ) {
@@ -2225,7 +2225,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 			/* send metallicities */
 			num_parts = first_star;
 			pages[local_proc_id] = 0;
@@ -2242,7 +2242,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
 	
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 			num_parts = first_star;
 			pages[local_proc_id] = 0;
 			do {
@@ -2257,8 +2257,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 
 			cart_free( star_page[local_proc_id] );
 
@@ -2284,7 +2284,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 #endif /* STAR_PARTICLE_TYPES */
 
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		cart_free( page_ids[local_proc_id] );
 	}
@@ -3412,7 +3412,7 @@ void write_cart_grid_binary( char *filename ) {
 		fwrite( refinement_volume_max, sizeof(float), nDim, output );
 		fwrite( &size, sizeof(int), 1, output );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		/* refinement volume */
 		size = 2*nDim*sizeof(float);
 
@@ -3420,7 +3420,7 @@ void write_cart_grid_binary( char *filename ) {
 		fwrite( star_formation_volume_min, sizeof(float), nDim, output );
 		fwrite( star_formation_volume_max, sizeof(float), nDim, output );
 		fwrite( &size, sizeof(int), 1, output );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		/* ncell0 */
 		ncell0 = num_grid*num_grid*num_grid;
@@ -4131,7 +4131,7 @@ void read_cart_grid_binary( char *filename ) {
 			}
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		/* star formation volume */
 		fread( &size, sizeof(int), 1, input );
 		fread( star_formation_volume_min, sizeof(float), nDim, input );
@@ -4144,7 +4144,7 @@ void read_cart_grid_binary( char *filename ) {
 				reorder( (char *)&star_formation_volume_max[i], sizeof(float) );
 			}
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 		
 		/* ncell0 */
 		fread( &size, sizeof(int), 1, input );
@@ -4191,10 +4191,10 @@ void read_cart_grid_binary( char *filename ) {
 	MPI_Bcast( refinement_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( refinement_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	MPI_Bcast( star_formation_volume_min, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( star_formation_volume_max, nDim, MPI_FLOAT, MASTER_NODE, mpi.comm.run );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	if ( local_proc_id == file_parent ) {
 		fread( &size, sizeof(int), 1, input );

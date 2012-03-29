@@ -214,20 +214,20 @@ void config_print_to_file(const char *filename, int append)
   PRINT(HYDRO);
   PRINT(GRAVITY); 
   PRINT(COOLING);
-  PRINT(STARFORM);
+  PRINT(STAR_FORMATION);
   PRINT(COSMOLOGY);
   PRINT(PARTICLES);
   PRINT(REFINEMENT);
   PRINT(RADIATIVE_TRANSFER);
   PRINT(ELECTRON_ION_NONEQUILIBRIUM);
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
   fprintf(f,"Star formation settings:\n");
-  PRINT(ENRICH);
-  PRINT(ENRICH_SNIa);
+  PRINT(ENRICHMENT);
+  PRINT(ENRICHMENT_SNIa);
   PRINT(STAR_PARTICLE_TYPES);
   PRINT(AGN);
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #ifdef RADIATIVE_TRANSFER 
   fprintf(f,"Radiative transfer settings:\n");
@@ -368,7 +368,7 @@ void config_init()
   config_init_refinement();
 #endif
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
   config_init_star_formation();
 #ifdef AGN
   config_init_agn();
@@ -403,7 +403,7 @@ void config_verify()
   config_verify_refinement();
 #endif
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
   config_verify_star_formation();
 #ifdef AGN
   config_verify_agn();

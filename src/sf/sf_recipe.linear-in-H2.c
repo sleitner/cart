@@ -1,5 +1,5 @@
 #include "config.h"
-#if defined(HYDRO) && defined(STARFORM)
+#if defined(HYDRO) && defined(STAR_FORMATION)
 
 #include <math.h>
 
@@ -7,6 +7,7 @@
 #include "control_parameter.h"
 #include "hydro.h"
 #include "starformation_recipe.h"
+#include "starformation_feedback.h"
 #include "rand.h"
 #include "rt.h"
 #include "tree.h"
@@ -16,7 +17,7 @@
 /*
 //  Recipe based on Eq. (17) of GK10, with tau_{SF} = const = 1.5Gyr (a-la Genzel et al 2010 & Bigiel et al)
 */
-#if defined(RADIATIVE_TRANSFER) && defined(ENRICH)
+#if defined(RADIATIVE_TRANSFER) && defined(ENRICHMENT)
 
 struct 
 {
@@ -27,7 +28,7 @@ struct
 sfr = { 0.0, 1.0, 0.0 };
 
 
-void sfr_init()
+void sfr_config_init()
 {
   control_parameter_add3(control_parameter_double,&sfr.efficiency,"sfr:efficiency","sfr.efficiency","sf:recipe=3:efficiency","the relative efficiency of the star formation law (relative to the constant depletion time-scale of 1.5 Gyr).");
 
@@ -35,14 +36,22 @@ void sfr_init()
 }
 
 
-void sfr_verify()
+void sfr_config_verify()
 {
   cart_assert(sfr.efficiency > 0.0);
   cart_assert(!(sfr.variability < 0.0));
 }
 
 
-void sfr_setup(int level)
+void sfr_setup_feedback()
+{
+  add_feedback(sf_feedback.snII);
+  add_feedback(sf_feedback.snIa);
+  add_feedback(sf_feedback.ml);
+}
+
+
+void sfr_setup_level(int level)
 {
   sfr.factor = sfr.efficiency*units->time/(1.5*constants->Gyr);
 }
@@ -87,16 +96,17 @@ double sfr_rate(int cell)
 struct StarFormationRecipe sf_recipe_internal =
 {
   "linear-in-H2",
-  sfr_init,
-  sfr_verify,
-  sfr_setup,
-  sfr_rate
+  sfr_rate,
+  sfr_config_init,
+  sfr_config_verify,
+  sfr_setup_feedback,
+  sfr_setup_level
 };
 
 #else
 
-#error "SF Recipe line-in-H2 only works with RADIATIVE_TRANSFER and ENRICH activated."
+#error "SF Recipe line-in-H2 only works with RADIATIVE_TRANSFER and ENRICHMENT activated."
 
-#endif /* RADIATIVE_TRANSFER && ENRICH */
+#endif /* RADIATIVE_TRANSFER && ENRICHMENT */
 
-#endif /* HYDRO && STARFORM */
+#endif /* HYDRO && STAR_FORMATION */

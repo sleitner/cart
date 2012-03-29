@@ -194,12 +194,12 @@ int drive_run () {
 	init_hydro_tracers();
 #endif /* HYDRO_TRACERS */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	init_star_formation();
 #ifdef AGN
 	init_agn();
 #endif /* AGN */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #ifdef RADIATIVE_TRANSFER
 	rtInitRun();

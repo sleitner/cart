@@ -81,7 +81,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	fb = cosmology->OmegaB / cosmology->OmegaM;
 
 	if ( power_type == POWER_TYPE_GAS || power_type == POWER_TYPE_STARS || power_type == POWER_TYPE_BARYONS ) {
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( power_type != POWER_TYPE_BARYONS ) {
 			/* compute stellar mass */
 			stellar_mass = 0.0;
@@ -159,12 +159,12 @@ void compute_power_spectrum( char *filename, int power_type ) {
 			for ( ipart = 0; ipart < num_particles; ipart++ ) {
 				if ( particle_level[ipart] != FREE_PARTICLE_LEVEL && 
 						( power_type == POWER_TYPE_TOTAL ||
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 						( power_type == POWER_TYPE_DARK && !particle_is_star(ipart) ) ||
 						( ( power_type == POWER_TYPE_BARYONS || power_type == POWER_TYPE_STARS ) && particle_is_star(ipart) ) ) ) {
 #else
 						( power_type == POWER_TYPE_DARK ) ) ) {
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 					xs = particle_x[ipart][0]/mesh_cell_size - 0.5;
 					ys = particle_x[ipart][1]/mesh_cell_size - 0.5;
 					zs = particle_x[ipart][2]/mesh_cell_size - 0.5;

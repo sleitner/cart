@@ -1,5 +1,5 @@
 #include "config.h"
-#if defined(PARTICLES) && defined(STARFORM)
+#if defined(PARTICLES) && defined(STAR_FORMATION)
 
 #include "agn.h"
 #include "auxiliary.h"
@@ -25,12 +25,12 @@ double total_stellar_initial_mass = 0.0;
 float star_tbirth[num_star_particles];
 float star_initial_mass[num_star_particles];
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 float star_metallicity_II[num_star_particles];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 float star_metallicity_Ia[num_star_particles];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 
 #ifdef STAR_PARTICLE_TYPES
 int star_particle_type[num_star_particles];
@@ -144,7 +144,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
   rho_min = max(rho_min,sf_min_overdensity*cosmology->OmegaB/cosmology->OmegaM);
 #endif
 
-  sf_recipe->level_setup(level);
+  if(sf_recipe->setup_level != NULL) sf_recipe->setup_level(level);
 
   for(i=0; i<num_level_cells; i++)
     {
@@ -200,7 +200,7 @@ void create_star_particle( int icell, float mass, double pdt, int type ) {
 	//  This is an obscure parameter, read its help string in 
 	//  config_init_star_formation().
 	*/
-#ifdef ENRICH
+#ifdef ENRICHMENT
 	if(sf_metallicity_floor>0.0 && cell_gas_metal_density_II(icell)<sf_metallicity_floor*constants->Zsun*cell_gas_density(icell))
 	  {
 	    cell_gas_metal_density_II(icell) =  sf_metallicity_floor*constants->Zsun*cell_gas_density(icell);
@@ -230,12 +230,12 @@ void create_star_particle( int icell, float mass, double pdt, int type ) {
 	particle_mass[ipart] = true_mass;
 	star_initial_mass[ipart] = true_mass;
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 	star_metallicity_II[ipart] = cell_gas_metal_density_II(icell) / cell_gas_density(icell);
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 	star_metallicity_Ia[ipart] = cell_gas_metal_density_Ia(icell) / cell_gas_density(icell);
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 	
 	/* insert particle into cell linked list */
 	insert_particle( icell, ipart );
@@ -265,4 +265,4 @@ void create_star_particle( int icell, float mass, double pdt, int type ) {
 }
 
 #endif /* HYDRO */
-#endif /* PARTICLES && STARFORM */
+#endif /* PARTICLES && STAR_FORMATION */

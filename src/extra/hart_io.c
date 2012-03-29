@@ -277,7 +277,7 @@ void read_hart_grid_binary( char *filename ) {
 	}
 	
 	for(i=0;i<nDim;i++){
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	  star_formation_volume_min[i] = 0;
 	  star_formation_volume_max[i] = num_grid;
 #endif
@@ -393,16 +393,16 @@ void read_hart_grid_binary( char *filename ) {
 #if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
 				cell_electron_internal_energy(icell) = vars_buffer[i++]; /* not used in HART */
 #endif 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 				cell_gas_metal_density_II(icell) = vars_buffer[i++];
-#ifdef ENRICH_SNIa              
+#ifdef ENRICHMENT_SNIa              
 				cell_gas_metal_density_Ia(icell) = vars_buffer[i++];
 #else 
 				i++; //skip -- HART always writes enrich
-#endif /*  ENRICH_SNIa  */             
+#endif /*  ENRICHMENT_SNIa  */             
 #else
 				i++; //skip -- HART always writes enrich
-#endif /*  ENRICH */             
+#endif /*  ENRICHMENT */             
 #ifdef RADIATIVE_TRANSFER
 				cell_HI_density(icell) = vars_buffer[i++];
 				cell_HII_density(icell) = vars_buffer[i++];
@@ -619,16 +619,16 @@ void read_hart_grid_binary( char *filename ) {
 #if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
 				cell_electron_internal_energy(icell) = child_cells[j].vars[k++]; /* not used in HART */
 #endif 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 				cell_gas_metal_density_II(icell) = child_cells[j].vars[k++];
-#ifdef ENRICH_SNIa              
+#ifdef ENRICHMENT_SNIa              
 				cell_gas_metal_density_Ia(icell) = child_cells[j].vars[k++];
 #else 
 				k++; //skip -- HART always writes enrich
-#endif /*  ENRICH_SNIa  */             
+#endif /*  ENRICHMENT_SNIa  */             
 #else
 				k++; //skip -- HART always writes enrich
-#endif /*  ENRICH */             
+#endif /*  ENRICHMENT */             
 #ifdef RADIATIVE_TRANSFER
 				cell_HI_density(icell) = child_cells[j].vars[k++];
 				cell_HII_density(icell) = child_cells[j].vars[k++];
@@ -886,16 +886,16 @@ void write_hart_grid_binary( char *filename ) {
 #if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
 				cellhvars[i++] = cell_electron_internal_energy(icell); /* not used in HART */
 #endif 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 				cellhvars[i++] = cell_gas_metal_density_II(icell);
-#ifdef ENRICH_SNIa              
+#ifdef ENRICHMENT_SNIa              
 				cellhvars[i++] = cell_gas_metal_density_Ia(icell);
 #else 
 				cellhvars[i++] = 0;
-#endif /*  ENRICH_SNIa  */             
+#endif /*  ENRICHMENT_SNIa  */             
 #else
 				cellhvars[i++] = 0;
-#endif /*  ENRICH */             
+#endif /*  ENRICHMENT */             
 #ifdef RADIATIVE_TRANSFER
 				cellhvars[i++] = cell_HI_density(icell);
 				cellhvars[i++] = cell_HII_density(icell);
@@ -1094,16 +1094,16 @@ void write_hart_grid_binary( char *filename ) {
 #if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
 				cellhvars[k++] = cell_electron_internal_energy(icell); /* not used in HART */
 #endif 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 				cellhvars[k++] = cell_gas_metal_density_II(icell);
-#ifdef ENRICH_SNIa              
+#ifdef ENRICHMENT_SNIa              
 				cellhvars[k++] = cell_gas_metal_density_Ia(icell);
 #else 
 				cellhvars[k++] = 0;
-#endif /*  ENRICH_SNIa  */             
+#endif /*  ENRICHMENT_SNIa  */             
 #else
 				cellhvars[k++] = 0;
-#endif /*  ENRICH */             
+#endif /*  ENRICHMENT */             
 #ifdef RADIATIVE_TRANSFER
 				cellhvars[k++] = cell_HI_density(icell);
 				cellhvars[k++] = cell_HII_density(icell);

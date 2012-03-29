@@ -1,12 +1,12 @@
-#ifndef __STARFORMATION_STEP_H__
-#define __STARFORMATION_STEP_H__
+#ifndef __STAR_FORMATION_STEP_H__
+#define __STAR_FORMATION_STEP_H__
 
 #ifndef CONFIGURED
 #error "Missing config.h include."
 #endif
 
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #ifdef HYDRO
 void star_formation( int level, int time_multiplier );
@@ -14,6 +14,6 @@ void star_formation( int level, int time_multiplier );
 
 void remap_star_ids();
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #endif

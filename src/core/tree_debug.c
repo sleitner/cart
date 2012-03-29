@@ -239,7 +239,7 @@ void check_map() {
 
 	cart_assert( total_particles == num_particles_total );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	count = 0;
 	for ( i = 0; i < num_star_particles; i++ ) {
 		if ( particle_is_star(i) ) {
@@ -261,7 +261,7 @@ void check_map() {
 		cart_assert( !particle_is_star(i) );
 	}
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif /* PARTICLES */
 
 #ifdef GRAVITY

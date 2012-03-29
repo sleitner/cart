@@ -12,83 +12,83 @@ d_flag[idBLASTWAVE_FEEDBACK] = 1;
 #else
 d_flag[idBLASTWAVE_FEEDBACK] = 0;
 #endif
-#define idCHECK  2
-#ifdef CHECK
-d_flag[idCHECK] = 1;
-#else
-d_flag[idCHECK] = 0;
-#endif
-#define idCHECK_LEGACY_UNITS  3
-#ifdef CHECK_LEGACY_UNITS
-d_flag[idCHECK_LEGACY_UNITS] = 1;
-#else
-d_flag[idCHECK_LEGACY_UNITS] = 0;
-#endif
-#define idCONSTANT_TIMESTEP  4
+#define idCONSTANT_TIMESTEP  2
 #ifdef CONSTANT_TIMESTEP
 d_flag[idCONSTANT_TIMESTEP] = 1;
 #else
 d_flag[idCONSTANT_TIMESTEP] = 0;
 #endif
-#define idCOOLING  5
+#define idCOOLING  3
 #ifdef COOLING
 d_flag[idCOOLING] = 1;
 #else
 d_flag[idCOOLING] = 0;
 #endif
-#define idCOSMOLOGY  6
+#define idCOSMOLOGY  4
 #ifdef COSMOLOGY
 d_flag[idCOSMOLOGY] = 1;
 #else
 d_flag[idCOSMOLOGY] = 0;
 #endif
-#define idDEBUG  7
+#define idDEBUG  5
 #ifdef DEBUG
 d_flag[idDEBUG] = 1;
 #else
 d_flag[idDEBUG] = 0;
 #endif
-#define idDEBUG_MEMORY_USE  8
+#define idDEBUG_MEMORY_USE  6
 #ifdef DEBUG_MEMORY_USE
 d_flag[idDEBUG_MEMORY_USE] = 1;
 #else
 d_flag[idDEBUG_MEMORY_USE] = 0;
 #endif
-#define idDEBUG_MEMORY_USE_VERBOSE  9
+#define idDEBUG_MEMORY_USE_VERBOSE  7
 #ifdef DEBUG_MEMORY_USE_VERBOSE
 d_flag[idDEBUG_MEMORY_USE_VERBOSE] = 1;
 #else
 d_flag[idDEBUG_MEMORY_USE_VERBOSE] = 0;
 #endif
-#define idDEBUG_TIMESTEP  10
+#define idDEBUG_TIMESTEP  8
 #ifdef DEBUG_TIMESTEP
 d_flag[idDEBUG_TIMESTEP] = 1;
 #else
 d_flag[idDEBUG_TIMESTEP] = 0;
 #endif
-#define idDEBUG_TIMING  11
+#define idDEBUG_TIMING  9
 #ifdef DEBUG_TIMING
 d_flag[idDEBUG_TIMING] = 1;
 #else
 d_flag[idDEBUG_TIMING] = 0;
 #endif
-#define idDENSITY_CHUNK_SIZE  12
+#define idDENSITY_CHUNK_SIZE  10
 #ifdef DENSITY_CHUNK_SIZE
 d_flag[idDENSITY_CHUNK_SIZE] = 1;
 #else
 d_flag[idDENSITY_CHUNK_SIZE] = 0;
 #endif
-#define idELECTRON_ION_NONEQUILIBRIUM  13
+#define idELECTRON_ION_NONEQUILIBRIUM  11
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 d_flag[idELECTRON_ION_NONEQUILIBRIUM] = 1;
 #else
 d_flag[idELECTRON_ION_NONEQUILIBRIUM] = 0;
 #endif
-#define idENRICH  14
+#define idENRICH  12
 #ifdef ENRICH
 d_flag[idENRICH] = 1;
 #else
 d_flag[idENRICH] = 0;
+#endif
+#define idENRICHMENT  13
+#ifdef ENRICHMENT
+d_flag[idENRICHMENT] = 1;
+#else
+d_flag[idENRICHMENT] = 0;
+#endif
+#define idENRICHMENT_SNIa  14
+#ifdef ENRICHMENT_SNIa
+d_flag[idENRICHMENT_SNIa] = 1;
+#else
+d_flag[idENRICHMENT_SNIa] = 0;
 #endif
 #define idENRICH_SNIa  15
 #ifdef ENRICH_SNIa
@@ -474,29 +474,33 @@ d_flag[idSTARFORM] = 1;
 #else
 d_flag[idSTARFORM] = 0;
 #endif
-#define idSTAR_PARTICLE_TYPES  79
+#define idSTAR_FORMATION  79
+#ifdef STAR_FORMATION
+d_flag[idSTAR_FORMATION] = 1;
+#else
+d_flag[idSTAR_FORMATION] = 0;
+#endif
+#define idSTAR_PARTICLE_TYPES  80
 #ifdef STAR_PARTICLE_TYPES
 d_flag[idSTAR_PARTICLE_TYPES] = 1;
 #else
 d_flag[idSTAR_PARTICLE_TYPES] = 0;
 #endif
-#define idUNIQUE_RAND  80
+#define idUNIQUE_RAND  81
 #ifdef UNIQUE_RAND
 d_flag[idUNIQUE_RAND] = 1;
 #else
 d_flag[idUNIQUE_RAND] = 0;
 #endif
-#define idUSER_PLUGIN  81
-#ifdef USER_PLUGIN
-d_flag[idUSER_PLUGIN] = 1;
+#define idnum_particle  82
+#ifdef num_particle
+d_flag[idnum_particle] = 1;
 #else
-d_flag[idUSER_PLUGIN] = 0;
+d_flag[idnum_particle] = 0;
 #endif
 #define PRINT_ALL \
 PRINT(AGN) \
 PRINT(BLASTWAVE_FEEDBACK) \
-PRINT(CHECK) \
-PRINT(CHECK_LEGACY_UNITS) \
 PRINT(CONSTANT_TIMESTEP) \
 PRINT(COOLING) \
 PRINT(COSMOLOGY) \
@@ -508,6 +512,8 @@ PRINT(DEBUG_TIMING) \
 PRINT(DENSITY_CHUNK_SIZE) \
 PRINT(ELECTRON_ION_NONEQUILIBRIUM) \
 PRINT(ENRICH) \
+PRINT(ENRICHMENT) \
+PRINT(ENRICHMENT_SNIa) \
 PRINT(ENRICH_SNIa) \
 PRINT(FUNCTION) \
 PRINT(GRAVITY) \
@@ -572,7 +578,8 @@ PRINT(RT_XLF_BUG_FIX1) \
 PRINT(RT_XRAYS) \
 PRINT(SAVE_LOAD_BALANCE_PARTITION) \
 PRINT(STARFORM) \
+PRINT(STAR_FORMATION) \
 PRINT(STAR_PARTICLE_TYPES) \
 PRINT(UNIQUE_RAND) \
-PRINT(USER_PLUGIN) \
+PRINT(num_particle) \
 ;

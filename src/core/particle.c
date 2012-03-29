@@ -65,10 +65,10 @@ long num_particles_total = 0;
 int next_free_particle = 0;
 int free_particle_list = NULL_PARTICLE;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 int next_free_star_particle = 0;
 int free_star_particle_list = NULL_PARTICLE;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 int particle_list_enabled = 0;
 
@@ -91,14 +91,14 @@ void init_particles() {
 	num_local_particles = 0;
 	free_particle_list = NULL_PARTICLE;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	free_star_particle_list = NULL_PARTICLE;
 	next_free_star_particle = 0;
 	next_free_particle = num_star_particles;
 	num_local_star_particles = 0;
 #else 
 	next_free_particle = 0;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	particle_list_enabled = 0;
 }
@@ -274,7 +274,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	MPI_Request recv_pot_requests[MAX_PROCS];
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	int star_page_start;
 	int star_vars_sent;
 	int star_vars_recv;
@@ -290,16 +290,16 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	int *recv_star_types[MAX_PROCS];
 #endif /* STAR_PARTICLE_TYPES */
 
-#ifdef ENRICH
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT
+#ifdef ENRICHMENT_SNIa
 	#define num_star_vars	5
 #else
 	#define num_star_vars	4
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 #else
 	#define num_star_vars	3
-#endif /* ENRICH */
-#endif /* STARFORM */
+#endif /* ENRICHMENT */
+#endif /* STAR_FORMATION */
 
 	#define num_particle_vars	(2+2*nDim)	/* t, dt, x, v */
 
@@ -320,9 +320,9 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	page_size = min(65536/num_procs, 1024);
 	parts_page_size = num_particle_vars*page_size;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	star_page_size = num_star_vars*page_size;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	/* compute number of pages we'll need to send */
 	num_pages_to_send = 0;
@@ -370,7 +370,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 				mpi.comm.run, &recv_pot_requests[proc] );
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			recv_stars[proc] = cart_alloc(float, star_page_size );
 			MPI_Irecv( recv_stars[proc], star_page_size, MPI_FLOAT, proc, 0, 
 				mpi.comm.run, &recv_stars_requests[proc] );
@@ -379,7 +379,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 			MPI_Irecv( recv_star_types[proc], page_size, MPI_INT, proc, 1,
 				mpi.comm.run, &recv_star_type_requests[proc] );
 #endif /* STAR_PARTICLE_TYPES */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 			page_count[proc] = 0;
 		} else {
@@ -389,13 +389,13 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 #ifdef GRAVITY
 			recv_pot_requests[proc] = MPI_REQUEST_NULL;
 #endif /* GRAVITY */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			recv_stars_requests[proc] = MPI_REQUEST_NULL;
 
 #ifdef STAR_PARTICLE_TYPES
 			recv_star_type_requests[proc] = MPI_REQUEST_NULL;
 #endif /* STAR_PARTICLE_TYPES */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 		}
 	}
 
@@ -408,7 +408,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	send_potential = cart_alloc(float, num_pages_to_send*page_size );
 	num_request_types++;
 #endif /* GRAVITY */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	/* allocating enough space for all particles to be stars */
 	send_stars = cart_alloc(float, num_pages_to_send * star_page_size );
 	star_page_start = 0;
@@ -419,7 +419,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	num_request_types++;
 	send_star_types = cart_alloc(int, num_pages_to_send*page_size);
 #endif /* STAR_PARTICLE_TYPES */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	send_requests = cart_alloc(MPI_Request, num_request_types*num_pages_to_send);
 
@@ -452,24 +452,24 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 			send_potential[id_count] = particle_pot[ipart];
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			if ( particle_is_star( ipart ) ) {
 				/* pack in star variables */
 				send_stars[star_vars_sent++] = particle_mass[ipart];
 				send_stars[star_vars_sent++] = star_initial_mass[ipart];
 				send_stars[star_vars_sent++] = star_tbirth[ipart];
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 				send_stars[star_vars_sent++] = star_metallicity_II[ipart];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 				send_stars[star_vars_sent++] = star_metallicity_Ia[ipart];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 #ifdef STAR_PARTICLE_TYPES
 				send_star_types[id_count] = star_particle_type[ipart];
 #endif /* STAR_PARTICLE_TYPES */
 			}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 			id_count++;
 
@@ -491,7 +491,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 					&send_requests[num_send_requests++] );
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				MPI_Isend( &send_stars[star_page_start], 
 						star_vars_sent-star_page_start,
 						MPI_FLOAT, proc, 2*proc_pages_sent, mpi.comm.run,
@@ -506,7 +506,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 #endif /* STAR_PARTICLE_TYPES */
 
 				star_page_start = star_vars_sent;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 				proc_pages_sent++;
 				num_pages_sent++;
@@ -539,7 +539,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 			MPI_Wait( &recv_pot_requests[proc], MPI_STATUS_IGNORE );
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			MPI_Wait( &recv_stars_requests[proc], &status );
 			MPI_Get_count( &status, MPI_FLOAT, &total_star_vars );
 
@@ -548,7 +548,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 #endif /* STAR_PARTICLE_TYPES */
 
 			star_vars_recv = 0;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 			/* process received page */
 			part_count = 0;
@@ -572,7 +572,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 				particle_pot[ipart] = recv_potential[proc][i];
 #endif /* GRAVITY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				if ( particle_id_is_star( recv_id[proc][i] ) ) {
 					cart_assert( ipart >= 0 && ipart < num_star_particles );
 					cart_assert( particle_is_star(ipart) );
@@ -582,12 +582,12 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 					star_initial_mass[ipart] = recv_stars[proc][star_vars_recv++];
 					star_tbirth[ipart] = recv_stars[proc][star_vars_recv++];
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 					star_metallicity_II[ipart] = recv_stars[proc][star_vars_recv++];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 					star_metallicity_Ia[ipart] = recv_stars[proc][star_vars_recv++];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 
 #ifdef STAR_PARTICLE_TYPES
 					star_particle_type[ipart] = recv_star_types[proc][i];
@@ -598,7 +598,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 				}
 #else
 				particle_mass[ipart] = particle_species_mass[ particle_species( recv_id[proc][i] ) ];
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 				icell = cell_find_position( particle_x[ipart] );
 				if ( icell == -1 || !cell_is_local(icell) ) {
@@ -610,9 +610,9 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 							particle_x[ipart][2] );
 					cart_debug("particle_v = %e %e %e", particle_v[ipart][0],particle_v[ipart][1],particle_v[ipart][2]);
 					cart_debug("icell = %d", icell );
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 					cart_debug("particle_is_star(ipart=%d)=%d",ipart,particle_is_star(ipart));
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 					if ( icell != -1 ) {
 						cell_center_position( icell, pos );
 						cart_debug("cell position = %e %e %e", pos[0], pos[1], pos[2] );
@@ -637,10 +637,10 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 				insert_particle( icell, ipart );
 			}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			/* ensure we unpacked all stars */
 			cart_assert( star_vars_recv == total_star_vars );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 			num_parts_to_recv[proc] -= id_count;
 
@@ -657,7 +657,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 						2*page_count[proc]+1, mpi.comm.run, &recv_pot_requests[proc] );
 #endif
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				MPI_Irecv( recv_stars[proc], star_page_size, MPI_FLOAT, proc, 
 						2*page_count[proc], mpi.comm.run, &recv_stars_requests[proc] );
 
@@ -665,20 +665,20 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 				MPI_Irecv( recv_star_types[proc], page_size, MPI_INT, proc, 2*page_count[proc]+1,
 						mpi.comm.run, &recv_star_type_requests[proc] );
 #endif /* STAR_PARTICLE_TYPES */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 			} else {
 				cart_free( recv_id[proc] );
 				cart_free( recv_parts[proc] );
 #ifdef GRAVITY
 				cart_free( recv_potential[proc] );
 #endif /* GRAVITY */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				cart_free( recv_stars[proc] );
 
 #ifdef STAR_PARTICLE_TYPES
 				cart_free( recv_star_types[proc] );
 #endif /* STAR_PARTICLE_TYPES */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 			}
 		}
 	} while ( proc != MPI_UNDEFINED );
@@ -695,12 +695,12 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 #ifdef GRAVITY
 	cart_free( send_potential );
 #endif /* GRAVITY */
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	cart_free( send_stars );
 #ifdef STAR_PARTICLE_TYPES
 	cart_free( send_star_types );
 #endif /* STAR_PARTICLE_TYPES */
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	end_time( TRADE_PARTICLE_TIMER );
 }
@@ -776,7 +776,7 @@ int particle_alloc( int id ) {
 	int ipart;
 	int i;
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	if ( particle_id_is_star(id) ) {
 		if ( free_star_particle_list == NULL_PARTICLE ) {
 			if ( next_free_star_particle >= num_star_particles ) {
@@ -844,7 +844,7 @@ int particle_alloc( int id ) {
 		ipart = free_particle_list;
 		free_particle_list = particle_list_next[free_particle_list];
 	}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	cart_assert( ipart >= 0 && ipart < num_particles );
 	cart_assert( particle_level[ipart] == FREE_PARTICLE_LEVEL );
@@ -902,7 +902,7 @@ void particle_move( int ipart_old, int ipart_new ) {
 		particle_list_prev[ipart_new] = particle_list_prev[ipart_old];
 	}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	/* move star variables here */
 	if ( particle_is_star(ipart_old) ) {
 		cart_assert( ipart_new < num_star_particles );
@@ -910,18 +910,18 @@ void particle_move( int ipart_old, int ipart_new ) {
 		star_tbirth[ipart_new] = star_tbirth[ipart_old];
 		star_initial_mass[ipart_new] = star_initial_mass[ipart_old];
 		
-#ifdef ENRICH
+#ifdef ENRICHMENT
 		star_metallicity_II[ipart_new] = star_metallicity_II[ipart_old];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 		star_metallicity_Ia[ipart_new] = star_metallicity_Ia[ipart_old];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 #ifdef STAR_PARTICLE_TYPES
         star_particle_type[ipart_new] = star_particle_type[ipart_old];
         star_particle_type[ipart_old] = STAR_TYPE_DELETED;
 #endif /* STAR_PARTICLE_TYPES */	
 	}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	particle_id[ipart_old] = NULL_PARTICLE;
 	particle_level[ipart_old] = FREE_PARTICLE_LEVEL;
@@ -931,7 +931,7 @@ void particle_free( int ipart ) {
 	cart_assert( ipart >= 0 && ipart < num_particles );
 	cart_assert( particle_level[ipart] != FREE_PARTICLE_LEVEL );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	if ( ipart < num_star_particles ) {
 		particle_list_next[ipart] = free_star_particle_list;
 		free_star_particle_list = ipart;
@@ -952,7 +952,7 @@ void particle_free( int ipart ) {
 	/* not a star, add to normal list */
 	particle_list_next[ipart] = free_particle_list;
 	free_particle_list = ipart;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 	particle_level[ipart] = FREE_PARTICLE_LEVEL;
 	particle_id[ipart] = NULL_PARTICLE;
@@ -969,7 +969,7 @@ void particle_list_free( int ihead ) {
 	while ( last != NULL_PARTICLE ) {
 		next = particle_list_next[last];
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( last < num_star_particles ) {
 			particle_list_next[last] = free_star_particle_list;
 			free_star_particle_list = last;
@@ -984,7 +984,7 @@ void particle_list_free( int ihead ) {
 #else
 		particle_list_next[last] = free_particle_list;
 		free_particle_list = last;
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		particle_level[last] = FREE_PARTICLE_LEVEL;
 		particle_id[last] = NULL_PARTICLE;

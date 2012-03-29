@@ -1,5 +1,5 @@
-#ifndef __STARFORMATION_FEEDBACK_STEP_H__
-#define __STARFORMATION_FEEDBACK_STEP_H__
+#ifndef __STAR_FORMATION_FEEDBACK_STEP_H__
+#define __STAR_FORMATION_FEEDBACK_STEP_H__
 
 
 #ifndef CONFIGURED
@@ -7,7 +7,7 @@
 #endif
 
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #ifdef BLASTWAVE_FEEDBACK
 void check_bwtime_precision(int level);
@@ -15,6 +15,6 @@ void check_bwtime_precision(int level);
 
 void star_particle_feedback(int level);
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #endif

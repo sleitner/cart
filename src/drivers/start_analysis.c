@@ -96,7 +96,7 @@ void init_sd_exe_()
 
       init_da_exe_();
 
-#if defined(GRAVITY) && defined(STARFORM)
+#if defined(GRAVITY) && defined(STAR_FORMATION)
       MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
 #pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,cell_volume_inverse)
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
@@ -107,7 +107,7 @@ void init_sd_exe_()
       MESH_RUN_OVER_LEVELS_END;
 
       cart_debug("Stellar density is assigned.");
-#endif /* GRAVITY && STARFORM */
+#endif /* GRAVITY && STAR_FORMATION */
     }
 }
 

@@ -293,11 +293,11 @@ void assign_particle_density( int level ) {
 			for ( j =  0; j < count; j++ ) {
 				ipart = particle_list[j];
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				is_first = ( particle_id[ipart] < max_first_species_id || particle_is_star(ipart) );
 #else
 				is_first = ( particle_id[ipart] < max_first_species_id );
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #ifdef RT_VAR_SOURCE
 				sor = rtSource(ipart);
@@ -387,7 +387,7 @@ void assign_particle_density_smoothed( int level ) {
 #pragma omp parallel for default(none), private(j,ipart,is_star), shared(count,level,size2,size_inverse,size2_star,size_star_inverse,particle_list,cell_list,mass_assigned,particle_species_indices,num_particle_species,particle_id,max_dark_matter_level)
 			for ( j = 0; j < count; j++ ) {
 				ipart = particle_list[j];
-#ifdef STARFORM				
+#ifdef STAR_FORMATION				
 				is_star = ( particle_is_star(ipart) );
 #else 
 				is_star = 0;
@@ -410,7 +410,7 @@ void assign_particle_density_smoothed( int level ) {
 				ipart = particle_list[j];
 
 				is_first = ( particle_id[ipart] < max_first_species_id );
-#ifdef STARFORM				
+#ifdef STAR_FORMATION				
 				is_star =  particle_is_star(ipart);
 #else 
 				is_star = 0;

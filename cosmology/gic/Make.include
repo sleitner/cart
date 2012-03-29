@@ -26,4 +26,6 @@ $(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/gic_init.o .obj/gic_read
 	which mpirun
 
 EXEC =
+
+ALL += $(ART)
 CLEAN += $(ART) $(START).o

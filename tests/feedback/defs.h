@@ -2,7 +2,7 @@
 
 #define USER_PLUGIN
 
-#define STARFORM 
+#define STAR_FORMATION
 #define PARTICLES 
 #define COSMOLOGY  
 
@@ -10,6 +10,7 @@
 #define REFINEMENT
 #define PREFIX_JOBNAME_TO_OUTPUT_FILES
 
+#define SF_RECIPE                       <hart>
 
 #define num_root_grid_refinements	4
 #define num_refinement_levels		3
@@ -17,8 +18,8 @@
 #define num_particles		        100	/* suitable for no refinement */
 #define num_star_particles		100	/* suitable for no refinement */
 
-#define ENRICH
-#define ENRICH_SNIa
+#define ENRICHMENT
+#define ENRICHMENT_SNIa
 
 /* #define GRAVITY   */
 #define COOLING
