@@ -39,18 +39,24 @@ void star_formation( int level, int time_multiplier )
   int num_level_cells;
   int *level_cells;
   double dt_SF;
-  double dt_eff, dm_star_min;
+  double dt_eff, mstar_min;
   double mstar;
+#ifdef OLDSTYLE_SF_ALGORITHM
+  double P_SF, P_mass;
+#endif
   float *sfr;
 
   if ( level < sf_min_level ) return;
 
   start_time( WORK_TIMER );
 
-  dm_star_min = sf_min_stellar_particle_mass * constants->Msun / units->mass; 
+  mstar_min = sf_min_stellar_particle_mass * constants->Msun / units->mass; 
 
   dt_SF = sf_timescale * constants->yr / units->time;
   dt_eff = dtl[level] * time_multiplier;
+
+  /* probability of forming a star is Poisson with <t> = dt_SF */
+  P_SF = exp( -dt_eff / dt_SF );
 
   select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
   sfr = cart_alloc(float,num_level_cells);
@@ -59,12 +65,28 @@ void star_formation( int level, int time_multiplier )
   for ( i = 0; i < num_level_cells; i++ ) { 
 	  if ( sfr[i] > 0.0 ) {
 		icell = level_cells[i];
-		mstar = max(dm_star_min, sfr[i]*dt_SF*cell_volume[level]);
+		mstar = sfr[i]*dt_SF*cell_volume[level];
+
+#ifdef OLDSTYLE_SF_ALGORITHM
+
+		if(mstar < mstar_min) P_mass = 1 - mstar/mstar_min; else P_mass = 0;
+
+		/* randomly generate particle on timescale dt_SF */
+		if(cart_rand() > P_SF+P_mass-P_SF*P_mass)
+		  mstar = max(mstar_min,mstar);
+		else 
+		  mstar = 0.0;
+		  
+#else  /* OLDSTYLE_SF_ALGORITHM */
 
 		/* draw number of star formation events 0...\inf from poisson distribution */
+		mstar = max( mstar_min, mstar );
 		mstar *= (double)cart_rand_poisson( sfr[i]*cell_volume[level]*dt_eff/mstar );
 
+#endif /* OLDSTYLE_SF_ALGORITHM */
+
 		if ( mstar > 0.0 ) {
+
 			/* create the new star */
 #ifdef LOG_STAR_CREATION	  
 		  	log_star_creation( icell, mstar, FILE_RECORD);

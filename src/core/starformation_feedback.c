@@ -10,9 +10,9 @@
 #include "units.h"
 
 
-#define MAX_FEEDBACK_MODELS       10
-const sf_feedback_t* feedback_models[MAX_FEEDBACK_MODELS];
-int num_feedback_models = 0;
+extern struct StellarFeedback sf_feedback_PopM;
+
+const struct StellarFeedback *sf_feedback = NULL;
 
 
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
@@ -24,12 +24,7 @@ double blastwave_time = { 50.0e6 };
 
 void config_init_star_formation_feedback()
 {
-  int i;
-
-  /*
-  //  This must be the first call in this function
-  */
-  if(sf_recipe->setup_feedback != NULL) sf_recipe->setup_feedback();
+  set_feedback_model(&sf_feedback_PopM);  /* default feedback model */
 
   /*
   //  IMF
@@ -37,12 +32,9 @@ void config_init_star_formation_feedback()
   config_init_imf();
 
   /*
-  // call config_init for all currently used feedback models
+  // call config_init for the current feedback model
   */
-  for(i=0; i<num_feedback_models; i++)
-    {
-      if(feedback_models[i]->config_init != NULL) feedback_models[i]->config_init();
-    }
+  if(sf_feedback->config_init != NULL) sf_feedback->config_init();
 
   /*
   //  other
@@ -57,20 +49,15 @@ void config_init_star_formation_feedback()
 
 void config_verify_star_formation_feedback()
 {
-  int i;
-
   /*
   //  IMF
   */
   config_verify_imf();
 
   /*
-  // call config_verify for all currently used feedback models
+  // call config_verify for the current feedback model
   */
-  for(i=0; i<num_feedback_models; i++)
-    {
-      if(feedback_models[i]->config_verify != NULL) feedback_models[i]->config_verify();
-    }
+  if(sf_feedback->config_verify != NULL) sf_feedback->config_verify();
 
   /*
   //  other
@@ -83,41 +70,25 @@ void config_verify_star_formation_feedback()
 }
 
 
-void add_feedback(const sf_feedback_t *ptr)
+void set_feedback_model(const struct StellarFeedback *ptr)
 {
-  int i;
-
   /*
-  //  Do not duplicate
+  //  This functions allows to replace the default feedback model
   */
-  for(i=0; i<num_feedback_models; i++)
-    {
-      if(ptr == feedback_models[i]) return;
-    }
+  sf_feedback = ptr;
 
-  /*
-  //  Is array big enough?
-  */
-  if(num_feedback_models == MAX_FEEDBACK_MODELS)
-    {
-      cart_error("Too many feedback models are implemented. Increase MAX_FEEDBACK_MODELS in starformation_feedback.c");
-    }
-
-  feedback_models[num_feedback_models++] = ptr;
+  cart_assert(sf_feedback);
+  cart_assert(sf_feedback->ionizing_luminosity != NULL);
+  cart_assert(sf_feedback->hydrodynamic_feedback != NULL);
 }
 
 
 void init_star_formation_feedback()
 {
-  int i;
-
   /*
-  // call init_feedback for all currently used feedback models
+  // call init for the current feedback model
   */
-  for(i=0; i<num_feedback_models; i++)
-    {
-      if(feedback_models[i]->init_feedback != NULL) feedback_models[i]->init_feedback();
-    }
+  if(sf_feedback->init != NULL) sf_feedback->init();
 }
 
 
@@ -136,51 +107,23 @@ double dUfact;  /* must be here to simplify OpenMP directives */
 
 void stellar_feedback(int level, int cell, int ipart, double t_next )
 {
-  int i;
-
   /*
-  // call feedback for all currently used feedback models
+  // call hydrodynamic_feedback for the current feedback model
   */
-  for(i=0; i<num_feedback_models; i++)
-    {
-      cart_assert(feedback_models[i]->feedback != NULL);
-      feedback_models[i]->feedback(level,cell,ipart,t_next);
-    }
+  sf_feedback->hydrodynamic_feedback(level,cell,ipart,t_next);
 }
 
 
 void setup_star_formation_feedback(int level)
 {
-  int i;
-
   dUfact = feedback_temperature_ceiling/(units->temperature*constants->wmu*(constants->gamma-1));
 
   /*
-  // call level_setup for all currently used feedback models
+  // call setup for the current feedback model
   */
-  for(i=0; i<num_feedback_models; i++)
-    {
-      if(feedback_models[i]->setup_level != NULL) feedback_models[i]->setup_level(level);
-    }
+  if(sf_feedback->setup != NULL) sf_feedback->setup(level);
 }
 
-/*
-//  Currently implemented models
-*/
-extern sf_feedback_t sf_feedback_snII;
-extern sf_feedback_t sf_feedback_snIa;
-extern sf_feedback_t sf_feedback_ml;
-
-const struct StarFormationFeedbackModels sf_feedback = 
-{
-  &sf_feedback_snII,
-  &sf_feedback_snIa,
-  &sf_feedback_ml
-};
-
-#else  /* HYDRO && PARTICLES */
-
-const struct StarFormationFeedbackModels sf_feedback = { NULL, NULL, NULL };
-
 #endif /* HYDRO && PARTICLES */
+
 #endif /* STAR_FORMATION */

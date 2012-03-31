@@ -116,39 +116,26 @@ float cell_radiation_pressure(int cell)
 }
 
 
-void rtInitSource(int level)
+#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) || !defined(STAR_FORMATION)
+void rtSetupSource(int level)
 {
-  /* Time the source is on (20 Myr) */
-#ifdef RT_OLDSTYLE_SOURCE_FUNCTION
-  const float ShiningTime = 2.0e7;
-#else
   const float ShiningTime = 3.0e6;
-#endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
-
   rt_src_rate = units->time/(ShiningTime*constants->yr);
 }
 
 
 float rtSource(int ipart)
 {
-  int istar;
-#if defined(PARTICLES) && defined(STAR_FORMATION)
-#ifdef RT_OLDSTYLE_SOURCE_FUNCTION
-  float x1;
-#else
-  float x1, x2, dx;
-#endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
-#endif /* PARTICLES && STAR_FORMATION */
-
-#if defined(PARTICLES) && defined(STAR_FORMATION)
-  if(!particle_is_star(ipart)) return 0.0;
-#endif
-
 #ifdef RT_TEST
   return 1.0;
 #endif
 
 #if defined(PARTICLES) && defined(STAR_FORMATION)
+  int istar;
+  float x1, x2, dx, q;
+
+  if(!particle_is_star(ipart)) return 0.0;
+
   /*
   //  The convention is different from HART
   */
@@ -170,13 +157,6 @@ float rtSource(int ipart)
   */
   x1 = rt_src_rate*(particle_t[istar]-star_tbirth[istar]-particle_dt[ipart]);
   if(x1 < 0.0) x1 = 0.0;
-
-#ifdef RT_OLDSTYLE_SOURCE_FUNCTION
-  if(x1 < 100)
-    {
-      return exp(-x1)*(1.0-exp(-rt_src_rate*particle_dt[ipart]))/particle_dt[ipart];
-    }
-#else
   if(x1 < 1.0e4)
     {
       /*
@@ -188,15 +168,15 @@ float rtSource(int ipart)
 	  x2 = x1 + dx;
 	  x1 *= (0.8+x1*x1);
 	  x2 *= (0.8+x2*x2);
-	  return (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
+	  q = (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
 	}
       else
 	{
 	  x2 = x1*(0.8+x1*x1);
-	  return (0.8+3*x1*x1)/(1+x2)/(1+x2)*rt_src_rate;
+	  q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*rt_src_rate;
 	}
+      return q;
     }
-#endif /* RT_OLDSTYLE_SOURCE_FUNCTION */
   else
     {
       return 0.0;
@@ -205,6 +185,7 @@ float rtSource(int ipart)
   return 1.0;
 #endif /* PARTICLES && STAR_FORMATION */
 }
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
 
 
 void rtConfigInit()

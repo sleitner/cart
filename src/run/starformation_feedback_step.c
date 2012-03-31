@@ -15,15 +15,7 @@
 
 
 #ifdef BLASTWAVE_FEEDBACK
-typedef struct
-{
-  double energy;
-  double metals;
-  double dt;
-}
-fb_pars;
-
-extern fb_pars fbp_bw_phys;
+extern double blastwave_time;
 #endif/* BLASTWAVE_FEEDBACK */
 
 
@@ -31,7 +23,7 @@ extern fb_pars fbp_bw_phys;
 void check_bwtime_precision(int level)
 {
   /* unlikely but tl and dtl are double */
-  cart_assert( (dtl[level]*units->time/constants->yr) / fbp_bw_phys.dt > 1e-6 ); 
+  cart_assert( (dtl[level]*units->time/constants->yr) / blastwave_time > 1e-6 ); 
 }
 #endif /* BLASTWAVE_FEEDBACK */
 

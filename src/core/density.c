@@ -12,6 +12,7 @@
 #include "iterators.h"
 #include "particle.h"
 #include "rt.h"
+#include "starformation_feedback.h"
 #include "times.h"
 #include "timing.h"
 #include "tree.h"
@@ -49,7 +50,11 @@ void initialize_density( int level ) {
 	start_time( WORK_TIMER );
 
 #ifdef RT_VAR_SOURCE
-	rtInitSource(level);
+#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) || !defined(STAR_FORMATION)
+	rtSetupSource(level);
+#else  /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
+	if(sf_feedback->setup != NULL) sf_feedback->setup(level);
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
 #endif
 
 #ifdef PARTICLES
@@ -265,6 +270,14 @@ void assign_particle_density( int level ) {
 	double size2, size_inverse;
 #ifdef RT_VAR_SOURCE
 	float sor;
+#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) || !defined(STAR_FORMATION)
+	float (*rt_source)(int ipart) = rtSource;
+#else  /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
+	/*
+	//  De-reference for efficiency
+	*/
+	float (*rt_source)(int ipart) = sf_feedback->ionizing_luminosity;
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
 #endif
 	int particle_list[DENSITY_CHUNK_SIZE];
 	int cell_list[num_children*DENSITY_CHUNK_SIZE];
@@ -300,7 +313,7 @@ void assign_particle_density( int level ) {
 #endif /* STAR_FORMATION */
 
 #ifdef RT_VAR_SOURCE
-				sor = rtSource(ipart);
+				sor = rt_source(ipart);
 #endif
 
 				if ( is_first ) {
@@ -352,6 +365,14 @@ void assign_particle_density_smoothed( int level ) {
 	double size2_star, size_star_inverse;
 #ifdef RT_VAR_SOURCE
 	float sor;
+#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) || !defined(STAR_FORMATION)
+	float (*rt_source)(int ipart) = rtSource;
+#else  /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
+	/*
+	//  De-reference for efficiency
+	*/
+	float (*rt_source)(int ipart) = sf_feedback->ionizing_luminosity;
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
 #endif
 	int particle_list[DENSITY_CHUNK_SIZE];
 	int cell_list[num_children*DENSITY_CHUNK_SIZE];
@@ -417,7 +438,7 @@ void assign_particle_density_smoothed( int level ) {
 #endif
 
 #ifdef RT_VAR_SOURCE
-				sor = rtSource(ipart);
+				sor = rt_source(ipart);
 #endif
 	
 				if ( is_star ) {

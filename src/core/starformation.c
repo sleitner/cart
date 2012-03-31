@@ -103,7 +103,6 @@ void config_verify_star_formation()
 
   cart_assert(!(sf_metallicity_floor < 0.0));
 
-
   config_verify_star_formation_recipe();
   config_verify_star_formation_feedback();
 }
@@ -144,7 +143,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
   rho_min = max(rho_min,sf_min_overdensity*cosmology->OmegaB/cosmology->OmegaM);
 #endif
 
-  if(sf_recipe->setup_level != NULL) sf_recipe->setup_level(level);
+  if(sf_recipe->setup != NULL) sf_recipe->setup(level);
 
   for(i=0; i<num_level_cells; i++)
     {

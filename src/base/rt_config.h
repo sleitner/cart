@@ -160,6 +160,12 @@
 #endif
 #endif
 
+/*
+//  Tests only work with the old-style source function
+*/
+#ifdef RT_TEST
+#define RT_OLDSTYLE_SOURCE_FUNCTION
+#endif
 
 /*
 //  RT needs COOLING to be set 

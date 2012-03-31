@@ -24,18 +24,15 @@ C
       parameter(G_pXray = 2.0e1)
 C
 #ifndef RT_TEST
-#if defined(RT_UV) && !defined(RT_FIXED_ISM)
-C  
-C  The default value: 1.4e-4 is from Ricotti et al 2002ApJ...575...33R
-C
-      EPSG_UV = fGal*1.4e-4
-      EPSQ_UV = fQSO*1.4e-4
-#else
+#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) && !defined(RT_UV)
 C  
 C  This is for backward compatibility
 C
       EPSG_UV = fGal*5.0e-6
       EPSQ_UV = fQSO*5.0e-6
+#else
+      EPSG_UV = fGal*1.4e-4
+      EPSQ_UV = fQSO*1.4e-4
 #endif
 C
 C  Start initialization

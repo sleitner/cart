@@ -6,7 +6,6 @@
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "starformation_recipe.h"
-#include "starformation_feedback.h"
 #include "tree.h"
 #include "units.h"
 
@@ -25,9 +24,9 @@ sfr = { 0.0, 1.5, 1.5 };
 
 void sfr_config_init()
 {
-  control_parameter_add4(control_parameter_double,&sfr.slope,"sfr:slope","sfr.slope","sf:recipe=0:slope","alpha_sf","the slope of the star formation law with gas density (see HART documentation for exact definition).");
+  control_parameter_add4(control_parameter_double,&sfr.slope,"sf:slope","sfr.slope","sf:recipe=0:slope","alpha_sf","the slope of the star formation law with gas density (see HART documentation for exact definition).");
 
-  control_parameter_add4(control_parameter_double,&sfr.efficiency,"sfr:efficiency","sfr.efficiency","sf:recipe=0:slope","eps_sf","the relative efficiency of the star formation law (see HART documentation for exact definition).");
+  control_parameter_add4(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=0:slope","eps_sf","the relative efficiency of the star formation law (see HART documentation for exact definition).");
 }
 
 
@@ -38,15 +37,7 @@ void sfr_config_verify()
 }
 
 
-void sfr_setup_feedback()
-{
-  add_feedback(sf_feedback.snII);
-  add_feedback(sf_feedback.snIa);
-  add_feedback(sf_feedback.ml);
-}
-
-
-void sfr_setup_level(int level)
+void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time/(4.0e9*constants->yr)*pow(units->density*pow(constants->Mpc,3.0)/(1.0e16*constants->Msun),sfr.slope-1);
 }
@@ -64,8 +55,7 @@ struct StarFormationRecipe sf_recipe_internal =
   sfr_rate,
   sfr_config_init,
   sfr_config_verify,
-  sfr_setup_feedback,
-  sfr_setup_level
+  sfr_setup
 };
 
 

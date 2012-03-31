@@ -16,8 +16,10 @@
 #include <mpi.h>
 
 
-void rtInitSource(int level);
+#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) || !defined(STAR_FORMATION)
+void rtSetupSource(int level);
 float rtSource(int ipart);
+#endif /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
 
 void rtConfigInit();
 void rtConfigVerify();

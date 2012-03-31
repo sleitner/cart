@@ -7,7 +7,6 @@
 #include "control_parameter.h"
 #include "hydro.h"
 #include "starformation_recipe.h"
-#include "starformation_feedback.h"
 #include "rand.h"
 #include "rt.h"
 #include "tree.h"
@@ -30,9 +29,9 @@ sfr = { 0.0, 1.0, 0.0 };
 
 void sfr_config_init()
 {
-  control_parameter_add3(control_parameter_double,&sfr.efficiency,"sfr:efficiency","sfr.efficiency","sf:recipe=3:efficiency","the relative efficiency of the star formation law (relative to the constant depletion time-scale of 1.5 Gyr).");
+  control_parameter_add3(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=3:efficiency","the relative efficiency of the star formation law (relative to the constant depletion time-scale of 1.5 Gyr).");
 
-  control_parameter_add3(control_parameter_double,&sfr.variability,"sfr:variability","sfr.variability","sf:recipe=3:variability","the variability of the efficiency. If <sfr:variability> is greater than 0, then it serves as a dispersion of a lognormal distribution with which the actual SF efficiency fluctuates around <sfr:efficiency> (i.e. <sfr:efficiency> remains the mean of the distribution).");
+  control_parameter_add3(control_parameter_double,&sfr.variability,"sf:variability","sfr.variability","sf:recipe=3:variability","the variability of the efficiency. If <sf:variability> is greater than 0, then it serves as a dispersion of a lognormal distribution with which the actual SF efficiency fluctuates around <sf:efficiency> (i.e. <sf:efficiency> remains the mean of the distribution).");
 }
 
 
@@ -43,15 +42,7 @@ void sfr_config_verify()
 }
 
 
-void sfr_setup_feedback()
-{
-  add_feedback(sf_feedback.snII);
-  add_feedback(sf_feedback.snIa);
-  add_feedback(sf_feedback.ml);
-}
-
-
-void sfr_setup_level(int level)
+void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time/(1.5*constants->Gyr);
 }
@@ -99,8 +90,7 @@ struct StarFormationRecipe sf_recipe_internal =
   sfr_rate,
   sfr_config_init,
   sfr_config_verify,
-  sfr_setup_feedback,
-  sfr_setup_level
+  sfr_setup
 };
 
 #else

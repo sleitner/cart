@@ -6,7 +6,6 @@
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "starformation_recipe.h"
-#include "starformation_feedback.h"
 #include "tree.h"
 #include "units.h"
 
@@ -30,15 +29,15 @@ sfr = { 0.0, 0.005, 0.1, 50.0, 1.0e99, 1.0e6};
 
 void sfr_config_init()
 {
-  control_parameter_add3(control_parameter_double,&sfr.efficiency,"sfr:efficiency","sfr.efficiency","sf:recipe=1.efficiency","the efficiency of the star formation law in molecular gas per free-fall time (a-la Krumholz and Tan 2006).");
+  control_parameter_add3(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=1.efficiency","the efficiency of the star formation law in molecular gas per free-fall time (a-la Krumholz and Tan 2006).");
 
-  control_parameter_add3(control_parameter_double,&sfr.min_molecular_fraction,"sfr:min-molecular-fraction","sfr.min-molecular-fraction","sf:recipe=1.min_molecular_fraction","the minimum molecular (H2) fraction for star formation.");
+  control_parameter_add3(control_parameter_double,&sfr.min_molecular_fraction,"sf:min-molecular-fraction","sfr.min-molecular-fraction","sf:recipe=1.min_molecular_fraction","the minimum molecular (H2) fraction for star formation.");
 
-  control_parameter_add3(control_parameter_double,&sfr.min_cloud_density,"sfr:min-cloud-density","sfr.min-cloud-density","sf:recipe=1:min-cloud-density","the minimum density for computing the free-fall time. The non-zero value of this parameter selects recipes #1 or #2 of Gnedin et al 2009.");
+  control_parameter_add3(control_parameter_double,&sfr.min_cloud_density,"sf:min-cloud-density","sfr.min-cloud-density","sf:recipe=1:min-cloud-density","the minimum density for computing the free-fall time. The non-zero value of this parameter selects recipes #1 or #2 of Gnedin et al 2009.");
 
-  control_parameter_add3(control_parameter_double,&sfr.max_cloud_density,"sfr:max-cloud-density","sfr.max-cloud-density","sf:recipe=1:max-cloud-density","the maximum density for computing the free-fall time. Setting <sfr:max-cloud-density> = <sfr:min-cloud-density> reduces this recipe to the recipe #1 of Gnedin et al 2009; setting <sfr:max-cloud-density> to a very large number effectively removes this limit and reduces this recipe to the recipe #2 of Gnedin et al 2009; a non-trivial value of <sfr:max-cloud-density> > <sfr:min-cloud-density> makes a recipe not discussed in Gnedin et al 2009.");
+  control_parameter_add3(control_parameter_double,&sfr.max_cloud_density,"sf:max-cloud-density","sfr.max-cloud-density","sf:recipe=1:max-cloud-density","the maximum density for computing the free-fall time. Setting <sf:max-cloud-density> = <sf:min-cloud-density> reduces this recipe to the recipe #1 of Gnedin et al 2009; setting <sf:max-cloud-density> to a very large number effectively removes this limit and reduces this recipe to the recipe #2 of Gnedin et al 2009; a non-trivial value of <sf:max-cloud-density> > <sf:min-cloud-density> makes a recipe not discussed in Gnedin et al 2009.");
 
-  control_parameter_add3(control_parameter_double,&sfr.very_high_density,"sfr:very-high-density","sfr.very-high-density","sf:recipe=1:very-high-density","the minimum density above which all gas is assumed to participate in star formation, irrespectively of its molecular fraction. This can be used to smoothly switch to primordial mode of star formation, when the molecular fraction never exceeds about 0.001.");
+  control_parameter_add3(control_parameter_double,&sfr.very_high_density,"sf:very-high-density","sfr.very-high-density","sf:recipe=1:very-high-density","the minimum density above which all gas is assumed to participate in star formation, irrespectively of its molecular fraction. This can be used to smoothly switch to primordial mode of star formation, when the molecular fraction never exceeds about 0.001.");
 }
 
 
@@ -52,15 +51,7 @@ void sfr_config_verify()
 }
 
 
-void sfr_setup_feedback()
-{
-  add_feedback(sf_feedback.snII);
-  add_feedback(sf_feedback.snIa);
-  add_feedback(sf_feedback.ml);
-}
-
-
-void sfr_setup_level(int level)
+void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time*sqrt(32*constants->G*constants->XH*constants->mp/(3*M_PI)); 
 }
@@ -94,8 +85,7 @@ struct StarFormationRecipe sf_recipe_internal =
   sfr_rate,
   sfr_config_init,
   sfr_config_verify,
-  sfr_setup_feedback,
-  sfr_setup_level,
+  sfr_setup
 };
 
 #else /* RADIATIVE_TRANSFER */

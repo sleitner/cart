@@ -80,6 +80,10 @@ set print_all = ""
 
 foreach name ( $list )
 
+    set is_int = `fgrep $name internal_names.txt`
+
+    if ( "$is_int" == "" ) then
+
     cat >> "list_defines.h" << EOF
 #define id$name  $id
 #ifdef $name
@@ -91,6 +95,8 @@ EOF
 
     @ id = $id + 1
     set print_all = ( $print_all "PRINT($name)" )
+
+    endif
 end
 
 echo "#define PRINT_ALL \" >> "list_defines.h"

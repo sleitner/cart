@@ -48,7 +48,7 @@ extern int step;
 /*#define DEBUG*/
 #if defined(BLASTWAVE_FEEDBACK) || defined(ELECTRON_ION_NONEQUILIBRIUM)
 #define CONVERT_FOR_IFRIT
-#error blastwave and electron ion fields are not recognized in HART or IFrIT by default, but they can be written if desired.
+/* NG - that prevents code compilation #error blastwave and electron ion fields are not recognized in HART or IFrIT by default, but they can be written if desired. */
 #endif
 
 
