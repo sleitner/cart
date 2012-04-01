@@ -174,14 +174,14 @@ void accelerate_particles( int level ) {
 				 */
 				pconst = tl[level] - particle_t[ipart] + 0.5*( dtl[level] + particle_dt[ipart] );
 
-				t3t2t1 = pt3 * t2t1;
-				t3t2d1 = pt3 * t2d1;
-				t3d2t1 = pt3 * d2t1;
-				t3d2d1 = pt3 * d2d1;
-				d3t2t1 = pd3 * t2t1;
-				d3t2d1 = pd3 * t2d1;
-				d3d2t1 = pd3 * d2t1;
-				d3d2d1 = pd3 * d2d1;
+				t3t2t1 = t3 * t2t1;
+				t3t2d1 = t3 * t2d1;
+				t3d2t1 = t3 * d2t1;
+				t3d2d1 = t3 * d2d1;
+				d3t2t1 = d3 * t2t1;
+				d3t2d1 = d3 * t2d1;
+				d3d2t1 = d3 * d2t1;
+				d3d2d1 = d3 * d2d1;
 
 				particle_pot[ipart] = particle_mass[ipart] * 
 						(	t3t2t1 * cell_potential(c[0]) +
