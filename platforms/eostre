@@ -8,5 +8,5 @@ CC      = mpicc
 FFLAGS  = -O2 
 F77     = mpif77
 CXX     = mpicxx
-EXTRALIBS = -lg2c -lmpi_f77
+EXTRALIBS = -lg2c 
 

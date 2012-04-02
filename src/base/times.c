@@ -55,9 +55,10 @@ double max_a_inc = 1.1;
 double max_da = 3e-3;
 #endif /* COSMOLOGY */
 
-int step = 0;
-int steps_before_increasing = 4;
+double reduce_dt_factor_shallow_dec = 0.2;
+double reduce_dt_factor_deep_dec = 0.8;
 
+int step = 0;
 int current_step_level = -1;
 
 /*
@@ -179,7 +180,9 @@ void config_init_times()
 
   control_parameter_add2(control_parameter_double,&max_dt,"max-dt","max_dt","maximum allowed time-step.");
 
-  control_parameter_add2(control_parameter_int,&steps_before_increasing,"timesteps-before-increasing","steps_before_increasing","number of global time-steps to make before the time-step is allowed to increase.");
+  control_parameter_add2(control_parameter_double,&reduce_dt_factor_shallow_dec,"reduce-timestep-factor:shallow-decrement","reduce_dt_factor_shallow_dec","a factor by which, after the CFL violation, the time-step reduction factor is decreased for levels shallower than the offending level. For example, if the CFL violation requires a time-step reduction of a factor of 3 at level 5, timesteps on levels from 0 to 4 will be reduced by factors 1+2*<reduce-timestep-factor:shallow-decrement>^(5-level). Must be between 0 and 1 inclusive.");
+
+  control_parameter_add2(control_parameter_double,&reduce_dt_factor_deep_dec,"reduce-timestep-factor:deep-decrement","reduce_dt_factor_deep_dec","a factor by which, after the CFL violation, the time-step reduction factor is decreased for levels deeper than the offending level. For example, if the CFL violation requires a time-step reduction of a factor of 3 at level 5, timesteps on levels 6 and deeper will be reduced by factors 1+2*<reduce-timestep-factor:deep-decrement>^(level-5). Must be between 0 and 1 inclusive.");
 
   control_parameter_add2(control_parameter_int,&min_time_refinement_factor,"time-refinement-factor:min","min_time_refinement_factor","minimum allowed refinement factor between the time-steps on two successive levels.");
 
@@ -229,7 +232,8 @@ void config_verify_times()
 
   cart_assert(max_dt >= 0.0);
 
-  cart_assert(steps_before_increasing > 0);
+  cart_assert(reduce_dt_factor_shallow_dec>=0.0 && reduce_dt_factor_shallow_dec<=1.0);
+  cart_assert(reduce_dt_factor_deep_dec>=0.0 && reduce_dt_factor_deep_dec<=1.0);
 
   cart_assert(min_time_refinement_factor > 0);
   cart_assert(max_time_refinement_factor >= min_time_refinement_factor);
