@@ -943,7 +943,7 @@ void set_timestepping_scheme()
 #ifdef PARTICLES
   if(particle_cfl > 0.0)
     {
-      for(i=0; i<num_particles; i++) if(particle_level[i]>min_level && particle_level[i]<=max_level)
+      for(i=0; i<num_particles; i++) if(particle_level[i]>=min_level && particle_level[i]<=max_level)
 	{
 	  velocity = 0.0;
 	  for(j=0; j<nDim; j++)	velocity = max(fabs(particle_v[i][j]),velocity);
