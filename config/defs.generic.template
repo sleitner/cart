@@ -18,6 +18,8 @@
 
 ?#define SF_RECIPE			<value>
 
+?#define OLDSTYLE_SF_ALGORITHM
+
 ?#define UNIQUE_RAND
 ?#define HYDRO_TRACERS 
 ?#define HYDRO_TRACERS_NGP
@@ -31,6 +33,8 @@
 ?#define DEBUG_MEMORY_USE_VERBOSE
 ?#define NDEBUG
 ?#define MPE_LOG
+
+?#define DISABLE_PLUGINS
 
 ?#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
 ?#define OLDSTYLE_COOLING_EXPLICIT_SOLVER

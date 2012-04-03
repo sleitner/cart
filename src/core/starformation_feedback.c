@@ -10,8 +10,6 @@
 #include "units.h"
 
 
-extern struct StellarFeedback sf_feedback_PopM;
-
 const struct StellarFeedback *sf_feedback = NULL;
 
 
@@ -24,7 +22,7 @@ double blastwave_time = { 50.0e6 };
 
 void config_init_star_formation_feedback()
 {
-  set_feedback_model(&sf_feedback_PopM);  /* default feedback model */
+  cart_assert(sf_feedback != NULL);
 
   /*
   //  IMF

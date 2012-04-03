@@ -69,8 +69,12 @@ struct PluginList
 
 extern struct PluginList plugins;
 
+#ifdef DISABLE_PLUGINS
+#define PLUGIN_POINT(call)
+#else  /* DISABLE_PLUGINS */
 #define PLUGIN_POINT(call) \
   if(plugins.active.call != NULL) for(plugins.next=plugins.head; plugins.next->call!=NULL; plugins.next++) plugins.next->call
+#endif /* DISABLE_PLUGINS */
 
 #endif
 
