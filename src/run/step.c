@@ -990,14 +990,17 @@ void set_timestepping_scheme()
     {
       cart_assert(dtl_old[level] > 0.0);
 
-      if(dtl[level] > 1.001*dtl_old[level]) // allow for round-off error
+      /*
+      //  It is not possible to maintain the old behavior - to allow increase
+      //  only after a given number of steps, because different levels can increase
+      //  and descrease their time-steps simultaneously. But an even better strategy
+      //  is to allow increase ONLY if the previous step is way too small - in real
+      //  simulations the time-step usually only decreases with time.
+      //
+      //  How much is too small? Say, twice below min_time_dec
+      */
+      if(dtl[level] > 2*min_time_dec*dtl_old[level]) // allow for round-off error
 	{
-	  /*
-	  //  It is not possible to maintain the old behavior - to allow increase
-	  //  only after a given number of steps, because different levels can increase
-	  //  and descrease their time-steps simultaneously. Hence, we allow increase
-	  //  right away.
-	  */
 	  dtl[level]  = min(dtl[level],dtl_old[level]*max_time_inc);
 #ifdef DEBUG_TIMESTEP
 	  if(local_proc_id == MASTER_NODE) cart_debug("Limiting the time-step increase at level %d to: %lg Myr",level,dtl[level]*units->time/constants->Myr);
@@ -1013,6 +1016,13 @@ void set_timestepping_scheme()
 #ifdef DEBUG_TIMESTEP
 	  if(local_proc_id == MASTER_NODE) cart_debug("Extending the time-step decrease at level %d to: %lg Myr",level,dtl[level]*units->time/constants->Myr);
 #endif
+	}
+      else
+	{
+	  /*
+	  //  Try to keep the step constant
+	  */
+	  dtl[level] = dtl_old[level];
 	}
     }
 

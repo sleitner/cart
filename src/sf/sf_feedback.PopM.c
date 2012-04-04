@@ -426,10 +426,6 @@ float PopM_ionizing_luminosity(int ipart)
 {
   float x1, x2, dx, q, Z;
 
-
-  cart_error("BLOCKED!!!");
-
-
   if(!particle_is_star(ipart)) return 0.0;
 
   /*
@@ -465,7 +461,7 @@ float PopM_ionizing_luminosity(int ipart)
 #else  /* ENRICHMENT */
       Z = 0.1;
 #endif /* ENRICHMENT */
-      return 1.04e-4/powf(Z,0.1f)/(1.0+0.27*Z);     
+      return 1.04e-4/powf(Z,0.1f)/(1.0+0.27*Z)*q;     
     }
   else
     {

@@ -28,11 +28,11 @@ C
 C  
 C  This is for backward compatibility
 C
-      EPSG_UV = fGal*5.0e-6
-      EPSQ_UV = fQSO*5.0e-6
+      EPSG_UV = fGal*5.0e-6/1.4e-4
+      EPSQ_UV = fQSO*5.0e-6/1.4e-4
 #else
-      EPSG_UV = fGal*1.4e-4
-      EPSQ_UV = fQSO*1.4e-4
+      EPSG_UV = fGal
+      EPSQ_UV = fQSO
 #endif
 C
 C  Start initialization

@@ -175,7 +175,7 @@ float rtSource(int ipart)
 	  x2 = x1*(0.8+x1*x1);
 	  q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*rt_src_rate;
 	}
-      return q;
+      return 1.4e-4*q;
     }
   else
     {

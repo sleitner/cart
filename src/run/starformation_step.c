@@ -58,7 +58,7 @@ void star_formation( int level, int time_multiplier )
 #ifdef OLDSTYLE_SF_ALGORITHM
   /* probability of forming a star is Poisson with <t> = dt_SF */
   P_SF = exp( -dt_eff / dt_SF );
-#endif
+#endif /* OLDSTYLE_SF_ALGORITHM */
 
   select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
   sfr = cart_alloc(float,num_level_cells);
