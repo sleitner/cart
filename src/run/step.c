@@ -67,8 +67,9 @@ extern double cfl_max;
 extern double particle_cfl;
 #endif /* PARTICLES */
 
-extern double max_time_inc;
-extern double min_time_dec;
+extern double max_dt_inc;
+extern double min_dt_dec;
+extern double tol_dt_grow;
 extern double max_dt;
 #ifdef COSMOLOGY
 extern double max_a_inc;
@@ -999,20 +1000,19 @@ void set_timestepping_scheme()
       //
       //  How much is too small? Say, twice below min_time_dec
       */
-      if(dtl[level] > 2*min_time_dec*dtl_old[level]) // allow for round-off error
+      if(dtl[level] > tol_dt_grow*dtl_old[level])
 	{
-	  dtl[level]  = min(dtl[level],dtl_old[level]*max_time_inc);
+	  dtl[level]  = min(dtl[level],dtl_old[level]*max_dt_inc);
 #ifdef DEBUG_TIMESTEP
 	  if(local_proc_id == MASTER_NODE) cart_debug("Limiting the time-step increase at level %d to: %lg Myr",level,dtl[level]*units->time/constants->Myr);
 #endif
 	}
-      else if(dtl[level] < 0.999*dtl_old[level]) // allow for round-off error
+      else if(dtl[level] < 0.999*dtl_old[level]) /* allow for round-off error */
 	{
 	  /*
-	  //  Decrease by at least min_time_dec (so that next time
-	  //  no decrease may be needed).
+	  //  Decrease by at least min_dt_dec (so that next time no decrease may be needed).
 	  */
-	  dtl[level] = min(dtl[level],dtl_old[level]/min_time_dec);
+	  dtl[level] = min(dtl[level],dtl_old[level]/min_dt_dec);
 #ifdef DEBUG_TIMESTEP
 	  if(local_proc_id == MASTER_NODE) cart_debug("Extending the time-step decrease at level %d to: %lg Myr",level,dtl[level]*units->time/constants->Myr);
 #endif

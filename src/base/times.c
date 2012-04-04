@@ -47,8 +47,9 @@ double cfl_max = 0.6;     /* max allowed, re-do the timestep if that number is e
 double particle_cfl = 0.0;
 #endif /* PARTICLES */
 
-double max_time_inc = 1.1;
-double min_time_dec = 1.25;
+double max_dt_inc = 1.1;
+double min_dt_dec = 1.25;
+double tol_dt_grow = 2.0;
 double max_dt = 0.125;
 #ifdef COSMOLOGY
 double max_a_inc = 1.1;
@@ -174,9 +175,11 @@ void config_init_times()
   control_parameter_add2(control_parameter_double,&particle_cfl,"particle-cfl","particle_cfl","the CFL number for particle dynamics. In HYDRO mode this number is usually not needed, as the grid CFL conditions superceeds that of particles. Setting it to zero disables this limit.");
 #endif /* PARTICLES */
 
-  control_parameter_add2(control_parameter_double,&max_time_inc,"max-timestep-increment","max_time_inc","the largest factor by which the time-step is allowed to increase.");
+  control_parameter_add3(control_parameter_double,&max_dt_inc,"max-timestep-increment","max_dt_inc","max_time_inc","the largest factor by which the time-step is allowed to increase.");
 
-  control_parameter_add2(control_parameter_double,&min_time_dec,"min-timestep-decrement","min_time_dec","the smallest factor by which the time-step is allowed to decrease.");
+  control_parameter_add3(control_parameter_double,&min_dt_dec,"min-timestep-decrement","min_dt_dec","min_time_dec","the smallest factor by which the time-step is allowed to decrease.");
+
+  control_parameter_add2(control_parameter_double,&tol_dt_grow,"tolerance-for-timestep-increase","tol_dt_grow","the tolerance factor by which the optimal time-step should increase the time-step actually taken on the previous step to be allowed to increase it value; if the time-step on a given level <dtl> is between <dtl_old> and <tolerance-for-timestep-increase>*<dtl_old>, then <dtl> is set to <dtl_old>.");
 
   control_parameter_add2(control_parameter_double,&max_dt,"max-dt","max_dt","maximum allowed time-step.");
 
@@ -226,9 +229,11 @@ void config_verify_times()
   cart_assert(!(particle_cfl < 0.0));
 #endif /* PARTICLES */
 
-  cart_assert(max_time_inc > 1.0);
+  cart_assert(max_dt_inc > 1.0);
 
-  cart_assert(min_time_dec > 1.0);
+  cart_assert(min_dt_dec > 1.0);
+
+  cart_assert(!(tol_dt_grow < 1.0));
 
   cart_assert(max_dt >= 0.0);
 
