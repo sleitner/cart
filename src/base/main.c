@@ -12,11 +12,11 @@
 #include "control_parameter.h"
 
 
-int num_procs;
-int local_proc_id;
+extern int num_procs;
+extern int local_proc_id;
 
-const char* logfile_directory = NULL;
-const char* executable_name;
+extern const char* logfile_directory;
+extern const char* executable_name;
 
 
 int drive();

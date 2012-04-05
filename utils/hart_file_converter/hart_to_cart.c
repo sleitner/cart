@@ -11,6 +11,7 @@
 #include <mpi.h>
 
 #include "io.h"
+#include "io_cart.h"
 #include "tree.h"
 #include "sfc.h"
 #include "parallel.h"
@@ -36,7 +37,6 @@ int main ( int argc, char *argv[]) {
 
 	strcpy( output_directory, "." );
 
-	init_auxiliary();
 	init_timers();
 
 	config_init();
@@ -46,7 +46,7 @@ int main ( int argc, char *argv[]) {
 	init_cell_buffer();
 
 	read_hart_grid_binary( argv[1] );
-	units_reset();
+	units_init();
 #ifdef COSMOLOGY
 	abox[min_level] = abox_from_tcode(tl[min_level]);
 	auni[min_level] = auni_from_tcode(tl[min_level]);
@@ -59,7 +59,7 @@ int main ( int argc, char *argv[]) {
 	cart_debug("done reading data...");
 	cart_debug("tl = %e", tl[min_level] );
 
-	write_grid_binary( argv[2] );
+	write_cart_grid_binary( argv[2] );
 	
 	MPI_Finalize();
 

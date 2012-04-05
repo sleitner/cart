@@ -20,8 +20,12 @@
 
 extern int current_step_level;
 
-extern const char*logfile_directory;
 
+int num_procs;
+int local_proc_id;
+
+const char* logfile_directory = NULL;
+const char* executable_name;
 
 int num_options = 0;
 const char **options = NULL;

@@ -1,7 +1,6 @@
 
-compile_analysis: analysis
+dummy_ng: analysis
 
-SRC_DIR = $(TOP_DIR)/src
 NYG_DIR = $(TOP_DIR)/utils/analysis_nyg
 include $(TOP_DIR)/Make.config
 

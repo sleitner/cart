@@ -1,0 +1,10 @@
+
+dummy_cp: check_placement
+
+include $(TOP_DIR)/Make.config
+
+check_placement: .obj/.phony .obj/system.o $(TOP_DIR)/utils/misc/check_placement.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base $(INCLUDES) .obj/system.o $(TOP_DIR)/utils/misc/check_placement.c -o check_placement
+
+ALL += check_placement
+CLEAN += check_placement

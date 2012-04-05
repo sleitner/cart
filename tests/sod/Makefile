@@ -1,9 +1,6 @@
 TOP_DIR = ../..
-SRC_DIR = $(TOP_DIR)/src
 
 compile:	sod
-
-run:
 
 include $(TOP_DIR)/Make.config
 

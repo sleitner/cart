@@ -13,8 +13,8 @@
 #include "defs.h"
 #include "config.h"
 #include "io.h"
-#include "io_art.h"
-#include "io_cartio.h"
+#include "io_artio.h"
+#include "io_cart.h"
 #include "tree.h"
 #include "sfc.h"
 #include "parallel.h"
@@ -41,7 +41,7 @@ int main_analysis ( int argc, char *argv[]) {
 		cart_error("Usage: mpirun -np 1 cartio_to_cart input output[:num_output_files]");
 	}
 
-	read_cartio_restart( argv[1] );
+	read_cart_restart( argv[1] );
 
 	/* not sure this is necessary */
 	units_reset();
@@ -68,7 +68,7 @@ int main_analysis ( int argc, char *argv[]) {
 		}
     }
 
-	write_art_restart( );
+	write_artio_restart( );
 
 	MPI_Finalize();
 

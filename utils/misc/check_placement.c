@@ -7,7 +7,7 @@
 #include <omp.h>
 #endif
 
-#include "../../src/system.h"
+#include "system.h"
 
 #define MAX_PROCS (1024*256)
 

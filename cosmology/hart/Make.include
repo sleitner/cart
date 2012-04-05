@@ -9,7 +9,6 @@ endif
 
 compile: $(ART)
 
-SRC_DIR = $(TOP_DIR)/src
 include $(TOP_DIR)/Make.config
 
 start.c: 
@@ -25,4 +24,6 @@ $(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/hart_init.o .obj/hart_re
 	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/hart -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) .obj/hart_init.o .obj/hart_reader.o $(START).c -o $(ART) $(LIBS) $(EXTRALIBS)
 
 EXEC = 
+
+ALL += $(ART)
 CLEAN += $(ART) $(START).o

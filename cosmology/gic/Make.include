@@ -9,7 +9,6 @@ endif
 
 compile: $(ART)
 
-SRC_DIR = $(TOP_DIR)/src
 include $(TOP_DIR)/Make.config
 
 start.c: 

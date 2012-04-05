@@ -10,8 +10,8 @@
 
 #include <mpi.h>
 
-#include "defs.h"
 #include "io.h"
+#include "io_cart.h"
 #include "tree.h"
 #include "sfc.h"
 #include "parallel.h"
@@ -37,7 +37,6 @@ int main ( int argc, char *argv[]) {
 
 	strcpy( output_directory, "." );
 
-	init_auxiliary();
 	init_timers();
 
 	config_init();
@@ -46,8 +45,8 @@ int main ( int argc, char *argv[]) {
 	init_tree();
 	init_cell_buffer();
 
-	read_grid_binary( argv[1] );	
-	units_reset();
+	read_cart_grid_binary( argv[1] );	
+	units_init();
 #ifdef COSMOLOGY
 	abox[min_level] = abox_from_tcode(tl[min_level]);
 	auni[min_level] = auni_from_tcode(tl[min_level]);
