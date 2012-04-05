@@ -10,6 +10,5 @@ include $(TOP_DIR)/Make.config
 
 art: .obj/.phony $(SIM_OBJS) defs.h rt_defs.h start_rt.c .obj/extra/healpix.o .obj/extra/ifrit.o .obj/extra/utils.o .obj/oldstyle_units.o
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) start_rt.c -o art $(LIBS) $(EXTRALIBS) .obj/extra/healpix.o .obj/extra/ifrit.o .obj/extra/utils.o .obj/oldstyle_units.o
-	which mpirun
 
 CLEAN := start_rt.o art

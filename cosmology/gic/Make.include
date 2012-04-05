@@ -23,7 +23,6 @@ start.c:
 
 $(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/gic_init.o .obj/gic_reader.o
 	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/gic -I$(SRC_DIR)/base $(INCLUDES) $(SIM_OBJS) .obj/gic_reader.o .obj/gic_init.o $(START).c -o $(ART) $(LIBS) $(EXTRALIBS)
-	which mpirun
 
 EXEC =
 
