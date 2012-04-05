@@ -488,7 +488,7 @@ int timestep( int level, MPI_Comm level_com )
 	int ret;
 	int step_ret;
 	int true_ret;
-	double dt_needed;
+	double dt_needed, rdf_old, rdf_new;
 	MPI_Comm child_com;
 	int refined;
 
@@ -659,9 +659,11 @@ int timestep( int level, MPI_Comm level_com )
 		//  Set-up a time-step restriction (but only the first time,
 		//  other times the solution is already bogus).
 		*/
-		if(reduce_dt_factor[level] == 0)
+		if(ret == 0)
 		  {
-		    reduce_dt_factor[level] = dtl[level]/(0.1*dtl[level]+dt_needed);
+		    rdf_old = reduce_dt_factor[level];
+		    rdf_new = dtl[level]/(0.1*dtl[level]+dt_needed);
+		    reduce_dt_factor[level] = rdf_new + rdf_old + rdf_new*rdf_old;
 		  }
 		ret = -1;
 	}
