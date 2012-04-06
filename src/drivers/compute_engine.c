@@ -105,8 +105,9 @@ int drive_run () {
 	  }
 	if(i == num_options)
 	  {
+	    if(str == NULL) str = ".";
 	    config_create_file("sample.cfg");
-	    cart_error("Usage: art <config_file> [command-line-options]\n   A documented sample of <config_file> is created as %s/sample.cfg",(str==NULL)?".":str);
+	    cart_error("Usage: art <config_file> [command-line-options]\n   A documented sample of <config_file> is created as %s/sample.cfg",str);
 	  }
 
 	config_read_file(options[i]);
