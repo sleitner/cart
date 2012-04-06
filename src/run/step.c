@@ -82,6 +82,7 @@ extern double max_da;
 //  reduce_dt_factor=0 means no reduction.
 */
 DEFINE_LEVEL_ARRAY(double,reduce_dt_factor);
+DEFINE_LEVEL_ARRAY(double,reduce_dt_factor_step);
 
 extern double reduce_dt_factor_shallow_dec;
 extern double reduce_dt_factor_deep_dec;
@@ -219,14 +220,14 @@ void run( int restart, const char *restart_label ) {
 	current_steps = 0;
 	last_restart_step = 0;
 
-	for ( level = min_level; level <= max_level; level++ ) reduce_dt_factor[level] = 0.0;
-
 	PLUGIN_POINT(RunBegin)();
 
 	/*
 	//  Plugin should use-up all un-extracted options
 	*/
 	die_on_unknown_options();
+
+	for ( level = min_level; level <= max_level; level++ ) reduce_dt_factor[level] = 0.0;
 
 	while ( 1 ) {
 
@@ -405,6 +406,8 @@ int global_timestep() {
 
 	PLUGIN_POINT(GlobalStepBegin)();
 
+	for ( level = min_level; level <= max_level; level++ ) reduce_dt_factor_step[level] = 0.0;
+
 	ret = timestep( min_level, mpi.comm.run );
 	current_step_level = -1;
 
@@ -459,21 +462,28 @@ int global_timestep() {
 		*/
 		for(level=min_level; level<=max_level; level++)
 		  {
-		    tmp[level] = reduce_dt_factor[level];
+		    tmp[level] = reduce_dt_factor_step[level];
 		  }
 		   
-		MPI_Allreduce(&tmp[min_level],&reduce_dt_factor[min_level],max_level-min_level+1,MPI_DOUBLE,MPI_MAX,mpi.comm.run);
+		MPI_Allreduce(&tmp[min_level],&reduce_dt_factor_step[min_level],max_level-min_level+1,MPI_DOUBLE,MPI_MAX,mpi.comm.run);
 
 		end_time( COMMUNICATION_TIMER );
 #ifdef DEBUG_TIMESTEP
 		for(level=min_level; level<=max_level; level++)
 		  {
-		    if(reduce_dt_factor[level] > 0.0)
+		    if(reduce_dt_factor[level]>0.0 || reduce_dt_factor_step[level]>0.0)
 		      {
-			cart_debug("Must reduce timestep[%d] by factor %lg",reduce_dt_factor[level]+1);
+			cart_debug("Must reduce timestep[%d] by factor=%lg x factor=%lg (total=%lg)",level,reduce_dt_factor[level]+1,reduce_dt_factor_step[level]+1,(reduce_dt_factor[level]+1)*(reduce_dt_factor_step[level]+1));
 		      }
 		  }
 #endif
+		/*
+		//  (1+Rtot) = (1+Rold)*(1+Rnew)
+		*/
+		for(level=min_level; level<=max_level; level++)
+		  {
+		    reduce_dt_factor[level] += reduce_dt_factor_step[level]*(reduce_dt_factor[level]+1);
+		  }
 	}
 
 	end_time(LEVEL_TIMER);
@@ -659,11 +669,9 @@ int timestep( int level, MPI_Comm level_com )
 		//  Set-up a time-step restriction (but only the first time,
 		//  other times the solution is already bogus).
 		*/
-		if(ret == 0)
+		if(reduce_dt_factor_step[level] == 0.0)
 		  {
-		    rdf_old = reduce_dt_factor[level];
-		    rdf_new = dtl[level]/(0.1*dtl[level]+dt_needed);
-		    reduce_dt_factor[level] = rdf_new + rdf_old + rdf_new*rdf_old;
+		    reduce_dt_factor_step[level] = dtl[level]/(0.1*dtl[level]+dt_needed);
 		  }
 		ret = -1;
 	}

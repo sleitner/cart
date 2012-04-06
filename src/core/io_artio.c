@@ -915,7 +915,10 @@ void read_artio_restart( const char *label ) {
 #endif
 
 	handle = artio_fileset_open(filename, type, &con);
-	cart_assert( handle != NULL );
+	if( handle == NULL )
+	  {
+	    cart_error("Unable to open ARTIO fileset %s of type %d",filename,type);
+	  }
 
 	artio_parameter_get_long(handle, "num_root_cells", &num_file_root_cells);
 
