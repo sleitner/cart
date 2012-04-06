@@ -498,7 +498,7 @@ int timestep( int level, MPI_Comm level_com )
 	int ret;
 	int step_ret;
 	int true_ret;
-	double dt_needed, rdf_old, rdf_new;
+	double dt_needed;
 	MPI_Comm child_com;
 	int refined;
 

@@ -9,6 +9,7 @@
 
 #include "../base/auxiliary.h"
 #include "../base/rand.h"
+#include "../base/system.h"
 
 #include "../core/agn.h"
 #include "../core/cell_buffer.h"
@@ -79,8 +80,20 @@ int drive_run () {
                         num_procs, MAX_PROCS );
         }
 
-	/* load configuration file */
+        /*
+        //  Look for an option -p/--run-time-path=<path> 
+	//  and switch there if it is present
+        */
+        str = extract_option1("run-time-path","p",NULL);
+        if(str != NULL)
+          {
+	    if(system_chdir(str) != 0)
+              {
+                cart_error("Unable to switch to the directory %s",str);
+              }
+          }
 
+	/* load configuration file */
 	config_init();
 
 	/*
@@ -93,7 +106,7 @@ int drive_run () {
 	if(i == num_options)
 	  {
 	    config_create_file("sample.cfg");
-	    cart_error("Usage: art <config_file> [command-line-options]\n   A documented sample of <config_file> is created\n   in the current working directory as sample.cfg");
+	    cart_error("Usage: art <config_file> [command-line-options]\n   A documented sample of <config_file> is created as %s/sample.cfg",(str==NULL)?".":str);
 	  }
 
 	config_read_file(options[i]);
