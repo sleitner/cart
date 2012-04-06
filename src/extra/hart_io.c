@@ -46,13 +46,13 @@ extern int step;
 #endif
 
 /*#define DEBUG*/
-#if defined(BLASTWAVE_FEEDBACK) || defined(ELECTRON_ION_NONEQUILIBRIUM)
-#define CONVERT_FOR_IFRIT
-/* NG - that prevents code compilation #error blastwave and electron ion fields are not recognized in HART or IFrIT by default, but they can be written if desired. */
+/* #define ADDED_NEW_HART_ARRAYS_FOR_IFRIT */
+#if (defined(BLASTWAVE_FEEDBACK) || defined(ELECTRON_ION_NONEQUILIBRIUM)) && defined ADDED_NEW_HART_ARRAYS_FOR_IFRIT
+#error blastwave and electron ion fields are not recognized in HART or IFrIT by default, if you want them written alter IFrIT IO and define ADDED_NEW_HART_ARRAYS_FOR_IFRIT.
 #endif
 
 
-
+#define HART_num_enrichment_species 2
 
 #ifdef RADIATIVE_TRANSFER
 #define HART_NVAR_L6N  /* necessary for certain rt runs */
@@ -61,7 +61,13 @@ extern int step;
 #define HART_rt_num_chem_species  0
 #endif  /* RADIATIVE_TRANSFER */
 
-#define HART_num_enrichment_species  2
+#ifdef ADDED_NEW_HART_ARRAYS_FOR_IFRIT
+#define HART_num_extra_hydro_vars num_extra_hydro_vars
+#define HART_num_feedback_species num_feedback_species
+#else
+#define HART_num_extra_hydro_vars 0
+#define HART_num_feedback_species 0
+#endif /* ADDED_NEW_HART_ARRAYS_FOR_IFRIT */
 
 #ifdef RADIATIVE_TRANSFER
 #ifndef HART_NVAR_L6N 
@@ -73,14 +79,9 @@ const int HART_nvarMax = (2 + (rt_num_et_vars+rt_num_disk_vars));
 const int HART_nvarMax = 2 ; //potential vars
 #endif /* RADIATIVE_TRANSFER */
 
-const int HART_num_hydro_vars = (num_hydro_vars + HART_num_enrichment_species - num_enrichment_species + HART_rt_num_chem_species - rt_num_chem_species)
-#if defined(BLASTWAVE_FEEDBACK) && defined(CONVERT_FOR_IFRIT)
-  + 1
-#endif 
-#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
-  +1
-#endif 
-    ; 
+const int HART_num_hydro_vars = (num_hydro_vars + HART_num_enrichment_species - num_enrichment_species + HART_rt_num_chem_species - rt_num_chem_species
+				 + HART_num_extra_hydro_vars - num_extra_hydro_vars + HART_num_feedback_species - num_feedback_species);
+     
 
 typedef struct {
 	int cell;
@@ -390,7 +391,7 @@ void read_hart_grid_binary( char *filename ) {
 				cell_gas_pressure(icell) = vars_buffer[i++];
 				cell_gas_gamma(icell) = vars_buffer[i++];
 				cell_gas_internal_energy(icell) = vars_buffer[i++];
-#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
+#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				cell_electron_internal_energy(icell) = vars_buffer[i++]; /* not used in HART */
 #endif 
 #ifdef ENRICHMENT
@@ -414,7 +415,7 @@ void read_hart_grid_binary( char *filename ) {
 				  i++; //skip -- HART always writes H2+ and H- density
 				}
 #endif /* RADIATIVE TRANSFER */
-#if defined(BLASTWAVE_FEEDBACK) && defined(CONVERT_FOR_IFRIT)
+#if defined(BLASTWAVE_FEEDBACK) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				  cell_blastwave_time(icell) = vars_buffer[i++]; /* not used in HART */
 #endif 
 				idx++;
@@ -616,7 +617,7 @@ void read_hart_grid_binary( char *filename ) {
                                 cell_gas_pressure(icell) = child_cells[j].vars[k++];
                                 cell_gas_gamma(icell) = child_cells[j].vars[k++];
                                 cell_gas_internal_energy(icell) = child_cells[j].vars[k++];
-#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
+#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				cell_electron_internal_energy(icell) = child_cells[j].vars[k++]; /* not used in HART */
 #endif 
 #ifdef ENRICHMENT
@@ -640,7 +641,7 @@ void read_hart_grid_binary( char *filename ) {
 				  k++; //skip -- HART always writes H2+ and H- density
 				}
 #endif /* RADIATIVE TRANSFER */
-#if defined(BLASTWAVE_FEEDBACK) && defined(CONVERT_FOR_IFRIT)
+#if defined(BLASTWAVE_FEEDBACK) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				cell_blastwave_time(icell) = child_cells[j].vars[k++]; /* not used in HART */
 #endif 
 				cart_assert(k == num_hydro_vars_file);
@@ -883,7 +884,7 @@ void write_hart_grid_binary( char *filename ) {
 				cellhvars[i++] = cell_gas_pressure(icell);
 				cellhvars[i++] = cell_gas_gamma(icell);
 				cellhvars[i++] = cell_gas_internal_energy(icell);
-#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
+#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				cellhvars[i++] = cell_electron_internal_energy(icell); /* not used in HART */
 #endif 
 #ifdef ENRICHMENT
@@ -907,9 +908,19 @@ void write_hart_grid_binary( char *filename ) {
 				  cellhvars[i++] = 0; // H2+ density H- density
 				}
 #endif /* RADIATIVE TRANSFER */
-#if defined(BLASTWAVE_FEEDBACK) && defined(CONVERT_FOR_IFRIT)
+#if defined(BLASTWAVE_FEEDBACK) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)  //snl1
 				cellhvars[i++] = cell_blastwave_time(icell); /* not used in HART */
-#endif 
+#endif
+				
+// #ifndef ADDED_NEW_HART_ARRAYS_FOR_IFRIT
+// #ifdef BLASTWAVE_FEEDBACK
+// 				i++;
+// #endif /* BLASTWAVE_FEEDBACK */
+// #ifdef 	ELECTRON_ION_NONEQUILIBRIUM
+// 				i++;
+// #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+// #endif /* ADDED_NEW_HART_ARRAYS_FOR_IFRIT */
+				
 				idx++;
 			}
 		}
@@ -1091,7 +1102,7 @@ void write_hart_grid_binary( char *filename ) {
 				cellhvars[6] = cell_gas_gamma(icell);
 				cellhvars[7] = cell_gas_internal_energy(icell);
 				k=8;
-#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(CONVERT_FOR_IFRIT)
+#if defined(ELECTRON_ION_NONEQUILIBRIUM) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				cellhvars[k++] = cell_electron_internal_energy(icell); /* not used in HART */
 #endif 
 #ifdef ENRICHMENT
@@ -1115,7 +1126,7 @@ void write_hart_grid_binary( char *filename ) {
 				  cellhvars[k++] = 0; // H2+ density H- density
 				}
 #endif /* RADIATIVE TRANSFER */
-#if defined(BLASTWAVE_FEEDBACK) && defined(CONVERT_FOR_IFRIT)
+#if defined(BLASTWAVE_FEEDBACK) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				cellhvars[k++] = cell_blastwave_time(icell); /* not used in HART */
 #endif 
 
