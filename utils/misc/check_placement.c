@@ -35,6 +35,8 @@ int main(int argc, char *argv[])
 
   if(local_proc_id != 0) return;
 
+  printf("current directory: %s\n",system_getcwd());
+
   for(proc=0; proc<num_procs; proc++)
     {
       printf("mpi task %3u hostname %s:%d\n",proc,task_hostnames[proc],pid[proc]);

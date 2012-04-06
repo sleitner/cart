@@ -70,6 +70,14 @@ double system_get_available_memory()
 #endif
 }
 
+const char *system_getcwd()
+{
+  const int size = 1024;
+  static char buf[size];
+
+  return getcwd(buf,size);
+}
+
 int system_mkdir(const char *name)
 {
   switch(mkdir(name,S_IRWXU | S_IRGRP | S_IXGRP))

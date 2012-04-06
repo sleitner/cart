@@ -10,6 +10,7 @@ int system_get_pid();
 char* system_get_time_stamp(int utc);
 double system_get_available_memory();
 
+const char *system_getcwd();
 int system_mkdir(const char *name);
 int system_chdir(const char *name);
 
