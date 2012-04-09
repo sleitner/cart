@@ -24,13 +24,15 @@
 
 
 
-#define equil            1.0
-#define n_h2            (100.0)
+#define equil           (1e-7) 
+/* #define equil           (1.0)  */
+#define n_h2            (1e-5)
+#define T_h2            (1.0e4)  
 #define n_ambient       (n_h2/equil) 
-#define T_h2            (100.0)  
 #define T_ambient       (T_h2*equil)
 //#define mstar_one_msun   1e5  //5e3; //10
 #define mstar_one_msun   1e6  //5e3; //10
+#define Radius_stargas   1000.  //5e3; //10
 
 
 

@@ -31,10 +31,13 @@
 #include "auxiliary.h"
 #include "starformation.h"
 
+#ifdef RT_OTVET_SAVE_FLUX
+extern int rt_flux_frequency;
+extern float rt_flux[num_cells][num_neighbors]; // //-x=0,+x=1;+y=3;+z=5 
+#endif
+
 #include "output_slice.h"
 const int string_size=256;
-
-extern double auni_init;
 
 const int axis_direction[nDim][nDim-1] = {
 #if nDim == 2
@@ -83,8 +86,18 @@ void name_cell_property(int iflag, char varname[]){
     case  OUT_CELL_URAD:
         sprintf(varname,"Urad_ergcc\n");
         break;
+    case  OUT_CELL_FHI:
+        sprintf(varname,"fh1_number\n");
+        break;
+    case  OUT_CELL_FH2:
+        sprintf(varname,"fh2_number\n");
+        break;
+#ifdef RT_OTVET_SAVE_FLUX
+    case  OUT_CELL_FLUX0:
+        sprintf(varname,"flux0_ergcm2\n");
+        break;
+#endif        
 #endif
-        
     case OUT_CELL_LEVEL: 
         sprintf(varname,"level_number\n");
         break;
@@ -126,19 +139,35 @@ float value_cell_property(int icell,int iflag){
         return (float)
             ( cell_gas_pressure(icell)*units->energy_density*constants->cc/constants->erg );
         break;
-#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
-/*     case  OUT_CELL_TAUUV:  */
-/*         return (float) cell_tauUV(icell); */
-/*         break; */
-/*     case  OUT_CELL_RADIATION_PRESSURE: */
-/*         return (float) */
-/*             ( cell_radiation_pressure(icell) */
-/*               /(cell_gas_pressure(icell)-cell_radiation_pressure(icell)) ); */
-/*         break; */
-/*     case  OUT_CELL_URAD: */
-/*         return (float) */
-/*             ( cell_Urad(icell)*units->energy_density*constants->cc/constants->erg ); */
-/*         break; */
+#if defined(RADIATIVE_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
+#ifdef SNLUPDATE
+    case  OUT_CELL_TAUUV:  
+        return (float) cell_tauUV(icell);
+        break;
+    case  OUT_CELL_RADIATION_PRESSURE:
+        return (float)
+            ( cell_radiation_pressure(icell)
+              /(cell_gas_pressure(icell)-cell_radiation_pressure(icell)) );
+        break;
+    case  OUT_CELL_URAD:
+        return (float)
+            ( cell_Urad(icell)*units->energy_density*constants->cc/constants->erg );
+        break;
+#endif
+    case  OUT_CELL_FHI:
+        return (float)
+            cell_HI_fraction(icell);
+        break;
+    case  OUT_CELL_FH2:
+        return (float)
+            cell_H2_fraction(icell);
+        break;
+#ifdef RT_OTVET_SAVE_FLUX
+    case  OUT_CELL_FLUX0:
+        return (float)
+            rt_flux[icell][0]*units->energy_density*units->length/constants->erg;
+        break;
+#endif        
 #endif
     case OUT_CELL_MACH: 
         px2 = cell_momentum(icell,0)*cell_momentum(icell,0);
@@ -194,7 +223,7 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
 #ifdef COSMOLOGY
     fdummy  = auni[min_level];
     fwrite( &fdummy, sizeof(float), 1, output );
-    fdummy  = (tphys_from_tcode(tl[min_level])-tphys_from_auni(auni_init))*1e-6;
+    fdummy  = tphys_from_tcode(tl[min_level])*1e-6;
     fwrite( &fdummy, sizeof(float), 1, output );
 #else
     cart_error("pick a different time variable to output");

@@ -17,7 +17,7 @@
 #include "cell_buffer.h"
 #include "iterators.h"
 #include "load_balance.h"
-#include "../run/step.h"
+#include "../../src/run/step.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
@@ -38,12 +38,10 @@
 #include "rt_debug.h"
 
 #include "start_radp.h"
-void create_star_particle( int icell, float mass, int type );
+void create_star_particle( int icell, float mass, double dt, int type );
     
-extern double auni_init, t_init;
 
-
-const int central_cell=num_grid/2;
+double pos_central[nDim]={num_grid/2.,num_grid/2.,num_grid/2.};
 double tot_energy0=0;
 double tot_momentum0=0;
 /* const int NSTARS=1; */
@@ -61,9 +59,9 @@ double advection_momentum(int icell,int idir);
 
 int icell_central(double dispx,double dispy,double dispz){
     double pos[nDim];
-    pos[0] = central_cell+dispx;
-    pos[1] = central_cell+dispy;
-    pos[2] = central_cell+dispz;
+    pos[0] = pos_central[0]+dispx;
+    pos[1] = pos_central[1]+dispy;
+    pos[2] = pos_central[2]+dispz;
     return cell_find_position(pos);
 }
 
@@ -100,7 +98,6 @@ double advection_momentum(int icell,int idir)
 }
 void star_cell_conditions( int icell ) {
     cell_gas_density(icell) = convert_n_to_density(n_h2);
-    cart_debug("snl1 1e8 ish: %e", cell_gas_density(icell));
     cell_momentum(icell,0) = advection_momentum(icell,0);
     cell_momentum(icell,1) = advection_momentum(icell,1);
     cell_momentum(icell,2) = advection_momentum(icell,2);
@@ -115,6 +112,14 @@ void star_cell_conditions( int icell ) {
 #ifdef ENRICH_SNIa
     cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
 #endif
+#endif
+#ifdef RADIATIVE_TRANSFER
+      cell_HI_density(icell) = cell_gas_density(icell)*constants->XH;
+      cell_HII_density(icell) = 0;
+      cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+      cell_HeII_density(icell) = 0;
+      cell_HeIII_density(icell) = 0;
+      cell_H2_density(icell) = 0;
 #endif
 }
 
@@ -134,6 +139,14 @@ void ambient_conditions( int icell ) {
 #ifdef ENRICH_SNIa
     cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
 #endif
+#endif
+#ifdef RADIATIVE_TRANSFER
+      cell_HI_density(icell) = cell_gas_density(icell)*constants->XH;
+      cell_HII_density(icell) = 0;
+      cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+      cell_HeII_density(icell) = 0;
+      cell_HeIII_density(icell) = 0;
+      cell_H2_density(icell) = 0;
 #endif
 }
 
@@ -159,12 +172,14 @@ void set_radp_initial_conditions() {
     }
 }
 
-void    ic_star_spread(int icell, float dm_star){
+void ic_star_spread(int icell, float dm_star){
     double density_fraction;
     double new_density;
-    int i,level;
+    int i,level, j, k;
     level = cell_level(icell);
     int neighbors[num_neighbors];
+    int nneighbors[num_neighbors];
+    int nnneighbors[num_neighbors];
     
 #ifdef LOG_STAR_CREATION
     log_star_creation( icell, dm_star, FILE_RECORD);
@@ -188,7 +203,7 @@ void    ic_star_spread(int icell, float dm_star){
     
     if(dm_star!=0){
         cart_debug("star mass %e",dm_star);
-        create_star_particle(icell, dm_star, STAR_TYPE_NORMAL);
+        create_star_particle(icell, dm_star, (double)dtl[level], STAR_TYPE_NORMAL);
     }
     // cart_debug("snl1:npspec npt %d %d", num_particle_species,num_particles_total);
     remap_star_ids();
@@ -198,6 +213,20 @@ void    ic_star_spread(int icell, float dm_star){
     star_cell_conditions( icell );
     for(i=0;i<num_neighbors;i++){
         star_cell_conditions( neighbors[i] );
+        
+/* ////////////// neighbors of neighbors (or just choose a region) */
+/*         cell_all_neighbors( neighbors[i], nneighbors ); */
+/*         for(j=0;j<num_neighbors;j++){ */
+/*             star_cell_conditions( nneighbors[j] ); */
+            
+/*             cell_all_neighbors( nneighbors[i], nnneighbors ); */
+/*             for(k=0;k<num_neighbors;k++){ */
+/*                 star_cell_conditions( nnneighbors[j] ); */
+                
+/*             } */
+/*         } */
+//////////////
+                
     }
         
     
@@ -240,13 +269,16 @@ void ic_refine_levels(){
       cell_H2_density(i) = 0;
 #endif
     }
-
+  cart_debug("refining");
     for(level=min_level; level<max_level; level++){
+	cart_debug("%d level",level);
         modify( level, OP_REFINE );
+	cart_debug("%d level",level);
         if((!refinement_indicator[SPATIAL_INDICATOR].use[level])){
             cart_error("need spatial refinement");
         }
     }
+    cart_debug("done refining");
     build_cell_buffer();
     repair_neighbors();
     load_balance();
@@ -264,6 +296,8 @@ void init_run() {
     int *level_cells;
     int icell,idir;
     float frame_momentum[nDim];
+    double pos[nDim];
+    double rstargas;
 
     
     for ( i = 0; i < nDim; i++ ) {
@@ -279,29 +313,32 @@ void init_run() {
     cosmology_set(DeltaDC,deltadc);
         
     box_size = boxh;
-    auni_init = a0;
-    t_init = tcode_from_auni(auni_init);
+//snl    auni_init = a0;
+//snl    t_init = tcode_from_auni(auni_init);
     auni[min_level] = a0;
     abox[min_level] = a0;
     abox_old[min_level] = a0;
-    tl_old[min_level]   = t_init;
+//snl    tl[min_level]   = t_init;
+    tl[min_level]=tcode_from_auni(a0);
+    tl_old[min_level]=tl[min_level];
         
     units_set_art(omm0,hubble,box_size);
 #else
     units_set(1.0,1.0,1.0); //mass time length
 #endif
-    
     units_init();
     units_update( min_level );
         
 ////////////////////////////////////////////////////
     /* set hydro */
-    cart_debug("built cell buffer");
-    cart_debug("repaired neighbors");
-    build_cell_buffer();
-    repair_neighbors();
-    ic_refine_levels(); 
     
+    cart_debug("start building cell buffers ");
+    build_cell_buffer();
+    cart_debug("built cell buffer");
+    repair_neighbors();
+    cart_debug("repaired neighbors");
+    ic_refine_levels(); 
+    cart_debug("refined levels ");
         
     cart_debug("setting initial conditions on root level");
     set_radp_initial_conditions();
@@ -320,8 +357,8 @@ void init_run() {
     
 ////////////////////////////////////////////////////////
     /* set time variables */
-    tl[min_level] = t_init;
-    cart_debug("t_init=%e", t_init);
+//snl    tl[min_level] = t_init;
+//snl    cart_debug("t_init=%e", t_init);
     
 #ifdef COSMOLOGY
     for(level=min_level+1; level<=max_level; level++)
@@ -332,7 +369,7 @@ void init_run() {
         abox[level]     = abox[min_level];
         abox_old[level] =  abox[min_level] ; 
     }
-    auni_init = abox[min_level];
+//snl    auni_init = abox[min_level];
     cosmology_set_fixed();
         
     cart_debug("tl[min_level] = %f", tl[min_level] );
@@ -354,12 +391,9 @@ void init_run() {
         update_buffer_level(level, all_hydro_vars, num_hydro_vars);
     }
         
-//need zoom_DM for buildmesh:    build_mesh(); //defines refinement volume
-    for ( i = 0; i < nDim; i++ ) {
-        refinement_volume_min[i] = 0;
-        refinement_volume_max[i] = (double)num_grid;
-    }
+//need zoomed dark matter for buildmesh:    build_mesh(); //defines refinement volume
 
+///////////////////////////////////////////////////////
     num_particle_species=1;
     num_particles_total=0;
     last_star_id=-1;
@@ -404,34 +438,11 @@ void init_run() {
         ic[6] = icell_central(0, 0 ,-dx);
     }
 
-/*     cart_debug(""); */
-/*     cart_debug(""); */
-/*     cart_debug("Checking direction scheme"); */
-/*     cart_debug(""); */
-/*     int ioct, ichild[num_children]; */
-/*     int iplus_direction ; //-x=0,+x=1;+y=3;+z=5 */
-/*     int mj3, ii; */
-/*     double pos[nDim]; */
-/*     icell = icell_central(dx,-dx,dx); */
-
-/*     for(mj3=0;mj3<nDim;mj3++){ */
-/*         iplus_direction = mj3*2+1; //-x=0,+x=1;+y=3;+z=5 */
-/*         cart_debug("%d-direction",mj3); */
-/*         ioct = cell_parent_oct(icell); */
-/*         oct_all_children(ioct,ichild); */
-/*         for ( j=0 ; j<num_children; j++ ){ */
-/*             i = in_local_oct[j][iplus_direction]*(-2) + 1; */
-/*             ii = ichild[j]; */
-/*             if(ii==icell){cart_debug("DOHNE!");} */
-/*             cell_center_position(ii,pos); */
-/*             cart_debug("sign=%d,position=%f",i,pos[mj3]); */
-/*         } */
-/*     } */
-/*     exit(1); */
-    
     for(i=0;i<NSTARS;i++){
         cart_debug("ic: %d",ic[i]);
     }
+    
+////////////////////////////////////////////////////////////////////////////
     dm_star = mstar_one_msun*constants->Msun/units->mass/(NSTARS_1D*NSTARS_1D*1.0); //snl resolution scaling /NSTARS;
     for(i=0; i<NSTARS; i++){
         ic_star_spread(ic[i],dm_star);
@@ -442,7 +453,25 @@ void init_run() {
         star_formation_volume_min[i] = 0;
         star_formation_volume_max[i] = 0;
     }
+
+    rstargas = Radius_stargas*constants->pc/units->length;
+    /* establish stellar conditions around the central region*/
+    for ( level = min_level; level <= max_level; level++ ) {
+        select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+        for ( i = 0; i < num_level_cells; i++ ) {
+            icell=level_cells[i];
+            cell_center_position( icell, pos );
+            
+            if(compute_distance_periodic(pos,pos_central) < rstargas ){
+                star_cell_conditions( icell );
+            }
+        }
+    }
+
+
+    
         
+////////////////////////////////////////////////////////////////////////////
     if ( !buffer_enabled ) {
         cart_debug("building cell buffer");
         build_cell_buffer();
@@ -455,6 +484,7 @@ void init_run() {
     cart_debug("done with initialization");
         
     check_map();
+////////////////////////////////////////////////////////////////////////////
 
     
     tot_momentum0=0;
@@ -470,41 +500,35 @@ void init_run() {
             icell=level_cells[i];
             tot_energy0 += cell_gas_energy(icell)*cell_volume[level];
             
-            if(cell_is_leaf(icell)){
-                for(idir=0;idir<nDim;idir++){
-                    frame_momentum[idir]=
-                        (cell_momentum(icell,idir) - adv_velocity[idir]*cell_gas_density(icell));
-                    cart_assert(frame_momentum[idir]==0);
-                }
-                
-                tot_momentum0 += sqrt( cell_momentum(icell,0)*cell_momentum(icell,0) +
-                                       cell_momentum(icell,1)*cell_momentum(icell,1) +
-                                       cell_momentum(icell,2)*cell_momentum(icell,2) )
-                    *cell_volume[level];
+            for(idir=0;idir<nDim;idir++){
+                frame_momentum[idir]=
+                    (cell_momentum(icell,idir) - adv_velocity[idir]*cell_gas_density(icell));
+                cart_assert(frame_momentum[idir]==0);
+            }
+            
+            tot_momentum0 += sqrt( cell_momentum(icell,0)*cell_momentum(icell,0) +
+                                   cell_momentum(icell,1)*cell_momentum(icell,1) +
+                                   cell_momentum(icell,2)*cell_momentum(icell,2) )
+                *cell_volume[level];
 /*                 tot_momentum0 += sqrt( */
 /*                     frame_momentum[0]*frame_momentum[0] + */
 /*                     frame_momentum[1]*frame_momentum[1] + */
 /*                     frame_momentum[2]*frame_momentum[2] ) */
 /*                     *cell_volume[level]; */
-            }
         }
         cart_free( level_cells );
     }
     cart_debug("momentum %e",tot_momentum0);
-    hydro_magic( min_level );
-    hydro_eos( min_level );
-
+    
 
 #ifdef RADIATIVE_TRANSFER
 #ifdef RT_DEBUG
   rt_debug.Mode = -1;
-  rt_debug.Pos[0] = 0.5*num_grid - pow(0.5,1.0+max_level);
-  rt_debug.Pos[1] = 0.5*num_grid - pow(0.5,1.0+max_level);
-  rt_debug.Pos[2] = 0.5*num_grid - pow(0.5,1.0+max_level);
+  rt_debug.Pos[0] = 0.5;
+  rt_debug.Pos[1] = 0.5;
+  rt_debug.Pos[2] = 0.5;
 #endif
 #endif
 
 
 }
-
-

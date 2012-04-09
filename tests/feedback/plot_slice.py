@@ -233,6 +233,12 @@ for slice in ( sys.argv[1:] ) :
                 radPoP = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
             elif(name_slice=='pressure_ergcc'):
                 Pergcc = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='fh1_number'):
+                fh1 = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='fh2_number'):
+                fh2 = np.log10(np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny))
+            elif(name_slice=='flux0_ergcm2'):
+                flux0 = np.log10(  np.absolute( np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny) )  )
             else:
                 sys.stderr.write('bad name_slice value',name_slice)
                 dummy = np.fromfile(file=input,dtype='f4',count=nx*ny,sep='').reshape(nx,ny)
@@ -242,13 +248,28 @@ for slice in ( sys.argv[1:] ) :
         print 'done reading '
         (tick_locs,tick_lbls) = set_axis(nx-1)
 	for i in range(nx/2,nx/2+10):
-            print 'rho',density[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2]
+            print 'density',density[i,nx/2],'temp',temp[i,nx/2],'vx',vx[i,nx/2], 'vy',vy[i,nx/2], 'vz',vz[i,nx/2]
             #,'mach#:',mach[i,nx/2] ,'radPoP#:',radPoP[i,nx/2]
+            if 'tauUV' in locals():
+                print 'tauUV',tauUV[i,nx/2]
+            if 'fh1' in locals():
+                print 'fh1',fh1[i,nx/2],'fh2',fh2[i,nx/2]
 
 	input.close()
 
+        #select the stuff you don't want to plot
+        del fh2
+#        del tauUV
+        del density
+        del vx
+        del vy
+        del vz
+       # del temp
+        del level
+       # del pressure
 
-        
+
+        dpi=100
         if 'vx' in locals() and 'vy' in locals():
             arrows=1
         else:
@@ -257,32 +278,33 @@ for slice in ( sys.argv[1:] ) :
         arrows=0
         if 'density' in locals():
             #	filename="plots/density/"+slice.replace("dat","png").replace("out/","")
-            filename=slice.replace("dat","png").replace("out/","plots/density/")
+            filename=slice.replace("dat","png").replace("out/","plots/density")
             print filename
             clabel='log(n [1/cc])'
-            vmin=0
-            vmax=4
-            dpi=400
+            vmin=-2
+            vmax=2
+            #   dpi=400
+            dpi=100
             plot_field(density,clabel,filename, time,vmin,vmax)
             dpi=100
             #	arrows=0
 
         if 'vz' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/vz/")
+            filename=slice.replace("dat","png").replace("out/","plots/vz")
             print filename
             clabel='vz [km/s])'
             vmin=0
             vmax=50
             plot_field(vz,clabel,filename, time,0,0)
         if 'vy' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/vy/")
+            filename=slice.replace("dat","png").replace("out/","plots/vy")
             print filename
             clabel='vy [km/s])'
             vmin=0
             vmax=50
             plot_field(vy,clabel,filename, time,0,0)
         if 'vx' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/vx/")
+            filename=slice.replace("dat","png").replace("out/","plots/vx")
             print filename
             clabel='vx [km/s])'
             vmin=0
@@ -290,29 +312,30 @@ for slice in ( sys.argv[1:] ) :
             plot_field(vx,clabel,filename, time,0,0)
 
         if 'mach' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/mach/")
+            filename=slice.replace("dat","png").replace("out/","plots/mach")
             print filename
             clabel='|v/cs|'
             plot_field(mach,clabel,filename, time,0,0)
 
         if 'soundspeed' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/cs/")
+            filename=slice.replace("dat","png").replace("out/","plots/cs")
             print filename
             clabel='cs [km/s]'
             plot_field(soundspeed,clabel,filename, time,0,0)
 
         if 'temp' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/temp/")
+            filename=slice.replace("dat","png").replace("out/","plots/temp")
             print filename
             clabel='log(T [K])'
             vmin=2
             vmax=8
-            dpi=400
+#            dpi=400
+            dpi=100
             plot_field(temp,clabel,filename, time,vmin,vmax)
             dpi=100
 
         if 'level' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/level/")
+            filename=slice.replace("dat","png").replace("out/","plots/level")
             print filename
             clabel='level'
             vmin=0
@@ -320,31 +343,55 @@ for slice in ( sys.argv[1:] ) :
             plot_field(level,clabel,filename, time,vmin,vmax)
 
         if 'Pergcc' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/pressure/")
+            filename=slice.replace("dat","png").replace("out/","plots/pressure")
             print filename
             clabel='log(P[erg/cc])'
-            vmin=-11
-            vmax=-6
+            vmin=-15
+            vmax=-10
             plot_field(Pergcc,clabel,filename, time,vmin,vmax)
 
         if 'Urad' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/urad/")
+            filename=slice.replace("dat","png").replace("out/","plots/urad")
             print filename
             clabel='log(Urad[erg/cc])'
             vmin=0
             vmax=0
             plot_field(Urad,clabel,filename, time,vmin,vmax)
 
+        if 'fh1' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/fh1")
+            print filename
+            clabel='log(fh1)'
+            vmin=-4
+            vmax=0
+            plot_field(fh1,clabel,filename, time,vmin,vmax)
+            
+        if 'fh2' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/fh2")
+            print filename
+            clabel='log(fh2)'
+            vmin=-4
+            vmax=0
+            plot_field(fh2,clabel,filename, time,vmin,vmax)
+            
+        if 'flux0' in locals():
+            filename=slice.replace("dat","png").replace("out/","plots/flux")
+            print filename
+            clabel='log(|flux|_{dir0})[erg/cm^2/s]'
+            vmin=0
+            vmax=10
+            plot_field(flux0,clabel,filename, time,vmin,vmax)
+            
         if 'tauUV' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/tauUV/")
+            filename=slice.replace("dat","png").replace("out/","plots/tauUV")
             print filename
             clabel='log(tauUV)'
-            vmin=0
-            vmax=0
+            vmin=-2
+            vmax=2
             plot_field(tauUV,clabel,filename, time,vmin,vmax)
             
         if 'radPoP' in locals():
-            filename=slice.replace("dat","png").replace("out/","plots/prad/")
+            filename=slice.replace("dat","png").replace("out/","plots/prad")
             print filename
             clabel='log(Prad/P)'
             vmin=0

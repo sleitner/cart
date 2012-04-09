@@ -13,9 +13,12 @@
 #define OUT_CELL_URAD (OUT_CELL_TAUUV+1)
 #define OUT_CELL_METALS (OUT_CELL_URAD+1)
 #define OUT_CELL_DUST (OUT_CELL_METALS+1)
+#define OUT_CELL_FH2 (OUT_CELL_DUST+1)
+#define OUT_CELL_FHI (OUT_CELL_FH2+1)
+#define OUT_CELL_FLUX0 (OUT_CELL_FHI+1)
 
 extern const int axis_direction[nDim][nDim-1];
 
-void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim], double slice_region_size, FILE *output);
+//void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim], double slice_region_size, FILE *output);
 
 #endif /* __OUTPUTSLICE_H__ */

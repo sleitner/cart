@@ -33,31 +33,33 @@
 #include "starformation.h"
 #include "plugin.h"
 
-#include "../extra/output_slice.h"
 
 #include "start_radp.h"
 
 
-#include "../run/gravity_step.h"
-#include "../run/hydro_step.h"
-#include "../run/hydro_tracer_step.h"
-#include "../run/particle_step.h"
-#include "../run/rt_step.h"
-#include "../run/starformation_step.h"
-#include "../run/starformation_feedback_step.h"
-#include "../run/step.h"
+#include "../../src/run/gravity_step.h"
+#include "../../src/run/hydro_step.h"
+#include "../../src/run/hydro_tracer_step.h"
+#include "../../src/run/particle_step.h"
+#include "../../src/run/rt_step.h"
+#include "../../src/run/starformation_step.h"
+#include "../../src/run/starformation_feedback_step.h"
+#include "../../src/run/step.h"
 
+#include "../../src/extra/output_slice.h"
 
-extern double auni_init, t_init;
-
-
+#define sqr(a) ((a)*(a))
 void Out4IFrIT();
 
+#ifdef RT_OTVET_SAVE_FLUX
+extern int rt_flux_frequency;
+extern float rt_flux[num_cells][num_neighbors]; // //-x=0,+x=1;+y=3;+z=5 
+#endif
 
 #ifdef VIEWDUMP
-#include "../extra/viewdump.h"
+#include "../../src/extra/viewdump.h"
 #endif
-#include "../extra/ifrit.h"
+#include "../../src/extra/ifrit.h"
 
 #define OUTLEVEL (max_level)
 #ifndef STARFORM
@@ -67,18 +69,33 @@ void Out4IFrIT();
 extern double totmomentum0;
 /* extern const int NSTARS; */
 
+float cell_Urad(int cell);
+float cell_tauUV(int cell);
 
+
+/*
+//  Plugin
+*/
 void record_momentum_input(int level, int cell, double dU);
 void outslice();
 void outslicebegin();
 void outsliceCFL();
 
-void set_plugin(struct Plugin *p){
-  //        p->AfterCFLRestart = outsliceCFL;
-        p->RunBegin = outslicebegin;
-        p->GlobalStepEnd = outslice;
+#include "../../src/extra/output_slice.h"
+
+plugin_t outslicePlugin = {NULL};
+
+const plugin_t* add_plugin(int id){
+    if(id==0){
+/*         outslicePlugin.AfterCFLRestart = outsliceCFL; */
+        outslicePlugin.RunBegin = outslicebegin;
+        outslicePlugin.GlobalStepEnd = outslice;
 //snl1
-//      p->StarformationFeedbackEnd = record_momentum_input;
+//        outslicePlugin.StarformationFeedbackEnd = record_momentum_input;
+        return &outslicePlugin;
+    }else{
+        return NULL;
+    }
 }
 
 /* double dmom_from_press =0; */
@@ -136,7 +153,7 @@ float radii[num_bins];
 float vel[num_bins];
 float pressure[num_bins];
 float rho[num_bins];
-float avgs[num_bins];
+float wgt_avg[num_bins];
 float sedov_analytic[num_bins];
 
 void radial_average( int cell, int level ) {
@@ -172,9 +189,10 @@ void radial_average( int cell, int level ) {
             r1 = ( (float)(bin+1)*bin_width - cur_r )/cell_size[level];
 
             vel[bin] += r1*v;
+            
             rho[bin] += r1*cell_gas_density(cell);
             pressure[bin] += r1*cell_gas_pressure(cell);
-            avgs[bin] += r1;
+            wgt_avg[bin] += r1;
                                                                                 
             amt -= r1;
             cart_assert( amt >= 0.0 );
@@ -186,10 +204,11 @@ void radial_average( int cell, int level ) {
         if ( amt > 0.0 && bin < num_bins - 1 ) {
             /* apply amt to last bin */
             r1 = amt;
+            
             vel[bin] += r1*v;
             rho[bin] += r1*cell_gas_density(cell);
             pressure[bin] += r1*cell_gas_pressure(cell);
-            avgs[bin] += r1;
+            wgt_avg[bin] += r1;
         }
     }
 }
@@ -198,7 +217,6 @@ void radial_average( int cell, int level ) {
 
 
 
-#ifdef USER_PLUGIN
  void outsliceCFL(){ 
      ic_refine_levels();
 /*      dmom_from_press=0; */
@@ -206,18 +224,26 @@ void radial_average( int cell, int level ) {
 } 
 void outslicebegin(){
     write_restart( WRITE_SAVE, WRITE_SAVE, WRITE_SAVE, NULL );
-    outslice(); 
+//    outslice();  
 }
 double mom_from_press=0;
 /* double E_from_press=0; */
 void outslice() {
+
     int i;
     char filename[128];
     FILE *RADP;
+    FILE *fp1;
+    FILE *fp2;
+    FILE *fp3, *fp4;
     float reduced_rho[num_bins];
     float reduced_pressure[num_bins];
     float reduced_vel[num_bins];
-    float reduced_avgs[num_bins];
+    float reduced_wgt_avg[num_bins];
+
+    float *fluxr;
+    float *fluxl;
+    
     int level;
     int num_level_cells;
     int *level_cells;
@@ -317,7 +343,7 @@ void outslice() {
         sprintf(filename, "totmompress.dat" );
         RADP = fopen(filename,"a+");
         fprintf(RADP, "%e %e %e  %e %e %e %e  \n",
-                (tphys_from_tcode(tl[min_level])-tphys_from_auni(auni_init))*1e-6,
+//snl1               (tphys_from_tcode(tl[min_level])-tphys_from_auni(auni_init))*1e-6,
                 (tot_momentum)*units->velocity*units->mass/constants->kms/constants->Msun ,
                 mom_from_press       *units->velocity*units->mass/constants->kms/constants->Msun,
                 (tot_momentum_dir[0])*units->velocity*units->mass/constants->kms/constants->Msun ,
@@ -345,8 +371,9 @@ void outslice() {
         vel[i] = 0.0;
         pressure[i] = 0.0;
         rho[i] = 0.0;
-        avgs[i] = 0.0;
+        wgt_avg[i] = 0.0;
         sedov_analytic[i] = 0.0;
+        
     }
     for ( level = min_level; level <= max_level; level++ ) {
         select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -359,27 +386,178 @@ void outslice() {
     MPI_Reduce( rho, reduced_rho, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
     MPI_Reduce( pressure, reduced_pressure, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
     MPI_Reduce( vel, reduced_vel, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
-    MPI_Reduce( avgs, reduced_avgs, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
+    MPI_Reduce( wgt_avg, reduced_wgt_avg, num_bins, MPI_FLOAT, MPI_SUM, MASTER_NODE, mpi.comm.run );
 
     if ( local_proc_id == MASTER_NODE ) {
         sprintf(filename, "%s/%s_stp%04u.txt", output_directory, jobname, step );
         RADP = fopen(filename,"w");
-        fprintf(RADP, "#time=%e \n",tl[min_level]-t_init);
+//snl       fprintf(RADP, "#time=%e \n",tl[min_level]-t_init);
+        fprintf(RADP, "#time=%e \n",tl[min_level]);
         for ( i = 0; i < num_bins/2; i++ ) {
-            if ( reduced_avgs[i] > 0.0 ) {
-                reduced_vel[i] /= reduced_avgs[i];
-                reduced_pressure[i] /= reduced_avgs[i];
-                reduced_rho[i] /= reduced_avgs[i];
+            if ( reduced_wgt_avg[i] > 0.0 ) {
+                reduced_vel[i] /= reduced_wgt_avg[i];
+                reduced_pressure[i] /= reduced_wgt_avg[i];
+                reduced_rho[i] /= reduced_wgt_avg[i];
                 
                 fprintf(RADP, "%e %e %e %e \n",
                         radii[i]*units->length/constants->pc,
-                        reduced_rho[i], reduced_pressure[i],
-                        reduced_vel[i] );
-//                , sedov_analytic[i]
+                        reduced_rho[i],
+                        reduced_pressure[i],
+                        reduced_vel[i]
+                    );
             }
         }
         fclose(RADP);
+
+
+#ifdef RT_OTVET_SAVE_FLUX
+#define num_wlen  5
+        //6eV, 13.8eV, 24eV,120eV, 1.2KeV
+        float wlen[num_wlen]={2000.0,1000.0,500.0,100.0,10.0};
+        float ngxi[num_wlen];
+        double Z_cell, dust_atten_factor, dust_atten_tauUV;
+        double tau_tauMW, tau_tauUV;
+            
+        double pos_central[nDim]={num_grid/2.,num_grid/2.,num_grid/2.};
+        int idir=0;
+        int nline;
+        double fact_hi_level=pow(2.0,max_level-min_level);
+    
+        sprintf(filename, "%s/%s_flux%04u.txt", output_directory, jobname, step );
+        fp1 = fopen(filename,"w");
+//snl        fprintf(fp1, "#time=%e \n",tl[min_level]-t_init );
+        fprintf(fp1, "#time=%e \n",tl[min_level]);
+        
+        sprintf(filename, "%s/%s_inten%04u.txt", output_directory, jobname, step );
+        fp2 = fopen(filename,"w");
+        fprintf(fp2, "#time=%e \n",tl[min_level]);
+        
+        sprintf(filename, "%s/%s_attn%04u.txt", output_directory, jobname, step );
+        fp3 = fopen(filename,"w");
+        fprintf(fp3, "#time=%e \n",tl[min_level]);
+        
+        sprintf(filename, "%s/%s_kicks%04u.txt", output_directory, jobname, step );
+        fp4 = fopen(filename,"w");
+        fprintf(fp4, "#time=%e \n",tl[min_level]);
+        
+
+        cart_debug("ul=%e ut=%e ue=%e c=%e ul/ut=%e dx=%e",
+                   units->length, units->time, units->energy_density,
+                   constants->c, units->length/units->time, cell_size[max_level]
+            );
+        
+#ifdef SNLUPDATE             //need cell_tauUV...
+        nline=num_grid/cell_size[max_level];
+        pos[1]=num_grid/2;
+        pos[2]=num_grid/2;
+/*         fluxr = cart_alloc(float, nline); */
+/*         fluxl = cart_alloc(float, nline); */
+/*             fluxl[i] = rt_flux[icell][2*idir]; */
+/*             fluxr[i] = rt_flux[icell][2*idir+1]; */
+/*         cart_erase(fluxl, fluxr); */
+        double tauMW_sum=0;
+        double tauUV_sum=0;
+        double fiMW;
+        double fiUV, fir2;
+        double rabs;
+        for(i=0;i<nline;i++){
+            pos[idir] = (i-nline/2)/fact_hi_level + pos_central[idir];
+            
+            if(pos[idir]>=num_grid){pos[idir]-=num_grid;}
+            if(pos[idir]<0        ){pos[idir]+=num_grid;}
+            
+            icell=cell_find_position_above_level(max_level,pos);
+            level=cell_level(icell);
+            cart_assert(icell!=-1);
+            
+            
+//  UV field at 12.0eV in units of Draine field (1.0e6 phot/cm^2/s/ster/eV)
+            //rtUmw(icell); // needs chemistry or LW_RATE
+            //rtDmw(icell);      //cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell))
+        
+            //cell_gas_metal_density(cell)/cell_gas_density(cell)/constants->Zsun;
+            Z_cell = rtDmw(icell); // dust or metals in units of zsun
+            tau_tauMW = (cell_HI_density(icell)+2.0*cell_H2_density(icell))
+                                 *units->number_density * 2.0e-21 * Z_cell
+                                 *units->length*cell_sobolev_length(icell);
+            tau_tauUV =   cell_tauUV(icell) ;
+            cart_assert(tau_tauUV>0);
+            
+            dust_atten_factor = exp( -tau_tauMW );
+            dust_atten_tauUV = exp( -tau_tauUV );
+            
+            
+            rtGetRadiationField( icell, num_wlen, wlen,ngxi);
+
+            if(i>nline/2){
+                tauMW_sum +=tau_tauMW;
+                tauUV_sum +=tau_tauUV;
+
+                rabs=fabs((pos[idir]-pos_central[idir]) * units->length/constants->pc);
+                
+                fiMW=400/(rabs*rabs)*exp(-tauMW_sum);
+                fiUV=400/(rabs*rabs)*exp(-tauUV_sum);
+                fir2=400/rabs/rabs;
+            }else{
+                tauMW_sum=0;
+                tauUV_sum=0;
+                fiMW=0;
+                fiUV=0;
+                fir2=0;
+            }
+            fprintf(fp1,"%e   %e %e %e  %e %e  %e %e %e   %e %e %e\n",
+                    (pos[idir]-pos_central[idir]) * units->length/constants->pc,
+/*                     rt_flux[icell][2*idir] */
+/*                      *units->energy_density*units->length/units->time,  */
+/*                     rt_flux[icell][2*idir+1] */
+/*                      *units->energy_density*units->length/units->time,  //ergs/cm^3*cm/s */
+                    cell_radiation_flux(icell,2*idir)  
+                      *units->energy_density*units->length/units->time,  
+                    cell_radiation_flux(icell,2*idir+1)
+                      *units->energy_density*units->length/units->time,  
+                    cell_Urad(icell)
+                     *units->energy_density*constants->c,  //ergs/cm^3*c[cm/s]
+                    
+                    tau_tauMW,tau_tauUV,
+                    
+                    fiMW,fiUV, fir2,
+                    
+                    cell_var(icell,RT_VAR_OT_FIELD)
+		    *units->energy_density*constants->c,
+                    cell_var(icell,RT_VAR_OT_FIELD+1)
+		    *units->energy_density*constants->c,
+                    cell_var(icell,RT_VAR_OT_FIELD+2)
+		    *units->energy_density*constants->c
+                );
+                    
+            fprintf(fp2,"%e   %e %e  %e %e  %e %e  %e %e  %e %e  \n",
+                    (pos[idir]-pos_central[idir]) * units->length/constants->pc,
+                    wlen[0],ngxi[0],
+                    wlen[1],ngxi[1],
+                    wlen[2],ngxi[2],
+                    wlen[3],ngxi[3],
+                    wlen[4],ngxi[4]
+                );
+                    
+            fprintf(fp3,"%e   %e %e %e \n",
+                    (pos[idir]-pos_central[idir]) * units->length/constants->pc,
+                    dust_atten_factor,dust_atten_tauUV, 1-cell_HI_fraction(icell)
+                );
+            
+            fprintf(fp4,"%e   %e \n",
+                    (pos[idir]-pos_central[idir]) * units->length/constants->pc,
+                    cell_radiation_pdot(icell,2,level)/cell_gas_density(icell)*units->velocity/constants->kms
+                );
+        }
+        fclose(fp1);
+        fclose(fp2);
+        fclose(fp3);
+        fclose(fp4);
+#endif
     }
+    cart_debug("length %e erg %e cc %e ",units->length,constants->erg, constants->cc);
+#endif
+
 
 
         
@@ -428,9 +606,18 @@ void outslice() {
 /*         dump_plane(OUT_CELL_MACH, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
         dump_plane(OUT_CELL_LEVEL, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
         dump_plane(OUT_CELL_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);
-/*         dump_plane(OUT_CELL_TAUUV, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
-/*         dump_plane(OUT_CELL_RADIATION_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
-/*         dump_plane(OUT_CELL_URAD, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); */
+#ifdef RADIATIVE_TRANSFER
+#ifdef SNLUPDATE
+        dump_plane(OUT_CELL_TAUUV, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); 
+/*         dump_plane(OUT_CELL_RADIATION_PRESSURE, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);  */
+        dump_plane(OUT_CELL_URAD, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); 
+#endif
+        dump_plane(OUT_CELL_FHI, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); 
+        dump_plane(OUT_CELL_FH2, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output); 
+#ifdef RT_OTVET_SAVE_FLUX
+         dump_plane(OUT_CELL_FLUX0, OUTLEVEL, slice_axis_z, pos, slice_region_hsize, output);  
+#endif        
+#endif
         cart_debug("\n\n");
         fclose(output);
     }else{
@@ -438,19 +625,14 @@ void outslice() {
     }
 
     //Out4IFrIT();
-
 }
 
 
-
-#endif /*  USER_PLUGIN */
 
 void run_output(){
+    cart_debug("");   
 }
 
-
-
-#include "../extra/ifrit.h"
 
 
 void Out4IFrIT()
