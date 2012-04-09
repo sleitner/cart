@@ -44,6 +44,13 @@ void config_init_star_formation_feedback()
 #endif /* BLASTWAVE_FEEDBACK */
 }
 
+void config_dependent_star_formation_feedback_parameters(){
+  /*
+  // set dependent_parameters for the current feedback model
+  */
+  if(sf_feedback->config_dependent_parameters != NULL) sf_feedback->config_dependent_parameters();
+
+}
 
 void config_verify_star_formation_feedback()
 {

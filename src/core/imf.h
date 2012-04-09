@@ -21,6 +21,14 @@ struct InitialMassFunction
 
 extern const struct InitialMassFunction *imf;
 
+typedef double(*fimf)(double);
+struct IMF_t
+{
+  char* name;
+  fimf  f;
+};
+
+extern const struct IMF_t *IMF_fname;
 
 double f_IMF( double mstar );
 double fm_IMF( double mstar );

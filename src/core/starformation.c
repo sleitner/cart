@@ -91,7 +91,9 @@ void config_init_star_formation()
   config_init_star_formation_feedback();
 }
 
-
+void config_dependent_star_formation_parameters(){
+  config_dependent_star_formation_feedback_parameters();
+}
 void config_verify_star_formation()
 {
   /*

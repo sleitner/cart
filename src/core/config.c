@@ -34,6 +34,7 @@ extern int step;
 
 
 void config_verify();
+void config_dependent_parameters();
 
 
 void config_create_file(const char *filename)
@@ -117,6 +118,7 @@ void config_read_file(const char *filename) {
 	      i--;
 	    }
 
+	  /* read parameters */
 	  if(tag[0] != 0) /* ignore empty strings */
 	  {
 	    if(control_parameter_read(tag,value) != 0)
@@ -133,6 +135,8 @@ void config_read_file(const char *filename) {
   if ( bad_config ) {
 	cart_error("There were errors parsing parameter file %s", filename );
   }
+  
+  config_dependent_parameters();
 
   config_verify();
 }
@@ -220,6 +224,8 @@ void config_print_to_file(const char *filename, int append)
   PRINT(REFINEMENT);
   PRINT(RADIATIVE_TRANSFER);
   PRINT(ELECTRON_ION_NONEQUILIBRIUM);
+//  PRINT(TURBULENT_ENERGY);
+//  PRINT(COSMIC_RAY_ENERGY);
 
 #ifdef STAR_FORMATION
   fprintf(f,"Star formation settings:\n");
@@ -382,6 +388,12 @@ void config_init()
   config_init_parallel();
 }
 
+void config_dependent_parameters()
+{
+#ifdef STAR_FORMATION
+  config_dependent_star_formation_parameters();
+#endif
+}
 
 void config_verify()
 {

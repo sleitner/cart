@@ -49,7 +49,7 @@ struct
   double loss_rate;       /* used to be called c0_ml */
   double time_interval;   /* used to be called T0_ml */
 }
-ml = { 0.05, 5.0e6 };
+ml = { -1.0, -1.0 };
 
 
 struct
@@ -126,6 +126,44 @@ void PopM_config_init()
   control_parameter_add2(control_parameter_time,&lum.ion_time_scale,"lum:ion-time-scale","lum.ion_time_scale","time-scale for the evolution of the ionizing luminosity from young stars.");
 }
 
+
+void PopM_config_dependent_parameters(){
+  /*
+  //  if mass loss was not set in parameters then align it with the appropriate IMF.
+  */
+  /*    Leitner & Kravtsov 2011:  */
+  if(ml.loss_rate == -1.0 ){
+	  if(      strcmp("Salpeter",IMF_fname[imf->type].name) == 0){
+		  ml.loss_rate = 0.032 ;
+	  }else if(strcmp("Miller-Scalo",IMF_fname[imf->type].name) == 0){ //1979 
+		  ml.loss_rate = 0.05 ; //left as old default -- 0.058 in paper 
+	  }else if(strcmp("Chabrier",IMF_fname[imf->type].name) == 0){ //Chabrier 2001~2003
+		  ml.loss_rate = 0.046 ;
+	  }else if(strcmp("Kroupa",IMF_fname[imf->type].name) == 0){ //2001  
+		  ml.loss_rate = 0.046 ;
+	  }else{
+		  cart_debug("IMF '%s' does not have associated IMF parameters.",IMF_fname[imf->type].name);
+		  cart_error("ART is terminating.");
+	  }
+  }
+
+  if(ml.time_interval == -1.0 ){
+	  if(      strcmp("Salpeter",IMF_fname[imf->type].name) == 0){
+		  ml.time_interval = 5.13e5 ;
+	  }else if(strcmp("Miller-Scalo",IMF_fname[imf->type].name) == 0){ //1979 
+		  ml.time_interval = 5.0e6 ; //left as old default -- 6.04e6 in paper
+	  }else if(strcmp("Chabrier",IMF_fname[imf->type].name) == 0){ //Chabrier 2001~2003
+		  ml.time_interval = 2.76e5 ;
+	  }else if(strcmp("Kroupa",IMF_fname[imf->type].name) == 0){ //2001  
+		  ml.time_interval = 2.76e5 ;
+	  }else{
+		  cart_debug("IMF '%s' does not have associated IMF parameters.",IMF_fname[imf->type].name);
+		  cart_error("ART is terminating.");
+	  }
+  }
+
+  
+}
 
 void PopM_config_verify()
 {
@@ -476,6 +514,7 @@ struct StellarFeedback sf_feedback_PopM =
     PopM_ionizing_luminosity,
     PopM_hydrodynamic_feedback,
     PopM_config_init,
+    PopM_config_dependent_parameters,
     PopM_config_verify,
     PopM_init,
     PopM_setup

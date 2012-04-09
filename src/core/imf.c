@@ -9,7 +9,6 @@
 #include "imf.h"
 
 
-typedef double(*fimf)(double);
 
 double f_IMF_Salpeter(double m);
 double f_IMF_MillerScalo(double m);
@@ -17,17 +16,14 @@ double f_IMF_Chabrier(double m);
 double f_IMF_Kroupa(double m);
 
 
-struct IMF_t
-{
-  char* name;
-  fimf  f;
-}
-const IMF_fun[] = { 
+const struct IMF_t IMF_fun[] = { 
   { "Salpeter", f_IMF_Salpeter }, 
   { "Miller-Scalo", f_IMF_MillerScalo }, 
   { "Chabrier", f_IMF_Chabrier }, 
   { "Kroupa", f_IMF_Kroupa } 
 };
+
+const struct IMF_t *IMF_fname = IMF_fun;
 
 const int num_imfs = sizeof(IMF_fun)/sizeof(struct IMF_t);
 
@@ -124,10 +120,15 @@ double f_IMF_MillerScalo( double m )
 double f_IMF_Chabrier( double m )
 {
   /* Chabrier, G. (2001, ApJ 554, 1274) */
+  /* above 1Msun slope is unconstrained -- assume Salpeter*/
   const double m0_Ch = 716.4;
   const double beta_Ch = 0.25;
   const double alpha_Ch = -3.3;
-  return exp( -pow( m0_Ch/m, beta_Ch) ) * pow(m,alpha_Ch);
+  const double slope_highmass = -2.35;
+  if(m < 1.0)
+      return exp( -pow( m0_Ch/m, beta_Ch) ) * pow(m,alpha_Ch);
+  else
+      return exp( -pow( m0_Ch/1.0, beta_Ch) ) * pow(m/1.0,slope_highmass);
 }
 
 

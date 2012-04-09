@@ -41,6 +41,7 @@ extern float star_metallicity_Ia[num_star_particles];
 
 void config_init_star_formation();
 void config_verify_star_formation();
+void config_dependent_star_formation_parameters();
 
 void init_star_formation();
 void star_formation_rate( int level, int num_level_cells, int *level_cells, float *sfr);
