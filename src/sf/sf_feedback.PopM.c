@@ -132,36 +132,36 @@ void PopM_config_verify()
   /*
   //  type II supernova feedback
   */
-  cart_assert(!(snII.energy_per_explosion < 0.0));
+  VERIFY(snII:energy-per-explosion, !(snII.energy_per_explosion < 0.0) );
 
-  cart_assert(snII.time_duration > 0.0);
+  VERIFY(snII:time-duration, snII.time_duration > 0.0 );
 
-  cart_assert(!(snII.time_delay < 0.0));
+  VERIFY(snII:time-delay, !(snII.time_delay < 0.0) );
 
-  cart_assert(snII.yield_factor > 0.0);
+  VERIFY(snII:yield-factor, snII.yield_factor > 0.0 );
 
   /*
   //  type Ia supernova feedback
   */
-  cart_assert(!(snIa.energy_per_explosion < 0.0));
+  VERIFY(snIa:energy-per-explosion, !(snIa.energy_per_explosion < 0.0) );
 
-  cart_assert(snIa.time_duration > 0.0);
+  VERIFY(snIa:time-duration, snIa.time_duration > 0.0 );
 
-  cart_assert(snIa.exploding_fraction>0.0 && snIa.exploding_fraction<1.0);
+  VERIFY(snIa:exploding-fraction, snIa.exploding_fraction>0.0 && snIa.exploding_fraction<1.0 );
 
-  cart_assert(snIa.mass_in_metals_per_supernova>0.0 && snIa.mass_in_metals_per_supernova<imf->max_SNIa_mass);
+  VERIFY(snIa:mass-in-metals-per-supernova, snIa.mass_in_metals_per_supernova>0.0 && snIa.mass_in_metals_per_supernova<imf->max_SNIa_mass );
 
   /*
   //  mass loss
   */
-  cart_assert(ml.loss_rate>=0.0 && ml.loss_rate<1.0);
+  VERIFY(ml:loss-rate, ml.loss_rate>=0.0 && ml.loss_rate<1.0 );
 
-  cart_assert(ml.time_interval > 0.0);
+  VERIFY(ml:time-interval, ml.time_interval > 0.0 );
 
   /*
   //  ionizing luminosity
   */
-  cart_assert(lum.ion_time_scale > 0.0);
+  VERIFY(lum:ion-time-scale, lum.ion_time_scale > 0.0 );
 }
 
 

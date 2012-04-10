@@ -399,6 +399,10 @@ void config_verify()
   config_verify_hydro();
 #endif
 
+#ifdef GRAVITY
+  config_verify_gravity();
+#endif
+
 #ifdef REFINEMENT
   config_verify_refinement();
 #endif
@@ -415,5 +419,10 @@ void config_verify()
 #endif /* RADIATIVE_TRANSFER */
 
   config_verify_parallel();
+
+  /*
+  //  Make sure all control parameters are verified.
+  */
+  control_parameter_check_all_verified();
 }
 

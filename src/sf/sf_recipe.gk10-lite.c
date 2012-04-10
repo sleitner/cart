@@ -39,19 +39,21 @@ void sfr_config_init()
 
   control_parameter_add3(control_parameter_double,&sfr.very_high_density,"sf:very-high-density","sfr.very-high-density","sf:recipe=1:very-high-density","the minimum density above which all gas is assumed to participate in star formation, irrespectively of its molecular fraction. This can be used to smoothly switch to primordial mode of star formation, when the molecular fraction never exceeds about 0.001.");
 
-  control_parameter_add3(control_parameter_double,&sfr.U_MW,"sf:U_MW","sfr.U_MW","sf:recipe=2:U_MW","If positive, choose a constant value for the U_MW in Gnedin & Kravtsov 2010 eq 6. If negative you are selecting an estimate for U_MW based on the SFR smoothed on some scale... (under development).");
+  control_parameter_add3(control_parameter_double,&sfr.U_MW,"sf:U_MW","sfr.U_MW","sf:recipe=2:U_MW","If positive, choose a constant value for the U_MW in Gnedin & Kravtsov 2010 eq 6. If -1, you are selecting an estimate for U_MW based on the SFR smoothed on some scale... (under development).");
 
-  control_parameter_add3(control_parameter_double,&sfr.D_MW,"sf:D_MW","sfr.D_MW","sf:recipe=2:D_MW","If positive, choose a constant value for the D_MW in Gnedin & Kravtsov 2010 eq 6. If negative or zero you are selecting an estimate for D_MW based on the cell metallicity.");
+  control_parameter_add3(control_parameter_double,&sfr.D_MW,"sf:D_MW","sfr.D_MW","sf:recipe=2:D_MW","If positive, choose a constant value for the D_MW in Gnedin & Kravtsov 2010 eq 6. If -1, you are selecting an estimate for D_MW based on the cell metallicity.");
 }
 
 
 void sfr_config_verify()
 {
-  cart_assert(sfr.efficiency > 0.0);
-  cart_assert(sfr.min_molecular_fraction > 0.0);
-  cart_assert(!(sfr.min_cloud_density < 0.0));
-  cart_assert(!(sfr.max_cloud_density < sfr.min_cloud_density));
-  cart_assert(sfr.very_high_density > 0.0);
+  VERIFY(sf:efficiency, sfr.efficiency > 0.0 );
+  VERIFY(sf:min-molecular-fraction, sfr.min_molecular_fraction > 0.0 );
+  VERIFY(sf:min-cloud-density, !(sfr.min_cloud_density < 0.0) );
+  VERIFY(sf:max-cloud-density, !(sfr.max_cloud_density < sfr.min_cloud_density) );
+  VERIFY(sf:very-high-density, sfr.very_high_density > 0.0 );
+  VERIFY(sf:U_MW, (sfr.U_MW==-1 || sfr.U_MW>0.0) );
+  VERIFY(sf:D_MW, (sfr.D_MW==-1 || sfr.D_MW>0.0) );
 }
 
 

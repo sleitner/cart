@@ -97,6 +97,8 @@ void config_verify_imf()
   /*
   //  IMF
   */
+  VERIFY(imf, 1 );
+
   VERIFY(imf:min-mass, imf_internal.min_mass > 0.0 );
 
   VERIFY(imf:max-mass, imf_internal.max_mass > 0.0 );

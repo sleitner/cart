@@ -226,6 +226,8 @@ void config_verify_io()
     }
 #endif /* COSMOLOGY */
 
+  VERIFY(snapshot-epochs, 1 );
+
   VERIFY(frequency:user-output, output_frequency >= 0 );
 
   VERIFY(frequency:restart, restart_frequency >= 0 );

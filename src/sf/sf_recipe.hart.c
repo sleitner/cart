@@ -32,8 +32,8 @@ void sfr_config_init()
 
 void sfr_config_verify()
 {
-  cart_assert(sfr.slope > 0.0);
-  cart_assert(sfr.efficiency > 0.0);
+  VERIFY(sf:slope, sfr.slope > 0.0 );
+  VERIFY(sf:efficiency, sfr.efficiency > 0.0 );
 }
 
 

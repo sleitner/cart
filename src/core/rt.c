@@ -198,7 +198,7 @@ void rtConfigInit()
 
   control_parameter_add2(control_parameter_int,&rt_stellar_pop,"rt:stellar-pop","rt_stellar_pop","the dominant stellar populatio (2 or 3). This value is used to set the spectral shape for the stellar component.");
 
-  control_parameter_add2(control_parameter_int,&rt_limit_signal_speed_to_c,"rt:limit-signal-speed-to-c","rt_limit_signal_speed_to_c","if set, limits the signal propagation speed to the spped of light.");
+  control_parameter_add2(control_parameter_bool,&rt_limit_signal_speed_to_c,"rt:limit-signal-speed-to-c","rt_limit_signal_speed_to_c","if set, limits the signal propagation speed to the spped of light.");
 
   control_parameter_add(control_parameter_float,&rt_clumping_factor,"@rt:clumping-factor","the clumping factor of the neutral gas.");
 
@@ -211,19 +211,20 @@ void rtConfigInit()
 
 void rtConfigVerify()
 {
-  cart_assert(!(rt_dust_to_gas_floor < 0.0));
+  VERIFY(rt:dust-to-gas-floor, !(rt_dust_to_gas_floor < 0.0) );
 
-  cart_assert(!(rt_uv_emissivity_stars < 0.0));
+  VERIFY(rt:uv-emissivity-stars, !(rt_uv_emissivity_stars < 0.0) );
 
-  cart_assert(!(rt_uv_emissivity_quasars < 0.0));
+  VERIFY(rt:uv-emissivity-quasars, !(rt_uv_emissivity_quasars < 0.0) );
 
-  cart_assert(rt_stellar_pop==2 || rt_stellar_pop==3);
+  VERIFY(rt:stellar-pop, rt_stellar_pop==2 || rt_stellar_pop==3 );
 
-  cart_assert(rt_limit_signal_speed_to_c==0 || rt_limit_signal_speed_to_c==1);
+  VERIFY(@rt:clumping-factor, !(rt_clumping_factor < 1.0) );
 
-  cart_assert(!(rt_clumping_factor < 1.0));
+  VERIFY(@rt:coherence-length, rt_coherence_length > 0.0 );
 
-  cart_assert(rt_coherence_length > 0.0);
+  VERIFY(@rt:rp-amplt, 1 );
+  VERIFY(@rt:rp-slope, 1 );
 }
 
 

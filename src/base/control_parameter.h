@@ -63,9 +63,12 @@ int control_parameter_read(const char *tag, const char *value);
 void control_parameter_print(FILE *f, int with_help);
 void control_parameter_print_hidden(FILE *f, int with_help);
 
+void control_parameter_set_verified(const char *name);
+void control_parameter_check_all_verified();
+
 /*
 //  Macro to be used in verify
 */
-#define VERIFY( name, x ) { if (!(x)) cart_error( "Invalid value for parameter %s: constraint %s is violated (file %s line %u)", #name, #x, __FILE__, __LINE__ ); }
+#define VERIFY( name, x ) { if (!(x)) cart_error( "Invalid value for parameter %s: constraint %s is violated (file %s line %u)", #name, #x, __FILE__, __LINE__ ); control_parameter_set_verified(#name); }
 
 #endif

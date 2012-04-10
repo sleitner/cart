@@ -72,7 +72,7 @@ void config_verify_hydro()
 
   VERIFY(pressure-floor-min-level, pressure_floor_min_level>=-1 && pressure_floor_min_level<=max_level );
 
-  VERIFY(pressure-floor-factor, pressure_floor_factor > 0.0 );
+  VERIFY(@pressure-floor-factor, pressure_floor_factor > 0.0 );
 
   VERIFY(radiation-pressure-factor, !(radiation_pressure_factor < 0.0) );
 

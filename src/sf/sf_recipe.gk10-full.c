@@ -43,11 +43,11 @@ void sfr_config_init()
 
 void sfr_config_verify()
 {
-  cart_assert(sfr.efficiency > 0.0);
-  cart_assert(sfr.min_molecular_fraction > 0.0);
-  cart_assert(!(sfr.min_cloud_density < 0.0));
-  cart_assert(!(sfr.max_cloud_density < sfr.min_cloud_density));
-  cart_assert(sfr.very_high_density > 0.0);
+  VERIFY(sf:efficiency, sfr.efficiency > 0.0 );
+  VERIFY(sf:min-molecular-fraction, sfr.min_molecular_fraction > 0.0 );
+  VERIFY(sf:min-cloud-density, !(sfr.min_cloud_density < 0.0) );
+  VERIFY(sf:max-cloud-density, !(sfr.max_cloud_density < sfr.min_cloud_density) );
+  VERIFY(sf:very-high-density, sfr.very_high_density > 0.0 );
 }
 
 

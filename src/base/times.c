@@ -208,12 +208,18 @@ void config_init_times()
 void config_verify_times()
 {
 #ifdef COSMOLOGY
+  VERIFY(auni-stop, 1 );
+
   VERIFY(auni-start, auni_init>0.0 && !(auni_init>auni_end) );
 
   VERIFY(max-a-increment, max_a_inc > 1.0 );
 
   VERIFY(max-da, max_da >= 0.0 );
 #endif /* COSMOLOGY */
+
+  VERIFY(walltime-limit, !(timelimit < 0.0) );
+
+  VERIFY(time-stop, 1 );
 
   VERIFY(time-start, !(t_init > t_end) );
 

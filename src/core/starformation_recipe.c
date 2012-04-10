@@ -57,6 +57,8 @@ void config_verify_star_formation_recipe()
   sprintf(recipe_internal_name,"<%s>",sf_recipe_internal.name);
   cart_assert(strcmp(recipe_internal_name,recipe_external_name) == 0);
 
+  VERIFY(sf:recipe, 1 );
+
   if(sf_recipe_internal.config_verify != NULL) sf_recipe_internal.config_verify();
 }
 

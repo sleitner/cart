@@ -236,6 +236,7 @@ void config_verify_refinement_indicators()
   /*
   //  All checking is already done in control_parameter_set_refinement_indicator
   */
+  VERIFY(ref:indicator, 1 );
 }
 
 

@@ -1,5 +1,5 @@
 #include "config.h"
-#if defined(STAR_FORMATION) && defined(AGN) && defined(STAR_PARTICLE_TYPE)
+#if defined(STAR_FORMATION) && defined(AGN)
 
 #include <math.h>
 #include <stdio.h>

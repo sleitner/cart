@@ -219,6 +219,7 @@ void config_init_parallel()
 
 void config_verify_parallel()
 {
+  VERIFY(@mpi:custom-flags, 1 );
 }
 
 

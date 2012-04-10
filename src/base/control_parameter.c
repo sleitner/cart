@@ -25,6 +25,7 @@ typedef struct
   const char *names[MAX_NAMES];
   ControlParameterSetter setter;
   ControlParameterLister lister;
+  int verified;
 } ControlParameter;
 
 ControlParameter *control_parameters = 0;
@@ -78,6 +79,21 @@ void control_parameter_add_worker(ControlParameterSetter setter, ControlParamete
   control_parameters[num_control_parameters].help = help;
   control_parameters[num_control_parameters].setter = setter;
   control_parameters[num_control_parameters].lister = lister;
+  control_parameters[num_control_parameters].verified = 0;
+
+  /*
+  //  There is nothing to verify in bools and strings
+  */
+  if(setter==control_parameter_set_bool && lister==control_parameter_list_bool)
+    {
+      control_parameters[num_control_parameters].verified = 1;
+    }
+
+  if(setter==control_parameter_set_string && lister==control_parameter_list_string)
+    {
+      control_parameters[num_control_parameters].verified = 1;
+    }
+
 
   for(j=0; j<num_names; j++)
     {
@@ -109,6 +125,41 @@ int control_parameter_is_set(const char *name)
 
   cart_error("String '%s' is not a valid name for a control parameter.",name);
   return 0;
+}
+
+
+void control_parameter_set_verified(const char *name)
+{
+  int i, j;
+
+  for(i=0; i<num_control_parameters; i++)
+    {
+      for(j=0; j<MAX_NAMES && control_parameters[i].names[j]!=NULL; j++)
+	{
+	  if(strcmp(name,control_parameters[i].names[j]) == 0)
+	    {
+	      control_parameters[i].verified = 1;
+	      return;
+	    }
+	}
+    }
+
+  cart_error("String '%s' is not a valid name for a control parameter.",name);
+}
+
+
+void control_parameter_check_all_verified()
+{
+  int i;
+
+  for(i=0; i<num_control_parameters; i++)
+    {
+      if(control_parameters[i].verified == 0)
+	{
+	  cart_error("Parameter '%s' has not been verified.",control_parameters[i].names[0]);
+	}
+    }
+
 }
 
 

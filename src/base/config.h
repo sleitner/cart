@@ -66,6 +66,11 @@
 #endif /* RADIATIVE_TRANSFER */
 
 
+#if defined(AGN) && !defined(STAR_PARTICLE_TYPES)
+#define STAR_PARTICLE_TYPES
+#endif
+
+
 #ifdef ADVECT_SPECIES
 #error "The ADVECT_SPECIES define is now obsolete; it is extraneous and is not needed at all."
 #endif

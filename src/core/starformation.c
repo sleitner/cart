@@ -111,6 +111,8 @@ void config_verify_star_formation()
 
   VERIFY(sf:metallicity-floor, !(sf_metallicity_floor < 0.0) );
 
+  VERIFY(sf:min-overdensity, 1 );
+
   config_verify_star_formation_recipe();
   config_verify_star_formation_feedback();
 }
