@@ -63,6 +63,7 @@ void constants_init()
   /*
   // Base units
   */
+  constants_internal.K = 1;
   constants_internal.cms = 1;
   constants_internal.erg = 1;
   constants_internal.barye = 1;

@@ -10,7 +10,8 @@
 #include "units.h"
 
 
-const struct StellarFeedback *sf_feedback = NULL;
+extern struct StellarFeedback sf_feedback_internal;
+const struct StellarFeedback *sf_feedback = &sf_feedback_internal;
 
 
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
@@ -22,8 +23,6 @@ double blastwave_time = { 50.0e6 };
 
 void config_init_star_formation_feedback()
 {
-  cart_assert(sf_feedback != NULL);
-
   /*
   //  IMF
   */
@@ -65,19 +64,6 @@ void config_verify_star_formation_feedback()
 #ifdef BLASTWAVE_FEEDBACK 
   VERIFY(blastwave-time, !(blastwave_time < 0.0) );
 #endif /* BLASTWAVE_FEEDBACK */
-}
-
-
-void set_feedback_model(const struct StellarFeedback *ptr)
-{
-  /*
-  //  This functions allows to replace the default feedback model
-  */
-  sf_feedback = ptr;
-
-  cart_assert(sf_feedback);
-  cart_assert(sf_feedback->ionizing_luminosity != NULL);
-  cart_assert(sf_feedback->hydrodynamic_feedback != NULL);
 }
 
 

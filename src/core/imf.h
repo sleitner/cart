@@ -14,9 +14,6 @@ struct InitialMassFunction
   const char *name;      /* name of IMF function */
   double min_mass;       /* used to be called aM_stl */
   double max_mass;       /* used to be called aM_stu */
-  double min_SNII_mass;  /* used to be called aM_SNII */
-  double min_SNIa_mass;  /* used to be called aM_SNIa1 */
-  double max_SNIa_mass;  /* used to be called aM_SNIa2 */
   double (*f)( double mstar );
   double (*fm)( double mstar );
   double (*fmz)( double mstar );

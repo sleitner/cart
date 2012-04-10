@@ -81,12 +81,6 @@ void config_init_star_formation()
 
   control_parameter_add2(control_parameter_float,&sf_metallicity_floor,"sf:metallicity-floor","sf_metallicity_floor","the minimum amount of metallicity (in solar units) sprinkled in the cell where a stellar particle is created. This parameter is designed to emulate metal enrichment from the first stars and/or early, unresolved episode of star formation. Just BEFORE a stellar particle is created, if the metallicity in the cell is less than this value, it is increased to this value. Thus, all stellar particles are created in the gas with at least this metallicity. This value is NOT taken into account when computing the SFR, only when actually creating a stellar particle. It is not related to rt:dust-to-gas floor, which MAY affect the SFR.");
 
-  /* 
-  //  Default feedback model; can be reset by a sf recipe in
-  //  the ConfigInit() call.
-  */
-  set_feedback_model(&sf_feedback_PopM);
-
   config_init_star_formation_recipe();
   config_init_star_formation_feedback();
 }

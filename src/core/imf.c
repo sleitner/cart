@@ -33,7 +33,7 @@ const imf_list[] = {
 const int num_imfs = sizeof(imf_list)/sizeof(struct imf_t);
 
 
-struct InitialMassFunction imf_internal = { NULL, 0.1, 100.0, 8.0, 3.0, 8.0, NULL, imf_fm, imf_fmz };
+struct InitialMassFunction imf_internal = { NULL, 0.1, 100.0, NULL, imf_fm, imf_fmz };
 const struct InitialMassFunction *imf = &imf_internal;
 
 
@@ -82,13 +82,6 @@ void config_init_imf()
   control_parameter_add3(control_parameter_double,&imf_internal.min_mass,"imf:min-mass","imf.min_mass","am_stl","the minimum stellar mass in the IMF model.");
 
   control_parameter_add3(control_parameter_double,&imf_internal.max_mass,"imf:max-mass","imf.max_mass","am_stu","the maximum stellar mass in the IMF model.");
-
-  control_parameter_add3(control_parameter_double,&imf_internal.min_SNII_mass,"imf:min-SNII-mass","imf.min_SNII_mass","am_snii","the minimum mass of stars that explode as type II supernovae.");
-
-  control_parameter_add3(control_parameter_double,&imf_internal.min_SNIa_mass,"imf:min-SNIa-mass","imf.min_SNIa_mass","am_snia1","the minimum mass of stars that explode as type Ia supernovae.");
-
-  control_parameter_add3(control_parameter_double,&imf_internal.max_SNIa_mass,"imf:max-SNIa-mass","imf.max_SNIa_mass","am_snia2","the maximum mass of stars that explode as type Ia supernovae.");
-
 }
 
 
@@ -102,13 +95,6 @@ void config_verify_imf()
   VERIFY(imf:min-mass, imf_internal.min_mass > 0.0 );
 
   VERIFY(imf:max-mass, imf_internal.max_mass > 0.0 );
-
-  VERIFY(imf:min-SNII-mass, imf_internal.min_SNII_mass > 1.0 );
-
-  VERIFY(imf:min-SNIa-mass, imf_internal.min_SNIa_mass > 1.0 );
-
-  VERIFY(imf:max-SNIa-mass, imf_internal.max_SNIa_mass > imf_internal.min_SNIa_mass );
-
 }
 
 

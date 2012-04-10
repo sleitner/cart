@@ -27,8 +27,6 @@ extern const struct StellarFeedback *sf_feedback;
 void config_init_star_formation_feedback();
 void config_verify_star_formation_feedback();
 
-void set_feedback_model(const struct StellarFeedback *ptr);
-
 void init_star_formation_feedback();
 
 void stellar_feedback(int level, int iter_cell, int ipart, double t_next );
