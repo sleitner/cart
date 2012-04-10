@@ -51,16 +51,16 @@ void config_init_load_balance()
 
 void config_verify_load_balance()
 {
-  cart_assert(load_balance_frequency >= 0);
+  VERIFY(frequency:load-balance, load_balance_frequency >= 0 );
 
-  cart_assert(cost_per_cell >= 0.0);
+  VERIFY(cost-per-cell, cost_per_cell >= 0.0 );
 
-  cart_assert(cost_per_particle >= 0.0);
+  VERIFY(cost-per-particle, cost_per_particle >= 0.0 );
 
-  cart_assert(reserve_cell_fraction >= 0.0 && reserve_cell_fraction < 1.0);
+  VERIFY(reserve-cell-fraction, reserve_cell_fraction >= 0.0 && reserve_cell_fraction < 1.0 );
 
 #ifdef PARTICLES
-  cart_assert(reserve_particle_fraction >= 0.0 && reserve_particle_fraction < 1.0);
+  VERIFY(reserve-particle-fraction, reserve_particle_fraction >= 0.0 && reserve_particle_fraction < 1.0 );
 #endif
 }
 

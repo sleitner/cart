@@ -45,11 +45,11 @@ void config_init_hydro()
 
   control_parameter_add2(control_parameter_float,&gas_density_floor,"gas-density-floor","gas_density_floor","the minimum densitye for the gas (in code units).");
 
-  control_parameter_add2(control_parameter_int,&pressureless_fluid_eos,"pressureless-fluid-eos","pressureless_fluid_eos","use a pressureless fluid equation of state.");
+  control_parameter_add2(control_parameter_bool,&pressureless_fluid_eos,"pressureless-fluid-eos","pressureless_fluid_eos","use a pressureless fluid equation of state.");
 
-  control_parameter_add2(control_parameter_int,&apply_lapidus_viscosity,"apply-lapidus-viscosity","apply_lapidus_viscosity","apply Lapidus viscosity in the hydro flux calculations (boolean value).");
+  control_parameter_add2(control_parameter_bool,&apply_lapidus_viscosity,"apply-lapidus-viscosity","apply_lapidus_viscosity","apply Lapidus viscosity in the hydro flux calculations (boolean value).");
 
-  control_parameter_add2(control_parameter_int,&smooth_density_gradients,"smooth-density-gradients","smooth_density_gradients","smooth overly steep density gradients in the hydro flux calculations (boolean value).");
+  control_parameter_add2(control_parameter_bool,&smooth_density_gradients,"smooth-density-gradients","smooth_density_gradients","smooth overly steep density gradients in the hydro flux calculations (boolean value).");
 
   control_parameter_add3(control_parameter_int,&pressure_floor_min_level,"pressure-floor-min-level","pressure_floor_min_level","MinL_Jeans","the level to apply the pressure floor. If this value is set to -1, the pressure floor correction is disabled.");
 
@@ -66,21 +66,15 @@ void config_init_hydro()
 
 void config_verify_hydro()
 {
-  cart_assert(gas_temperature_floor >= 0.0); 
+  VERIFY(gas-temperature-floor, gas_temperature_floor >= 0.0 ); 
 
-  cart_assert(gas_density_floor > 0.0);
+  VERIFY(gas-density-floor, gas_density_floor > 0.0 );
 
-  cart_assert(pressureless_fluid_eos==0 || pressureless_fluid_eos==1);
+  VERIFY(pressure-floor-min-level, pressure_floor_min_level>=-1 && pressure_floor_min_level<=max_level );
 
-  cart_assert(apply_lapidus_viscosity==0 || apply_lapidus_viscosity==1);
+  VERIFY(pressure-floor-factor, pressure_floor_factor > 0.0 );
 
-  cart_assert(smooth_density_gradients==0 || smooth_density_gradients==1);
-
-  cart_assert(pressure_floor_min_level>=-1 && pressure_floor_min_level<=max_level);
-
-  cart_assert(pressure_floor_factor > 0.0);
-
-  cart_assert(!(radiation_pressure_factor < 0.0));
+  VERIFY(radiation-pressure-factor, !(radiation_pressure_factor < 0.0) );
 
 #ifdef BLASTWAVE_FEEDBACK
 

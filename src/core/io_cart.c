@@ -54,9 +54,9 @@ void config_init_io_cart() {
 }
 
 void config_verify_io_cart() {
-	cart_assert(num_cart_output_files > 0 && num_cart_output_files <= num_procs);
-	cart_assert(num_cart_input_files > 0 && num_cart_input_files <= num_procs);
-	cart_assert(cart_particle_num_row > 0);
+	VERIFY(num-cart-output-files, num_cart_output_files > 0 && num_cart_output_files <= num_procs );
+	VERIFY(num-cart-input-files, num_cart_input_files > 0 && num_cart_input_files <= num_procs );
+	VERIFY(cart-particle-num-row, cart_particle_num_row > 0 );
 }
 
 void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {

@@ -208,41 +208,42 @@ void config_init_times()
 void config_verify_times()
 {
 #ifdef COSMOLOGY
-  cart_assert(auni_init>0.0 && !(auni_init>auni_end));
+  VERIFY(auni-start, auni_init>0.0 && !(auni_init>auni_end) );
 
-  cart_assert(max_a_inc > 1.0);
+  VERIFY(max-a-increment, max_a_inc > 1.0 );
 
-  cart_assert(max_da >= 0.0);
+  VERIFY(max-da, max_da >= 0.0 );
 #endif /* COSMOLOGY */
 
-  cart_assert(!(t_init > t_end));
+  VERIFY(time-start, !(t_init > t_end) );
 
-  cart_assert(max_steps >= 0);
+  VERIFY(num-steps, max_steps >= 0 );
 
-  cart_assert(max_mpi_sync_level >= min_level);
+  VERIFY(max-mpi-sync-level, max_mpi_sync_level >= min_level );
 
 #ifdef HYDRO 
-  cart_assert(cfl_run>0.0 && !(cfl_run>cfl_max));
+  VERIFY(cfl-max, cfl_max > 0.0 );
+  VERIFY(cfl-run, cfl_run>0.0 && !(cfl_run>cfl_max) );
 #endif /* HYDRO */
 
 #ifdef PARTICLES
-  cart_assert(!(particle_cfl < 0.0));
+  VERIFY(particle-cfl, !(particle_cfl < 0.0) );
 #endif /* PARTICLES */
 
-  cart_assert(max_dt_inc > 1.0);
+  VERIFY(max-timestep-increment, max_dt_inc > 1.0 );
 
-  cart_assert(min_dt_dec > 1.0);
+  VERIFY(min-timestep-decrement, min_dt_dec > 1.0 );
 
-  cart_assert(!(tol_dt_grow < 1.0));
+  VERIFY(tolerance-for-timestep-increase, !(tol_dt_grow < 1.0) );
 
-  cart_assert(max_dt >= 0.0);
+  VERIFY(max-dt, max_dt >= 0.0 );
 
-  cart_assert(reduce_dt_factor_shallow_dec>=0.0 && reduce_dt_factor_shallow_dec<=1.0);
-  cart_assert(reduce_dt_factor_deep_dec>=0.0 && reduce_dt_factor_deep_dec<=1.0);
+  VERIFY(reduce-timestep-factor:shallow-decrement, reduce_dt_factor_shallow_dec>=0.0 && reduce_dt_factor_shallow_dec<=1.0 );
+  VERIFY(reduce-timestep-factor:deep-decrement, reduce_dt_factor_deep_dec>=0.0 && reduce_dt_factor_deep_dec<=1.0 );
 
-  cart_assert(min_time_refinement_factor > 0);
-  cart_assert(max_time_refinement_factor >= min_time_refinement_factor);
-  cart_assert(time_refinement_level >= min_level);
+  VERIFY(time-refinement-factor:min, min_time_refinement_factor > 0 );
+  VERIFY(time-refinement-factor:max, max_time_refinement_factor >= min_time_refinement_factor );
+  VERIFY(time-refinement-level, time_refinement_level >= min_level );
 
 #if !defined(HYDRO) && defined(PARTICLES)
   if(min_time_refinement_factor==1 && max_time_refinement_factor>1 && particle_cfl==0.0)

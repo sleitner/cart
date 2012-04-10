@@ -50,9 +50,9 @@ double G_code;
 
 void config_init_refinement()
 {
-  control_parameter_add2(control_parameter_int,&refinement_is_static,"ref:static","refinement_is_static","makes the refinement mesh static. All the refinement must be done manually in init_run() call.");
+  control_parameter_add2(control_parameter_bool,&refinement_is_static,"ref:static","refinement_is_static","makes the refinement mesh static. All the refinement must be done manually in init_run() call.");
 
-  control_parameter_add2(control_parameter_int,&spatially_limited_refinement,"ref:spatial","spatially_limited_refinement","turns on/off the feature by which refinement_volume_min/max is used to limit refinement.");
+  control_parameter_add2(control_parameter_bool,&spatially_limited_refinement,"ref:spatial","spatially_limited_refinement","turns on/off the feature by which refinement_volume_min/max is used to limit refinement.");
 
   control_parameter_add2(control_parameter_int,&refinement_volume_level,"ref:volume-level","refinement_volume_level","sets the level below which refinement_volume_min/max restriction is tested.");
 
@@ -80,28 +80,24 @@ void config_init_refinement()
 
 void config_verify_refinement()
 {
-  cart_assert(spatially_limited_refinement == 0 || spatially_limited_refinement == 1 );
+  VERIFY(ref:volume-level, refinement_volume_level>=min_level && refinement_volume_level<=max_level );
 
-  cart_assert(refinement_volume_level>=min_level && refinement_volume_level<=max_level);
+  VERIFY(ref:split-tolerance, split_tolerance>0.0 && split_tolerance<1.0 );
 
-  cart_assert(refinement_is_static==0 || refinement_is_static==1);
+  VERIFY(ref:join-tolerance, join_tolerance>0.0 && join_tolerance<1.0 );
 
-  cart_assert(split_tolerance>0.0 && split_tolerance<1.0);
+  VERIFY(ref:diffusion-steps, num_diffusion_steps >= 0 );
 
-  cart_assert(join_tolerance>0.0 && join_tolerance<1.0);
+  VERIFY(ref:diffusion-coefficient, diffusion_coefficient > 0.0 );
 
-  cart_assert(num_diffusion_steps >= 0);
-
-  cart_assert(diffusion_coefficient > 0.0);
-
-  cart_assert(reaction_increment > 0.0);
+  VERIFY(ref:reaction-increment, reaction_increment > 0.0 );
 
 #ifdef MOMENTUM_DIFFUSION
-  cart_assert(momentum_increment > 0.0);
+  VERIFY(ref:momentum-increment, momentum_increment > 0.0 );
 #endif 
 
 #ifdef COSMOLOGY
-  cart_assert(!(fixed_proper_resolution < 0.0));
+  VERIFY(fixed-proper-resolution, !(fixed_proper_resolution < 0.0) );
 #endif /* COSMOLOGY */
 
   config_verify_refinement_indicators();

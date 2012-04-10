@@ -99,11 +99,11 @@ void config_init_io_artio() {
 }
 
 void config_verify_io_artio() {
-	cart_assert( num_artio_grid_files > 0 && num_artio_grid_files < max_sfc_index );
-	cart_assert( artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
+	VERIFY(io:num-grid-files, num_artio_grid_files > 0 && num_artio_grid_files < max_sfc_index );
+	VERIFY(io:grid-file-allocation-strategy, artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
 #ifdef PARTICLES 
-	cart_assert( num_artio_particle_files > 0 && num_artio_particle_files < max_sfc_index );
-	cart_assert( artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
+	VERIFY(io:num-particle-files, num_artio_particle_files > 0 && num_artio_particle_files < max_sfc_index );
+	VERIFY(io:particle-file-allocation-strategy, artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
 #endif /* PARTICLES */
 }
 

@@ -91,27 +91,25 @@ void config_init_star_formation()
   config_init_star_formation_feedback();
 }
 
-void config_dependent_star_formation_parameters(){
-  config_dependent_star_formation_feedback_parameters();
-}
+
 void config_verify_star_formation()
 {
   /*
   //  General parameters
   */
-  cart_assert(sf_min_level>=min_level && sf_min_level<=max_level);
+  VERIFY(sf:min-level, sf_min_level>=min_level && sf_min_level<=max_level );
 
-  cart_assert(sf_min_gas_number_density > 0.0);
+  VERIFY(sf:min-gas-number-density, sf_min_gas_number_density > 0.0 );
 
-  cart_assert(sf_max_gas_temperature > 10.0);
+  VERIFY(sf:max-gas-temperature, sf_max_gas_temperature > 10.0 );
 
-  cart_assert(sf_timescale > 0.0);
+  VERIFY(sf:timescale, sf_timescale > 0.0 );
 
-  cart_assert(sf_sampling_timescale < 0.5*sf_timescale);
+  VERIFY(sf:sampling-timescale, sf_sampling_timescale < 0.5*sf_timescale );
 
-  cart_assert(!(sf_min_stellar_particle_mass < 0.0));
+  VERIFY(sf:min-stellar-particle-mass, !(sf_min_stellar_particle_mass < 0.0) );
 
-  cart_assert(!(sf_metallicity_floor < 0.0));
+  VERIFY(sf:metallicity-floor, !(sf_metallicity_floor < 0.0) );
 
   config_verify_star_formation_recipe();
   config_verify_star_formation_feedback();

@@ -1,5 +1,5 @@
 #include "config.h"
-#if defined(STAR_FORMATION) && defined(AGN)
+#if defined(STAR_FORMATION) && defined(AGN) && defined(STAR_PARTICLE_TYPE)
 
 #include <math.h>
 #include <stdio.h>
@@ -20,6 +20,9 @@
 #include "tree.h"
 #include "units.h"
 #include "agn.h"
+
+#include "../run/step.h"
+
 
 /* agn model parameters */
 int agn_accretion_recipe = 1;       /* Set to 0 for pure eddington accretion, 1 for Bondi accretion (constant-alpha), 2 for Bondi accretion (constant-beta) */
@@ -71,22 +74,23 @@ void config_init_agn() {
 }
 
 void config_verify_agn() {
-	cart_assert( agn_parameters.eddington_factor >= 1.0 );
-	cart_assert( agn_parameters.bondi_normalization >= 1.0 );
-	cart_assert( agn_parameters.radiative_efficiency > 0.0 && agn_parameters.radiative_efficiency <= 1.0 );
-	cart_assert( agn_parameters.feedback_efficiency >= 0.0 && agn_parameters.feedback_efficiency <= 1.0 );
-	cart_assert( agn_accretion_recipe == 0 || agn_accretion_recipe == 1 || agn_accretion_recipe == 2); 
 	cart_assert( agn_merge_radius_type == 0 || agn_merge_radius_type == 1 );
-	cart_assert( agn_parameters.critical_SF_gas_density > 0.0 ); 
-	cart_assert( agn_parameters.bondi_exponent > 0.0 ); 
-	cart_assert( agn_parameters.minimum_feedback_temperature >= 1e6 ); 
-	cart_assert( agn_feedback_storage == 0 || agn_feedback_storage == 1 ); 
-	cart_assert( agn_parameters.sink_particle_delta > 0.0); 
+
+	VERIFY(agn:eddington_factor, agn_parameters.eddington_factor >= 1.0 );
+	VERIFY(agn:bondi_normalization, agn_parameters.bondi_normalization >= 1.0 );
+	VERIFY(agn:radiative_efficiency, agn_parameters.radiative_efficiency > 0.0 && agn_parameters.radiative_efficiency <= 1.0 );
+	VERIFY(agn:feedback_efficiency, agn_parameters.feedback_efficiency >= 0.0 && agn_parameters.feedback_efficiency <= 1.0 );
+	VERIFY(agn:accretion_recipe, agn_accretion_recipe == 0 || agn_accretion_recipe == 1 || agn_accretion_recipe == 2 ); 
+	VERIFY(agn:critical_SF_gas_density, agn_parameters.critical_SF_gas_density > 0.0 ); 
+	VERIFY(agn:bondi_exponent, agn_parameters.bondi_exponent > 0.0 ); 
+	VERIFY(agn:minimum_feedback_temperature, agn_parameters.minimum_feedback_temperature >= 1e6 ); 
+	VERIFY(agn:feedback_storage, agn_feedback_storage == 0 || agn_feedback_storage == 1 ); 
+	VERIFY(agn:sink_particle_delta, agn_parameters.sink_particle_delta > 0.0); 
 	if ( agn_merge_radius_type==0 ) {
-	  cart_assert( agn_parameters.agn_merge_radius >= 0.0 && agn_parameters.agn_merge_radius <= pow( 2.0, max_level-1 )); 
+	  VERIFY(agn:merge_radius, agn_parameters.agn_merge_radius >= 0.0 && agn_parameters.agn_merge_radius <= pow( 2.0, max_level-1 ) ); 
 	}
-	cart_assert( agn_parameters.agn_merge_velocity > 0.0 );
-	cart_assert( agn_dv_on_off == 0 || agn_dv_on_off == 1 );
+	VERIFY(agn:merge_velocity, agn_parameters.agn_merge_velocity > 0.0 );
+	VERIFY(agn:dv_on_off, agn_dv_on_off == 0 || agn_dv_on_off == 1 );
 }
 
 double Meddfact;

@@ -37,7 +37,7 @@ void config_init_density()
 
 void config_verify_density()
 {
-  cart_assert(max_dark_matter_level>=min_level && max_dark_matter_level<=max_level);
+  VERIFY(max-dark-matter-level, max_dark_matter_level>=min_level && max_dark_matter_level<=max_level );
 }
 
 

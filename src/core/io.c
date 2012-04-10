@@ -226,17 +226,15 @@ void config_verify_io()
     }
 #endif /* COSMOLOGY */
 
-  cart_assert(output_frequency >= 0);
+  VERIFY(frequency:user-output, output_frequency >= 0 );
 
-  cart_assert(restart_frequency >= 0);
+  VERIFY(frequency:restart, restart_frequency >= 0 );
 
-  cart_assert(particle_output_frequency >= 0);
+  VERIFY(frequency:particle-output, particle_output_frequency >= 0 );
 
-  cart_assert(tracer_output_frequency >= 0);
+  VERIFY(frequency:tracer-output, tracer_output_frequency >= 0 );
 
-  cart_assert(grid_output_frequency >= 0);
-
-  cart_assert(old_cart_io_flag == 0 || old_cart_io_flag == 1);
+  VERIFY(frequency:grid-output, grid_output_frequency >= 0 );
 
   config_verify_io_cart();
   config_verify_io_artio();

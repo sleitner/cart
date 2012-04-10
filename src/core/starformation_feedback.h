@@ -15,7 +15,6 @@ struct StellarFeedback
   float (*ionizing_luminosity)(int ipart);
   void (*hydrodynamic_feedback)(int level, int cell, int ipart, double t_next);
   void (*config_init)();           /* can be NULL */
-  void (*config_dependent_parameters)();         /* can be NULL */
   void (*config_verify)();         /* can be NULL */
   void (*init)();                  /* can be NULL */
   void (*setup)(int level);        /* can be NULL */
@@ -27,7 +26,6 @@ extern const struct StellarFeedback *sf_feedback;
 
 void config_init_star_formation_feedback();
 void config_verify_star_formation_feedback();
-void config_dependent_star_formation_feedback_parameters();
 
 void set_feedback_model(const struct StellarFeedback *ptr);
 

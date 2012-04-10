@@ -39,9 +39,9 @@ void config_init_gravity()
 
 void config_verify_gravity()
 {
-  cart_assert(num_smooth_iterations > 0); 
+  VERIFY(gravity:num-iterations, num_smooth_iterations > 0 ); 
 
-  cart_assert(spectral_radius>0.0 && spectral_radius<1.0);
+  VERIFY(gravity:spectral-radius, spectral_radius>0.0 && spectral_radius<1.0 );
 }
 
 

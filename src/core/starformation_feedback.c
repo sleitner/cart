@@ -44,13 +44,6 @@ void config_init_star_formation_feedback()
 #endif /* BLASTWAVE_FEEDBACK */
 }
 
-void config_dependent_star_formation_feedback_parameters(){
-  /*
-  // set dependent_parameters for the current feedback model
-  */
-  if(sf_feedback->config_dependent_parameters != NULL) sf_feedback->config_dependent_parameters();
-
-}
 
 void config_verify_star_formation_feedback()
 {
@@ -67,10 +60,10 @@ void config_verify_star_formation_feedback()
   /*
   //  other
   */
-  cart_assert(feedback_temperature_ceiling > 1.0e6);
+  VERIFY(fb:temperature-ceiling, feedback_temperature_ceiling > 1.0e6 );
 
 #ifdef BLASTWAVE_FEEDBACK 
-  cart_assert(!(blastwave_time < 0.0));
+  VERIFY(blastwave-time, !(blastwave_time < 0.0) );
 #endif /* BLASTWAVE_FEEDBACK */
 }
 

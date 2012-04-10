@@ -9,26 +9,31 @@
 #include "imf.h"
 
 
+double imf_f_Salpeter(double m);
+double imf_f_MillerScalo(double m);
+double imf_f_Chabrier(double m);
+double imf_f_Kroupa(double m);
 
-double f_IMF_Salpeter(double m);
-double f_IMF_MillerScalo(double m);
-double f_IMF_Chabrier(double m);
-double f_IMF_Kroupa(double m);
+double imf_fm( double mstar );
+double imf_fmz( double mstar );
 
 
-const struct IMF_t IMF_fun[] = { 
-  { "Salpeter", f_IMF_Salpeter }, 
-  { "Miller-Scalo", f_IMF_MillerScalo }, 
-  { "Chabrier", f_IMF_Chabrier }, 
-  { "Kroupa", f_IMF_Kroupa } 
+struct imf_t
+{
+  const char* name;
+  double (*f)(double m);
+}
+const imf_list[] = { 
+  { "Salpeter", imf_f_Salpeter }, 
+  { "Miller-Scalo", imf_f_MillerScalo }, 
+  { "Chabrier", imf_f_Chabrier }, 
+  { "Kroupa", imf_f_Kroupa } 
 };
 
-const struct IMF_t *IMF_fname = IMF_fun;
-
-const int num_imfs = sizeof(IMF_fun)/sizeof(struct IMF_t);
+const int num_imfs = sizeof(imf_list)/sizeof(struct imf_t);
 
 
-struct InitialMassFunction imf_internal = { 1, 0.1, 100.0, 8.0, 3.0, 8.0 };
+struct InitialMassFunction imf_internal = { NULL, 0.1, 100.0, 8.0, 3.0, 8.0, NULL, imf_fm, imf_fmz };
 const struct InitialMassFunction *imf = &imf_internal;
 
 
@@ -36,20 +41,21 @@ void control_parameter_set_imf(const char *value, void *ptr, int ind)
 {
   int i;
 
-  imf_internal.type = -1;
+  imf_internal.name = NULL;
 
   for(i=0; i<num_imfs; i++)
     {
-      if(strcmp(value,IMF_fun[i].name) == 0)
+      if(strcmp(value,imf_list[i].name) == 0)
 	{
-	  imf_internal.type = i;
+	  imf_internal.name = imf_list[i].name;
+	  imf_internal.f = imf_list[i].f;
 	}
     }
 
-  if(imf_internal.type < 0)
+  if(imf_internal.name == NULL)
     {
       cart_debug("String '%s' is not a valid name of IMF. Valid names are:",value);
-      for(i=0; i<num_imfs; i++) cart_debug("%s",IMF_fun[i].name);
+      for(i=0; i<num_imfs; i++) cart_debug("%s",imf_list[i].name);
       cart_error("ART is terminating.");
     }
 }
@@ -57,7 +63,7 @@ void control_parameter_set_imf(const char *value, void *ptr, int ind)
 
 void control_parameter_list_imf(FILE *stream, const void *ptr)
 {
-  control_parameter_list_string(stream,IMF_fun[imf_internal.type].name);
+  control_parameter_list_string(stream,imf_internal.name);
 }
 
 
@@ -65,7 +71,13 @@ void config_init_imf()
 {
   ControlParameterOps control_parameter_imf = { control_parameter_set_imf, control_parameter_list_imf };
 
-  control_parameter_add2(control_parameter_imf,&imf_internal.type,"imf","imf.type","the name of the IMF. Valid names are 'Salpeter', 'Miller-Scalo', and 'Chabrier'.");
+  /*
+  //  Default values
+  */
+  imf_internal.name = imf_list[1].name;
+  imf_internal.f = imf_list[1].f;
+
+  control_parameter_add2(control_parameter_imf,&imf_internal.f,"imf","imf.type","the name of the IMF. Valid names are 'Salpeter', 'Miller-Scalo', 'Chabrier', and 'Kroupa'.");
 
   control_parameter_add3(control_parameter_double,&imf_internal.min_mass,"imf:min-mass","imf.min_mass","am_stl","the minimum stellar mass in the IMF model.");
 
@@ -85,30 +97,26 @@ void config_verify_imf()
   /*
   //  IMF
   */
-  cart_assert(imf_internal.type>=0 && imf_internal.type<num_imfs);
+  VERIFY(imf:min-mass, imf_internal.min_mass > 0.0 );
 
-  cart_assert(imf_internal.min_mass > 0.0);
+  VERIFY(imf:max-mass, imf_internal.max_mass > 0.0 );
 
-  cart_assert(imf_internal.max_mass > 0.0);
+  VERIFY(imf:min-SNII-mass, imf_internal.min_SNII_mass > 1.0 );
 
-  cart_assert(imf_internal.min_SNII_mass > 1.0);
+  VERIFY(imf:min-SNIa-mass, imf_internal.min_SNIa_mass > 1.0 );
 
-  cart_assert(imf_internal.min_SNIa_mass > 1.0);
-
-  cart_assert(imf_internal.max_SNIa_mass > imf_internal.min_SNIa_mass);
+  VERIFY(imf:max-SNIa-mass, imf_internal.max_SNIa_mass > imf_internal.min_SNIa_mass );
 
 }
 
 
-
-
-double f_IMF_Salpeter( double m )
+double imf_f_Salpeter( double m )
 {
   return pow( m, -2.35 );
 }
 
 
-double f_IMF_MillerScalo( double m )
+double imf_f_MillerScalo( double m )
 {
   /* Miller-Scalo (1979, ApJS 41, 513, eq. 30, Table 7) IMF */
   const double C_1 =  1.09;
@@ -117,7 +125,7 @@ double f_IMF_MillerScalo( double m )
 }
 
 
-double f_IMF_Chabrier( double m )
+double imf_f_Chabrier( double m )
 {
   /* Chabrier, G. (2001, ApJ 554, 1274) */
   /* above 1Msun slope is unconstrained -- assume Salpeter*/
@@ -132,7 +140,7 @@ double f_IMF_Chabrier( double m )
 }
 
 
-double f_IMF_Kroupa( double m )
+double imf_f_Kroupa( double m )
 {
   /* Kroupa, P. (2007astro.ph..3124K) */
   if(m < 0.5)
@@ -142,21 +150,16 @@ double f_IMF_Kroupa( double m )
 }
   
 
-double f_IMF( double mstar )
+double imf_fm( double mstar )
 {
-  return IMF_fun[imf_internal.type].f(mstar);
+  return mstar * imf_internal.f(mstar);
 }
 
 
-double fm_IMF( double mstar )
+double imf_fmz( double mstar )
 {
-  return mstar * f_IMF(mstar);
+  return mstar * imf_internal.f(mstar) * min( 0.2, max( 0.01*mstar - 0.06, 1e-20 ) );
 }
 
-
-double fmz_IMF( double mstar )
-{
-  return mstar * f_IMF(mstar) * min( 0.2, max( 0.01*mstar - 0.06, 1e-20 ) );
-}
 
 #endif /* STAR_FORMATION */

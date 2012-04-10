@@ -671,7 +671,7 @@ int timestep( int level, MPI_Comm level_com )
 		*/
 		if(reduce_dt_factor_step[level] == 0.0)
 		  {
-		    reduce_dt_factor_step[level] = dtl[level]/(0.1*dtl[level]+dt_needed);
+		    reduce_dt_factor_step[level] = dtl[level]/max(0.1*dtl[level],dt_needed) - 1.0;
 		  }
 		ret = -1;
 	}
