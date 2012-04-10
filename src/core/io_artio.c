@@ -18,7 +18,7 @@
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
-#include "rt_io.h"
+#include "rt_transfer.h"
 #include "sfc.h"
 #include "skiplist.h"
 #include "starformation.h"
@@ -26,6 +26,10 @@
 #include "times.h"
 #include "tree.h"
 #include "units.h"
+
+#ifdef RADIATIVE_TRANSFER
+#include "frt/frt_c.h"
+#endif /* RADIATIVE_TRANSFER */
 
 #include "../tools/artio/artio.h"
 #include "../tools/artio/artio_mpi.h"
@@ -357,7 +361,11 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	int64_t local_proc_sfc_index[MAX_PROCS+1];
 	FILE *restart;
 	char restart_filename[256];
-
+#ifdef RADIATIVE_TRANSFER
+	frt_intg n;
+	frt_real *data;
+	float *buffer;
+#endif /* RADIATIVE_TRANSFER */
 	struct artio_context_struct con = { mpi.comm.run };
 
 #ifdef PARTICLES
@@ -447,6 +455,46 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	artio_parameter_set_float_array( handle, "star_formation_volume_max", 
 			nDim, star_formation_volume_max );
 #endif /* STAR_FORMATION */
+
+#ifdef RADIATIVE_TRANSFER
+	n = 0;
+	frtCall(packradiationfields)(&n,0);
+	if(n < 1)
+	  {
+	    cart_error("Unable to pack Radiation Field data.");
+	  }
+
+	data = cart_alloc(frt_real, n );
+	frtCall(packradiationfields)(&n,data);
+
+	if(sizeof(float) == sizeof(frt_real))
+	  {
+	    buffer = (float *)data;
+	  }
+	else
+	  {
+	    buffer = cart_alloc(float,n);
+	    for(i=0; i<n; i++) buffer[i] = data[i];
+	  }
+
+	artio_parameter_set_float_array( handle, "radiation_background", n, buffer );
+
+	if(sizeof(float) == sizeof(frt_real))
+	  {
+	  }
+	else
+	  {
+	    cart_free(buffer);
+	  }
+
+	cart_free(data);
+
+#ifdef RT_SINGLE_SOURCE
+	artio_parameter_set_int( handle, "rt:single_source:level", rtSingleSourceLevel );
+	artio_parameter_set_float( handle, "rt:single_source:value", rtSingleSourceValue );
+	artio_parameter_set_double_array( handle, "rt:single_source:pos", nDim, rtSingleSourcePos );
+#endif
+#endif /* RADIATIVE_TRANSFER */
 
 	/* load balance parameters */
 	artio_parameter_set_int( handle, "num_octs_per_mpi_task", num_octs );
@@ -884,7 +932,11 @@ void read_artio_restart( const char *label ) {
 	FILE *restart;
 	int type;
 	char str[CONTROL_PARAMETER_STRING_LENGTH];
-
+#ifdef RADIATIVE_TRANSFER
+	frt_intg n;
+	frt_real *data;
+	float *buffer;
+#endif /* RADIATIVE_TRANSFER */
 	struct artio_context_struct con = { mpi.comm.run };
 
 #ifdef COSMOLOGY
@@ -1064,6 +1116,46 @@ void read_artio_restart( const char *label ) {
 	artio_parameter_get_float_array( handle, "star_formation_volume_max", 
 			nDim, star_formation_volume_max );
 #endif /* STAR_FORMATION */
+
+#ifdef RADIATIVE_TRANSFER
+	n = 0;
+	frtCall(unpackradiationfields)(&n,0);
+	if(n < 1)
+	  {
+	    cart_error("Unable to pack Radiation Field data.");
+	  }
+
+	data = cart_alloc(frt_real, n );
+
+	if(sizeof(float) == sizeof(frt_real))
+	  {
+	    buffer = (float *)data;
+	  }
+	else
+	  {
+	    buffer = cart_alloc(float,n);
+	  }
+
+	artio_parameter_get_float_array( handle, "radiation_background", n, buffer );
+
+	if(sizeof(float) == sizeof(frt_real))
+	  {
+	  }
+	else
+	  {
+	    for(i=0; i<n; i++) data[i] = buffer[i];
+	    cart_free(buffer);
+	  }
+
+	frtCall(unpackradiationfields)(&n,data);
+	cart_free(data);
+
+#ifdef RT_SINGLE_SOURCE
+	artio_parameter_get_int( handle, "rt:single_source:level", &rtSingleSourceLevel );
+	artio_parameter_get_float( handle, "rt:single_source:value", &rtSingleSourceValue );
+	artio_parameter_get_double_array( handle, "rt:single_source:pos", nDim, rtSingleSourcePos );
+#endif
+#endif /* RADIATIVE_TRANSFER */
 
 	read_artio_grid(handle, file_max_level);
 	cart_debug("done reading grid");
