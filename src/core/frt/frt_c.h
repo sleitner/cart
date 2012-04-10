@@ -32,6 +32,7 @@ void frtCall(getcoolingrate)(frt_real *var, frt_real *rawrf, frt_real *rateCool,
 void frtCall(getphotorates)(frt_real *var, frt_real *rawrf, frt_real *pRate);
 void frtCall(getbackgroundphotorates)(frt_real *pRate);
 void frtCall(getradiationfield)(frt_real *var, frt_real *rawrf, frt_intg *nout, frt_real *wlen, frt_real *ngxi);
+frt_real frtCall(getrfwithunits)(frt_intg *freq, frt_real *rfNear, frt_real *rfFar);
 void frtCall(getbackgroundradiationfield)(frt_intg *nout, frt_real *wlen, frt_real *ngxi);
 
 void frtCall(packradiationfields)(frt_intg *n, frt_real *data);

@@ -934,6 +934,40 @@ C
       end
 C
 C
+C     
+      function frtGetRFWithUnits(L,rfNear,rfFar)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_TRANSFER
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
+#endif
+
+      if(L.ge.1 .and. L.le.NSETS) then
+
+         lr = LRSETS(L)
+
+         anxi = facLX*rfNear*guvEff(lr)
+
+#ifdef RT_EXTERNAL_BACKGROUND
+         anxi = anxi + angEff(lr)*rfFar
+#endif
+
+      else
+
+         anxi = 0.0
+
+      endif
+
+      frtGetRFWithUnits = anxi
+
+      return
+      end
+C
+C
 C
       subroutine frtGetBackgroundRadiationField(nout,wlen,anxi)
       include 'frt_base.inc'
