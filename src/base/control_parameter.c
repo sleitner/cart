@@ -38,7 +38,10 @@ void control_parameter_add_worker(ControlParameterSetter setter, ControlParamete
   int i, j;
   ControlParameter *tmp;
 
-  cart_assert(num_names>0 && names!=NULL && names[0]!=NULL && ptr!=NULL && setter!=NULL && lister!=NULL);
+  /*
+  //  Read-only names had no setters
+  */
+  cart_assert(num_names>0 && names!=NULL && names[0]!=NULL && ptr!=NULL && lister!=NULL);
 
   if(num_control_parameters == control_parameters_size)
     {
@@ -94,6 +97,13 @@ void control_parameter_add_worker(ControlParameterSetter setter, ControlParamete
       control_parameters[num_control_parameters].verified = 1;
     }
 
+  /*
+  //  There is nothing to verify in read-only parameters
+  */
+  if(setter == NULL)
+    {
+      control_parameters[num_control_parameters].verified = 1;
+    }
 
   for(j=0; j<num_names; j++)
     {
@@ -422,7 +432,15 @@ int control_parameter_read(const char *tag, const char *value)
 		    }
 		}
 	      control_parameters[i].set = 1;
-	      control_parameters[i].setter(value,control_parameters[i].ptr,j);
+	      if(control_parameters[i].setter != NULL)
+		{
+		  control_parameters[i].setter(value,control_parameters[i].ptr,j);
+		}
+	      else
+		{
+		  /* do not set read-only */
+		  cart_error("Attemping to set a read-only parameter %s. Here is the help string for this parameter:\n %s",control_parameters[i].names[0],control_parameters[i].help);
+		}
 	      /*
 	      //  Permit setting more than one parameter with common 
 	      //  secondary names (for backward compatibility).

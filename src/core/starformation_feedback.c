@@ -21,8 +21,16 @@ double blastwave_time = { 50.0e6 };
 #endif /* BLASTWAVE_FEEDBACK */
 
 
+void control_parameter_list_feedback(FILE *stream, const void *ptr)
+{
+  fprintf(stream,"<%s>",sf_feedback->name);
+}
+
+
 void config_init_star_formation_feedback()
 {
+  ControlParameterOps r = { NULL, control_parameter_list_feedback };
+
   /*
   //  IMF
   */
@@ -36,6 +44,8 @@ void config_init_star_formation_feedback()
   /*
   //  other
   */
+  control_parameter_add(r,(void *)sf_feedback_internal.name,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
+
   control_parameter_add3(control_parameter_double,&feedback_temperature_ceiling,"fb:temperature-ceiling","feedback_temperature_ceiling","T_max_feedback","maximum gas temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
 
 #ifdef BLASTWAVE_FEEDBACK 
