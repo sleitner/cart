@@ -32,7 +32,6 @@ void frtCall(getcoolingrate)(frt_real *var, frt_real *rawrf, frt_real *rateCool,
 void frtCall(getphotorates)(frt_real *var, frt_real *rawrf, frt_real *pRate);
 void frtCall(getbackgroundphotorates)(frt_real *pRate);
 void frtCall(getradiationfield)(frt_real *var, frt_real *rawrf, frt_intg *nout, frt_real *wlen, frt_real *ngxi);
-frt_real frtCall(getrfwithunits)(frt_intg *freq, frt_real *rfNear, frt_real *rfFar);
 void frtCall(getbackgroundradiationfield)(frt_intg *nout, frt_real *wlen, frt_real *ngxi);
 
 void frtCall(packradiationfields)(frt_intg *n, frt_real *data);
@@ -43,6 +42,8 @@ void frtCall(initruntransfer)(frt_intg *nfreq, frt_intg *ncomp);
 void frtCall(stependtransfer)(frt_real *abcAvg);
 
 frt_real frtCall(transferglobalac)(frt_intg *idx, frt_real *abc);
+
+frt_real frtCall(getrfwithunits)(frt_intg *freq, frt_real *rfNear, frt_real *rfFar);
 
 #ifdef RT_ABSORPTION_CALLBACK_FULL
 void frtCall(transfercomputecellabs)(frt_intg *idx, frt_real *denB, frt_real *denHI, frt_real *denHeI, frt_real *denHeII, frt_real *denMH, frt_real *dx, frt_real *abc, frt_real *var);

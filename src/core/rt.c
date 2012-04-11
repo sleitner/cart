@@ -20,6 +20,7 @@
 #include "rt_global.h"
 #include "rt_transfer.h"
 #include "starformation.h"
+#include "starformation_feedback.h"
 #include "times.h"
 #include "timing.h"
 #include "tree.h"
@@ -116,80 +117,31 @@ float cell_radiation_pressure(int cell)
 }
 
 
-#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) || !defined(STAR_FORMATION)
 void rtSetupSource(int level)
 {
-  const float ShiningTime = 3.0e6;
-  rt_src_rate = units->time/(ShiningTime*constants->yr);
+#if defined(STAR_FORMATION) && !defined(RT_TEST)
+  if(sf_feedback->setup != NULL) sf_feedback->setup(level);
+#endif 
 }
 
 
-float rtSource(int ipart)
+float rtConstantSource(int ipart)
 {
-#ifdef RT_TEST
   return 1.0;
-#endif
-
-#if defined(PARTICLES) && defined(STAR_FORMATION)
-  int istar;
-  float x1, x2, dx, q;
-
-  if(!particle_is_star(ipart)) return 0.0;
-
-  /*
-  //  The convention is different from HART
-  */
-  istar = ipart;
-  /*
-  // ******************************************************************
-  //
-  //     EXTREMELY IMPORTANT!!!!!
-  //
-  //  Specific form of this function depends on the order in which things
-  //  happen in ART_Step. Right now this assumes that Move_Level is done
-  //  before Assign_Density so that when we call this function, pt(is)
-  //  is already pdt(is) after the real moment when this star starts emitting
-  //  energy. So, the right quantity is the intergral from pt-pdt to pt
-  //  (so that the total number of emitted photons does not depend on the time
-  //  step).
-  //
-  // ******************************************************************
-  */
-  x1 = rt_src_rate*(particle_t[istar]-star_tbirth[istar]-particle_dt[ipart]);
-  if(x1 < 0.0) x1 = 0.0;
-  if(x1 < 1.0e4)
-    {
-      /*
-      //  This is a rough fit to Starburst99 evolving spectra
-      */
-      dx = rt_src_rate*particle_dt[ipart];
-      if(dx > 1.0e-5)
-	{
-	  x2 = x1 + dx;
-	  x1 *= (0.8+x1*x1);
-	  x2 *= (0.8+x2*x2);
-	  q = (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
-	}
-      else
-	{
-	  x2 = x1*(0.8+x1*x1);
-	  q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*rt_src_rate;
-	}
-      return 1.4e-4*q;
-    }
-  else
-    {
-      return 0.0;
-    }
-#else
-  return 1.0;
-#endif /* PARTICLES && STAR_FORMATION */
 }
-#endif /* RT_OLDSTYLE_SOURCE_FUNCTION || !STAR_FORMATION */
+
+
+float (*rtSource)(int ipart) = NULL;
 
 
 void rtConfigInit()
 {
+#if defined(STAR_FORMATION) && !defined(RT_TEST)
+  rtSource = sf_feedback->ionizing_luminosity;
+#else
+  rtSource = rtConstantSource;
+#endif
+
   control_parameter_add2(control_parameter_float,&rt_dust_to_gas_floor,"rt:dust-to-gas-floor","rt_dust_to_gas_floor","the minimum value for the gas-to-dust ratio, in solar (i.e. MW) units.");
 
   control_parameter_add2(control_parameter_float,&rt_uv_emissivity_stars,"rt:uv-emissivity-stars","rt_uv_emissivity_stars","the efficiency for the stellar UV component, relative to the default value (Draine field).");

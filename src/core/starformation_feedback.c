@@ -44,8 +44,25 @@ void config_init_star_formation_feedback()
 }
 
 
+#define STR_VALUE(arg)      #arg
+#define to_string(name)     STR_VALUE(name)
+
 void config_verify_star_formation_feedback()
 {
+  char feedback_internal_name[99];
+#ifdef SF_FEEDBACK
+  const char *feedback_external_name = to_string(SF_FEEDBACK);
+#else
+  const char *feedback_external_name = "";
+#endif
+
+  cart_assert(sf_feedback_internal.name != NULL);
+  cart_assert(sf_feedback_internal.ionizing_luminosity != NULL);
+  cart_assert(sf_feedback_internal.hydrodynamic_feedback != NULL);
+
+  sprintf(feedback_internal_name,"<%s>",sf_feedback_internal.name);
+  cart_assert(strcmp("<custom>",feedback_external_name)==0 || strcmp(feedback_internal_name,feedback_external_name)==0);
+
   /*
   //  IMF
   */

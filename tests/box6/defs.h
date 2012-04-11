@@ -9,6 +9,7 @@
 #define RADIATIVE_TRANSFER
 
 #define SF_RECIPE                      <gk10-full>
+#define SF_FEEDBACK                    <PopM>
 
 #define ENRICHMENT
 #define ENRICHMENT_SNIa
@@ -22,3 +23,4 @@
 #define num_particles		        5000000
 #define num_star_particles              5000000
 
+ 

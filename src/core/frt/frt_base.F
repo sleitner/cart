@@ -935,15 +935,14 @@ C
 C
 C
 C     
+#ifdef RT_TRANSFER
       function frtGetRFWithUnits(L,rfNear,rfFar)
       include 'frt_base.inc'
       include 'frt_tables.inc'
-#ifdef RT_TRANSFER
 #ifdef RT_UV
       include 'frt_transfer4.inc'
 #else
       include 'frt_transfer3.inc'
-#endif
 #endif
 
       if(L.ge.1 .and. L.le.NSETS) then
@@ -966,6 +965,7 @@ C
 
       return
       end
+#endif
 C
 C
 C

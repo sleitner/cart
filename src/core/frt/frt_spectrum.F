@@ -24,16 +24,8 @@ C
       parameter(G_pXray = 2.0e1)
 C
 #ifndef RT_TEST
-#if defined(RT_OLDSTYLE_SOURCE_FUNCTION) && !defined(RT_UV)
-C  
-C  This is for backward compatibility
-C
-      EPSG_UV = fGal*5.0e-6/1.4e-4
-      EPSQ_UV = fQSO*5.0e-6/1.4e-4
-#else
       EPSG_UV = fGal
       EPSQ_UV = fQSO
-#endif
 C
 C  Start initialization
 C
@@ -114,7 +106,7 @@ C$OMP+SHARED(guv_G,guv_Q,fac_G,fac_Q)
          guv_G(lr) = fac_G*guv_G(lr)
       enddo
 
-#else
+#else  /* RT_TEST */
 
       call frtTestInitSourceSpectrum
 
