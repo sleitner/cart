@@ -55,7 +55,10 @@ void config_verify_star_formation_recipe()
   cart_assert(sf_recipe_internal.rate != NULL);
 
   sprintf(recipe_internal_name,"<%s>",sf_recipe_internal.name);
-  cart_assert(strcmp("<custom>",recipe_external_name)==0 || strcmp(recipe_internal_name,recipe_external_name)==0);
+  if(strcmp("<custom>",recipe_external_name)!=0 && strcmp(recipe_internal_name,recipe_external_name)!=0)
+    {
+      cart_error("Misconfiguration: the internal SF recipe name (%s) does not match the name set in defs.h (%s)",recipe_internal_name,recipe_external_name);
+    }
 
   VERIFY(sf:recipe, 1 );
 

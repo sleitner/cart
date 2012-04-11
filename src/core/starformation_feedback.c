@@ -61,7 +61,10 @@ void config_verify_star_formation_feedback()
   cart_assert(sf_feedback_internal.hydrodynamic_feedback != NULL);
 
   sprintf(feedback_internal_name,"<%s>",sf_feedback_internal.name);
-  cart_assert(strcmp("<custom>",feedback_external_name)==0 || strcmp(feedback_internal_name,feedback_external_name)==0);
+  if(strcmp("<custom>",feedback_external_name)!=0 && strcmp(feedback_internal_name,feedback_external_name)!=0)
+    {
+      cart_error("Misconfiguration: the internal SF feedback name (%s) does not match the name set in defs.h (%s)",feedback_internal_name,feedback_external_name);
+    }
 
   /*
   //  IMF
