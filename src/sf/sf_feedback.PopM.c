@@ -64,7 +64,6 @@ void PopM_init()
 {
   snII_init();
   snIa_init();
-  lum_init();
   ml_init();
 }
 
