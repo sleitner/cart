@@ -12,12 +12,13 @@
 /*
 //  ATTENTION DEVELOPERS:
 //  ONLY add new members at the end of the structure!!!
+//  ONLY add new members if they are inserted in a new place in the code!!!
 */ 
 struct StellarFeedback
 {
   const char *name;
-  void (*thermal_feedback)(int level, int cell, int ipart, double t_next);
-  float (*ionizing_luminosity)(int ipart);
+  void (*hydro_feedback)(int level, int cell, int ipart, double t_next);
+  float (*rt_source)(int ipart);
   float (*extra_pressure)(int cell);  /* can be NULL */
   void (*config_init)();              /* can be NULL */
   void (*config_verify)();            /* can be NULL */

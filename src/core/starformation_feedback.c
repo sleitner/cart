@@ -70,8 +70,8 @@ void config_verify_star_formation_feedback()
 #endif
 
   cart_assert(sf_feedback_internal.name != NULL);
-  cart_assert(sf_feedback_internal.thermal_feedback != NULL);
-  cart_assert(sf_feedback_internal.ionizing_luminosity != NULL);
+  cart_assert(sf_feedback_internal.rt_source != NULL);
+  cart_assert(sf_feedback_internal.hydro_feedback != NULL);
 
   sprintf(feedback_internal_name,"<%s>",sf_feedback_internal.name);
   if(strcmp("<custom>",feedback_external_name)!=0 && strcmp(feedback_internal_name,feedback_external_name)!=0)
@@ -127,7 +127,7 @@ void stellar_feedback(int level, int cell, int ipart, double t_next )
   /*
   // call thermal_feedback for the current feedback model
   */
-  sf_feedback->thermal_feedback(level,cell,ipart,t_next);
+  sf_feedback->hydro_feedback(level,cell,ipart,t_next);
 }
 
 

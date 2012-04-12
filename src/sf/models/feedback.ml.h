@@ -14,7 +14,7 @@ void ml_init();
 void ml_setup(int level);
 
 #if defined(HYDRO) && defined(PARTICLES)
-void ml_thermal_feedback(int level, int cell, int ipart, double t_next );
+void ml_feedback(int level, int cell, int ipart, double t_next );
 #endif /* HYDRO && PARTICLES */
 
 /*

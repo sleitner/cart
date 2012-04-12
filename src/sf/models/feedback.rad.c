@@ -14,46 +14,23 @@
 /*
 //  Radiative feedback
 */
-
-struct
-{
-  double ion_time_scale;
-}
-lum = { 3.0e6 };
-
-
-void lum_config_init()
-{
-  control_parameter_add2(control_parameter_time,&lum.ion_time_scale,"lum:ion-time-scale","lum.ion_time_scale","time-scale for the evolution of the ionizing luminosity from young stars.");
-}
-
-
-void lum_config_verify()
-{
-  /*
-  //  ionizing luminosity
-  */
-  VERIFY(lum:ion-time-scale, lum.ion_time_scale > 0.0 );
-}
-
-
 struct
 {
   double ion_rate;
 }
-lum_code;
+rad_code;
 
 
-void lum_setup(int level)
+void rad_setup(int level)
 {
-  lum_code.ion_rate = units->time/(lum.ion_time_scale*constants->yr);
+  rad_code.ion_rate = units->time/(3.0e6*constants->yr);
 }
 
 
 /*
 //  Oldstyle hart source function
 */
-float lum_ionizing_luminosity_hart(int ipart)
+float rad_luminosity_hart(int ipart)
 {
   float x1, x2, dx, q;
 
@@ -62,14 +39,14 @@ float lum_ionizing_luminosity_hart(int ipart)
   /*
   //  The convention is different from HART
   */
-  x1 = lum_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]);
+  x1 = rad_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]);
   if(x1 < 0.0) x1 = 0.0;
   if(x1 < 1.0e4)
     {
       /*
       //  This is a rough fit to Starburst99 evolving spectra
       */
-      dx = lum_code.ion_rate*particle_dt[ipart];
+      dx = rad_code.ion_rate*particle_dt[ipart];
       if(dx > 1.0e-5)
         {
           x2 = x1 + dx;
@@ -80,7 +57,7 @@ float lum_ionizing_luminosity_hart(int ipart)
       else
         {
           x2 = x1*(0.8+x1*x1);
-          q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*lum_code.ion_rate;
+          q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*rad_code.ion_rate;
         }
       return 1.4e-4*q;     
     }
@@ -94,7 +71,7 @@ float lum_ionizing_luminosity_hart(int ipart)
 /*
 //  New source function for Kroupa IMF
 */
-float lum_ionizing_luminosity_popM(int ipart)
+float rad_luminosity_popM(int ipart)
 {
   float x1, x2, dx, q, Z;
 
@@ -103,14 +80,14 @@ float lum_ionizing_luminosity_popM(int ipart)
   /*
   //  The convention is different from HART
   */
-  x1 = lum_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]);
+  x1 = rad_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]);
   if(x1 < 0.0) x1 = 0.0;
   if(x1 < 1.0e4)
     {
       /*
       //  This is a rough fit to Starburst99 evolving spectra
       */
-      dx = lum_code.ion_rate*particle_dt[ipart];
+      dx = rad_code.ion_rate*particle_dt[ipart];
       if(dx > 1.0e-5)
         {
           x2 = x1 + dx;
@@ -121,7 +98,7 @@ float lum_ionizing_luminosity_popM(int ipart)
       else
         {
           x2 = x1*(0.8+x1*x1);
-          q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*lum_code.ion_rate;
+          q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*rad_code.ion_rate;
         }
 #ifdef ENRICHMENT
       Z = (star_metallicity_II[ipart]

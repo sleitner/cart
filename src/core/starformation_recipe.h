@@ -12,6 +12,7 @@
 /*
 //  ATTENTION DEVELOPERS:
 //  ONLY add new members at the end of the structure!!!
+//  ONLY add new members if they are inserted in a new place in the code!!!
 */ 
 struct StarFormationRecipe
 {

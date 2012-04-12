@@ -89,7 +89,7 @@ float (*rtSource)(int ipart) = NULL;
 void rtConfigInit()
 {
 #if defined(STAR_FORMATION) && !defined(RT_TEST)
-  rtSource = sf_feedback->ionizing_luminosity;
+  rtSource = sf_feedback->rt_source;
 #else
   rtSource = rtConstantSource;
 #endif
