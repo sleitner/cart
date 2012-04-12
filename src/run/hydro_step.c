@@ -11,6 +11,7 @@
 #include "hydro.h"
 #include "iterators.h"
 #include "qss.h"
+#include "starformation_feedback.h"
 #include "times.h"
 #include "timing.h"
 #include "tree.h"
@@ -35,11 +36,6 @@ extern int smooth_density_gradients;         /* NG: that used to be DENSGRADSMOO
 
 extern float gas_density_floor;
 extern float gas_temperature_floor;          /* NG: that used to be T_min define */
-/*
-//  Radiation pressure fudge factor (Hopkins' parameter eta_p)
-*/
-extern float radiation_pressure_factor;
-
 
 #ifdef BLASTWAVE_FEEDBACK
 extern double blastwave_time_floor; 
@@ -59,8 +55,6 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 #endif
 
 void lapidus( double dtx2, int L1, int R1, int sweep_direction, int mj3, int mj4, int mj5, double v[num_hydro_vars-1][4], double f[num_hydro_vars-1] );
-
-float cell_radiation_pressure(int cell);
 
 const int sweep_dir[2][nDim] = { { 1, 3, 5 }, { 5, 3, 1 } };
 
@@ -292,11 +286,15 @@ void hydro_eos( int level ) {
 	int num_level_cells;
 	int *level_cells;
 	double kinetic_energy;
+	/*
+	//  Dereference for efficiency
+	*/
+	float (*extra_pressure)(int cell) = sf_feedback->extra_pressure;
 
 	start_time( WORK_TIMER );
 
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants,pressureless_fluid_eos,radiation_pressure_factor)
+#pragma omp parallel for default(none), private(i,icell,kinetic_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants,pressureless_fluid_eos,extra_pressure)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -314,16 +312,7 @@ void hydro_eos( int level ) {
 		    cell_gas_energy(icell) = max( kinetic_energy, cell_gas_energy(icell) );
 		    cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
 
-		    /*
-		    // NG: this is done this way to ensure that 
-		    // cell_radiation_pressure(...) is not called 
-		    // at all when RP is off, since it may not be
-		    // implemented yet.
-		    */
-		    if(radiation_pressure_factor > 0.0)
-		      {
-			cell_gas_pressure(icell) += radiation_pressure_factor*cell_radiation_pressure(icell);
-		      }
+		    if(extra_pressure != NULL) cell_gas_pressure(icell) += extra_pressure(icell);
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 		    cell_electron_internal_energy(icell) = min( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );

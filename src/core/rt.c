@@ -65,56 +65,8 @@ float rt_coherence_length = 0.3;
 int rt_limit_signal_speed_to_c = 1;
 
 
-double rt_rp_amplt = 1.0;
-double rt_rp_slope = 1.0;
-
-
 void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf);
 void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf);
-
-void frtCall(getrpfactors)(frt_real *rf2Prad, frt_real *rho2abc);
-
-
-float rt_src_rate;
-struct rtRadiationPressureFactors
-{
-  float rf2Prad;
-  float cd2tauUV;
-  float cd2tauIR;
-  float cd2sigma100;
-}
-rt_rp_factor;
-
-
-float cell_radiation_pressure(int cell)
-{
-  float len = cell_sobolev_length(cell);
-  float cd_gas = len*constants->XH*cell_gas_density(cell);
-  float cd_dust = len*constants->XH*rtDmw(cell)*(cell_HI_density(cell)+2*cell_H2_density(cell));
-  float tauUV = rt_rp_factor.cd2tauUV*cd_dust;
-
-#if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
-  float rfLoc;
-
-#ifdef RT_UV
-  float w;
-  if(cell_var(cell,rt_field_offset+rt_num_freqs-1)>0.0 && cell_var(cell,rt_field_offset+rt_num_freqs-1)>1.0e-35*cell_var(cell,RT_VAR_OT_FIELD))
-    {
-      w = log(cell_var(cell,RT_VAR_OT_FIELD)/cell_var(cell,rt_field_offset+rt_num_freqs-1));
-      if(tauUV > w) tauUV = w;
-    }
-  rfLoc = cell_var(cell,rt_field_offset+rt_num_freqs-1)*exp(tauUV);
-#else /* RT_UV */
-  rfLoc = cell_var(cell,RT_VAR_OT_FIELD);
-#endif /* RT_UV */
-  
-  return (1-exp(-tauUV)+rt_rp_amplt*pow(rt_rp_factor.cd2sigma100*cd_gas,rt_rp_slope))*rt_rp_factor.rf2Prad*rfLoc;
-
-#else /* RT_TRANSFER && RT_TRANSFER_METHOD==RT_METHOD_OTVET */
-  cart_error("Radiation pressure without RT_TRANSFER and RT_TRANSFER_METHOD=RT_METHOD_OTVET is not implemented yet.");
-  return 0.0;
-#endif /* RT_TRANSFER && RT_TRANSFER_METHOD==RT_METHOD_OTVET */
-}
 
 
 void rtSetupSource(int level)
@@ -155,9 +107,6 @@ void rtConfigInit()
   control_parameter_add(control_parameter_float,&rt_clumping_factor,"@rt:clumping-factor","the clumping factor of the neutral gas.");
 
   control_parameter_add(control_parameter_float,&rt_coherence_length,"@rt:coherence-length","the coherence length of molecular gas (in parsecs).");
-
-  control_parameter_add(control_parameter_double,&rt_rp_amplt,"@rt:rp-amplt","temporary control for testing.");
-  control_parameter_add(control_parameter_double,&rt_rp_slope,"@rt:rp-slope","temporary control for testing.");
 }
 
 
@@ -174,9 +123,6 @@ void rtConfigVerify()
   VERIFY(@rt:clumping-factor, !(rt_clumping_factor < 1.0) );
 
   VERIFY(@rt:coherence-length, rt_coherence_length > 0.0 );
-
-  VERIFY(@rt:rp-amplt, 1 );
-  VERIFY(@rt:rp-slope, 1 );
 }
 
 
@@ -254,7 +200,6 @@ void rtInitStep(double dt)
   frt_real uDen = units->number_density;
   frt_real uLen = units->length;
   frt_real uTime = units->time;
-  frt_real rf2Prad, rho2abc;
 
 #ifdef COSMOLOGY
   frt_real aExp = abox[min_level];
@@ -277,23 +222,6 @@ void rtInitStep(double dt)
 #endif
 
   rtUpdateTables();
-
-  /*
-  //  Don't forget that n_xi is in comoving units
-  */
-  frtCall(getrpfactors)(&rf2Prad,&rho2abc);
-  /*
-  //  Factor 0.57 is the ratio of Lbol to nu*Lnu at 1000 A, per Oscar Agertz e-mail
-  */
-  rt_rp_factor.rf2Prad = 0.57*(constants->k)/units->energy_density*rf2Prad;
-  rt_rp_factor.cd2tauUV = rho2abc;
-
-  /*
-  //  Units for tauIR factor, assuming kIR = 5 cm^2/g, as in Hopkins et al 1101.4940
-  */
-  rt_rp_factor.cd2tauIR = 5*units->density*units->length;
-
-  rt_rp_factor.cd2sigma100 = units->density*units->length/(100*constants->Msun/constants->pc/constants->pc);
 
 #ifdef RT_DEBUG
   switch(rt_debug.Mode)

@@ -12,8 +12,8 @@ void lum_config_init();
 void lum_config_verify();
 void lum_setup(int level);
 
-float lum_ionizing_luminosity(int ipart);
-float lum2012_ionizing_luminosity(int ipart);
+float lum_ionizing_luminosity_hart(int ipart);
+float lum_ionizing_luminosity_popM(int ipart);
 
 #endif /* STARFORM */
 #endif

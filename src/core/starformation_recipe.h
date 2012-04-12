@@ -9,15 +9,17 @@
 
 #if defined(HYDRO) && defined(STAR_FORMATION)
 
-struct StarFormationFeedback;
-
+/*
+//  ATTENTION DEVELOPERS:
+//  ONLY add new members at the end of the structure!!!
+*/ 
 struct StarFormationRecipe
 {
   const char *name;
   double (*rate)(int cell);
   void (*config_init)();           /* can be NULL */
   void (*config_verify)();         /* can be NULL */
-  void (*setup)(int level);  /* can be NULL */
+  void (*setup)(int level);        /* can be NULL */
 };
 
 extern const struct StarFormationRecipe *sf_recipe;

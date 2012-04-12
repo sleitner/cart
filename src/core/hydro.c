@@ -25,11 +25,6 @@ int smooth_density_gradients = 1;         /* NG: that used to be DENSGRADSMOOTH 
 
 float gas_density_floor = 1e-6;
 float gas_temperature_floor = 3.0;        /* NG: that used to be T_min define */
-/*
-//  Radiation pressure fudge factor (Hopkins' parameter eta_p)
-*/
-float radiation_pressure_factor = 0.0;    /* by default, RP is off */
-
 
 #ifdef BLASTWAVE_FEEDBACK
 double blastwave_time_floor = 1.0e-30; 
@@ -55,8 +50,6 @@ void config_init_hydro()
 
   control_parameter_add(control_parameter_float,&pressure_floor_factor,"@pressure-floor-factor","the factor to scale the pressure floor with. The default, thoroughly tested value is 10. If you change it, make sure you know what you are doing.");
 
-  control_parameter_add2(control_parameter_float,&radiation_pressure_factor,"radiation-pressure-factor","radiation_pressure_factor","Hopkins' eta_p factor to scale the radiation pressure term; set it to zero to disable radiation pressure.");
-
   for(level=min_level; level<=max_level; level++)
     {
       level_sweep_dir[level] = 0;
@@ -73,8 +66,6 @@ void config_verify_hydro()
   VERIFY(pressure-floor-min-level, pressure_floor_min_level>=-1 && pressure_floor_min_level<=max_level );
 
   VERIFY(@pressure-floor-factor, pressure_floor_factor > 0.0 );
-
-  VERIFY(radiation-pressure-factor, !(radiation_pressure_factor < 0.0) );
 
 #ifdef BLASTWAVE_FEEDBACK
 
@@ -242,15 +233,6 @@ float cell_sobolev_length2(int cell, int level, float *vel)
 
   return len;
 }
-
-
-#ifndef RADIATIVE_TRANSFER
-float cell_radiation_pressure(int cell)
-{
-  cart_error("Radiation pressure without RADIATIVE_TRANSFER is not implemented yet.");
-  return 0.0;
-}
-#endif /* RADIATIVE_TRANSFER */
 
 
 float cell_gas_sound_speed( int icell ) {

@@ -12,7 +12,7 @@
 #include "models/feedback.ml.h"
 
 
-void PopM_config_init()
+void sfb_config_init()
 {
   /*
   //  Type II supernova feedback
@@ -36,7 +36,7 @@ void PopM_config_init()
 }
 
 
-void PopM_config_verify()
+void sfb_config_verify()
 {
   /*
   //  type II supernova feedback
@@ -60,7 +60,7 @@ void PopM_config_verify()
 }
 
 
-void PopM_init()
+void sfb_init()
 {
   snII_init();
   snIa_init();
@@ -68,7 +68,7 @@ void PopM_init()
 }
 
 
-void PopM_setup(int level)
+void sfb_setup(int level)
 {
   snII_setup(level);
   snIa_setup(level);
@@ -78,24 +78,25 @@ void PopM_setup(int level)
 
 
 #if defined(HYDRO) && defined(PARTICLES)
-void PopM_hydrodynamic_feedback(int level, int cell, int ipart, double t_next )
+void sfb_thermal_feedback(int level, int cell, int ipart, double t_next )
 {
-  snII_hydrodynamic_feedback(level,cell,ipart,t_next);
-  snIa_hydrodynamic_feedback(level,cell,ipart,t_next);
-  ml_hydrodynamic_feedback(level,cell,ipart,t_next);
+  snII_thermal_feedback(level,cell,ipart,t_next);
+  snIa_thermal_feedback(level,cell,ipart,t_next);
+  ml_thermal_feedback(level,cell,ipart,t_next);
 }
 #endif /* HYDRO && PARTICLES */
 
 
 struct StellarFeedback sf_feedback_internal = 
   {
-    "PopM",
-    lum_ionizing_luminosity,
-    PopM_hydrodynamic_feedback,
-    PopM_config_init,
-    PopM_config_verify,
-    PopM_init,
-    PopM_setup
+    "hart",
+    sfb_thermal_feedback,
+    lum_ionizing_luminosity_hart,
+    NULL,
+    sfb_config_init,
+    sfb_config_verify,
+    sfb_init,
+    sfb_setup
   };
 
 #endif /* STARFORM */

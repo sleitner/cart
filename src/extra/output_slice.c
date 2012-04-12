@@ -30,6 +30,7 @@
 #include "io.h"
 #include "auxiliary.h"
 #include "starformation.h"
+#include "starformation_feedback.h"
 
 #ifdef RT_OTVET_SAVE_FLUX
 extern int rt_flux_frequency;
@@ -146,8 +147,8 @@ float value_cell_property(int icell,int iflag){
         break;
     case  OUT_CELL_RADIATION_PRESSURE:
         return (float)
-            ( cell_radiation_pressure(icell)
-              /(cell_gas_pressure(icell)-cell_radiation_pressure(icell)) );
+            ( sf_feedback->extra_pressure(icell)
+              /(cell_gas_pressure(icell)-sf_feedback->extra_pressure(icell)) );
         break;
     case  OUT_CELL_URAD:
         return (float)

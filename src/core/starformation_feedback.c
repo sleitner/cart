@@ -1,6 +1,9 @@
 #include "config.h"
 #ifdef STAR_FORMATION
 
+#include <stdio.h>
+#include <string.h>
+
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "imf.h"
@@ -67,8 +70,8 @@ void config_verify_star_formation_feedback()
 #endif
 
   cart_assert(sf_feedback_internal.name != NULL);
+  cart_assert(sf_feedback_internal.thermal_feedback != NULL);
   cart_assert(sf_feedback_internal.ionizing_luminosity != NULL);
-  cart_assert(sf_feedback_internal.hydrodynamic_feedback != NULL);
 
   sprintf(feedback_internal_name,"<%s>",sf_feedback_internal.name);
   if(strcmp("<custom>",feedback_external_name)!=0 && strcmp(feedback_internal_name,feedback_external_name)!=0)
@@ -122,9 +125,9 @@ double dUfact;  /* must be here to simplify OpenMP directives */
 void stellar_feedback(int level, int cell, int ipart, double t_next )
 {
   /*
-  // call hydrodynamic_feedback for the current feedback model
+  // call thermal_feedback for the current feedback model
   */
-  sf_feedback->hydrodynamic_feedback(level,cell,ipart,t_next);
+  sf_feedback->thermal_feedback(level,cell,ipart,t_next);
 }
 
 

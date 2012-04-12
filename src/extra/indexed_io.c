@@ -7,17 +7,25 @@
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "cosmology.h"
 #include "hydro.h"
 #include "index_hash.h"
 #include "io.h"
+#include "io_cart.h"
 #include "iterators.h"
 #include "parallel.h"
+#include "refinement.h"
 #include "sfc.h"
 #include "skiplist.h"
-#include "timestep.h"
+#include "starformation.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
+#include "../run/step.h"
+#include "../run/hydro_step.h"
+
+extern double auni_init;
 
 #ifdef HYDRO
 
@@ -113,7 +121,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			reorder( (char *)&h100, sizeof(float) );
 		}
 
-		Lbox = boxh;
+		box_size = boxh;
 		cosmology_set(OmegaM,OmM0);
 		cosmology_set(OmegaL,OmL0);
 		cosmology_set(OmegaB,OmB0);
@@ -159,7 +167,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* tl */
 		fread( &size, sizeof(int), 1, input );
-		fread( &tl, sizeof(double), maxlevel-minlevel+1, input );
+		fread( tl, sizeof(double), maxlevel-minlevel+1, input );
 		fread( &size, sizeof(int), 1, input);
 
 		if ( endian ) {
@@ -170,7 +178,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* dtl */
 		fread( &size, sizeof(int), 1, input );
-		fread( &dtl, sizeof(double), maxlevel-minlevel+1, input);
+		fread( dtl, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -181,7 +189,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* tl_old */
 		fread( &size, sizeof(int), 1, input );
-		fread( &tl_old, sizeof(double), maxlevel-minlevel+1, input);
+		fread( tl_old, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -192,7 +200,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* dtl_old */
 		fread( &size, sizeof(int), 1, input );
-		fread( &dtl_old, sizeof(double), maxlevel-minlevel+1, input);
+		fread( dtl_old, sizeof(double), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );	
 
 		if ( endian ) {
@@ -203,7 +211,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 		/* iSO */
 		fread( &size, sizeof(int), 1, input );
-		fread( &level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
+		fread( level_sweep_dir, sizeof(int), maxlevel-minlevel+1, input);
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
@@ -301,9 +309,9 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 				varindex[i] = HVAR_MOMENTUM+2;
 #ifdef ENRICHMENT
 			} else if ( strncmp( varname, "hydro_metallicity_II", 32 ) == 0 ) {
-				varindex[i] = HVAR_METALLICITY_II;
+				varindex[i] = HVAR_METAL_DENSITY_II;
 			} else if ( strncmp( varname, "hydro_metallicity_Ia", 32 ) == 0 ) {
-				varindex[i] = HVAR_METALLICITY_Ia;
+				varindex[i] = HVAR_METAL_DENSITY_Ia;
 #endif /* ENRICHMENT */
 			} else {
 				varindex[i] = -1;
@@ -332,7 +340,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	MPI_Bcast( &maxlevel, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
-	MPI_Bcast( &Lbox, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
 
 	MPI_Bcast( (char *)&temp_cosmo, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, mpi.comm.run );
 	cosmology_copy(&temp_cosmo);

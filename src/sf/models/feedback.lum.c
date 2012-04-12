@@ -50,7 +50,10 @@ void lum_setup(int level)
 }
 
 
-float lum_ionizing_luminosity(int ipart)
+/*
+//  Oldstyle hart source function
+*/
+float lum1_ionizing_luminosity(int ipart)
 {
   float x1, x2, dx, q;
 
@@ -88,7 +91,10 @@ float lum_ionizing_luminosity(int ipart)
 }
 
 
-float lum2012_ionizing_luminosity(int ipart)
+/*
+//  New source function for Kroupa IMF
+*/
+float lum2_ionizing_luminosity(int ipart)
 {
   float x1, x2, dx, q, Z;
 
