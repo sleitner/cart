@@ -47,6 +47,17 @@ int num_cart_input_files = 1;
 int art_grid_file_mode = 0;
 int art_particle_file_mode = 0;
 
+
+#ifdef RADIATIVE_TRANSFER
+/*
+//  This is a helper function used for backward compatibility -
+//  the absolute values of radiation fields changed in 1.9 for a
+//  plausible reason. 
+*/
+void rescale_radiation_fields(float scale); 
+#endif /* RADIATIVE_TRANSFER */
+
+
 void config_init_io_cart() {
 	control_parameter_add2(control_parameter_int,&num_cart_output_files,"num-cart-output-files","num_cart_output_files","Number of parallel output files in the old art format.");
 	control_parameter_add2(control_parameter_int,&num_cart_input_files,"num-cart-input-files","num_cart_input_files","Number of parallel input files in the old art format.");
@@ -106,7 +117,25 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		}
 
 		start_time( GAS_WRITE_IO_TIMER );
+
+#ifdef RADIATIVE_TRANSFER
+		/*
+		//  In version 1.9 the absolute values of radiation fields changed -
+		//  rescale stored values to maintain backward compatibility.
+		*/
+		rescale_radiation_fields(1.0/1.4e-4);
+#endif /* RADIATIVE_TRANSFER */
+
 		write_cart_grid_binary( filename_gas );
+
+#ifdef RADIATIVE_TRANSFER
+		/*
+		//  In version 1.9 the absolute values of radiation fields changed -
+		//  rescale stored values to maintain backward compatibility.
+		*/
+		rescale_radiation_fields(1.4e-4);
+#endif /* RADIATIVE_TRANSFER */
+
 		end_time( GAS_WRITE_IO_TIMER );
 	}
 
@@ -365,7 +394,17 @@ void read_cart_restart( const char *label ) {
 
 	cart_debug("Reading grid restart...");
 	start_time( GAS_READ_IO_TIMER );
+
 	read_cart_grid_binary( filename_gas );
+
+#ifdef RADIATIVE_TRANSFER
+	/*
+	//  In version 1.9 the absolute values of radiation fields changed -
+	//  rescale stored values to maintain backward compatibility.
+	*/
+	rescale_radiation_fields(1.4e-4);
+#endif /* RADIATIVE_TRANSFER */
+
 	end_time( GAS_READ_IO_TIMER );
 
 #ifdef HYDRO
@@ -5116,3 +5155,24 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
     }
 }
 
+
+#ifdef RADIATIVE_TRANSFER
+/*
+//  This is a helper function used for backward compatibility -
+//  the absolute values of radiation fields changed in 1.9 for a
+//  plausible reason. 
+*/
+void rescale_radiation_fields(float scale)
+{
+  int cell, j;
+
+#pragma omp parallel for default(none), private(cell,j), shared(cell_vars,scale)
+  for(cell=0; cell<num_cells; cell++)
+    {
+      for(j=0; j<rt_num_disk_vars; j++)
+        {
+          cell_var(cell,rt_disk_offset+j) *= scale;
+        }
+    }
+}
+#endif /* RADIATIVE_TRANSFER */

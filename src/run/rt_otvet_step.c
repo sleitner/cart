@@ -11,6 +11,7 @@
 #include "rt_global.h"
 #include "rt_otvet.h"
 #include "rt_transfer.h"
+#include "times.h"
 #include "timing.h"
 #include "tree.h"
 #include "units.h"
@@ -931,5 +932,42 @@ float rtOtvet_GenericTensorDiag(int iL, int *indL2G, float *abcLoc)
 
 rt_laplacian_t rt_unitary = { rtOtvet_UnitaryTensorDiag, rtOtvet_UnitaryTensorFull };
 rt_laplacian_t rt_generic = { rtOtvet_GenericTensorDiag, rtOtvet_GenericTensorFull };
+
+
+#ifdef RT_OTVET_SAVE_FLUX
+#include "frt/frt_c.h"
+
+/*
+//  This is deep excursion into the FRT module - is there a better way?
+*/
+frt_real frtCall(getrfhelper2)(frt_intg *freq, frt_real *rf, frt_real *fNear, frt_real *fFar);
+void frtCall(transferpackradiationfield)(frt_real *var, frt_real *rawrf, frt_real *rf);
+
+void rtGetRadiationFlux(int cell, float flux[num_neighbors])
+{
+  static frt_real zero = 0.0;
+  int j;
+  double fac;
+  frt_intg freq = rt_flux_field + 1;
+  frt_real rf[25], val;
+  DEFINE_FRT_INTEFACE(var,rawrf);
+  int level = cell_level(cell);
+  
+  rtPackCellData(level,cell,var,&rawrf);
+  frtCall(transferpackradiationfield)(var,rawrf,rf);
+
+  fac = constants->c*6.626e-27*units->length
+#ifdef COSMOLOGY
+/(abox[level]*abox[level]*abox[level]);
+#endif
+
+  for(j=0; j<num_neighbors; j++)
+    {
+      val = rt_flux[cell][j];
+      flux[j] = fac*frtCall(getrfhelper2)(&freq,rf,&val,&zero);
+    }
+}
+#endif /* RT_OTVET_SAVE_FLUX */
+
 
 #endif /* RADIATIVE_TRANSFER && RT_TRANSFER && (RT_TRANSFER_METHOD == RT_METHOD_OTVET) */

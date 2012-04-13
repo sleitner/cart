@@ -31,6 +31,11 @@ void rtOtvetSplitUpdate(int level, int num_level_cells, int *level_cells);
 */
 extern int rt_flux_field;
 extern float rt_flux[num_cells][num_neighbors];
+
+/*
+//  Flux is returned in ergs/cm^2/s/Hz
+*/
+void rtGetRadiationFlux(int cell, float flux[num_neighbors]);
 #endif /* RT_OTVET_SAVE_FLUX */
 
 

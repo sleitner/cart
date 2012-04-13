@@ -41,7 +41,6 @@ namespace ng
     extern const CellDataWorker& temperature;
     extern const CellDataWorker& baryon_column_density;
     extern const CellDataWorker& thermal_pressure;
-    extern const CellDataWorker& radiation_pressure;
     extern const CellDataWorker& rotational_velocity;
     extern const CellDataWorker& local_gas_overdensity;
     extern const CellDataWorker& gas_metallicity;

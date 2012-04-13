@@ -412,6 +412,7 @@ C
       endif
 #endif
 
+      axiH1tr = 0.0
 C
 C  Coefficient for absorption:
 C    c*CSSTAR*n_b/uTime = uColumn/facLX
@@ -487,6 +488,7 @@ C
          axi(lr) = axi(lr) + csMHLW(lr)*XMH_va*CRAD2
       enddo
 #endif
+      axiH1tr = axi(lrH1tr)
 C
 C  Frequency shift
 C
@@ -631,8 +633,6 @@ C
 
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
 #endif /* RT_EXTERNAL_BACKGROUND == RT_BACKGROUND_SELFCONSISTENT */
-
-      axiH1tr = axi(lrH1tr)
 C
 C  Total
 C
@@ -837,97 +837,14 @@ C
 
          if(lr.ge.1 .and. lr.le.NRAD) then
 
-#ifdef RT_EXTERNAL_BACKGROUND
-#ifdef RT_TRANSFER
-            tauH1l = rf(irfH1gf)
-            tauG1l = rf(irfG1gf)
-            tauG2l = rf(irfG2gf)
-#ifdef RT_UV
-            tauUVl = rf(irfUVgf)
-#endif
-#else
-            tauH1l = 0.0
-            tauG1l = 0.0
-            tauG2l = 0.0
-#ifdef RT_UV
-            tauUVl = 0.0
-#endif
-#endif
-
-#ifdef RT_UV
-            taul = csUVn(lr)*tauUVl
-#else
-            taul = 0.0
-#endif
-            if(tauH1l .gt. 0.0) then
-               taul = taul + csH1n(lr)*tauH1l
-            endif
-            if(tauG1l .gt. 0.0) then
-               taul = taul + csG1n(lr)*tauG1l
-            endif
-            if(tauG2l .gt. 0.0) then
-               taul = taul + csG2n(lr)*tauG2l
-            endif
-
-            if(
-#ifdef RT_UV
-     .           (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
-#endif
-     .           (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
-     .           .or.
-     .           (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
-     .           .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
-               anxi(iout) = 0.0
-            else
-               anxi(iout) = angEff(lr)*QFuni(taul)
-            endif
-#else
-            anxi(iout) = 0.0
-#endif
-
-#ifdef RT_TRANSFER
-            tauH1l = rf(irfH1lf)
-            tauG1l = rf(irfG1lf)
-            tauG2l = rf(irfG2lf)
-#ifdef RT_UV
-            tauUVl = rf(irfUVlf)
-#endif
-
-#ifdef RT_UV
-            taul = csUVn(lr)*tauUVl
-#else
-            taul = 0.0
-#endif
-            if(tauH1l .gt. 0.0) then
-               taul = taul + csH1n(lr)*tauH1l
-            endif
-            if(tauG1l .gt. 0.0) then
-               taul = taul + csG1n(lr)*tauG1l
-            endif
-            if(tauG2l .gt. 0.0) then
-               taul = taul + csG2n(lr)*tauG2l
-            endif
-
-            if(
-#ifdef RT_UV
-     .           (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
-#endif
-     .           (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
-     .           .or.
-     .           (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
-     .           .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
-            else
-               anxi(iout) = anxi(iout) + 
-     .              facLX*rf(irfNorm)*guvEff(lr)*QFloc(taul)
-            endif
-#endif
+            anxi(iout) = frtGetRFHelper(lr,rf,rf(irfNorm),1.0)
 
          else
 
             anxi(iout) = 0.0
 
          endif
-
+ 
       enddo
 
       return
@@ -935,10 +852,115 @@ C
 C
 C
 C     
-#ifdef RT_TRANSFER
-      function frtGetRFWithUnits(L,rfNear,rfFar)
+      function frtGetRFHelper(lr,rf,fLoc,fGlob)
       include 'frt_base.inc'
       include 'frt_tables.inc'
+      dimension rf(*)
+#ifdef RT_TRANSFER
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
+#endif
+      include 'frt_inline.inc'
+
+#ifdef RT_EXTERNAL_BACKGROUND
+#ifdef RT_TRANSFER
+      tauH1l = rf(irfH1gf)
+      tauG1l = rf(irfG1gf)
+      tauG2l = rf(irfG2gf)
+#ifdef RT_UV
+      tauUVl = rf(irfUVgf)
+#endif
+#else
+      tauH1l = 0.0
+      tauG1l = 0.0
+      tauG2l = 0.0
+#ifdef RT_UV
+      tauUVl = 0.0
+#endif
+#endif
+
+#ifdef RT_UV
+      taul = csUVn(lr)*tauUVl
+#else
+      taul = 0.0
+#endif
+      if(tauH1l .gt. 0.0) then
+         taul = taul + csH1n(lr)*tauH1l
+      endif
+      if(tauG1l .gt. 0.0) then
+         taul = taul + csG1n(lr)*tauG1l
+      endif
+      if(tauG2l .gt. 0.0) then
+         taul = taul + csG2n(lr)*tauG2l
+      endif
+
+      if(
+#ifdef RT_UV
+     .     (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+#endif
+     .     (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
+     .     .or.
+     .     (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
+     .     .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+         anxi = 0.0
+      else
+         anxi = angEff(lr)*QFuni(taul)*fGlob
+      endif
+#else
+      anxi = 0.0
+#endif
+
+#ifdef RT_TRANSFER
+      tauH1l = rf(irfH1lf)
+      tauG1l = rf(irfG1lf)
+      tauG2l = rf(irfG2lf)
+#ifdef RT_UV
+      tauUVl = rf(irfUVlf)
+#endif
+
+#ifdef RT_UV
+      taul = csUVn(lr)*tauUVl
+#else
+      taul = 0.0
+#endif
+      if(tauH1l .gt. 0.0) then
+         taul = taul + csH1n(lr)*tauH1l
+      endif
+      if(tauG1l .gt. 0.0) then
+         taul = taul + csG1n(lr)*tauG1l
+      endif
+      if(tauG2l .gt. 0.0) then
+         taul = taul + csG2n(lr)*tauG2l
+      endif
+
+      if(
+#ifdef RT_UV
+     .     (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+#endif
+     .     (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
+     .     .or.
+     .     (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
+     .     .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+      else
+         anxi = anxi + facLX*fLoc*guvEff(lr)*QFloc(taul)
+      endif
+#endif
+
+      frtGetRFHelper = anxi
+
+      return
+      end
+C
+C
+C     
+#ifdef RT_TRANSFER
+      function frtGetRFHelper2(L,rf,fLoc,fGlob)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      dimension rf(*)
 #ifdef RT_UV
       include 'frt_transfer4.inc'
 #else
@@ -946,26 +968,14 @@ C
 #endif
 
       if(L.ge.1 .and. L.le.NSETS) then
-
-         lr = LRSETS(L)
-
-         anxi = facLX*rfNear*guvEff(lr)
-
-#ifdef RT_EXTERNAL_BACKGROUND
-         anxi = anxi + angEff(lr)*rfFar
-#endif
-
+         frtGetRFHelper2 = frtGetRFHelper(LRSETS(L),rf,fLoc,fGlob)
       else
-
-         anxi = 0.0
-
+         frtGetRFHelper2 = 0.0
       endif
-
-      frtGetRFWithUnits = anxi
 
       return
       end
-#endif
+#endif /* RT_TRANSFER */
 C
 C
 C

@@ -43,8 +43,6 @@ void frtCall(stependtransfer)(frt_real *abcAvg);
 
 frt_real frtCall(transferglobalac)(frt_intg *idx, frt_real *abc);
 
-frt_real frtCall(getrfwithunits)(frt_intg *freq, frt_real *rfNear, frt_real *rfFar);
-
 #ifdef RT_ABSORPTION_CALLBACK_FULL
 void frtCall(transfercomputecellabs)(frt_intg *idx, frt_real *denB, frt_real *denHI, frt_real *denHeI, frt_real *denHeII, frt_real *denMH, frt_real *dx, frt_real *abc, frt_real *var);
 #else

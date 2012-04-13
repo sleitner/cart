@@ -106,11 +106,6 @@ namespace ng
       return units->energy_density*(cell_gas_gamma(cell)-1)*cell_gas_internal_energy(cell);
     }
 
-    DECL( radiation_pressure, "radiation pressure (erg/cm^{-3})", 0 )
-    {
-      return units->energy_density*cell_radiation_pressure(cell);
-    }
-
     DECL( rotational_velocity, "rotational velocity (km/s)", 3 )
     {
       int j, cc, vars[4];
