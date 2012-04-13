@@ -937,11 +937,7 @@ rt_laplacian_t rt_generic = { rtOtvet_GenericTensorDiag, rtOtvet_GenericTensorFu
 #ifdef RT_OTVET_SAVE_FLUX
 #include "frt/frt_c.h"
 
-/*
-//  This is deep excursion into the FRT module - is there a better way?
-*/
-frt_real frtCall(getrfhelper2)(frt_intg *freq, frt_real *rf, frt_real *fNear, frt_real *fFar);
-void frtCall(transferpackradiationfield)(frt_real *var, frt_real *rawrf, frt_real *rf);
+frt_real frtCall(getrfunits)(frt_real *var, frt_real *rawrf, frt_intg *freq, frt_real *uNear, frt_real *uFar);
 
 void rtGetRadiationFlux(int cell, float flux[num_neighbors])
 {
@@ -949,22 +945,25 @@ void rtGetRadiationFlux(int cell, float flux[num_neighbors])
   int j;
   double fac;
   frt_intg freq = rt_flux_field + 1;
-  frt_real rf[25], val;
+  frt_real uNear, uFar;
   DEFINE_FRT_INTEFACE(var,rawrf);
   int level = cell_level(cell);
   
   rtPackCellData(level,cell,var,&rawrf);
-  frtCall(transferpackradiationfield)(var,rawrf,rf);
+  frtCall(getrfunits)(var,rawrf,&freq,&uNear,&uFar);
 
-  fac = constants->c*6.626e-27*units->length
-#ifdef COSMOLOGY
-/(abox[level]*abox[level]*abox[level]);
-#endif
+  if(rt_flux_field < rt_far_freq_offset)
+    {
+      fac = constants->c*6.626e-27*units->length*uNear;
+    }
+  else
+    {
+      fac = constants->c*6.626e-27*units->length*uFar;
+    }
 
   for(j=0; j<num_neighbors; j++)
     {
-      val = rt_flux[cell][j];
-      flux[j] = fac*frtCall(getrfhelper2)(&freq,rf,&val,&zero);
+      flux[j] = fac*rt_flux[cell][j];
     }
 }
 #endif /* RT_OTVET_SAVE_FLUX */

@@ -17,6 +17,7 @@
 ?#define STAR_PARTICLE_TYPES
 
 ?#define SF_RECIPE			<value>
+?#define SF_FEEDBACK			<value>
 
 ?#define OLDSTYLE_SF_ALGORITHM
 

@@ -99,7 +99,7 @@ C
         common/RT_BASE_C/ facPhot, facCC, facH2CMB, facCool,
      .                    facLX, facLya, facRecB
         common/RT_BASE_D/ varMin(ivarDim), varLow(ivarDim)
-	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, daExp
+	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, daExp, qExp3
 C
 	logical ioNode
 	common/RT_BASE_F/ ioNode

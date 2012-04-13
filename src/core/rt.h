@@ -52,8 +52,19 @@ float rtTem(int cell);
 float rtDmw(int cell);
 float rtDmw2(int cell);  /* this version includes the floor */
 float rtUmw(int cell);
+/*
+//  Returns cooling and heating rates per baryon [erg/s].
+*/
 void rtGetCoolingRate(int cell, float *cooling_rate, float *heating_rate);
+/*
+//  Returns the rates for photo-processes in physical units [1/s].
+*/
 void rtGetPhotoRates(int cell, float *rate);
+/*
+//  Returns the radiation field as \nu n_\nu at a given set of wavelength,
+//  in physical (not comoving! as before) units [cm^{-3}]. If cell is -1,
+//  returns the cosmic background.
+*/
 void rtGetRadiationField(int cell, int n, const float *wlen, float *ngxi);
 
 void rtModifyTimeStep(double *dt);

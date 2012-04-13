@@ -467,6 +467,57 @@ C
       end
 #endif /* RT_VARIABLE_RF */
 C
+C  Scaling factors (= units) for the radiation fieldforthe field L
+C     
+      subroutine frtGetRFUnits(var,rawrf,L,uLoc,uGlob)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      dimension var(*), rawrf(*)
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+      dimension rf(irfDim)
+#else
+      dimension rf(irfMax)
+#endif
+      include 'frt_inline.inc'
+
+      if(L.ge.1 .and. L.le.NSETS) then
+
+#ifdef RT_TRANSFER_FLUX_CONSERVING
+         var(ivarDelN) = uColumn*var(ivarRho)*var(ivarDelX)
+#endif
+         call frtTransferPackRadiationField(var,rawrf,rf)
+
+         call frtGetRFHelper(LRSETS(L),rf,uLoc,uGlob)
+         
+         if(rawrf(L+0*NSETS) .gt. 1.0e-30) then
+            uLoc = uLoc*(rf(irfNorm)/rawrf(L+0*NSETS))
+         else
+            uLoc = 0.0
+         endif
+#ifdef RT_EXTERNAL_BACKGROUND
+         if(rawrf(L+1*NSETS) .gt. 1.0e-30) then
+            uGlob = uGlob*(1.0/rawrf(L+1*NSETS))
+         else
+            uGlob = 0.0
+         endif
+#else  /* RT_EXTERNAL_BACKGROUND */
+#endif /* RT_EXTERNAL_BACKGROUND */
+
+      else
+
+         uLoc = 0.0
+         uGlob = 0.0
+
+      endif
+
+      return
+      end
+C
 C  Absorption coefficient for 1 cell at frequency bin lr.
 C
 #ifdef RT_ABSORPTION_CALLBACK_FULL

@@ -32,11 +32,6 @@
 #include "starformation.h"
 #include "starformation_feedback.h"
 
-#ifdef RT_OTVET_SAVE_FLUX
-extern int rt_flux_frequency;
-extern float rt_flux[num_cells][num_neighbors]; // //-x=0,+x=1;+y=3;+z=5 
-#endif
-
 #include "output_slice.h"
 const int string_size=256;
 
@@ -163,12 +158,6 @@ float value_cell_property(int icell,int iflag){
         return (float)
             cell_H2_fraction(icell);
         break;
-#ifdef RT_OTVET_SAVE_FLUX
-    case  OUT_CELL_FLUX0:
-        return (float)
-            rt_flux[icell][0]*units->energy_density*units->length/constants->erg;
-        break;
-#endif        
 #endif
     case OUT_CELL_MACH: 
         px2 = cell_momentum(icell,0)*cell_momentum(icell,0);

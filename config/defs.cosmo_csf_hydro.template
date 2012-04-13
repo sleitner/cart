@@ -6,10 +6,12 @@
 #define PARTICLES
 #define REFINEMENT
 #define STAR_FORMATION
-#define RADIATIVE_TRANSFER
 
 #define ENRICHMENT
 #define ENRICHMENT_SNIa
+
+#define SF_RECIPE                       <set value here>
+#define SF_FEEDBACK                     <set value here>
 
 #define num_root_grid_refinements	<set value here>
 #define num_refinement_levels		<set value here>

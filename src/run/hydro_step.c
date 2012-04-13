@@ -289,7 +289,11 @@ void hydro_eos( int level ) {
 	/*
 	//  Dereference for efficiency
 	*/
+#ifdef STAR_FORMATION
 	float (*extra_pressure)(int cell) = sf_feedback->extra_pressure;
+#else
+	float (*extra_pressure)(int cell) = NULL;
+#endif
 
 	start_time( WORK_TIMER );
 

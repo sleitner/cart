@@ -129,6 +129,7 @@ C
 C
 C  Additional units (and conversions)
 C
+      qExp3 = 1.0/aExp**3
       uRate = uDen*uTime
       uColumn = CSSTAR*uDen*uLen
 C
@@ -819,7 +820,6 @@ C
 #else
       dimension rf(1)
 #endif
-      dimension itab(2)
       integer frtBinId
       external frtBinId
       include 'frt_inline.inc'
@@ -837,7 +837,8 @@ C
 
          if(lr.ge.1 .and. lr.le.NRAD) then
 
-            anxi(iout) = frtGetRFHelper(lr,rf,rf(irfNorm),1.0)
+            call frtGetRFHelper(lr,rf,uLoc,uGlob)
+            anxi(iout) = uLoc*rf(irfNorm) + uGlob*1.0
 
          else
 
@@ -852,7 +853,7 @@ C
 C
 C
 C     
-      function frtGetRFHelper(lr,rf,fLoc,fGlob)
+      subroutine frtGetRFHelper(lr,rf,uLoc,uGlob)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension rf(*)
@@ -905,12 +906,15 @@ C
      .     .or.
      .     (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
      .     .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
-         anxi = 0.0
+         uGlob = 0.0
       else
-         anxi = angEff(lr)*QFuni(taul)*fGlob
+C
+C  Turn to physical units
+C
+         uGlob = angEff(lr)*QFuni(taul)*qExp3
       endif
 #else
-      anxi = 0.0
+      uGlob = 0.0
 #endif
 
 #ifdef RT_TRANSFER
@@ -944,38 +948,17 @@ C
      .     .or.
      .     (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
      .     .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+         uLoc = 0.0
       else
-         anxi = anxi + facLX*fLoc*guvEff(lr)*QFloc(taul)
+C
+C  Turn to physical units
+C
+         uLoc = facLX*guvEff(lr)*QFloc(taul)*qExp3
       endif
 #endif
 
-      frtGetRFHelper = anxi
-
       return
       end
-C
-C
-C     
-#ifdef RT_TRANSFER
-      function frtGetRFHelper2(L,rf,fLoc,fGlob)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-      dimension rf(*)
-#ifdef RT_UV
-      include 'frt_transfer4.inc'
-#else
-      include 'frt_transfer3.inc'
-#endif
-
-      if(L.ge.1 .and. L.le.NSETS) then
-         frtGetRFHelper2 = frtGetRFHelper(LRSETS(L),rf,fLoc,fGlob)
-      else
-         frtGetRFHelper2 = 0.0
-      endif
-
-      return
-      end
-#endif /* RT_TRANSFER */
 C
 C
 C
@@ -991,7 +974,7 @@ C
          lr = frtBinId(wlen(iout))
 
          if(lr.ge.1 .and. lr.le.NRAD) then
-            anxi(iout) = angAvg(lr)
+            anxi(iout) = angAvg(lr)*qExp3
          else
             anxi(iout) = 0.0
          endif
@@ -1041,7 +1024,7 @@ C
 C
 C  n_xi is in comoving units, hence aExp
 C
-      rf2Prad = Txi(lrUVtr)*facLX*guvEff(lrUVtr)/aExp**3
+      rf2Prad = Txi(lrUVtr)*facLX*guvEff(lrUVtr)*qExp3
       rho2abc = uColumn*csUV(lrUVtr)
 #else
       rf2Prad = 0.0
