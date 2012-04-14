@@ -31,7 +31,9 @@ void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int l
 
 void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, struct HALO_LIST *halos);
 
+#ifdef COSMOLOGY
 void extDumpHaloProfiles(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, struct HALO_LIST *halos, int resolution_level, float outer_edge);
+#endif
 
 void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, double center[3]);
 

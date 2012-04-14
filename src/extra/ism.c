@@ -252,6 +252,7 @@ void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *worke
   */
   ptr = cart_alloc(float, nout );
 
+#ifdef COSMOLOGY
   if(halos!=NULL && halos->map==NULL)
     {
       /*
@@ -259,6 +260,9 @@ void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *worke
       */
       map_halos(min_level,halos,1.0);
     }
+#else
+  halos = NULL;
+#endif
 
   /*
   //  Fill in the buffer for each halo
@@ -266,7 +270,9 @@ void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *worke
   ih = 0;
   do
     {
+#ifdef COSMOLOGY
       if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
+#endif
 	{
 	  nselproc = ntot = 0;
 	  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
@@ -367,6 +373,7 @@ void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *worke
 }
 
 
+#ifdef COSMOLOGY
 void extDumpHaloProfiles(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, halo_list *halos, int resolution_level, float outer_edge)
 {
   const int num_weights = 4;
@@ -539,6 +546,7 @@ void extDumpHaloProfiles(const char *fname, int nout, const DumpWorker *workers,
   cart_free(gbuffer);
 
 }
+#endif
 
 
 void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, double center[3])
