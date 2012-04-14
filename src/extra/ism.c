@@ -95,6 +95,7 @@ void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int l
   buffer = cart_alloc(float, ntot*nout );
   selected = cart_alloc(int, ntot );
 
+#ifdef COSMOLOGY
   if(halos!=NULL && halos->map==NULL)
     {
       /*
@@ -102,6 +103,9 @@ void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int l
       */
       map_halos(min_level,halos,1.0);
     }
+#else
+  halos = NULL;
+#endif
 
   /*
   //  Fill in the buffer for each halo
@@ -109,7 +113,9 @@ void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int l
   ih = 0;
   do
     {
+#ifdef COSMOLOGY
       if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
+#endif
 	{
 	  nselproc = ntot = 0;
 	  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
