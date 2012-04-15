@@ -224,9 +224,9 @@ void config_verify_io()
     {
       cart_error("Outputs are not strictly increasing (%d,%f,%f)",i,outputs[i-1],outputs[i]);
     }
-#endif /* COSMOLOGY */
 
   VERIFY(snapshot-epochs, 1 );
+#endif /* COSMOLOGY */
 
   VERIFY(frequency:user-output, output_frequency >= 0 );
 

@@ -206,7 +206,10 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 #endif
 
 	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
-	cart_assert( timers[current_timer_level+1][timerid].current_time > 0.0 );
+	if(timers[current_timer_level+1][timerid].current_time < 0.0)
+	  {
+	    cart_error("Timer=%d (%s) at level=%d has not been started properly, current_time=%lg",timerid,timer_name[timerid][0],current_timer_level,timers[current_timer_level+1][timerid].current_time);
+	  }
 
 	elapsed = wtime - timers[current_timer_level+1][timerid].current_time;
 

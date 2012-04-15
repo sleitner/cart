@@ -643,7 +643,11 @@ void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers,
 	    }
 
 	  w[0] = cell_volume[level];
+#ifdef GRAVITY
 	  w[1] = (cell_total_mass(cell)+cell_volume[level]);
+#else
+	  w[1] = 1;
+#endif
 #ifdef HYDRO
 	  w[2] = cell_gas_density(cell)*cell_volume[level];
 #else
