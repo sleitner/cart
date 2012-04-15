@@ -17,7 +17,7 @@
 #include "cell_buffer.h"
 #include "iterators.h"
 #include "load_balance.h"
-#include "../../src/run/step.h"
+#include "run/step.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
@@ -69,7 +69,7 @@ int icell_central(double dispx,double dispy,double dispz){
 void units_set_art(double OmegaM, double h, double Lbox);
 
 float convert_temp_to_ie(float temp,int cell){
-    return temp*constants->K/units->temperature*cell_gas_density(cell)/
+    return temp/units->temperature*cell_gas_density(cell)/
         ((cell_gas_gamma(cell)-1)*constants->wmu);
 }
 float convert_n_to_density(float n){
@@ -106,6 +106,7 @@ void star_cell_conditions( int icell ) {
     cell_gas_internal_energy(icell) =  convert_temp_to_ie(T_h2,icell);
     cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
     cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
+    cart_assert( cell_gas_internal_energy(icell) > 0);
 
 #ifdef ENRICH 
     cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
@@ -114,12 +115,22 @@ void star_cell_conditions( int icell ) {
 #endif
 #endif
 #ifdef RADIATIVE_TRANSFER
-      cell_HI_density(icell) = cell_gas_density(icell)*constants->XH;
-      cell_HII_density(icell) = 0;
-      cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
-      cell_HeII_density(icell) = 0;
-      cell_HeIII_density(icell) = 0;
-      cell_H2_density(icell) = 0;
+    if(T_ambient < T_h2){
+	cell_HI_density(icell) = 0;
+	cell_HII_density(icell) = cell_gas_density(icell)*constants->XH;
+	cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+	cell_HeII_density(icell) = 0;
+	cell_HeIII_density(icell) = 0;
+	cell_H2_density(icell) = 0;
+    }else{
+	cell_HI_density(icell) = cell_gas_density(icell)*constants->XH;
+	cell_HII_density(icell) = 0;
+	cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+	cell_HeII_density(icell) = 0;
+	cell_HeIII_density(icell) = 0;
+	cell_H2_density(icell) = 0;
+    }
+
 #endif
 }
 
@@ -133,6 +144,7 @@ void ambient_conditions( int icell ) {
     cell_gas_internal_energy(icell) =  convert_temp_to_ie(T_ambient,icell);
     cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
     cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
+    cart_assert( cell_gas_internal_energy(icell) > 0);
 
 #ifdef ENRICH 
     cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
@@ -141,12 +153,23 @@ void ambient_conditions( int icell ) {
 #endif
 #endif
 #ifdef RADIATIVE_TRANSFER
-      cell_HI_density(icell) = cell_gas_density(icell)*constants->XH;
-      cell_HII_density(icell) = 0;
-      cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
-      cell_HeII_density(icell) = 0;
-      cell_HeIII_density(icell) = 0;
-      cell_H2_density(icell) = 0;
+    if(T_ambient < T_h2){
+	cell_HI_density(icell) = cell_gas_density(icell)*constants->XH;
+	cell_HII_density(icell) = 0;
+	cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+	cell_HeII_density(icell) = 0;
+	cell_HeIII_density(icell) = 0;
+	cell_H2_density(icell) = 0;
+    }else{
+	cell_HI_density(icell) = 0;
+	cell_HII_density(icell) = cell_gas_density(icell)*constants->XH;
+	cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+	cell_HeII_density(icell) = 0;
+	cell_HeIII_density(icell) = 0;
+	cell_H2_density(icell) = 0;
+    }
+      
+
 #endif
 }
 
@@ -167,7 +190,7 @@ void set_radp_initial_conditions() {
     }
     
     for ( level = max_level - 1; level >= min_level; level-- ) {
-        hydro_split_update(level); //update all non-leafs with their child's value
+        hydro_split_update(level); /* update all non-leafs with their child's value */
         hydro_eos(level);
     }
 }
@@ -187,7 +210,7 @@ void ic_star_spread(int icell, float dm_star){
 
     /* star particle can form and takes properties from gas */
     star_cell_conditions( icell );
-    // particle_v[ipart][i] = cell_momentum(icell,i) / cell_gas_density(icell);
+    /* particle_v[ipart][i] = cell_momentum(icell,i) / cell_gas_density(icell); */
     new_density = cell_gas_density(icell) + dm_star * cell_volume_inverse[cell_level(icell)];
     density_fraction = new_density / cell_gas_density(icell);
     cell_gas_density(icell) = new_density;
@@ -205,7 +228,6 @@ void ic_star_spread(int icell, float dm_star){
         cart_debug("star mass %e",dm_star);
         create_star_particle(icell, dm_star, (double)dtl[level], STAR_TYPE_NORMAL);
     }
-    // cart_debug("snl1:npspec npt %d %d", num_particle_species,num_particles_total);
     remap_star_ids();
 
     /* set cells neighboring star to have the star-cell properties*/
@@ -225,7 +247,6 @@ void ic_star_spread(int icell, float dm_star){
                 
 /*             } */
 /*         } */
-//////////////
                 
     }
         
@@ -285,9 +306,9 @@ void ic_refine_levels(){
 }
 
 
-////////////////////////////////////////////////////
-                   /* init_run */
-//////////////////////////////////////////////////// 
+/* 
+//init_run 
+*/
 void init_run() {
     int i,j,k;
     int level;
@@ -313,25 +334,22 @@ void init_run() {
     cosmology_set(DeltaDC,deltadc);
         
     box_size = boxh;
-//snl    auni_init = a0;
-//snl    t_init = tcode_from_auni(auni_init);
     auni[min_level] = a0;
     abox[min_level] = a0;
     abox_old[min_level] = a0;
-//snl    tl[min_level]   = t_init;
     tl[min_level]=tcode_from_auni(a0);
     tl_old[min_level]=tl[min_level];
         
     units_set_art(omm0,hubble,box_size);
 #else
-    units_set(1.0,1.0,1.0); //mass time length
+    units_set(1.0,1.0,1.0); /* mass time length */
 #endif
     units_init();
     units_update( min_level );
         
-////////////////////////////////////////////////////
-    /* set hydro */
-    
+    /* 
+    //set hydro 
+    */
     cart_debug("start building cell buffers ");
     build_cell_buffer();
     cart_debug("built cell buffer");
@@ -355,11 +373,10 @@ void init_run() {
     hydro_magic( min_level );
     hydro_eos( min_level );
     
-////////////////////////////////////////////////////////
-    /* set time variables */
-//snl    tl[min_level] = t_init;
-//snl    cart_debug("t_init=%e", t_init);
-    
+
+    /* 
+    // set time variables 
+    */
 #ifdef COSMOLOGY
     for(level=min_level+1; level<=max_level; level++)
     {
@@ -369,7 +386,6 @@ void init_run() {
         abox[level]     = abox[min_level];
         abox_old[level] =  abox[min_level] ; 
     }
-//snl    auni_init = abox[min_level];
     cosmology_set_fixed();
         
     cart_debug("tl[min_level] = %f", tl[min_level] );
@@ -390,10 +406,9 @@ void init_run() {
         cart_debug("updating level %u", level );
         update_buffer_level(level, all_hydro_vars, num_hydro_vars);
     }
-        
-//need zoomed dark matter for buildmesh:    build_mesh(); //defines refinement volume
+    /* build_mesh(); need zoomed dark matter for buildmesh -- defines refinement volume */
 
-///////////////////////////////////////////////////////
+    /* position stars */
     num_particle_species=1;
     num_particles_total=0;
     last_star_id=-1;
@@ -442,8 +457,8 @@ void init_run() {
         cart_debug("ic: %d",ic[i]);
     }
     
-////////////////////////////////////////////////////////////////////////////
-    dm_star = mstar_one_msun*constants->Msun/units->mass/(NSTARS_1D*NSTARS_1D*1.0); //snl resolution scaling /NSTARS;
+    /* resolution scaling /NSTARS: */
+    dm_star = mstar_one_msun*constants->Msun/units->mass/(NSTARS_1D*NSTARS_1D*1.0); 
     for(i=0; i<NSTARS; i++){
         ic_star_spread(ic[i],dm_star);
     }
@@ -471,22 +486,20 @@ void init_run() {
 
     
         
-////////////////////////////////////////////////////////////////////////////
+    /* hydro stuff */
     if ( !buffer_enabled ) {
         cart_debug("building cell buffer");
         build_cell_buffer();
         repair_neighbors();
     }
 
-    hydro_magic( min_level );
     hydro_eos( min_level );
-    
-    cart_debug("done with initialization");
-        
+    hydro_magic( min_level );
     check_map();
-////////////////////////////////////////////////////////////////////////////
+    cart_debug("done with initialization");
 
-    
+
+    /* record initial momentum */
     tot_momentum0=0;
     icell = icell_central(0,0,0);
     for(idir=0;idir<nDim;idir++){
