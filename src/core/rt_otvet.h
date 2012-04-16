@@ -23,6 +23,10 @@ extern double rtStencilDelPos[rtStencilSize][nDim];
 extern double rtStencilTensor[rtStencilSize][nDim*(nDim+1)/2];
 
 
+void rtConfigInitTransferOtvet();
+void rtConfigVerifyTransferOtvet();
+
+
 void rtInitRunTransferOtvet();
 
 /*

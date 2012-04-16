@@ -107,6 +107,10 @@ void rtConfigInit()
   control_parameter_add(control_parameter_float,&rt_clumping_factor,"@rt:clumping-factor","the clumping factor of the neutral gas.");
 
   control_parameter_add(control_parameter_float,&rt_coherence_length,"@rt:coherence-length","the coherence length of molecular gas (in parsecs).");
+
+#ifdef RT_TRANSFER 
+  rtConfigInitTransfer();
+#endif
 }
 
 
@@ -123,6 +127,10 @@ void rtConfigVerify()
   VERIFY(@rt:clumping-factor, !(rt_clumping_factor < 1.0) );
 
   VERIFY(@rt:coherence-length, rt_coherence_length > 0.0 );
+
+#ifdef RT_TRANSFER 
+  rtConfigVerifyTransfer();
+#endif
 }
 
 

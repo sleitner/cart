@@ -19,7 +19,7 @@
 #include "step.h"
 
 
-int rtOtvetMaxNumIter = 10;
+extern int rtOtvetMaxNumIter;
 
 //#define RT_OTVET_SOFT_SOLVER
 #ifdef RT_OTVET_SOFT_SOLVER
@@ -649,7 +649,7 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	      /* save flux at the last iteration */
 	      if(it==nit && rt_field_offset+rt_flux_field==ivar)
 		{
-		  for(j=0; j<num_neighbors; j++) rt_flux[indL2G[iL]][j] = -flux[j];//*dx;
+		  for(j=0; j<num_neighbors; j++) rt_flux[indL2G[iL]][j] = -flux[j];
 		}
 #endif /* RT_OTVET_SAVE_FLUX */
 	    }
@@ -958,7 +958,7 @@ void rtGetRadiationFlux(int cell, float flux[num_neighbors])
     }
   else
     {
-      fac = constants->c*6.626e-27*units->length*uFar;
+      fac = constants->c*6.626e-27*uFar;
     }
 
   for(j=0; j<num_neighbors; j++)

@@ -20,6 +20,9 @@
 #include "rt_global.h"
 
 
+void rtConfigInitTransfer();
+void rtConfigVerifyTransfer();
+
 void rtInitRunTransfer();
 
 /*

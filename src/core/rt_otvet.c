@@ -5,6 +5,7 @@
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "control_parameter.h"
 #include "iterators.h"
 #include "parallel.h"
 #include "root_grid_fft.h"
@@ -48,12 +49,28 @@ double rtStencilDelPos[rtStencilSize][nDim];
 double rtStencilTensor[rtStencilSize][nDim*(nDim+1)/2];
 
 
+int rtOtvetMaxNumIter = 10;
+
+
 void rtOtvetEddingtonTensor(int level, int num_level_cells, int *level_cells);
 void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *level_cells);
 void rtOtvetSingleSourceEddingtonTensor(int level);
 void rtOtvetTopLevelFFTWorker(const root_grid_fft_t *config, int id, fft_t *fft_source, fft_t *fft_output, int flags);
 
 void root_grid_fft_get_cell_ijk(int cell, int ijk[nDim]);
+
+
+void rtConfigInitTransferOtvet()
+{
+  control_parameter_add2(control_parameter_int,&rtOtvetMaxNumIter,"rt:otvet:num-iterations","rtOtvetMaxNumIter","the number of iterations in the OTVET solver.");
+}
+
+
+void rtConfigVerifyTransferOtvet()
+{
+  VERIFY(rt:otvet:num-iterations, (rtOtvetMaxNumIter > 0) );
+}
+
 
 void rtInitRunTransferOtvet()
 {

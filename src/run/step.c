@@ -868,8 +868,8 @@ void satisfy_time_refinement_constraints(int lowest_level)
 
 void set_timestepping_scheme()
 {
-  int level;
-  double dt_new;
+  int level, lowest_level;
+  double dt_new, work;
 
   start_time( CHOOSE_TIMESTEP_TIMER );
 
@@ -880,10 +880,37 @@ void set_timestepping_scheme()
 
   for(level=min_level; level<=max_level; level++)
     {
+      tl[level] = tl[min_level];
+      time_refinement_factor[level] = 2;
       dtl[level] = dt_new*pow(0.5,level-min_level);
     }
 
   end_time( CHOOSE_TIMESTEP_TIMER );
+  lowest_level = max_level_now_global(mpi.comm.run);
+
+  if(local_proc_id == MASTER_NODE)
+    {
+      cart_debug("chose %le %s as our next global time-step (%lg of the optimal value)",
+#ifdef COSMOLOGY
+                 dtl[min_level]*units->time/constants->Myr, "Myr",
+#else
+                 dtl[min_level]*units->time, "s",
+#endif
+                 dtl[min_level]/dt_new );
+
+      work = 1.0;
+      for(level=min_level+1; level<=lowest_level; level++)
+        {
+          work *= time_refinement_factor[level];
+          cart_debug("level %d, dt = %9.3le %s, time-ref = %d, global time-ref = %lg", level,
+#ifdef COSMOLOGY
+                     dtl[level]*units->time/constants->Myr, "Myr",
+#else
+                     dtl[level]*units->time, "s",
+#endif
+                     time_refinement_factor[level],work);
+        }
+    }
 }
 
 #else  /* CONSTANT_TIMESTEP */

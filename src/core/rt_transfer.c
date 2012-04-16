@@ -50,6 +50,22 @@ void rtTransferAssignSingleSourceDensity(int level);
 #endif
 
 
+void rtConfigInitTransfer()
+{
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
+  rtConfigInitTransferOtvet();
+#endif
+}
+
+
+void rtConfigVerifyTransfer()
+{
+#if (RT_TRANSFER_METHOD == RT_METHOD_OTVET)
+  rtConfigVerifyTransferOtvet();
+#endif
+}
+
+
 void rtInitRunTransfer()
 {
   int cell, freq;

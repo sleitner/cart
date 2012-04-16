@@ -24,12 +24,15 @@
 #endif
 
 #include "../run/step.h"
+#include "../run/rt_otvet_step.h"
 
 #include "../et/oldstyle_units.h"
 
 const float N50 = 0.05;
 const float T_i = 1.0e4;
-const int BottomLevel = 2;
+const int BottomLevel = 3;
+
+extern int rtOtvetMaxNumIter;
 
 
 extern float rtSingleSourceValue;
@@ -210,8 +213,85 @@ void FindIFront(float val, float *riAvg, float *riMin, float *riMax)
 }
 
 
+#include "../extra/ism.h"
+#include "rt.h"
+#include "frt/frt_c.h"
+
+#ifdef RT_OTVET_SAVE_FLUX
+float Flux(int level, int cell, double *ref_pos, float *ref_vel)
+{
+  int j;
+  double pos[3], r2;
+  float f, flux[6];
+
+  cell_center_position(cell,pos);
+  rtGetRadiationFlux(cell,flux);
+
+  f = 0.0;
+  r2 = 0.0;
+  for(j=0; j<3; j++)
+    {
+      pos[j] -= rtSingleSourcePos[j];
+      if(pos[j] > num_grid/2) pos[j] -= num_grid;
+      if(pos[j] < -num_grid/2) pos[j] += num_grid;
+      r2 += pos[j]*pos[j];
+
+      f += pos[j]*0.5*(-flux[2*j]+flux[2*j+1]);
+    }
+
+  f /= sqrt(r2);
+
+  return f;
+}
+#else
+float Flux(int level, int cell, double *ref_pos, float *ref_vel)
+{
+  return 0.0;
+}
+#endif /* RT_OTVET_SAVE_FLUX */
+
+float rf1(int level, int cell, double *ref_pos, float *ref_vel)
+{
+  float ngxi[1], wlen[1] = { 911 };
+
+  rtGetRadiationField(cell,1,wlen,ngxi);
+
+  return ngxi[0];
+}
+
+
+frt_real frtCall(getrfunits)(frt_real *var, frt_real *rawrf, frt_intg *freq, frt_real *uNear, frt_real *uFar);
+
+float rf0(int level, int cell, double *ref_pos, float *ref_vel)
+{
+  frt_intg freq = 1;
+  frt_real uNear, uFar;
+  DEFINE_FRT_INTEFACE(var,rawrf);
+  
+  rtPackCellData(level,cell,var,&rawrf);
+  frtCall(getrfunits)(var,rawrf,&freq,&uNear,&uFar);
+
+  return uNear*cell_var(cell,RT_VAR_OT_FIELD);
+}
+
+float pir(int level, int cell, double *ref_pos, float *ref_vel)
+{
+  float rate[FRT_RATE_DIM];
+
+  rtGetPhotoRates(cell,rate);
+
+  return rate[FRT_RATE_IonizationHI];
+}
+
+DumpWorker dfl = { Flux, "flux", 0 };
+DumpWorker drf1 = { rf1, "rfHI", 0 };
+DumpWorker drf0 = { rf0, "rfOT", 0 };
+DumpWorker dpir = { pir, "PiHI", 0 };
+
+
 void run_output()
 {
+  static int prerun = 1;
   const int nvars = 7;
   const int nbin1 = 32 * (1 << BottomLevel);
   int varid[] = { I_FRACTION+RT_HVAR_OFFSET+0, HVAR_GAS_DENSITY, I_GAS_TEMPERATURE, I_CELL_LEVEL, I_LOCAL_PROC, RT_VAR_OT_FIELD, rt_field_offset+0 };
@@ -222,11 +302,15 @@ void run_output()
   double tPhys;
   char filename[99];
   FILE *f;
+  DumpWorker q[] = { drf0, drf1, dfl, dpir };
 
   tPhys = units->time*(tl[0]-tStart)/constants->Myr;
 
   sprintf(filename,"OUT/out.%05d.bin",step);
   ifrit.OutputMesh(filename,BottomLevel,nbin,pos,nvars,varid);
+
+  sprintf(filename,"OUT/prof.%05d.res",step);
+  extDumpPointProfile(filename,sizeof(q)/sizeof(DumpWorker),q,0.1,10,10,rtSingleSourcePos);
 
   FindIFront(0.01,riAvg+2,&riMin,&riMax);
   FindIFront(0.1,riAvg+1,&riMin,&riMax);
@@ -258,6 +342,8 @@ void run_output()
       MPI_Finalize();
       exit(0);
     }
+
+  prerun = 0;
 }
 
 
@@ -337,6 +423,8 @@ void init_run()
    /* source */
    rtSingleSourceValue = N50*(units->time/constants->yr)*pow(constants->Mpc/units->length,3)/9.35e15/n0;
    rtSingleSourcePos[0] = rtSingleSourcePos[1] = rtSingleSourcePos[2] = 0.5*num_grid;
+
+   rtOtvetMaxNumIter = 30;
    
    str = extract_option1("nit","nit",NULL);
    if(str != NULL)
@@ -351,8 +439,6 @@ void init_run()
    cart_debug("done with initialization");
    
    check_map();
-   
-   run_output();
   /*
   //  Debugging parameters
   */

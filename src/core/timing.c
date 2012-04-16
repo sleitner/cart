@@ -243,7 +243,7 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 double current_time( int timerid, int level ) {
 	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
 	cart_assert( level >= min_level-1 && level <= max_level );
-	cart_assert( timers[level+1][timerid].current_time > 0.0 );
+	cart_assert( !(timers[level+1][timerid].current_time < 0.0 ) );
 
 	return MPI_Wtime() - timers[level+1][timerid].current_time;
 }
