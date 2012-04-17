@@ -170,6 +170,14 @@
 
 
 /*
+//  Use old-style 3x1 factorization for the UV transfer
+//  (for backward compatibility); it should not affect 
+//  the results much, but will change values of radiation
+//  field variables cell_var(cell,rt_field_offset+...).
+*/
+?#define RT_UV_OLDSTYLE_3x1
+
+/*
 //  Locally cache Eddington tensor and/or radiationd field - that 
 //  improves the OpenMP performance at the expense of using extra memory.
 //  The best OpenMP performance is obtained when both swicthes are set;

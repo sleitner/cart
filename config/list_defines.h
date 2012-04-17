@@ -354,49 +354,55 @@ d_flag[idRT_UV] = 1;
 #else
 d_flag[idRT_UV] = 0;
 #endif
-#define idRT_XRAYS  59
+#define idRT_UV_OLDSTYLE_3x1  59
+#ifdef RT_UV_OLDSTYLE_3x1
+d_flag[idRT_UV_OLDSTYLE_3x1] = 1;
+#else
+d_flag[idRT_UV_OLDSTYLE_3x1] = 0;
+#endif
+#define idRT_XRAYS  60
 #ifdef RT_XRAYS
 d_flag[idRT_XRAYS] = 1;
 #else
 d_flag[idRT_XRAYS] = 0;
 #endif
-#define idSAVE_LOAD_BALANCE_PARTITION  60
+#define idSAVE_LOAD_BALANCE_PARTITION  61
 #ifdef SAVE_LOAD_BALANCE_PARTITION
 d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 1;
 #else
 d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 0;
 #endif
-#define idSF_FEEDBACK  61
+#define idSF_FEEDBACK  62
 #ifdef SF_FEEDBACK
 d_flag[idSF_FEEDBACK] = 1;
 #else
 d_flag[idSF_FEEDBACK] = 0;
 #endif
-#define idSF_RECIPE  62
+#define idSF_RECIPE  63
 #ifdef SF_RECIPE
 d_flag[idSF_RECIPE] = 1;
 #else
 d_flag[idSF_RECIPE] = 0;
 #endif
-#define idSTAR_FORMATION  63
+#define idSTAR_FORMATION  64
 #ifdef STAR_FORMATION
 d_flag[idSTAR_FORMATION] = 1;
 #else
 d_flag[idSTAR_FORMATION] = 0;
 #endif
-#define idSTAR_PARTICLE_TYPES  64
+#define idSTAR_PARTICLE_TYPES  65
 #ifdef STAR_PARTICLE_TYPES
 d_flag[idSTAR_PARTICLE_TYPES] = 1;
 #else
 d_flag[idSTAR_PARTICLE_TYPES] = 0;
 #endif
-#define idUNIQUE_RAND  65
+#define idUNIQUE_RAND  66
 #ifdef UNIQUE_RAND
 d_flag[idUNIQUE_RAND] = 1;
 #else
 d_flag[idUNIQUE_RAND] = 0;
 #endif
-#define idnum_particle  66
+#define idnum_particle  67
 #ifdef num_particle
 d_flag[idnum_particle] = 1;
 #else
@@ -462,6 +468,7 @@ PRINT(RT_TRANSFER) \
 PRINT(RT_TRANSFER_FLUX_CONSERVING) \
 PRINT(RT_TRANSFER_METHOD) \
 PRINT(RT_UV) \
+PRINT(RT_UV_OLDSTYLE_3x1) \
 PRINT(RT_XRAYS) \
 PRINT(SAVE_LOAD_BALANCE_PARTITION) \
 PRINT(SF_FEEDBACK) \

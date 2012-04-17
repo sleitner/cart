@@ -8,6 +8,7 @@ extern "C"
 #include "../extra/igm.h"
 #include "../extra/ism.h"
 #include "../drivers/start_analysis.h"
+#include "tree.h"
 }
 
 
@@ -56,6 +57,8 @@ namespace ng
 	  d += RT_HVAR_OFFSET+5;
 	  d += I_CELL_LEVEL;
 	  d += I_LOCAL_PROC;
+	  d += rt_field_offset+0;
+	  d += rt_field_offset+rt_num_freqs-1;
 #endif /* RADIATIVE_TRANSFER */
 	}
 

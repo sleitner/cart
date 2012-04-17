@@ -140,7 +140,7 @@ int drive_run () {
         /*
         //  Allow to read old-style IO
         */
-        str = extract_option0("old-io","old-io");
+        str = extract_option0("start-from-old-data","sfo");
         if(str!=NULL && old_cart_io_flag==0)
           {
 	    old_cart_io_flag = -1;

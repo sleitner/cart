@@ -221,7 +221,7 @@ C
       dimension var(*), rawrf(*), rf(*)
 #if defined(RT_TRANSFER_FLUX_CONSERVING) || defined(RT_VARIABLE_RF)
       parameter(wFlux = 0.0, wCell = 0.0)
-      dimension tau(NSETS)
+      dimension tau(NSETS), x(NSETS)
 #endif
 
       rf(irfNorm) = var(ivarRF0l)
@@ -252,26 +252,32 @@ C
 #endif
 #endif
 
-      do j=1,NSETS
-         q = 1.0/max(varLow(1+j),var(1+j))
-         if(rf(irfOlf+j) .gt. VLARGE) then
-            rf(irfOlf+j) = 2*VLARGE
-            rf(irfOlv+j) = 0.0
+      x(1) = max(varLow(ivarXH1),var(ivarXH1))
+      x(2) = max(varLow(ivarXG1),var(ivarXG1))
+      x(3) = max(varLow(ivarXG2),var(ivarXG2))
+#ifdef RT_UV
+      x(4) = max(varLow(ivarXH1),var(ivarXH1)+2*var(ivarXMH))
+#endif
+
+      do L=1,NSETS
+         if(rf(irfOlf+L) .gt. VLARGE) then
+            rf(irfOlf+L) = 2*VLARGE
+            rf(irfOlv+L) = 0.0
          else if(rf(irfOlf+j) .gt. 0.0) then
-            rf(irfOlf+j) = rf(irfOlf+j) - wFlux*tau(j)
-            rf(irfOlv+j) = wFlux*tau(j)*q
+            rf(irfOlf+L) = rf(irfOlf+L) - wFlux*tau(L)
+            rf(irfOlv+L) = wFlux*tau(L)/x(L)
          endif
 #ifdef RT_EXTERNAL_BACKGROUND
-         if(rf(irfOgf+j) .gt. VLARGE) then
-            rf(irfOgf+j) = 2*VLARGE
-            rf(irfOgv+j) = 0.0
-         else if(rf(irfOgf+j) .gt. 0.0)
-            rf(irfOgf+j) = rf(irfOgf+j) - wFlux*tau(j)
-            rf(irfOgv+j) = wFlux*tau(j)*q
+         if(rf(irfOgf+L) .gt. VLARGE) then
+            rf(irfOgf+L) = 2*VLARGE
+            rf(irfOgv+L) = 0.0
+         else if(rf(irfOgf+L) .gt. 0.0)
+            rf(irfOgf+L) = rf(irfOgf+L) - wFlux*tau(L)
+            rf(irfOgv+L) = wFlux*tau(L)/x(L)
          endif
 #endif
-         rf(irfOwf+j) = (1-wCell)*tau(j)
-         rf(irfOwv+j) = wCell*tau(j)*q
+         rf(irfOwf+L) = (1-wCell)*tau(L)
+         rf(irfOwv+L) = wCell*tau(L)/x(L)
       enddo
 #endif
 
@@ -311,85 +317,57 @@ C
       include 'frt_transfer3.inc'
 #endif
       dimension var(*), w(*), rf(*)
+      dimension tau(NSETS)
       include 'frt_inline.inc'
 C
 C  Works only for the NSETS=3 or 4 case
 C
       w0 = var(ivarRF0l+k)
-      if(w0 .gt. VSMALL) then
 
-         if(w(k*NSETS+1) .gt. VSMALL) then
-            t1 = w(k*NSETS+1)/w0
-            if(k .eq. 0) then
-               ta1 = QIloc(t1)
-            else
-               ta1 = QIuni(t1)
-            endif
-         else
-            ta1 = 2*VLARGE
-         endif
-
-         if(w(k*NSETS+2) .gt. VSMALL) then
-            t2 = w(k*NSETS+2)/w0
-            if(k .eq. 0) then
-               ta2 = QIloc(t2)
-            else
-               ta2 = QIuni(t2)
-            endif
-            if(ta1 .lt. VLARGE) then
-               ta2 = ta2 - ta1*csH1n(lrG1tr)
-            endif
-         else
-            ta2 = 2*VLARGE
-         endif
-
-         if(w(k*NSETS+3) .gt. VSMALL) then
-            t3 = w(k*NSETS+3)/w0
-            if(k .eq. 0) then
-               ta3 = QIloc(t3)
-            else
-               ta3 = QIuni(t3)
-            endif
-            if(ta1 .lt. VLARGE) then
-               ta3 = ta3 - ta1*csH1n(lrG2tr)
-            endif
-            if(ta2 .lt. VLARGE) then
-               ta3 = ta3 - ta2*csG1n(lrG2tr)
-            endif
-         else
-            ta3 = 2*VLARGE
-         endif
-
-#ifdef RT_UV
-         if(w(k*NSETS+4) .gt. VSMALL) then
-            t4 = w(k*NSETS+4)/w0
-            if(k .eq. 0) then
-               ta4 = QIloc(t4)
-            else
-               ta4 = QIuni(t4)
-            endif
-         else
-            ta4 = 2*VLARGE
-         endif
-#endif
-
-         rf(k*NSETS+irfH1lf) = ta1
-         rf(k*NSETS+irfG1lf) = ta2
-         rf(k*NSETS+irfG2lf) = ta3
-#ifdef RT_UV
-         rf(k*NSETS+irfUVlf) = ta4
-#endif
-
-      else
-
-         rf(k*NSETS+irfH1lf) = 2*VLARGE
-         rf(k*NSETS+irfG1lf) = 2*VLARGE
-         rf(k*NSETS+irfG2lf) = 2*VLARGE
-#ifdef RT_UV
-         rf(k*NSETS+irfUVlf) = 2*VLARGE
-#endif
-
+      if(w0 .lt. VSMALL) then
+         do L=1,NSETS
+            rf(k*NSETS+irfOlf+L) = 10*VLARGE
+         enddo
+         return
       endif
+
+      do L=1,NSETS
+         if(w(k*NSETS+L) .gt. VSMALL) then
+            q = w(k*NSETS+L)/w0
+            if(k .eq. 0) then
+               tau(L) = QIloc(q)
+            else
+               tau(L) = QIuni(q)
+            endif
+         else
+            tau(L) = 10*VLARGE
+         endif
+      enddo
+C
+C  Now invert matrix.
+C  We don't need to check whether we subtract from 10*VLARGE since
+C  no matter how much we subtract, the value will still be above VLARGE
+C
+#if defined(RT_UV) && !defined(RT_UV_OLDSTYLE_3x1)
+      if(tau(4) .lt. VLARGE) then
+         do L=1,3
+            tau(L) = tau(L) - tau(4)*csUVn(LRSETS(L))
+         enddo
+      endif
+#endif /* RT_UV && !RT_UV_OLDSTYLE_3x1 */
+
+      if(tau(1) .lt. VLARGE) then
+         tau(2) = tau(2) - tau(1)*csH1n(lrG1tr)
+         tau(3) = tau(3) - tau(1)*csH1n(lrG2tr)
+      endif
+
+      if(tau(2) .lt. VLARGE) then
+         tau(3) = tau(3) - tau(2)*csG1n(lrG2tr)
+      endif
+
+      do L=1,NSETS
+         rf(k*NSETS+irfOlf+L) = tau(L)
+      enddo
 
       return
       end
@@ -406,70 +384,104 @@ C
       include 'frt_transfer3.inc'
 #endif
       dimension var(*), w(*), rf(*)
+      dimension tau(NSETS)
+#ifdef RT_VARIABLE_RF
+      dimension x(NSETS)
+#endif /* RT_VARIABLE_RF */
       include 'frt_inline.inc'
 C
 C  Works only for the NSETS=3 or 4 case
 C
-      ta1 = var(ivarXH1)*rf(k*NSETS+irfH1lv) + rf(k*NSETS+irfH1lf)
-      ta2 = var(ivarXG1)*rf(k*NSETS+irfG1lv) + rf(k*NSETS+irfG1lf)
-      ta3 = var(ivarXG2)*rf(k*NSETS+irfG2lv) + rf(k*NSETS+irfG2lf)
+#ifdef RT_VARIABLE_RF
+      x(1) = max(varLow(ivarXH1),var(ivarXH1))
+      x(2) = max(varLow(ivarXG1),var(ivarXG1))
+      x(3) = max(varLow(ivarXG2),var(ivarXG2))
 #ifdef RT_UV
-      ta4 = (var(ivarXH1)+2*var(ivarXMH))*rf(k*NSETS+irfUVlv) + 
-     .     rf(k*NSETS+irfUVlf)
+      x(4) = max(varLow(ivarXH1),var(ivarXH1)+2*var(ivarXMH))
 #endif
-            
-      if(ta2 .gt. 0.0) then
-         if(ta3 .ge. 0.0) ta3 = csG1n(lrG2tr)*ta2 + ta3
+#endif /* RT_VARIABLE_RF */
+
+      do L=1,NSETS
+         tau(L) = rf(k*NSETS+irfOlf+L)
+#ifdef RT_VARIABLE_RF
+     .        + x(L)*rf(k*NSETS+irfOlv+L)
+#endif /* RT_VARIABLE_RF */
+      enddo
+C
+C  Now apply matrix.
+C
+      if(tau(2) .lt. VLARGE) then
+         tau(3) = tau(3) + csG1n(lrG2tr)*tau(2)
       endif
 
-      if(ta1 .gt. 0.0) then
-         if(ta2 .ge. 0.0) ta2 = csH1n(lrG1tr)*ta1 + ta2
-         if(ta3 .ge. 0.0) ta3 = csH1n(lrG2tr)*ta1 + ta3
+      if(tau(1) .lt. VLARGE) then
+         tau(2) = tau(2) + csH1n(lrG1tr)*tau(1)
+         tau(3) = tau(3) + csH1n(lrG2tr)*tau(1)
       endif
+
+#if defined(RT_UV) && !defined(RT_UV_OLDSTYLE_3x1)
+      if(tau(4) .lt. VLARGE) then
+         do L=1,3
+            tau(L) = tau(L) + tau(4)*csUVn(LRSETS(L))
+         enddo
+      endif
+#endif /* RT_UV && !RT_UV_OLDSTYLE_3x1 */
 
       w0 = var(ivarRF0l+k)
 
-      if(ta1 .lt. 0.0) then
-         w(k*NSETS+1) = 0.0
-      else if(k .eq. 0) then
-         w(k*NSETS+1) = w0*QFloc(ta1)
-      else
-         w(k*NSETS+1) = w0*QFuni(ta1)
-      endif
-
-      if(ta2 .lt. 0.0) then
-         w(k*NSETS+2) = 0.0
-      else if(k .eq. 0) then
-         w(k*NSETS+2) = w0*QFloc(ta2)
-      else
-         w(k*NSETS+2) = w0*QFuni(ta2)
-      endif
-
-      if(ta3 .lt. 0.0) then
-         w(k*NSETS+3) = 0.0
-      else if(k .eq. 0) then
-         w(k*NSETS+3) = w0*QFloc(ta3)
-      else
-         w(k*NSETS+3) = w0*QFuni(ta3)
-      endif
-
-#ifdef RT_UV
-      if(ta4 .lt. 0.0) then
-         w(k*NSETS+4) = 0.0
-      else if(k .eq. 0) then
-         w(k*NSETS+4) = w0*QFloc(ta4)
-      else
-         w(k*NSETS+4) = w0*QFuni(ta4)
-      endif
-#endif
+      do L=1,NSETS
+         if(tau(L) .lt. VLARGE) then
+            if(k .eq. 0) then
+               w(k*NSETS+L) = w0*QFloc(tau(L))
+            else
+               w(k*NSETS+L) = w0*QFuni(tau(L))
+            endif
+         else
+            w(k*NSETS+L) = 0.0
+         endif
+      enddo
 
       return
       end
 #endif /* RT_VARIABLE_RF */
 C
-C  Scaling factors (= units) for the radiation fieldforthe field L
+C  Scaling factors (= units) for the radiation field L
+C  (only works with new UV)
 C     
-      subroutine frtGetRFUnits(var,rawrf,L,uLoc,uGlob)
+      subroutine frtGetRFUnits(L,uLoc,uGlob)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
+ 
+      if(L.ge.1 .and. L.le.NSETS) then
+
+         lr = LRSETS(L)
+
+         uLoc = qExp3*facLX*guvEff(lr)
+
+#ifdef RT_EXTERNAL_BACKGROUND
+         uGlob = qExp3*angEff(lr)
+#else
+         uGlob = 0.0
+#endif
+
+      else
+
+         uLoc = 0.0
+         uGlob = 0.0
+
+      endif
+
+      return
+      end
+C
+C  This works with old and new UV model
+C
+      subroutine frtGetRFUnits2(var,rawrf,L,uLoc,uGlob)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension var(*), rawrf(*)
@@ -505,7 +517,6 @@ C
          else
             uGlob = 0.0
          endif
-#else  /* RT_EXTERNAL_BACKGROUND */
 #endif /* RT_EXTERNAL_BACKGROUND */
 
       else
@@ -546,6 +557,7 @@ C
       denHn = denH1 + 2*denMH
 C
 #ifdef RT_UV
+#ifdef RT_UV_OLDSTYLE_3x1
 C
 C  This is differnt from HI,HeI,HeII cases - we only include dust
 C  absoprtion in 1 frequency in the RT solver, and add it later
@@ -553,6 +565,7 @@ C  approximately, because the RT solver seem to be unable to handle
 C  it directly (loss of precision?).
 C
       if(lr .eq. lrUVtr) then
+#endif /* RT_UV_OLDSTYLE_3x1 */
          denHd = denH1 + 2*denMH/ClumpH2
 #ifdef RT_CUSTOM_DUST_TO_GAS
          abc(1) = uColumn*frtDustToGas(var)*csUV(lr)*denHd
@@ -560,12 +573,14 @@ C
          abc(1) = uColumn*Zsol*csUV(lr)*denHd
 #endif
          abc(1) = (1.0-exp(-abc(1)*dx))/dx
+#ifdef RT_UV_OLDSTYLE_3x1
       else
          abc(1) = 0.0
       endif
-#else
+#endif /* RT_UV_OLDSTYLE_3x1 */
+#else  /* RT_UV */
       abc(1) = 0.0
-#endif
+#endif /* RT_UV */
 
 #if (RT_CFI == 0)
       abc(1) = abc(1) + uColumn*(csH1(lr)*denHn+csG1(lr)*denG1+

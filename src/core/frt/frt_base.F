@@ -888,24 +888,24 @@ C
 #else
       taul = 0.0
 #endif
-      if(tauH1l .gt. 0.0) then
+      if(tauH1l .lt. VLARGE) then
          taul = taul + csH1n(lr)*tauH1l
       endif
-      if(tauG1l .gt. 0.0) then
+      if(tauG1l .lt. VLARGE) then
          taul = taul + csG1n(lr)*tauG1l
       endif
-      if(tauG2l .gt. 0.0) then
+      if(tauG2l .lt. VLARGE) then
          taul = taul + csG2n(lr)*tauG2l
       endif
 
       if(
 #ifdef RT_UV
-     .     (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+     .     (tauUVl.gt.VLARGE .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
 #endif
-     .     (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
+     .     (tauH1l.gt.VLARGE .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
      .     .or.
-     .     (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
-     .     .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+     .     (tauG1l.gt.VLARGE .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
+     .     .or. (tauG2l.gt.VLARGE .and. lr.ge.lrG2tr)) then
          uGlob = 0.0
       else
 C
@@ -930,24 +930,24 @@ C
 #else
       taul = 0.0
 #endif
-      if(tauH1l .gt. 0.0) then
+      if(tauH1l .lt. VLARGE) then
          taul = taul + csH1n(lr)*tauH1l
       endif
-      if(tauG1l .gt. 0.0) then
+      if(tauG1l .lt. VLARGE) then
          taul = taul + csG1n(lr)*tauG1l
       endif
-      if(tauG2l .gt. 0.0) then
+      if(tauG2l .lt. VLARGE) then
          taul = taul + csG2n(lr)*tauG2l
       endif
 
       if(
 #ifdef RT_UV
-     .     (tauUVl.lt.0 .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
+     .     (tauUVl.gt.VLARGE .and. lr.ge.1 .and. lr.lt.lrH1tr) .or.
 #endif
-     .     (tauH1l.lt.0 .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
+     .     (tauH1l.gt.VLARGE .and. lr.ge.lrH1tr .and. lr.lt.lrG1tr)
      .     .or.
-     .     (tauG1l.lt.0 .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
-     .     .or. (tauG2l.lt.0 .and. lr.ge.lrG2tr)) then
+     .     (tauG1l.gt.VLARGE .and. lr.ge.lrG1tr .and. lr.lt.lrG2tr)
+     .     .or. (tauG2l.gt.VLARGE .and. lr.ge.lrG2tr)) then
          uLoc = 0.0
       else
 C

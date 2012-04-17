@@ -937,20 +937,24 @@ rt_laplacian_t rt_generic = { rtOtvet_GenericTensorDiag, rtOtvet_GenericTensorFu
 #ifdef RT_OTVET_SAVE_FLUX
 #include "frt/frt_c.h"
 
-frt_real frtCall(getrfunits)(frt_real *var, frt_real *rawrf, frt_intg *freq, frt_real *uNear, frt_real *uFar);
+void frtCall(getrfunits)(frt_intg *freq, frt_real *uNear, frt_real *uFar);
+void frtCall(getrfunits2)(frt_real *var, frt_real *rawrf, frt_intg *freq, frt_real *uNear, frt_real *uFar);
 
 void rtGetRadiationFlux(int cell, float flux[num_neighbors])
 {
-  static frt_real zero = 0.0;
   int j;
   double fac;
   frt_intg freq = rt_flux_field + 1;
   frt_real uNear, uFar;
-  DEFINE_FRT_INTEFACE(var,rawrf);
   int level = cell_level(cell);
   
+#ifdef RT_UV_OLDSTYLE_3x1
+  DEFINE_FRT_INTEFACE(var,rawrf);
   rtPackCellData(level,cell,var,&rawrf);
-  frtCall(getrfunits)(var,rawrf,&freq,&uNear,&uFar);
+  frtCall(getrfunits2)(var,rawrf,&freq,&uNear,&uFar);
+#else
+  frtCall(getrfunits)(&freq,&uNear,&uFar);
+#endif
 
   if(rt_flux_field < rt_far_freq_offset)
     {
