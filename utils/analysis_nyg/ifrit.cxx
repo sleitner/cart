@@ -95,8 +95,12 @@ void Region::Exec(const char *path)
 
   for(i=0; i<s.Size(); i++)
     {
+#ifdef GRAVITY
       if(s.Data()[i] == VAR_TOTAL_DENSITY) init->TotalDensity();
+#ifdef STAR_FORMATION
       if(s.Data()[i] == VAR_STELLAR_DENSITY) init->StellarDensity();
+#endif
+#endif
     }
 
   ::ifrit.OutputBox(this->File(path),Base::p.PixelLevel,Base::p.NumBins,p.Point,s.Size(),s.Data());
@@ -148,8 +152,12 @@ void Halo::Exec(const char *path)
 
       for(i=0; i<s.Size(); i++)
 	{
+#ifdef GRAVITY
 	  if(s.Data()[i] == VAR_TOTAL_DENSITY) init->TotalDensity();
+#ifdef STAR_FORMATION
 	  if(s.Data()[i] == VAR_STELLAR_DENSITY) init->StellarDensity();
+#endif
+#endif
 	}
 
       char str[strlen(path)+20];
