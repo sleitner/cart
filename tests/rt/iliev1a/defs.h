@@ -9,7 +9,7 @@
 #define RADIATIVE_TRANSFER
 
 #define SF_RECIPE                       <hart>
-#define SF_FEEDBACK                     <PopM>
+#define SF_FEEDBACK                     <hart>
 
 #define num_root_grid_refinements	6
 #define num_refinement_levels		3

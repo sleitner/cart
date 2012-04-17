@@ -9,7 +9,7 @@
 #define RADIATIVE_TRANSFER
 
 #define SF_RECIPE                      <gk10-full>
-#define SF_FEEDBACK                    <PopM>
+#define SF_FEEDBACK                    <popM-thermal>
 
 #define ENRICHMENT
 #define ENRICHMENT_SNIa

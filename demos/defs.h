@@ -11,6 +11,7 @@
 #define BLASTWAVE_FEEDBACK
 
 #define SF_RECIPE                       <hart>
+#define SF_FEEDBACK                     <hart>
 
 #define ENRICHMENT
 #define ENRICHMENT_SNIa
@@ -26,4 +27,3 @@
 #define num_star_particles              1000000
 
  
-#define SF_FEEDBACK <PopM>

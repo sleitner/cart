@@ -1,5 +1,5 @@
 
-DIRS = box6 cluster6 io kh orbit rt sedov sod zeldovich
+DIRS = compile box6 cluster6 io kh orbit rt sedov sod zeldovich
 
 TAGS = $(patsubst %,%/.phony,$(DIRS))
 
