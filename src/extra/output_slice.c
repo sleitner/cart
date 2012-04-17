@@ -112,7 +112,7 @@ float value_cell_property(int icell,int iflag){
         break;
     case OUT_CELL_INTERNAL_ENERGY:
         return (float)(cell_gas_temperature(icell)
-                       *units->temperature/constants->K);
+                       *units->temperature);
         break;
     case OUT_CELL_MOMENTUM+0:
         return (float)(cell_momentum(icell,0)/cell_gas_density(icell)
@@ -136,20 +136,18 @@ float value_cell_property(int icell,int iflag){
             ( cell_gas_pressure(icell)*units->energy_density*constants->cc/constants->erg );
         break;
 #if defined(RADIATIVE_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
-#ifdef SNLUPDATE
-    case  OUT_CELL_TAUUV:  
-        return (float) cell_tauUV(icell);
-        break;
-    case  OUT_CELL_RADIATION_PRESSURE:
-        return (float)
-            ( sf_feedback->extra_pressure(icell)
-              /(cell_gas_pressure(icell)-sf_feedback->extra_pressure(icell)) );
-        break;
-    case  OUT_CELL_URAD:
-        return (float)
-            ( cell_Urad(icell)*units->energy_density*constants->cc/constants->erg );
-        break;
-#endif
+/*     case  OUT_CELL_TAUUV:   */
+/*         return (float) cell_tauUV(icell); */
+/*         break; */
+/*     case  OUT_CELL_RADIATION_PRESSURE: */
+/*         return (float) */
+/*             ( sf_feedback->extra_pressure(icell) */
+/*               /(cell_gas_pressure(icell)-sf_feedback->extra_pressure(icell)) ); */
+/*         break; */
+/*     case  OUT_CELL_URAD: */
+/*         return (float) */
+/*             ( cell_Urad(icell)*units->energy_density*constants->cc/constants->erg ); */
+/*         break; */
     case  OUT_CELL_FHI:
         return (float)
             cell_HI_fraction(icell);
@@ -166,8 +164,6 @@ float value_cell_property(int icell,int iflag){
         vmag=sqrt(px2+py2+pz2)/cell_gas_density(icell);
         cs=sqrt( cell_gas_pressure(icell)/cell_gas_density(icell)*constants->gamma );
         return (float) vmag/cs;
-            /* return sqrt(px2+py2+pz2)/cell_gas_density(icell) */
-            /* / sqrt( cell_gas_pressure(icell)/cell_gas_density(icell)*constants->gamma ); */
         break;
     case OUT_CELL_LEVEL: return (float)cell_level(icell);
         break;
@@ -194,10 +190,6 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
     char varname[string_size];
     axis[0] = axis_direction[slice_axis_z][0];
     axis[1] = axis_direction[slice_axis_z][1] ;
-//    FILE *fp;
-//    fp=fopen("checkrp.txt","w");
-
-    
     fwrite( &endian_test, sizeof(int), 1, output );
     
     fwrite( &string_size, sizeof(int), 1, output );
@@ -218,15 +210,12 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
 #else
     cart_error("pick a different time variable to output");
 #endif
-    fdummy  = 0*units->time/constants->yr*1e-6;
-    /* fdummy  = dtl[min_level]*units->time/constants->yr*1e-6; # Not available in analysis mode */
+    fdummy  = 0*units->time*1e-6;
+    /* fdummy  = dtl[min_level]*units->time*1e-6; # Not available in analysis mode */
     fwrite( &fdummy, sizeof(float), 1, output );
         
     slice = cart_alloc(float, nsgrid*nsgrid);
-        
-    for(i=0; i<nsgrid*nsgrid; i++){
-        slice[i] = unassigned;
-    }
+    for(i=0; i<nsgrid*nsgrid; i++){ slice[i] = unassigned; }
 
     pos[slice_axis_z] = pos_zero[slice_axis_z];
     
@@ -244,30 +233,28 @@ void dump_plane(int iflag, int out_level, int slice_axis_z, double pos_zero[nDim
             
             islice = slice_indy*nsgrid + slice_indx;
             icell = cell_find_position_above_level(out_level+1,pos);
-            cart_assert(icell!=-1);
+	    cart_assert(icell!=-1);
             slice[islice] = value_cell_property(icell,iflag);
-/*             if(slice[islice]==unassigned){ */
-/*                 fprintf(fp,"%d %f %f %e\n",iflag, pos[axis[0]],pos[axis[1]],slice[i]); */
-/*             } */
-        }
+	}
     }
-//    fclose(fp);
-    
+     
     int    debug_unassigned=0;
     for(i=0; i<nsgrid*nsgrid; i++){
-        if(slice[i]==unassigned){
-            debug_unassigned=1;
-        }
-        if(debug_unassigned==1){
-            cart_debug("%d %e %e",iflag,slice[i],unassigned);
-            exit(1);
-        }
+	if(slice[i]==unassigned){
+	    debug_unassigned=1;
+	}
+	if(debug_unassigned==1){
+	    cart_debug("unassigned in output_slice: %d %e %e",iflag,slice[i],unassigned);
+	    exit(1);
+	}
     }
 
     fwrite( slice, sizeof(float), nsgrid*nsgrid, output );
         
     cart_free(slice);
 }
+
+
 
 
 
