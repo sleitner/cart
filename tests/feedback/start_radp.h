@@ -2,9 +2,6 @@
 #define __STARTRADP_H__
 
 
-#define slice_axis_z    2  
-#define slice_hsize_pc  2000  //(->2000)
-
 #define omm0 1.0
 #define oml0 0.0
 #define omb0 1.0

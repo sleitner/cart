@@ -43,7 +43,8 @@ void create_star_particle( int icell, float mass, double dt, int type );
 
 double pos_central[nDim]={num_grid/2.,num_grid/2.,num_grid/2.};
 double tot_energy0=0;
-double tot_momentum0=0;
+extern double p_tot0;
+double p_tot0=0;
 /* const int NSTARS=1; */
 /* const int NSTARS=8; */
 /* const int NSTARS=27; */
@@ -500,7 +501,7 @@ void init_run() {
 
 
     /* record initial momentum */
-    tot_momentum0=0;
+    p_tot0=0;
     icell = icell_central(0,0,0);
     for(idir=0;idir<nDim;idir++){
         adv_velocity[idir] = cell_momentum(icell,idir)/cell_gas_density(icell);
@@ -519,11 +520,11 @@ void init_run() {
                 cart_assert(frame_momentum[idir]==0);
             }
             
-            tot_momentum0 += sqrt( cell_momentum(icell,0)*cell_momentum(icell,0) +
+            p_tot0 += sqrt( cell_momentum(icell,0)*cell_momentum(icell,0) +
                                    cell_momentum(icell,1)*cell_momentum(icell,1) +
                                    cell_momentum(icell,2)*cell_momentum(icell,2) )
                 *cell_volume[level];
-/*                 tot_momentum0 += sqrt( */
+/*                 p_tot0 += sqrt( */
 /*                     frame_momentum[0]*frame_momentum[0] + */
 /*                     frame_momentum[1]*frame_momentum[1] + */
 /*                     frame_momentum[2]*frame_momentum[2] ) */
@@ -531,7 +532,7 @@ void init_run() {
         }
         cart_free( level_cells );
     }
-    cart_debug("momentum %e",tot_momentum0);
+    cart_debug("momentum %e",p_tot0);
     
 
 #ifdef RADIATIVE_TRANSFER
