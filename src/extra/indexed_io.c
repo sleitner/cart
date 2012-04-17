@@ -27,7 +27,7 @@
 
 extern double auni_init;
 
-#ifdef HYDRO
+#if defined(HYDRO) && defined(COSMOLOGY)
 
 void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_level_to_read ) {
 	int i, j, k;
@@ -538,4 +538,4 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 	buffer_enabled = 1;
 }
 
-#endif  /* HYDRO */
+#endif /* HYDRO && COSMOLOGY */

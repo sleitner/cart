@@ -1,5 +1,7 @@
 #include "config.h"
 
+#if defined(GRAVITY) && defined(COSMOLOGY)
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,9 +43,6 @@ extern int step;
 
 #ifdef HYDRO
 
-#ifndef GRAVITY
-#error  warning: without GRAVITY define, hart_io will be wrong 
-#endif
 
 /*#define DEBUG*/
 /* #define ADDED_NEW_HART_ARRAYS_FOR_IFRIT */
@@ -1167,4 +1166,5 @@ void write_hart_grid_binary( char *filename ) {
 	cart_free( cellvars );
 }
 
-#endif  /* HYDRO */
+#endif /* HYDRO */
+#endif /* GRAVITY && COSMOLOGY */

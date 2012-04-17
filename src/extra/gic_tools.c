@@ -19,6 +19,8 @@
 struct gicCHullConfig gictol = { 0.01, 0.05, 3, 2 };
 
 
+#ifdef PARTICLES
+
 void gicMakeMaskAddPoints(int mode, int n, const int *pos, char *mask)
 {
   int j;
@@ -286,3 +288,4 @@ void gicMakeMask(const char *filename, int num_halos, const struct HALO **halos,
     }
 }
 
+#endif /* PARTICLES */
