@@ -1133,7 +1133,7 @@ c....                count particle if it falls inside halo radius and v < vesc
 c                   
                      if ( dv .lt. vesc ) then
                        bind(inp) = be
-                       ind(inp) = idm
+                       ind(inp) = idm-1  
                        inp = inp + 1  
                      endif
                    endif

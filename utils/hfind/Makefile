@@ -12,8 +12,8 @@ LDFLAGS = -fast -mp -mcmodel=medium
 
 # BulldogM
 #FC = ifort
-#FFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise
-#LDFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise
+#FFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise -assume byterecl
+#LDFLAGS = -O3 -xHOST -m64 -fpic -fpie -mcmodel=large -shared-intel -fp-model precise -assume byterecl
 
 # gerneic ifort
 #FC = ifort
