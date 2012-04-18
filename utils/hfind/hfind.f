@@ -953,7 +953,6 @@ c
       do ic0 = 1 , nhalo
         ic1 = idx(ic0)
         if ( amh(ic1) .gt. nmin*pw(1) ) then
-        ih = ih + 1
         rkpc   = rh(ic1) * rg2kpc
         amassh = pmmsun * amh(ic1)
         xmpc  = (xh(ic1)-1.) * rg2Mpc
@@ -972,7 +971,8 @@ c
      &                vxkms   ,  vykms   , vzkms , 
      &                rvir, rkpc, amassh, nhp(ic1), 
      &                vhmax(ic1), rhmax(ic1), rsh(ic1),hc(ic1)-1
-        
+       
+        ih = ih + 1 
         rd = zero
         do ic2 = 0 , nbins
           call FindIBin ( ic2 , ibtype, rmind, rmaxd, drd,
@@ -1038,7 +1038,6 @@ c
         if ( amh(ic1) .gt. nmin*pw(1) ) then
           rhalo  = rh(ic1)
           rhmaxd = rhmax(ic1)/rg2pkpc
-          ih = ih + 1
           inp = 0
           xhalo = xh(ic1) 
           yhalo = yh(ic1) 
@@ -1145,7 +1144,7 @@ c
           enddo  ! end i
 
           write(21) ih, inp, (ind(i), i=1,inp), (bind(i), i=1,inp)
-
+          ih = ih + 1
         endif
       enddo ! end ic1
 
