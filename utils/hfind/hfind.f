@@ -1121,12 +1121,12 @@ c                  corr_x , corr_y , corr_z - take care of periodicity
 
                    if ( rd .lt. rhalo ) then
                      resc = rd * rg2pkpc
-                     dv = (vxd - vxhalo)**2 +
+                     dv = ((vxd - vxhalo)**2 +
      &                    (vyd - vyhalo)**2 + 
-     &                    (vzd - vzhalo)**2  
+     &                    (vzd - vzhalo)**2 ) * vg2kms**2
                      vesc = ve ( resc , rhmax(ic1) , vhmax(ic1) )
-                     be = dv - vesc**2
-                     dv = sqrt(dv) * vg2kms
+                     be = 0.5*(dv - vesc**2)
+                     dv = sqrt(dv)
                      vesc = vesc * toohot 
 c
 c....                count particle if it falls inside halo radius and v < vesc 
