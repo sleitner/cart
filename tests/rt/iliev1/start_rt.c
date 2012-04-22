@@ -30,7 +30,7 @@
 
 const float N50 = 0.05;
 const float T_i = 1.0e4;
-const int BottomLevel = 3;
+const int BottomLevel = 2;
 
 extern int rtOtvetMaxNumIter;
 
@@ -260,16 +260,14 @@ float rf1(int level, int cell, double *ref_pos, float *ref_vel)
 }
 
 
-frt_real frtCall(getrfunits)(frt_real *var, frt_real *rawrf, frt_intg *freq, frt_real *uNear, frt_real *uFar);
+frt_real frtCall(getrfunits)(frt_intg *freq, frt_real *uNear, frt_real *uFar);
 
 float rf0(int level, int cell, double *ref_pos, float *ref_vel)
 {
   frt_intg freq = 1;
   frt_real uNear, uFar;
-  DEFINE_FRT_INTEFACE(var,rawrf);
   
-  rtPackCellData(level,cell,var,&rawrf);
-  frtCall(getrfunits)(var,rawrf,&freq,&uNear,&uFar);
+  frtCall(getrfunits)(&freq,&uNear,&uFar);
 
   return uNear*cell_var(cell,RT_VAR_OT_FIELD);
 }

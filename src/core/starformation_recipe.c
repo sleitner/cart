@@ -25,9 +25,12 @@ void control_parameter_list_recipe(FILE *stream, const void *ptr)
 
 void config_init_star_formation_recipe()
 {
+  static char *ptr;
   ControlParameterOps r = { NULL, control_parameter_list_recipe };
 
-  control_parameter_add(r,(void *)sf_recipe_internal.name,"sf:recipe","a recipe for star formation. This parameter is for listing only, and must be set with SF_RECIPE define in defs.h. See /src/sf for available recipes.");
+  ptr = cart_alloc(char,strlen(sf_recipe_internal.name)+1);
+  strcpy(ptr,sf_recipe_internal.name);
+  control_parameter_add(r,ptr,"sf:recipe","a recipe for star formation. This parameter is for listing only, and must be set with SF_RECIPE define in defs.h. See /src/sf for available recipes.");
 
   if(sf_recipe_internal.config_init != NULL) sf_recipe_internal.config_init();
 }

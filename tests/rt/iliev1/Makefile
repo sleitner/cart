@@ -1,4 +1,4 @@
-TOP_DIR = $(ART)/CART/trunk
+TOP_DIR = ../../..
 SRC_DIR = $(TOP_DIR)/src
 
 compile: art

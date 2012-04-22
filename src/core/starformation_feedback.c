@@ -32,6 +32,7 @@ void control_parameter_list_feedback(FILE *stream, const void *ptr)
 
 void config_init_star_formation_feedback()
 {
+  static char *ptr;
   ControlParameterOps r = { NULL, control_parameter_list_feedback };
 
   /*
@@ -47,7 +48,9 @@ void config_init_star_formation_feedback()
   /*
   //  other
   */
-  control_parameter_add(r,(void *)sf_feedback_internal.name,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
+  ptr = cart_alloc(char,strlen(sf_feedback_internal.name)+1);
+  strcpy(ptr,sf_feedback_internal.name);
+  control_parameter_add(r,ptr,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
 
   control_parameter_add3(control_parameter_double,&feedback_temperature_ceiling,"fb:temperature-ceiling","feedback_temperature_ceiling","T_max_feedback","maximum gas temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
 
