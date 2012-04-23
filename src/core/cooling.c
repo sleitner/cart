@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "auxiliary.h"
+#include "control_parameter.h"
 #include "cooling.h"
 #include "io.h"
 #include "units.h"
@@ -29,15 +30,30 @@ cooling_t ccl_rs[nlzmax][nldmax][nltmax];
 double fion[nrsmax][nlzmax][nldmax][nltmax];
 double fion_rs[nlzmax][nldmax][nltmax];
 
+char cloudy_table_filename[CONTROL_PARAMETER_STRING_LENGTH] = "clcool.dat";
+
+void config_init_cooling() {
+	control_parameter_add(control_parameter_string,cloudy_table_filename,"cloudy-table-file","Full pathname to file which contains cloudy cooling rates (default clcool.dat).");
+}
+
+void config_verify_cooling() {
+	FILE *f;
+	f = fopen( cloudy_table_filename, "r" );
+	if ( f == NULL ) {
+		cart_error("Unable to locate cloudy cooling table file %s", cloudy_table_filename );
+	}
+	fclose(f);	
+}
+
 void init_cooling() {
 	FILE *data;
 	int irs, ilz, ild, ilt;
 	double d[9];
 	double cdum, hdum, ct_crit;
 
-	data = fopen("clcool.dat", "r");
+	data = fopen( cloudy_table_filename, "r");
 	if ( data == NULL ) {
-		cart_error("Unable to open clcool.dat");
+		cart_error("Unable to open cloudy cooling table file %s", cloudy_table_filename );
 	}
 
 	fscanf( data, "%lf %lf %lf %u\n", &tlmin, &tlmax, &dlt, &nlt );

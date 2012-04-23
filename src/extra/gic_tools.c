@@ -11,7 +11,7 @@
 #include "tree.h"
 
 #include "chull.h"
-#include "halo_finder.h"
+#include "halos.h"
 
 #include "gic_tools.h"
 
@@ -50,7 +50,7 @@ void gicMakeMaskAddPoints(int mode, int n, const int *pos, char *mask)
 }
 
 
-void gicMakeMask(const char *filename, int num_halos, const struct HALO **halos, float size, int mode, int level, int width)
+void gicMakeMask(const char *filename, const halo_list *halos, float size, int mode, int level, int width)
 {
   int ih;
   int i, j, k, i1, j1, k1, ioff, joff, koff, done, n, nbuf, lev, width2;
@@ -83,10 +83,11 @@ void gicMakeMask(const char *filename, int num_halos, const struct HALO **halos,
   /*
   //  Do a union of masks for each halo
   */
-  for(ih=0; ih<num_halos; ih++)
+  for(ih=0; ih<halos->num_halos; ih++)
     {
-      h = halos[ih];
+      h = halos->list[ih];
       cart_assert(h != NULL);
+      if ( !h->flag ) continue;
   
       for(n=j=0; j<num_particles; j++) if(particle_id[j]!=NULL_PARTICLE && particle_id[j]<particle_species_indices[1])
 	{

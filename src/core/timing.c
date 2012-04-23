@@ -85,6 +85,11 @@ const char *timer_name[][2] = {
 { "build_cell_buffer", "green" }, 
 { "select_level", "green" }, 
 { "max_level", "red" },
+{ "smooth_particle_density", "blue" },
+{ "halo_finder", "blue" },
+{ "halo_finder_mass", "blue" },
+{ "halo_finder_recenter", "blue" },
+{ "halo_finder_write_particles", "blue" },
 { "communication", "red" },
 { "lower_level", "white" },  /* this is for internal accouting only */
 { "work", "green" },

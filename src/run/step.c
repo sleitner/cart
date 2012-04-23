@@ -10,6 +10,7 @@
 #include "cosmology.h"
 #include "density.h"
 #include "gravity.h"
+#include "halo_finder.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
 #include "io.h"
@@ -28,6 +29,7 @@
 #include "tree.h"
 #include "units.h"
 
+#include "agn_step.h"
 #include "gravity_step.h"
 #include "hydro_step.h"
 #include "hydro_tracer_step.h"
@@ -313,7 +315,6 @@ void run( int restart, const char *restart_label ) {
 #endif
 
 		} else {
-			step++;
 			current_steps++;
 
 			/*
@@ -357,9 +358,10 @@ void run( int restart, const char *restart_label ) {
 int global_timestep() {
 	int level;
 	int ret, global_ret;
+	halo_list *halos;
 	DEFINE_LEVEL_ARRAY(double,tmp);
 
-        cart_assert( buffer_enabled );
+	cart_assert( buffer_enabled );
 
 	start_time( LEVEL_TIMER );
 	start_time( WORK_TIMER );
@@ -410,6 +412,7 @@ int global_timestep() {
 
 	ret = timestep( min_level, mpi.comm.run );
 	current_step_level = -1;
+	step++;
 
 	/* check if any other processors had problems (violation of CFL condition) */
 	start_time( COMMUNICATION_TIMER );
@@ -422,7 +425,6 @@ int global_timestep() {
 
 	end_time( COMMUNICATION_TIMER );
 
-	/* do a last refinement step (without allowing derefinement */
 	if ( global_ret != -1 ) {
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 		for ( level = min_level; level <= max_level-1; level++ ) {
@@ -436,17 +438,31 @@ int global_timestep() {
 		}
 #endif /* REFINEMENT */
 
+		if ( halo_finder_frequency > 0 && step % halo_finder_frequency == 0 ) {
+			halos = find_halos();
+			if ( halos->num_halos > 0 ) {
+				write_halo_list(halos);
+			}
+		} else {
+			halos = NULL;
+		}
+
 #ifdef STAR_FORMATION
 #ifdef AGN               
 		/* do agn mergers */
 		agn_find_mergers();
 
-        /* do agn formation */
+        /* do agn seeding */
+		agn_seed( halos );
 #endif /* AGN */
 
 		/* now remap ids of stars created in this timestep */
 		remap_star_ids();
 #endif /* STAR_FORMATION */
+
+		if ( halos != NULL ) {
+			destroy_halo_list(halos);
+		}
 
 #ifdef RADIATIVE_TRANSFER	
 		rtStepEnd();

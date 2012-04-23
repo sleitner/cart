@@ -74,9 +74,14 @@ typedef struct TIMER {
 #define	    BUILD_CELL_BUFFER_TIMER                 53
 #define	    SELECT_LEVEL_TIMER                      54
 #define	    MAX_LEVEL_TIMER                         55
-#define	    COMMUNICATION_TIMER                     56
-#define	    LOWER_LEVEL_TIMER                       57
-#define	    WORK_TIMER                              58
+#define     SMOOTH_PARTICLE_DENSITY_TIMER           56
+#define     HALO_FINDER_TIMER                       57
+#define     HALO_FINDER_MASS_TIMER                  58
+#define     HALO_FINDER_RECENTER_TIMER              59
+#define		HALO_FINDER_WRITE_PARTICLES_TIMER		60
+#define	    COMMUNICATION_TIMER                     61
+#define	    LOWER_LEVEL_TIMER                       62
+#define	    WORK_TIMER                              63
 
 #ifdef RADIATIVE_TRANSFER
 

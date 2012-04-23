@@ -6,8 +6,10 @@
 #include <math.h>
 
 #include "auxiliary.h"
+#include "cell_buffer.h"
 #include "control_parameter.h"
 #include "cosmology.h"
+#include "halos.h"
 #include "halo_finder.h"
 #include "io.h"
 #include "parallel.h"
@@ -16,7 +18,7 @@
 #include "particle_density.h"
 #include "stack.h"
 #include "timing.h"
-#include "timestep.h"
+#include "times.h"
 #include "tree.h"
 #include "units.h"
 
@@ -44,6 +46,7 @@ double rr[MAX_HALO_BINS];
 double bin_volume[MAX_HALO_BINS];
 double bin_volume_cumulative[MAX_HALO_BINS];
 
+extern int step;
 char halo_finder_output_directory[CONTROL_PARAMETER_STRING_LENGTH];
 
 void config_init_halo_finder() {
@@ -54,13 +57,13 @@ void config_init_halo_finder() {
 
 	control_parameter_add(control_parameter_int,&halo_center_definition,"halo:center_definition","Halo centers are defined as 0=iterative cm convergence or 1=location of highest density particle");
 	control_parameter_add(control_parameter_int,&halo_num_nearest_neighbors,"halo:num_nearest_neighbors","Number of nearest neighbors used to define smoothed density for initial peak finding");
-	control_parameter_add(control_parameter_double,&cm_radius_initial_reduction,"halo:cm_radius_initial_reduction","Initial fractino of rdelta to use for iterative center of mass calculation");
+	control_parameter_add(control_parameter_double,&cm_radius_initial_reduction,"halo:cm_radius_initial_reduction","Initial fraction of rvir to use for iterative center of mass calculation");
 	control_parameter_add(control_parameter_double,&cm_radius_freduce,"halo:cm_radius_freduce","Fraction of center of mass search radius to decrease during each iteration.");
 	control_parameter_add(control_parameter_double,&cm_convergence_ftol,"halo:cm_convergence_ftol","Fractional movement in halo center of mass necessary for convergence.");
 	control_parameter_add(control_parameter_double,&cm_convergence_abs,"halo:cm_convergence_abs","Absolute movement in halo center of mass (units of cell_size[max_level]) necessary for convergence.");
-    control_parameter_add(control_parameter_double,&rmin_physical,"halo:rhalo_bin_rmin", "Minimum radius to search for overdensity radius rdelta [comoving Mpc/h]");
-	control_parameter_add(control_parameter_double,&rmax_physical,"halo:rhalo_bin_rmax", "Maximum radius to serach for overdensity radius rdelta [comoving Mpc/h]");
-	control_parameter_add2(control_parameter_double,&delta_vir,"halo:overdensity","halo:delta_vir", "Overdensity with respect to critical which defines halo rdelta and Mdelta");
+    control_parameter_add(control_parameter_double,&rmin_physical,"halo:rhalo_bin_rmin", "Minimum radius to search for overdensity radius rvir [comoving Mpc/h]");
+	control_parameter_add(control_parameter_double,&rmax_physical,"halo:rhalo_bin_rmax", "Maximum radius to serach for overdensity radius rvir [comoving Mpc/h]");
+	control_parameter_add2(control_parameter_double,&delta_vir,"halo:overdensity","halo:delta_vir", "Overdensity with respect to critical which defines halo rvir and Mvir");
 	control_parameter_add2(control_parameter_double,&delta_halo_center,"halo:center_overdensity","halo:deltamin", "Overdensity necessary for a particle to be considered a potential halo center");
 	control_parameter_add(control_parameter_int,&min_halo_center_level,"halo:center_min_level","Minimum level to compute smoothed densities and therefore be eligible to be a halo center");
 	control_parameter_add(control_parameter_double,&min_halo_mass,"halo:min_halo_mass","Minimum mass within chosen overdensity to consider a halo");
@@ -73,17 +76,19 @@ void config_verify_halo_finder() {
 		cart_error("Directory %s does not exist.",halo_finder_output_directory);
 	} else closedir(d);
 
-	cart_assert( halo_center_definition == 0 || halo_center_definition == 1 );
-	cart_assert( cm_radius_initial_reduction > 0.0 && cm_radius_initial_reduction <= 1.0 );
-	cart_assert( cm_radius_freduce > 0.0 && cm_radius_freduce < 1.0 );
-	cart_assert( cm_convergence_ftol > 0.0 && cm_convergence_ftol < 1.0 );
-	cart_assert( cm_convergence_abs >= 0.0 );
-	cart_assert( rmin_physical > 0 && rmin_physical < rmax_physical );
-	cart_assert( rmax_physical > 0.0 );
-	cart_assert( delta_vir > 0.0 );
-	cart_assert( delta_halo_center >= delta_vir );
-	cart_assert( min_halo_center_level >= min_level && min_halo_center_level <= max_level );
-	cart_assert( min_halo_mass >= 0.0 );
+	VERIFY( frequency:halo-finder, halo_finder_frequency >= 0 );
+	VERIFY( halo:center_definition, halo_center_definition == 0 || halo_center_definition == 1 );
+	VERIFY( halo:num_nearest_neighbors, halo_num_nearest_neighbors > 0 );
+	VERIFY( halo:cm_radius_initial_reduction, cm_radius_initial_reduction > 0.0 && cm_radius_initial_reduction <= 1.0 );
+	VERIFY( halo:cm_radius_freduce, cm_radius_freduce > 0.0 && cm_radius_freduce < 1.0 );
+	VERIFY( halo:cm_convergence_ftol, cm_convergence_ftol > 0.0 && cm_convergence_ftol < 1.0 );
+	VERIFY( halo:cm_convergence_abs, cm_convergence_abs >= 0.0 );
+	VERIFY( halo:rhalo_bin_rmin, rmin_physical > 0 && rmin_physical < rmax_physical );
+	VERIFY( halo:rhalo_bin_rmax, rmax_physical > 0.0 );
+	VERIFY( halo:overdensity, delta_vir > 0.0 );
+	VERIFY( halo:center_overdensity, delta_halo_center >= delta_vir );
+	VERIFY( halo:center_min_level, min_halo_center_level >= min_level && min_halo_center_level <= max_level );
+	VERIFY( halo:min_halo_mass, min_halo_mass >= 0.0 );
 }
 
 double loglin_interpolate( double *binned_var, int bin, double rlout, double rri, double rll ) {
@@ -158,9 +163,9 @@ void compute_halo_mass( halo *h ) {
 
 		/* select root cells, assumes rmax ~ cell_size[min_level] so no pruning */
 #pragma omp for collapse(3) schedule(dynamic) nowait
-		for ( i = (int)floor(h->x[0]-rr[num_bins-1]); i <= (int)(h->x[0]+rr[num_bins-1]); i++ ) {
-			for ( j = (int)floor(h->x[1]-rr[num_bins-1]); j <= (int)(h->x[1]+rr[num_bins-1]); j++ ) {
-				for ( k = (int)floor(h->x[2]-rr[num_bins-1]); k <= (int)(h->x[2]+rr[num_bins-1]); k++ ) {
+		for ( i = (int)floor(h->pos[0]-rr[num_bins-1]); i <= (int)(h->pos[0]+rr[num_bins-1]); i++ ) {
+			for ( j = (int)floor(h->pos[1]-rr[num_bins-1]); j <= (int)(h->pos[1]+rr[num_bins-1]); j++ ) {
+				for ( k = (int)floor(h->pos[2]-rr[num_bins-1]); k <= (int)(h->pos[2]+rr[num_bins-1]); k++ ) {
 					coords[0] = ( i + num_grid ) % num_grid;
 					coords[1] = ( j + num_grid ) % num_grid;
 					coords[2] = ( k + num_grid ) % num_grid;
@@ -174,7 +179,7 @@ void compute_halo_mass( halo *h ) {
 								level = min_level;
 								r = 0.0;
 								for ( m = 0; m < nDim; m++ ) {
-									dx = (double)coords[m] + cell_center_offset - h->x[m];
+									dx = (double)coords[m] + 0.5 - h->pos[m];
 									if ( dx < -num_grid/2 ) {
 										dx += num_grid;
 									} else if ( dx > num_grid/2 ) {
@@ -191,7 +196,7 @@ void compute_halo_mass( halo *h ) {
 								for ( m = 0; m < nDim; m++ ) {
 									dx = (double)oct_pos[parent][m] + 
 										(double)cell_size[level]*(double)cell_delta[child][m] - 
-										h->x[m];
+										h->pos[m];
 									if ( dx < -num_grid/2 ) {
 										dx += num_grid;
 									} else if ( dx > num_grid/2 ) {
@@ -248,12 +253,12 @@ void compute_halo_mass( halo *h ) {
 		stack_destroy(cell_list); 
 	}
 
-	MPI_Allreduce( local_mass, bin_mass, num_bins, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+	MPI_Allreduce( local_mass, bin_mass, num_bins, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
 	for ( i = 0; i < nDim; i++ ) {
-		MPI_Allreduce( local_cv[i], bin_cv[i], num_bins, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+		MPI_Allreduce( local_cv[i], bin_cv[i], num_bins, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
 	}
 
-	/* find rdelta, mdelta, vmax, rmax */
+	/* find rvir, mvir, rmax, vmax */
 	Gcode = constants->G/units->length/units->length/units->length*units->mass*units->time*units->time;
 	vmax = 0.0;
 	total_mass = 0.0;
@@ -296,12 +301,12 @@ void compute_halo_mass( halo *h ) {
 			rri = 1.0/(rrl-rll);
 			dlbi1 = log10(dbi1);
 			dlbi2 = log10(dbi2);
-			h->rdelta = pow( 10.0, (log10(delta_vir)*(rrl-rll) + 
+			h->rvir = pow( 10.0, (log10(delta_vir)*(rrl-rll) + 
 							rll*dlbi2 - rrl*dlbi1)/(dlbi2-dlbi1));
-			h->Mdelta = log_interpolate( bin_total_mass, bin, log10(h->rdelta), rri, rll );
+			h->mvir = log_interpolate( bin_total_mass, bin, log10(h->rvir), rri, rll );
 
 			for ( i = 0; i < nDim; i++ ) {
-				h->v[i] = loglin_interpolate( bin_total_cv[i], bin, log10(h->rdelta), rri, rll );
+				h->vel[i] = loglin_interpolate( bin_total_cv[i], bin, log10(h->rvir), rri, rll );
 			}
 
 			break;
@@ -309,11 +314,11 @@ void compute_halo_mass( halo *h ) {
 	}
 
 	if ( bin == num_bins ) {
-		h->rdelta = rr[num_bins-1];
-		h->Mdelta = bin_total_mass[num_bins-1];
+		h->rvir = rr[num_bins-1];
+		h->mvir = bin_total_mass[num_bins-1];
 
 		for ( i = 0; i < nDim; i++ ) {
-			h->v[i] = bin_total_cv[i][num_bins-1];
+			h->vel[i] = bin_total_cv[i][num_bins-1];
 		}
 	}
 
@@ -339,7 +344,7 @@ void halo_recenter( halo *h ) {
 
 	start_time( HALO_FINDER_RECENTER_TIMER );
 
-	rcm = h->rdelta * cm_radius_initial_reduction;
+	rcm = h->rvir * cm_radius_initial_reduction;
 	niter = 0;
 
 	do {
@@ -358,9 +363,9 @@ void halo_recenter( halo *h ) {
 
 			/* select root cells, assumes rmax ~ cell_size[min_level] so no pruning */
 #pragma omp for collapse(3) schedule(dynamic) nowait
-			for ( i = (int)floor(h->x[0]-rcm); i <= (int)(h->x[0]+rcm); i++ ) {
-				for ( j = (int)floor(h->x[1]-rcm); j <= (int)(h->x[1]+rcm); j++ ) {
-					for ( k = (int)floor(h->x[2]-rcm); k <= (int)(h->x[2]+rcm); k++ ) {
+			for ( i = (int)floor(h->pos[0]-rcm); i <= (int)(h->pos[0]+rcm); i++ ) {
+				for ( j = (int)floor(h->pos[1]-rcm); j <= (int)(h->pos[1]+rcm); j++ ) {
+					for ( k = (int)floor(h->pos[2]-rcm); k <= (int)(h->pos[2]+rcm); k++ ) {
 						coords[0] = ( i + num_grid ) % num_grid;
 						coords[1] = ( j + num_grid ) % num_grid;
 						coords[2] = ( k + num_grid ) % num_grid;
@@ -373,7 +378,7 @@ void halo_recenter( halo *h ) {
 									level = min_level;
 									r = 0.0;
 									for ( m = 0; m < nDim; m++ ) {
-										dx[m] = (double)coords[m] + cell_center_offset - h->x[m];
+										dx[m] = (double)coords[m] + 0.5 - h->pos[m];
 										if ( dx[m] < -num_grid/2 ) {
 											dx[m] += num_grid;
 										} else if ( dx[m] > num_grid/2 ) {
@@ -390,7 +395,7 @@ void halo_recenter( halo *h ) {
 									for ( m = 0; m < nDim; m++ ) {
 										dx[m] = (double)oct_pos[parent][m] + 
 											(double)cell_size[level]*(double)cell_delta[child][m] - 
-											h->x[m];
+											h->pos[m];
 										if ( dx[m] < -num_grid/2 ) {
 											dx[m] += num_grid;
 										} else if ( dx[m] > num_grid/2 ) {
@@ -422,7 +427,7 @@ void halo_recenter( halo *h ) {
 									local_cm_mass += particle_mass[ipart];
 									r = 0.0;
 									for ( m = 0; m < nDim; m++ ) {
-										dx[m] = particle_x[ipart][m] - h->x[m];
+										dx[m] = particle_x[ipart][m] - h->pos[m];
 										if ( dx[m] < -num_grid/2 ) {
 											dx[m] += num_grid;
 										} else if ( dx[m] > num_grid/2 ) {
@@ -457,8 +462,8 @@ void halo_recenter( halo *h ) {
 			stack_destroy( cell_list );
 		}
 
-		MPI_Allreduce( cm, cm_total, nDim, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
-		MPI_Allreduce( &cm_mass, &cm_mass_total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+		MPI_Allreduce( cm, cm_total, nDim, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
+		MPI_Allreduce( &cm_mass, &cm_mass_total, 1, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
 
 		for ( i = 0; i < nDim; i++ ) {
 			cm_total[i] /= cm_mass_total;
@@ -467,11 +472,11 @@ void halo_recenter( halo *h ) {
 		dr = 0.0;
 		for ( i = 0; i < nDim; i++ ) {
 			dr += cm_total[i]*cm_total[i];
-            h->x[i] += cm_total[i];
-			if ( h->x[i] < 0.0 ) {
-				h->x[i] += (double)num_grid;
-			} else if ( h->x[i] >= (double)num_grid ) {
-				h->x[i] -= (double)num_grid;
+            h->pos[i] += cm_total[i];
+			if ( h->pos[i] < 0.0 ) {
+				h->pos[i] += (double)num_grid;
+			} else if ( h->pos[i] >= (double)num_grid ) {
+				h->pos[i] -= (double)num_grid;
 			}
         }
 
@@ -502,14 +507,15 @@ struct {
 	int proc;
 } local_particle, global_particle;
 
-halo *find_halos() {
+halo_list *find_halos() {
 	int i, j;
+	int ih;
 	int num_centers_local;
 	int *order;
 	int *particle_flag;
 	double r;
 	halo *h, *h2;
-	halo *halos;
+	halo_list *halos;
 	int hid;
 	double min_halo_mass_code;
 
@@ -600,9 +606,10 @@ halo *find_halos() {
 
 	qsort( order, num_centers_local, sizeof(int), sort_particles_by_density_desc );
 
+	halos = halo_list_alloc(100);
+
 	i = 0;
 	hid = 1;
-	halos = NULL;
 	while (1) {
 		/* find next highest density local particle */
 		while ( i < num_centers_local && order[i] < 0 ) i++;
@@ -617,24 +624,24 @@ halo *find_halos() {
 
 		/* gather max density particle */
 		MPI_Allreduce( &local_particle, &global_particle, 1, 
-				MPI_FLOAT_INT, MPI_MAXLOC, MPI_COMM_WORLD );
+				MPI_FLOAT_INT, MPI_MAXLOC, mpi.comm.run );
 
 		if ( global_particle.proc == -1 ) {
 			break;
 		}
 
-		h = cart_alloc(halo, 1);
-		h->hid = hid;
+		h = halo_list_add_halo(halos);
+		h->id = hid;
 
 		if ( global_particle.proc == local_proc_id ) {
 			for ( j = 0; j < nDim; j++ ) {
-				h->x[j] = particle_x[order[i]][j];
+				h->pos[j] = particle_x[order[i]][j];
 			}
 			i++;
 		}
 
 		/* broadcast position to other processors */
-		MPI_Bcast( h->x, nDim, MPI_DOUBLE, global_particle.proc, MPI_COMM_WORLD );
+		MPI_Bcast( h->pos, nDim, MPI_DOUBLE, global_particle.proc, mpi.comm.run );
 
 		/* grow sphere */
 		compute_halo_mass(h);
@@ -648,29 +655,29 @@ halo *find_halos() {
 #pragma omp parallel for default(none) shared(order,num_centers_local,i,particle_x,h) private(j,r)
 		for ( j = i; j < num_centers_local; j++ ) {
 			if ( order[j] >= 0 ) {
-				r = compute_distance_periodic( particle_x[order[j]], h->x );
-				if ( r < h->rdelta ) {
+				r = compute_distance_periodic( particle_x[order[j]], h->pos );
+				if ( r < h->rvir ) {
 					order[j] = -1;
 				}
 			}
 		}
 
-		if ( h->Mdelta < min_halo_mass_code ) {
+		if ( h->mvir < min_halo_mass_code ) {
 			cart_free(h);
 			continue;
 		}
 
 		if ( halo_center_definition == 0 ) {
 			/* eliminate halos that have wandered into virial radius of previously defined halo */
-			h2 = halos;
-			while ( h2 != NULL ) {
-				r = compute_distance_periodic( h2->x, h->x );
-				if ( r < h2->rdelta ) {
-					cart_free(h);
+			for ( ih = 0; ih < halos->num_halos-1; ih++ ) {
+				h2 = &halos->list[ih];
+
+				r = compute_distance_periodic( h2->pos, h->pos );
+				if ( r < h2->rvir ) {
+					halos->num_halos--;
 					h = NULL;
 					break;
 				}
-				h2 = h2->next;
 			}
 
 			if ( h == NULL ) {
@@ -682,11 +689,11 @@ halo *find_halos() {
 		if ( local_proc_id == MASTER_NODE ) {
 			cart_debug("halo %d %e %e %e %e %e", 
 					hid,
-					h->x[0]*units->length_in_chimps, 
-					h->x[1]*units->length_in_chimps,
-					h->x[2]*units->length_in_chimps,
-					h->rdelta*units->length_in_chimps, 
-					h->Mdelta*units->mass/constants->Msun );
+					h->pos[0]*units->length_in_chimps, 
+					h->pos[1]*units->length_in_chimps,
+					h->pos[2]*units->length_in_chimps,
+					h->rvir*units->length_in_chimps, 
+					h->mvir*units->mass/constants->Msun );
 		}
 #endif /* DEBUG */
 
@@ -694,29 +701,17 @@ halo *find_halos() {
 #pragma omp parallel for default(none) shared(order,num_centers_local,i,particle_x,h) private(j,r)
 		for ( j = i; j < num_centers_local; j++ ) {
 			if ( order[j] >= 0 ) {
-				r = compute_distance_periodic( particle_x[order[j]], h->x );
-				if ( r < h->rdelta ) {
+				r = compute_distance_periodic( particle_x[order[j]], h->pos );
+				if ( r < h->rvir ) {
 					order[j] = -1;
 				}
 			}
 		}
 
 		hid++;
-		h->next = halos;
-		halos = h;
 	}
 
 	cart_free( order );
-
-	/* reverse order halo list */
-	h2 = halos;
-	halos = NULL;
-	while ( h2 != NULL ) {
-		h = h2->next;
-		h2->next = halos;
-		halos = h2;
-		h2 = h;
-	}
 
 	end_time( HALO_FINDER_TIMER );
 
@@ -729,15 +724,16 @@ halo *find_halos() {
 	return halos;
 }
 
-void write_halo_list( halo *list ) {
+void write_halo_list( halo_list *halos ) {
 	int i;
+	int ih;
 	char filename[512];
 	FILE *output;
 	halo *h;
 
 	if ( halo_particle_list_flag ) {
 		/* also computes Np */
-		write_halo_particle_list(list);
+		write_halo_particle_list(halos);
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
@@ -771,57 +767,57 @@ void write_halo_list( halo *list ) {
 		}
 
 #ifdef COSMOLOGY
-		fprintf( output, "# Columns: halo_id x y z [Mpc/h comoving] vx vy vz [peculiar km/s] Rdelta [kpc/h comoving]\n#     Mdelta [Msun/h] vmax [km/s] rmax [kpc/h comoving]\n" );
+		fprintf( output, "# Columns: halo_id x y z [Mpc/h comoving] vx vy vz [peculiar km/s] Rvir [kpc/h comoving]\n#     Mvir [Msun/h] vmax [km/s] rmax [kpc/h comoving]\n" );
 #else
-		fprintf( output, "# Columns: halo_id x y z [Mpc] vx vy vz [peculiar km/s] Rdelta [kpc]\n#        Mdelta [Msun] Np [specie 0] vmax [km/s] rmax [kpc]\n" );
+		fprintf( output, "# Columns: halo_id x y z [Mpc] vx vy vz [peculiar km/s] Rvir [kpc]\n#        Mvir [Msun] Np [specie 0] vmax [km/s] rmax [kpc]\n" );
 #endif
 		fprintf( output, "####################################################################\n");
 
-		h = list;
-		while ( h != NULL ) {
+		for ( ih = 0; ih < halos->num_halos; ih++ ) {
+			h = &halos->list[ih];
 #ifdef COSMOLOGY
 			fprintf( output, "%5u %10.5f %10.5f %10.5f %8.2f %8.2f %8.2f %9.4f %.5e %7u %7.2f %9.4f\n", 
-					h->hid, 
-					h->x[0]*units->length_in_chimps,
-					h->x[1]*units->length_in_chimps,
-					h->x[2]*units->length_in_chimps,
-					h->v[0]*units->velocity/constants->kms,
-					h->v[1]*units->velocity/constants->kms,
-					h->v[2]*units->velocity/constants->kms,
-					h->rdelta*units->length_in_chimps*1000.,
-					h->Mdelta*cosmology->h*units->mass/constants->Msun,
+					h->id, 
+					h->pos[0]*units->length_in_chimps,
+					h->pos[1]*units->length_in_chimps,
+					h->pos[2]*units->length_in_chimps,
+					h->vel[0]*units->velocity/constants->kms,
+					h->vel[1]*units->velocity/constants->kms,
+					h->vel[2]*units->velocity/constants->kms,
+					h->rvir*units->length_in_chimps*1000.,
+					h->mvir*cosmology->h*units->mass/constants->Msun,
 					h->np,
 					h->vmax*units->velocity/constants->kms,
 					h->rmax*units->length_in_chimps*1000. );
 #else
-			fprintf("%5u %10.5f %10.5f %10.5f %8.2f %8.2f %8.2f %9.4f %.5e %7u %7.2f %9.4f\n", h->hid, 
-					h->x[0]*units->length / constants->Mpc,
-					h->x[1]*units->length / constants->Mpc,
-					h->x[2]*units->length / constants->Mpc,
-					h->v[0]*units->velocity/constants->kms,
-					h->v[1]*units->velocity/constants->kms,
-					h->v[2]*units->velocity/constants->kms,
-					h->rdelta*units->length / constants->kpc,
-					h->Mdelta*units->mass/constants->Msun,
+			fprintf("%5u %10.5f %10.5f %10.5f %8.2f %8.2f %8.2f %9.4f %.5e %7u %7.2f %9.4f\n", h->id, 
+					h->pos[0]*units->length / constants->Mpc,
+					h->pos[1]*units->length / constants->Mpc,
+					h->pos[2]*units->length / constants->Mpc,
+					h->vel[0]*units->velocity/constants->kms,
+					h->vel[1]*units->velocity/constants->kms,
+					h->vel[2]*units->velocity/constants->kms,
+					h->rvir*units->length / constants->kpc,
+					h->mvir*units->mass/constants->Msun,
 					h->np,
 					h->vmax*units->velocity/constants->kms,
 					h->rmax*units->length / constants->kpc );
 #endif
-			h = h->next;
 		}
 
 		fclose(output);
 	}
 }
 
-void write_halo_particle_list( halo *list ) {
+void write_halo_particle_list( halo_list *halos ) {
     int i, j, k, m;
+	int ih;
     char filename[512];
     FILE *output;
     halo *h;
 	stack *cell_list;
 	int coords[nDim];
-	double rdelta2;
+	double rvir2;
 	float aexp;
 	int size;
 	int icell, ioct, ipart;
@@ -835,7 +831,7 @@ void write_halo_particle_list( halo *list ) {
 	int *ids;
 	float *bind;
 	double dx, r, v, lgr;
-	double phi, v2kms;
+	double phi, v2kms2, phi2kms2;
 	int plocal, pindex;
 	double thread_radial_potential[MAX_HALO_BINS];
 	double thread_bin_volume[MAX_HALO_BINS];
@@ -843,6 +839,8 @@ void write_halo_particle_list( halo *list ) {
 	double local_bin_volume[MAX_HALO_BINS];
 	double radial_potential[MAX_HALO_BINS];
 	double actual_bin_volume[MAX_HALO_BINS];
+
+	start_time( HALO_FINDER_WRITE_PARTICLES_TIMER );
 
 	if ( local_proc_id == MASTER_NODE ) {
 #ifdef COSMOLOGY
@@ -860,12 +858,7 @@ void write_halo_particle_list( halo *list ) {
 		fwrite( &aexp, sizeof(float), 1, output );
 		fwrite( &size, sizeof(int), 1, output );
 
-		nh = 0;
-		h = list;
-		while ( h != NULL ) {
-			nh++;
-			h = h->next;
-		}
+		nh = halos->num_halos;
 		np = particle_species_num[0];
 		
 		size = 2*sizeof(int);
@@ -877,9 +870,9 @@ void write_halo_particle_list( halo *list ) {
 		particle_counts = cart_alloc(int, num_procs);
 	}
 
-	h = list;
-	while ( h != NULL ) {
-		rdelta2 = h->rdelta*h->rdelta;
+	for ( ih = 0; ih < halos->num_halos; ih++ ) {
+		h = &halos->list[ih];
+		rvir2 = h->rvir*h->rvir;
 
 		for ( bin = 0; bin < num_bins; bin++ ) {
 			local_bin_volume[bin] = 0.0;
@@ -888,7 +881,7 @@ void write_halo_particle_list( halo *list ) {
 		local_particle_count = 0;
 
 		/* construct radial average potential */
-#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,cell_volume,oct_pos,oct_level,cell_delta,rdelta2,particle_id,particle_x,cell_particle_list,particle_list_next,rlmin,rr,drl,local_radial_potential,local_bin_volume,local_particle_count) private(cell_list,i,j,k,m,coords,r,icell,dx,level,ioct,parent,child,lgr,bin,thread_radial_potential,thread_bin_volume,thread_particle_count,ipart)
+#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,cell_volume,oct_pos,oct_level,cell_delta,rvir2,particle_id,particle_x,cell_particle_list,particle_list_next,rlmin,rr,drl,local_radial_potential,local_bin_volume,local_particle_count) private(cell_list,i,j,k,m,coords,r,icell,dx,level,ioct,parent,child,lgr,bin,thread_radial_potential,thread_bin_volume,thread_particle_count,ipart)
         {
             cell_list = stack_init();
 
@@ -900,9 +893,9 @@ void write_halo_particle_list( halo *list ) {
 
 			/* construct radial average potential */
 #pragma omp for collapse(3) schedule(dynamic) nowait
-			for ( i = (int)floor(h->x[0]-rr[num_bins-1]); i <= (int)(h->x[0]+rr[num_bins-1]); i++ ) {
-				for ( j = (int)floor(h->x[1]-rr[num_bins-1]); j <= (int)(h->x[1]+rr[num_bins-1]); j++ ) {
-					for ( k = (int)floor(h->x[2]-rr[num_bins-1]); k <= (int)(h->x[2]+rr[num_bins-1]); k++ ) {
+			for ( i = (int)floor(h->pos[0]-rr[num_bins-1]); i <= (int)(h->pos[0]+rr[num_bins-1]); i++ ) {
+				for ( j = (int)floor(h->pos[1]-rr[num_bins-1]); j <= (int)(h->pos[1]+rr[num_bins-1]); j++ ) {
+					for ( k = (int)floor(h->pos[2]-rr[num_bins-1]); k <= (int)(h->pos[2]+rr[num_bins-1]); k++ ) {
 						coords[0] = ( i + num_grid ) % num_grid;
 						coords[1] = ( j + num_grid ) % num_grid;
 						coords[2] = ( k + num_grid ) % num_grid;
@@ -915,7 +908,7 @@ void write_halo_particle_list( halo *list ) {
 									level = min_level;
 									r = 0.0;
 									for ( m = 0; m < nDim; m++ ) {
-										dx = (double)coords[m] + cell_center_offset - h->x[m];
+										dx = (double)coords[m] + 0.5 - h->pos[m];
 										if ( dx < -num_grid/2 ) {
 											dx += num_grid;
 										} else if ( dx > num_grid/2 ) {
@@ -931,7 +924,7 @@ void write_halo_particle_list( halo *list ) {
 									r = 0.0;
 									for ( m = 0; m < nDim; m++ ) {
 										dx = (double)oct_pos[parent][m] + 
-												(double)cell_size[level]*(double)cell_delta[child][m] - h->x[m];
+												(double)cell_size[level]*(double)cell_delta[child][m] - h->pos[m];
 										if ( dx < -num_grid/2 ) {
 											dx += num_grid;
 										} else if ( dx > num_grid/2 ) {
@@ -958,10 +951,10 @@ void write_halo_particle_list( halo *list ) {
 
 								ipart = cell_particle_list[icell];
 								while ( ipart != NULL_PARTICLE ) {
-									if ( particle_specie( particle_id[ipart] ) == 0 ) {
+									if ( particle_species( particle_id[ipart] ) == 0 ) {
 										r = 0.0;
 										for ( m = 0; m < nDim; m++ ) {
-											dx = particle_x[ipart][m] - h->x[m];
+											dx = particle_x[ipart][m] - h->pos[m];
 											if ( dx < -num_grid/2 ) {
 												dx += num_grid;
 											} else if ( dx > num_grid/2 ) {
@@ -970,7 +963,7 @@ void write_halo_particle_list( halo *list ) {
 											r += dx*dx;
 										} 
 
-										if ( r < rdelta2 ) {
+										if ( r < rvir2 ) {
 											thread_particle_count++;
 										}
 									}
@@ -994,8 +987,8 @@ void write_halo_particle_list( halo *list ) {
             stack_destroy( cell_list );
 		}
 
-		MPI_Allreduce( local_radial_potential, radial_potential, num_bins, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
-		MPI_Allreduce( local_bin_volume, actual_bin_volume, num_bins, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+		MPI_Allreduce( local_radial_potential, radial_potential, num_bins, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
+		MPI_Allreduce( local_bin_volume, actual_bin_volume, num_bins, MPI_DOUBLE, MPI_SUM, mpi.comm.run );
 
 		for ( bin = 0; bin < num_bins; bin++ ) {
 			if ( actual_bin_volume[bin] > 0 ) {
@@ -1021,27 +1014,22 @@ void write_halo_particle_list( halo *list ) {
 			}
 		}
 
-		if ( local_proc_id == MASTER_NODE && h->hid == 2 ) {
-			for ( bin = 0; bin < num_bins; bin++ ) {
-				cart_debug("radial_potential[%d] = %e", bin, radial_potential[bin] );
-			}
-		}
-
 		/* measure binding energy for local particles */
 		ids = cart_alloc(int, local_particle_count);
 		bind = cart_alloc(float, local_particle_count);
 		pindex = 0;
-		v2kms = pow( units->velocity/constants->kms, 2.0 );
+		v2kms2 = pow( units->velocity/constants->kms, 2.0 );
+		phi2kms2 = pow( units->velocity*abox[min_level]/constants->kms, 2.0 );
 
-#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,cell_volume,oct_pos,oct_level,cell_delta,rdelta2,particle_x,particle_id,particle_v,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids,bind,radial_potential,rl,v2kms) private(cell_list,i,j,k,m,coords,r,lgr,v,icell,dx,level,ioct,parent,child,plocal,ipart,phi,bin)
+#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,cell_volume,oct_pos,oct_level,cell_delta,rvir2,particle_x,particle_id,particle_v,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids,bind,radial_potential,rl,phi2kms2,v2kms2) private(cell_list,i,j,k,m,coords,r,lgr,v,icell,dx,level,ioct,parent,child,plocal,ipart,phi,bin)
 		{
 			cell_list = stack_init();
 
 			/* construct radial average potential */
 #pragma omp for collapse(3) schedule(dynamic) nowait
-			for ( i = (int)floor(h->x[0]-h->rdelta); i <= (int)(h->x[0]+h->rdelta); i++ ) {
-				for ( j = (int)floor(h->x[1]-h->rdelta); j <= (int)(h->x[1]+h->rdelta); j++ ) {
-					for ( k = (int)floor(h->x[2]-h->rdelta); k <= (int)(h->x[2]+h->rdelta); k++ ) {
+			for ( i = (int)floor(h->pos[0]-h->rvir); i <= (int)(h->pos[0]+h->rvir); i++ ) {
+				for ( j = (int)floor(h->pos[1]-h->rvir); j <= (int)(h->pos[1]+h->rvir); j++ ) {
+					for ( k = (int)floor(h->pos[2]-h->rvir); k <= (int)(h->pos[2]+h->rvir); k++ ) {
 						coords[0] = ( i + num_grid ) % num_grid;
 						coords[1] = ( j + num_grid ) % num_grid;
 						coords[2] = ( k + num_grid ) % num_grid;
@@ -1059,10 +1047,10 @@ void write_halo_particle_list( halo *list ) {
 
 								ipart = cell_particle_list[icell];
 								while ( ipart != NULL_PARTICLE ) {
-									if ( particle_specie( particle_id[ipart] ) == 0 ) {
+									if ( particle_species( particle_id[ipart] ) == 0 ) {
 										r = 0.0;
 										for ( m = 0; m < nDim; m++ ) {
-											dx = particle_x[ipart][m] - h->x[m];
+											dx = particle_x[ipart][m] - h->pos[m];
 											if ( dx < -num_grid/2 ) {
 												dx += num_grid;
 											} else if ( dx > num_grid/2 ) {
@@ -1074,7 +1062,7 @@ void write_halo_particle_list( halo *list ) {
 										lgr = 0.5*log10(r);
 										bin = ( lgr < rlmin ) ? 0 : (int)((lgr - rlmin)/drl) + 1;
 
-										if ( r < rdelta2 && bin < num_bins ) {
+										if ( r < rvir2 && bin < num_bins ) {
 											/* bad: introduces false cache sharing between threads, oh well */
 											#pragma omp critical 
 											{
@@ -1085,7 +1073,7 @@ void write_halo_particle_list( halo *list ) {
 
 											v = 0.0;
 											for ( m = 0; m < nDim; m++ ) {
-												v += (particle_v[ipart][m]-h->v[m])*(particle_v[ipart][m]-h->v[m]);
+												v += (particle_v[ipart][m]-h->vel[m])*(particle_v[ipart][m]-h->vel[m]);
 											}
 
 											if ( bin == 0 ) {
@@ -1094,7 +1082,8 @@ void write_halo_particle_list( halo *list ) {
 												phi = loglin_interpolate( radial_potential, bin, lgr, 1.0/drl, log10(rl[bin]) );
 											}
 
-											bind[plocal] = (phi + 0.5*v)*v2kms;
+											/* phi = cell_potential(icell); */
+											bind[plocal] = phi*phi2kms2 + 0.5*v*v2kms2;
 										}
 									}
 									ipart = particle_list_next[ipart];
@@ -1111,7 +1100,7 @@ void write_halo_particle_list( halo *list ) {
 		cart_assert( pindex == local_particle_count );
 
 		/* gather binding energies */
-		MPI_Gather( &local_particle_count, 1, MPI_INT, particle_counts, 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD );
+		MPI_Gather( &local_particle_count, 1, MPI_INT, particle_counts, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
 		if ( local_proc_id == MASTER_NODE ) {
 			total_particle_count = 0;
@@ -1126,14 +1115,14 @@ void write_halo_particle_list( halo *list ) {
 					2*sizeof(int);
 
 			fwrite( &size, sizeof(int), 1, output );
-			fwrite( &h->hid, sizeof(int), 1, output );
+			fwrite( &h->id, sizeof(int), 1, output );
 			fwrite( &total_particle_count, sizeof(int), 1, output );
 			fwrite( ids, sizeof(int), local_particle_count, output );
 			cart_free( ids );
 
 			for ( proc = 1; proc < num_procs; proc++ ) {
 				ids = cart_alloc(int, particle_counts[proc] );
-				MPI_Recv( ids, particle_counts[proc], MPI_INT, proc, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				MPI_Recv( ids, particle_counts[proc], MPI_INT, proc, 0, mpi.comm.run, MPI_STATUS_IGNORE );
 				fwrite( ids, sizeof(int), particle_counts[proc], output );
 				cart_free( ids );
 			}
@@ -1143,7 +1132,7 @@ void write_halo_particle_list( halo *list ) {
 
 			for ( proc = 1; proc < num_procs; proc++ ) {
 				bind = cart_alloc(float, particle_counts[proc]);
-				MPI_Recv( bind, particle_counts[proc], MPI_FLOAT, proc, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE );
+				MPI_Recv( bind, particle_counts[proc], MPI_FLOAT, proc, 0, mpi.comm.run, MPI_STATUS_IGNORE );
 				fwrite( bind, sizeof(float), particle_counts[proc], output );
 				cart_free( bind );
 			}
@@ -1151,31 +1140,20 @@ void write_halo_particle_list( halo *list ) {
 			fwrite( &size, sizeof(int), 1, output );
 		} else {
 			/* send binding energies to root processor */
-			MPI_Send( ids, local_particle_count, MPI_INT, MASTER_NODE, 0, MPI_COMM_WORLD );
-			MPI_Send( bind, local_particle_count, MPI_FLOAT, MASTER_NODE, 0, MPI_COMM_WORLD );
+			MPI_Send( ids, local_particle_count, MPI_INT, MASTER_NODE, 0, mpi.comm.run );
+			MPI_Send( bind, local_particle_count, MPI_FLOAT, MASTER_NODE, 0, mpi.comm.run );
 
 			cart_free( ids );
 			cart_free( bind );
 		}
-
-		h = h->next;
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
 		cart_free( particle_counts );
 		fclose(output);
 	}
-}
 
-void destroy_halo_list( halo *list ) {
-	halo *h, *tmp;
-
-	h = list;
-	while ( h != NULL ) {
-		tmp = h->next;
-		cart_free(h);
-		h = tmp;
-	}
+	end_time( HALO_FINDER_WRITE_PARTICLES_TIMER );
 }
 
 #endif /* PARTICLES */

@@ -73,7 +73,7 @@ double system_get_available_memory()
 const char *system_getcwd()
 {
   const int size = 1024;
-  static char buf[size];
+  static char buf[1024];
 
   return getcwd(buf,size);
 }

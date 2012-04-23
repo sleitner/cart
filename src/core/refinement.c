@@ -64,10 +64,10 @@ void config_init_refinement()
 
   control_parameter_add2(control_parameter_float,&diffusion_coefficient,"ref:diffusion-coefficient","diffusion_coefficient","the diffusion coefficient for smoothing the refinement indicator field.");
 
-  control_parameter_add2(control_parameter_float,&reaction_increment,"ref:reaction-increment","reaction_increment","--ask Doug--.");
+  control_parameter_add2(control_parameter_float,&reaction_increment,"ref:reaction-increment","reaction_increment","the constant source term in the refinement coefficient diffusion.");
 
 #ifdef MOMENTUM_DIFFUSION
-  control_parameter_add2(control_parameter_float,&momentum_increment,"ref:momentum-increment","momentum_increment","--ask Doug--.");
+  control_parameter_add2(control_parameter_float,&momentum_increment,"ref:momentum-increment","momentum_increment","Adds an additional increment to the refinement diffusion in the direction of the cell velocity. This helps to pre-refine in front of shock fronts.");
 #endif /* MOMENTUM_DIFFUSION */
 
 #ifdef COSMOLOGY

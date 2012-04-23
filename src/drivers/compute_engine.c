@@ -71,16 +71,15 @@ int drive_run () {
 	double aexp;
 	const char *str;
 
-        MPI_Comm_size( mpi.comm.run, &num_procs );
-        MPI_Comm_rank( mpi.comm.run, &local_proc_id );
+	MPI_Comm_size( mpi.comm.run, &num_procs );
+	MPI_Comm_rank( mpi.comm.run, &local_proc_id );
         
-        if ( num_procs > MAX_PROCS ) {
-                cart_error("Number of processors exceeds limit! (%u > %u) The executable must be recompiled.\n", 
-                        num_procs, MAX_PROCS );
-        }
+	if ( num_procs > MAX_PROCS ) {
+		cart_error("Number of processors exceeds limit! (%u > %u) The executable must be recompiled.\n", 
+				num_procs, MAX_PROCS );
+	}
 
 	/* load configuration file */
-
 	config_init();
 
 	/*

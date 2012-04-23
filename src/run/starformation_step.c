@@ -35,7 +35,7 @@ extern double sf_min_stellar_particle_mass;
 void star_formation( int level, int time_multiplier )
 {
   int i;
-  int icell;
+  int icell, ipart;
   int num_level_cells;
   int *level_cells;
   double dt_SF;
@@ -90,10 +90,11 @@ void star_formation( int level, int time_multiplier )
 		if ( mstar > 0.0 ) {
 
 			/* create the new star */
-#ifdef LOG_STAR_CREATION	  
-		  	log_star_creation( icell, mstar, FILE_RECORD);
+			ipart = create_star_particle( icell, mstar, dtl[level], STAR_TYPE_NORMAL );
+
+#ifdef LOG_STAR_CREATION      
+			log_star_creation( icell, particle_mass[ipart], FILE_RECORD);
 #endif
-	   		create_star_particle( icell, mstar, dtl[level], STAR_TYPE_NORMAL );
 
 #ifdef BLASTWAVE_FEEDBACK
 			init_blastwave(icell);

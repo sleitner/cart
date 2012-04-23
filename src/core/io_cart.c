@@ -268,7 +268,9 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		/* write out restart file */
 		sprintf( filename, "%s/restart.dat", output_directory );
 		restart = fopen( filename, "w" );
-		cart_assert(restart != NULL);
+		if ( restart == NULL ) {
+			cart_error("Unable to open restart file %s for writing!", filename );
+		}
 
 		fprintf( restart, "%s\n", filename_gas );
 

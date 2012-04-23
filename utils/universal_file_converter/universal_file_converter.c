@@ -193,7 +193,14 @@ void init()
 	{
 	  cart_error("Option --num-cart-files must have an integer number between 1 and %d as its argument.",num_procs);
 	}
-      num_cart_output_files = n;      
+
+      if ( ufc_mode == C2A || ufc_mode == -H2C ) {
+		num_cart_input_files = n;
+	  } else if ( ufc_mode == H2C || ufc_mode == -C2A ) {
+        num_cart_output_files = n;
+	  } else {
+		cart_error("Option --num-cart-files should be used with CART file conversion only.");
+      }
     }
   
   str = extract_option1("num-artio-files","na",NULL);

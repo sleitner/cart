@@ -18,12 +18,7 @@
 #ifdef PARTICLES
 int particle_buffer_enabled = 0;
 
-#ifdef STAR_PARTICLE_TYPES
-void build_particle_buffer( int species, int star_type ) {
-#else 
-void build_particle_buffer( int species ) {
-#endif /* STAR_PARTICLE_TYPES */
-
+void build_particle_buffer( int species, int subspecies ) {
 	int i;
 	int level, proc;
 	int ipart, icell;
@@ -48,8 +43,8 @@ void build_particle_buffer( int species ) {
 					if ( species == -1 || 
 							( particle_species(particle_id[ipart]) == species
 #ifdef STAR_PARTICLE_TYPES
-							  && ( species != num_particle_species-1 || star_type == -1 ||
-								  star_particle_type[ipart] == star_type ) 
+							  && ( species != num_particle_species-1 || subspecies == -1 ||
+								  star_particle_type[ipart] == subspecies ) 
 #endif /* STAR_PARTICLE_TYPES */
 							) ) {
 						num_parts_to_send[proc]++;
@@ -74,8 +69,8 @@ void build_particle_buffer( int species ) {
 						if ( species == -1 || 
 								( particle_species(particle_id[ipart]) == species
 #ifdef STAR_PARTICLE_TYPES
-								  && ( species != num_particle_species-1 || star_type == -1 ||
-									  star_particle_type[ipart] == star_type ) 
+								  && ( species != num_particle_species-1 || subspecies == -1 ||
+									  star_particle_type[ipart] == subspecies ) 
 #endif /* STAR_PARTICLE_TYPES */
 								) ) {
 							particle_list_to_send[proc][count++] = ipart;

@@ -6,12 +6,12 @@
 #endif
 
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 void rad_setup(int level);
 
 float rad_luminosity_hart(int ipart);
 float rad_luminosity_popM(int ipart);
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif

@@ -8,6 +8,9 @@
 
 #ifdef COOLING
 
+void config_init_cooling();
+void config_verify_cooling();
+
 void init_cooling();
 void set_cooling_redshift( double a );
 

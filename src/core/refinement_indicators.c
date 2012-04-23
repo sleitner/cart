@@ -242,12 +242,12 @@ void config_verify_refinement_indicators()
 
 void mark_refinement_indicators( int cell, int level ) {
 	int i;
-        float indicator = 0.0;
+	float indicator = 0.0;
 	int neighbors[num_neighbors];
 	float drho[nDim];
 
 	if ( refinement_indicator[DARK_MASS_INDICATOR].use[level] ) {
-	        indicator = max( dark_mass_indicator(cell, level), indicator );
+		indicator = max( dark_mass_indicator(cell, level), indicator );
 	}
 
 #ifdef HYDRO
@@ -285,14 +285,14 @@ void mark_refinement_indicators( int cell, int level ) {
         
 	if ( refinement_indicator[SPATIAL_INDICATOR].use[level] ) {
 		indicator = max( spatial_indicator(cell,level), indicator );
-        }
+	}
 
 	if ( refinement_indicator[JEANS_LENGTH_INDICATOR].use[level] ) {
 		indicator = max( jeans_length_indicator(cell,level), indicator );
 	}
 #endif /* HYDRO */
 
-        refinement_indicator(cell, 0) = indicator;
+	refinement_indicator(cell, 0) = indicator;
 }
 
 float dark_mass_indicator( int cell, int level ) {
@@ -312,13 +312,13 @@ float dark_mass_indicator( int cell, int level ) {
 
 float spatial_indicator( int cell, int level ) {
 	float in_region = 0;
-        const double central_cell[nDim] = {num_grid/2,num_grid/2,num_grid/2};
-        double pos[3];
+	const double central_cell[nDim] = {num_grid/2,num_grid/2,num_grid/2};
+	double pos[3];
 
-        cell_center_position( cell, pos );
-        if(refinement_indicator[SPATIAL_INDICATOR].threshold[level] > compute_distance_periodic(pos,central_cell)){
-            in_region = refinement_indicator[SPATIAL_INDICATOR].weight;
-        }
+	cell_center_position( cell, pos );
+	if(refinement_indicator[SPATIAL_INDICATOR].threshold[level] > compute_distance_periodic(pos,central_cell)){
+		in_region = refinement_indicator[SPATIAL_INDICATOR].weight;
+	}
 	return in_region ;
 }
 
@@ -472,7 +472,7 @@ float jeans_length_indicator(int cell, int level)
     }
   dv2 = s/num_neighbors;
 
-  ljeans = sqrt(3.1415927*(cs2+dv2)/(G_code*cell_gas_density(cell)));
+  ljeans = sqrt(M_PI*(cs2+dv2)/(G_code*cell_gas_density(cell)));
 
   q = cell_size[level]*refinement_indicator[JEANS_LENGTH_INDICATOR].threshold[level]/ljeans;
 

@@ -27,8 +27,8 @@
 #include "units.h"
 #include "refinement.h"
 
-	  /* warning: hart format does not retain star_formation_volume or refinement_volume arrays */
-	  /*  this will lead to a <=48byte difference between *.d->*.dh->*.d files */
+/* warning: hart format does not retain star_formation_volume or refinement_volume arrays */
+/*  this will lead to a <=48byte difference between *.d->*.dh->*.d files */
 
 DECLARE_LEVEL_ARRAY(double,tl_old);
 DECLARE_LEVEL_ARRAY(double,dtl);
@@ -716,7 +716,7 @@ void write_hart_grid_binary( char *filename ) {
 	page_size = num_grid*num_grid;
 
 	/* allocate pages for writing */
-        cellrefined = cart_alloc( int, page_size );
+	cellrefined = cart_alloc( int, page_size );
 	
 	/* assign cellhvars to the right HART size */
 #ifdef RADIATIVE_TRANSFER
@@ -782,7 +782,6 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite( &size, sizeof(int), 1, output );
 	fwrite( &nextras, sizeof(int), 1, output );
 	fwrite( &size, sizeof(int), 1, output );
-
 
 	/* extra */
 	size = nextras * sizeof(float);
@@ -867,8 +866,7 @@ void write_hart_grid_binary( char *filename ) {
 	fwrite( &size, sizeof(int), 1, output );
 
 	for ( coords[0] = 0; coords[0] < num_grid; coords[0]++ ) {
-	        cart_debug("0-level: %d/%d",coords[0],num_grid);
-		idx = 0 ;
+		idx = 0;
 		for ( coords[1] = 0; coords[1] < num_grid; coords[1]++ ) {
 			for ( coords[2] = 0; coords[2] < num_grid; coords[2]++ ) {
 				icell = sfc_index( coords );
@@ -924,8 +922,8 @@ void write_hart_grid_binary( char *filename ) {
 			}
 		}
 		
-		cart_assert(i == HART_num_hydro_vars*page_size); 
-                cart_assert(i == size/sizeof(float)/num_grid);
+		cart_assert(i == HART_num_hydro_vars*page_size);
+		cart_assert(i == size/sizeof(float)/num_grid);
 		fwrite( cellhvars, sizeof(float), HART_num_hydro_vars*page_size, output );
 	}
 	fwrite( &size, sizeof(int), 1, output );
@@ -973,7 +971,7 @@ void write_hart_grid_binary( char *filename ) {
 			}
 		}
 
-	        cart_assert(i == size/sizeof(float)/num_grid);
+		cart_assert(i == size/sizeof(float)/num_grid);
 		cart_assert(i == HART_nvarMax*page_size); 
 		fwrite( cellvars, sizeof(float), HART_nvarMax*page_size, output );
 	}
@@ -1012,17 +1010,19 @@ void write_hart_grid_binary( char *filename ) {
 		fwrite( &iNOLL, sizeof(int), 1, output );
 		fwrite( &iHOLL, sizeof(int), 1, output );
 
+		cart_debug("level %d, iNOLL = %d, iHOLL = %d", level, iNOLL, iHOLL );
+
 		fwrite( &size, sizeof(int), 1, output );
 
-		ioct = local_oct_list[level];
-		for ( i = 0; i < iNOLL; i++ ) {
-			size = 	nDim*sizeof(int) + 		/* pos */
-				num_neighbors*sizeof(int) + 	/* neighbors */
+		size = 	nDim*sizeof(int) + 		/* pos */
+				num_neighbors*sizeof(int) + /* neighbors */
 				sizeof(int) +			/* parent */
 				sizeof(int) +			/* level */
 				sizeof(int) +			/* next */
 				sizeof(int);			/* prev */
 
+		ioct = local_oct_list[level];
+		for ( i = 0; i < iNOLL; i++ ) {
 			for ( j = 0; j < nDim; j++ ) {
 				pos[j] = (int)((oct_pos[ioct][j]+1.0)*(double)(1<<(maxlevel+1)));
 			}
@@ -1073,16 +1073,15 @@ void write_hart_grid_binary( char *filename ) {
 			ioct = oct_next[ioct];
 		}
 
+		size =  sizeof(int) +           /* idc */
+			sizeof(int) +           /* iOctCh */
+			HART_num_hydro_vars*sizeof(float) + /* hvar */
+			HART_nvarMax*sizeof(float);     /* var */
+
 		ioct = local_oct_list[level];
 		for ( i = 0; i < iNOLL; i++ ) {
 			for ( j = 0; j < num_children; j++ ) {
 				icell = oct_child( ioct, j );
-
-				size = 	sizeof(int) +			/* idc */
-					sizeof(int) + 			/* iOctCh */
-					HART_num_hydro_vars*sizeof(float) +	/* hvar */
-					HART_nvarMax*sizeof(float);		/* var */
-
 				icellnum = ( ioct - first_oct ) * num_children + cell_child_number( icell ) + ncell0 + 1;
 				//icellnum = icell + 1 + ncell0;
 
@@ -1128,7 +1127,6 @@ void write_hart_grid_binary( char *filename ) {
 #if defined(BLASTWAVE_FEEDBACK) && defined(ADDED_NEW_HART_ARRAYS_FOR_IFRIT)
 				cellhvars[k++] = cell_blastwave_time(icell); /* not used in HART */
 #endif 
-
 				k = 0; 
 #ifdef GRAVITY
 				cellvars[k++] = cell_potential(icell);
@@ -1151,7 +1149,6 @@ void write_hart_grid_binary( char *filename ) {
 				fwrite( &iOctCh, sizeof(int), 1, output );
  				fwrite( cellhvars, sizeof(float), HART_num_hydro_vars, output ); 
  				fwrite( cellvars, sizeof(float), HART_nvarMax, output ); 
-
 				fwrite( &size, sizeof(int), 1, output );
 			}
 

@@ -176,7 +176,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
     }
 }
 
-void create_star_particle( int icell, float mass, double pdt, int type ) {
+int create_star_particle( int icell, float mass, double pdt, int type ) {
 	int i;
 	int ipart;
 	int id;
@@ -265,6 +265,8 @@ void create_star_particle( int icell, float mass, double pdt, int type ) {
 	for ( i = 0; i < num_chem_species; i++ ) {
 		cell_advected_variable(icell,i) *= density_fraction;
 	}
+
+	return ipart;
 }
 
 #endif /* HYDRO */

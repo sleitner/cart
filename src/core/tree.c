@@ -358,7 +358,7 @@ void cell_center_position( int c, double position[nDim] ) {
 		/* convert sfc index of cell to 3-d coordinates */
 		sfc_coords( cell_parent_root_sfc(c), coords);
 
-		/* center of cell is actually cell_center_offset from
+		/* center of cell is actually 0.5 from
 		 * its index (otherwise 0,0,0 cell straddles into negative
 		 * coordinates) */
 		for ( i = 0; i < nDim; i++ ) {

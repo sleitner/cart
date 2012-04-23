@@ -1,5 +1,5 @@
 #include "config.h"
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #include <math.h>
 #include <string.h>
@@ -230,4 +230,4 @@ void ml_snl2012_config_verify()
   ml_config_verify();
 }
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */

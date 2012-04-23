@@ -44,7 +44,7 @@ void config_verify_star_formation();
 
 void init_star_formation();
 void star_formation_rate( int level, int num_level_cells, int *level_cells, float *sfr);
-void create_star_particle( int icell, float mass, double pdt, int type );
+int create_star_particle( int icell, float mass, double pdt, int type );
 
 /* global parameters */
 

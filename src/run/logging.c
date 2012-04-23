@@ -708,8 +708,8 @@ void log_diagnostics() {
 	MPI_Reduce( &stellar_mass, &total_stellar_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 	MPI_Reduce( &stellar_initial_mass, &total_stellar_initial_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 
-	d_stellar_mass = total_stellar_mass - old_stellar_mass;
-	d_stellar_initial_mass = total_stellar_initial_mass - old_stellar_initial_mass;
+	d_stellar_mass = max( 0.0, total_stellar_mass - old_stellar_mass );
+	d_stellar_initial_mass = max( 0.0, total_stellar_initial_mass - old_stellar_initial_mass );
 
 	/* compute resolved volume */
 	local_resolved_volume[min_level] = 0.0;

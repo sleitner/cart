@@ -6,7 +6,7 @@
 #endif
 
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 void ml_config_init();
 void ml_config_verify();
@@ -23,5 +23,5 @@ void ml_feedback(int level, int cell, int ipart, double t_next );
 void ml_snl2012_config_init();
 void ml_snl2012_config_verify();
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif

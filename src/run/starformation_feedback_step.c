@@ -52,14 +52,12 @@ void star_particle_feedback(int level) {
 
 		ipart = cell_particle_list[iter_cell];
 		while ( ipart != NULL_PARTICLE ) {
-			if ( particle_is_star(ipart) && particle_t[ipart] < t_next - 0.5*dtl[max_level] ) {
+			if ( particle_is_star(ipart) && particle_t[ipart] < t_next - 0.5*dtl[max_level] 
 #ifdef STAR_PARTICLE_TYPES
-				if ( star_particle_type[ipart] == STAR_TYPE_NORMAL ) {                                                                              
-					stellar_feedback(level,iter_cell,ipart,t_next);
-				}
-#else
-				stellar_feedback(level,iter_cell,ipart,t_next);
+					&& star_particle_type[ipart] == STAR_TYPE_NORMAL
 #endif /* STAR_PARTICLE_TYPES */
+			) {
+				stellar_feedback(level,iter_cell,ipart,t_next);
 			}
 
 			ipart = particle_list_next[ipart];

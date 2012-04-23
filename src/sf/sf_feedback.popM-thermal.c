@@ -1,5 +1,5 @@
 #include "config.h"
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #include <math.h>
 #include <string.h>
@@ -67,4 +67,4 @@ struct StellarFeedback sf_feedback_internal =
     sfb_setup
   };
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */

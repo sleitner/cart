@@ -526,7 +526,9 @@ void dmuCheckRegistry(struct dmuRegistry *registry)
     {
       registry->Size = 1000;
       registry->Data = (struct dmuItem *)malloc(registry->Size*sizeof(struct dmuItem));
-      cart_assert(registry->Data != NULL);
+	  if ( registry->Data == NULL ) {
+		cart_error("Failure to allocate %d bytes in dmuCheckRegistry!", registry->Size*sizeof(struct dmuItem) );
+	  }
     }
       
   /*

@@ -52,12 +52,10 @@ int main ( int argc, char *argv[] ) {
 	*/
 	constants_init();
 
-
 	/* 
 	//  Run the actual driver
 	*/
 	ret = drive();
-
 
 	/* 
 	//  Clean-up and exit

@@ -51,7 +51,7 @@ while ( $line = <FILE> ) {
 
 	next if $print_step != -1 and $step != $print_step;
 
-	print "Step: $step total time: $current_step\n";
+	printf "Step: %u total time: %.2f\n", $step, $current_step;
 
 	$headerline = sprintf "%30s %10s", "Levels:", "Global";
 	for $level ( 1 .. $num_levels-1 ) {

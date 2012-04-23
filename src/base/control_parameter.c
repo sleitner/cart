@@ -62,7 +62,7 @@ void control_parameter_add_worker(ControlParameterSetter setter, ControlParamete
     {
       if(control_parameters[i].ptr == ptr)
 	{
-	  cart_error("Pointer to parameter %s is not unique (%d,%d)",names[0],i,num_control_parameters);
+	  cart_error("Pointer to parameter %s is not unique (%d %s)",names[0],i,control_parameters[i].names[0]);
 	}
     }
 

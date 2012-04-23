@@ -1,5 +1,5 @@
 #include "config.h"
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #include <math.h>
 #include <string.h>
@@ -173,4 +173,4 @@ void snIa_thermal_feedback(int level, int cell, int ipart, double t_next )
 }
 #endif /* HYDRO && PARTICLES */
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */

@@ -21,7 +21,7 @@
 #include "frt/frt_c.h"
 
 #include "los.h"
-#include "halo_finder.h"
+#include "halo_tools.h"
 #include "ifrit.h"
 #include "ism.h"
 

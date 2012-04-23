@@ -6,7 +6,7 @@
 #endif
 
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 void snII_config_init();
 void snII_config_verify();
@@ -17,5 +17,5 @@ void snII_setup(int level);
 void snII_thermal_feedback(int level, int cell, int ipart, double t_next );
 #endif /* HYDRO && PARTICLES */
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 #endif

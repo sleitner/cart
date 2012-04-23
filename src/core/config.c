@@ -375,9 +375,15 @@ void config_init()
 #endif /* AGN */
 #endif
 
+  config_init_halo_finder();
+
 #ifdef RADIATIVE_TRANSFER
   rtConfigInit();
 #endif /* RADIATIVE_TRANSFER */
+
+#if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
+  config_init_cooling();
+#endif
 
   config_init_parallel();
 }
@@ -414,9 +420,15 @@ void config_verify()
 #endif /* AGN */  
 #endif
 
+  config_verify_halo_finder();
+
 #ifdef RADIATIVE_TRANSFER
   rtConfigVerify();
 #endif /* RADIATIVE_TRANSFER */
+
+#if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
+  config_verify_cooling();
+#endif 
 
   config_verify_parallel();
 

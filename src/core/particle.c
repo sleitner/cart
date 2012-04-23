@@ -601,38 +601,6 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 #endif /* STAR_FORMATION */
 
 				icell = cell_find_position( particle_x[ipart] );
-				if ( icell == -1 || !cell_is_local(icell) ) {
-					cart_debug("BAD PARTICLE POSITION");
-					cart_debug("proc = %d", proc );
-					cart_debug("ipart = %d", ipart );
-					cart_debug("particle id = %d", particle_id[ipart] );
-					cart_debug("particle_x = %e %e %e", particle_x[ipart][0], particle_x[ipart][1], 
-							particle_x[ipart][2] );
-					cart_debug("particle_v = %e %e %e", particle_v[ipart][0],particle_v[ipart][1],particle_v[ipart][2]);
-					cart_debug("icell = %d", icell );
-#ifdef STAR_FORMATION
-					cart_debug("particle_is_star(ipart=%d)=%d",ipart,particle_is_star(ipart));
-#endif /* STAR_FORMATION */
-					if ( icell != -1 ) {
-						cell_center_position( icell, pos );
-						cart_debug("cell position = %e %e %e", pos[0], pos[1], pos[2] );
-						cart_debug("sfc = %u, local range = %u %u", cell_parent_root_sfc(icell),
-								proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1] );
-						cart_debug("cell owner = %u", processor_owner( cell_parent_root_sfc(icell) ) );
-						cart_debug("level = %u", level );	
-					} else {
-						coords[0] = (int)particle_x[ipart][0];
-						coords[1] = (int)particle_x[ipart][1];
-						coords[2] = (int)particle_x[ipart][2];
-
-						cart_debug("coords = %u %u %u", coords[0], coords[1], coords[2] );
-						cart_debug("sfc = %d, local range = %u %u", sfc_index( coords ), 
-								proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1] );
-					}
-				}
-				/* DHR - changed to allow collection of buffer particles 
-				cart_assert( icell != -1 && cell_is_local(icell) );
-				*/
 				cart_assert( icell != -1 );
 				insert_particle( icell, ipart );
 			}

@@ -1,5 +1,5 @@
 #include "config.h"
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 
 #include <math.h>
 #include <string.h>
@@ -118,4 +118,4 @@ float rad_luminosity_popM(int ipart)
     }
 }
 
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */

@@ -18,7 +18,7 @@
 #include "tree.h"
 #include "units.h"
 
-#include "halo_finder.h"
+#include "halo_tools.h"
 #include "ism.h"
 
 

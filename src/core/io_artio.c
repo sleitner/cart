@@ -111,7 +111,7 @@ void read_artio_grid( artio_file handle, int file_max_level );
 void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices );
 
 #ifdef PARTICLES
-void read_artio_particles( artio_file handle, int num_species );
+void read_artio_particles( artio_file handle );
 void write_artio_particles( artio_file handle, int *root_tree_particle_list,
             int *num_particles_per_species_per_root_tree );
 #endif /* PARTICLES */
@@ -676,7 +676,9 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 		/* write out restart file */
 		sprintf( restart_filename, "%s/restart.dat", output_directory );
 		restart = fopen( restart_filename, "w" );
-		cart_assert(restart != NULL);
+		if ( restart == NULL ) {
+			cart_error("Unable to open restart file %s for writing!", restart_filename );
+		}
 		fprintf( restart, "%s\n", filename );
         fclose(restart);
 	}
@@ -919,7 +921,6 @@ void artio_restart_load_balance( artio_file handle ) {
 
 void read_artio_restart( const char *label ) {
 	int i;
-	int num_species;
 	artio_file handle;
 	int sfc_order;
 	int64_t num_file_root_cells;
@@ -1014,7 +1015,7 @@ void read_artio_restart( const char *label ) {
 	set_jobname( str );
 	cart_debug("jobname: %s", jobname );
 
-        artio_parameter_get_int( handle, "sfc", &sfc_order );
+	artio_parameter_get_int( handle, "sfc", &sfc_order );
 
 	if ( sfc_order != SFC ) {
 		cart_error("Grid fileset has different sfc indexing than compiled code!");
@@ -1075,16 +1076,16 @@ void read_artio_restart( const char *label ) {
 	artio_parameter_get_double_array( handle, "abox", num_levels, abox );
 	artio_parameter_get_double_array( handle, "auni", num_levels, auni );
 
-        for ( level = min_level; level <= file_max_level; level++ ) {
+	for ( level = min_level; level <= file_max_level; level++ ) {
 		abox_old[level] = abox_from_tcode(tl_old[level]);
 	}
 #endif /* COSMOLOGY */
 
-        for ( level = file_max_level+1; level < max_level; level++ ) {
-        	tl[level] = tl[file_max_level];
-        	tl_old[level] = tl_old[file_max_level];
-        	dtl[level] = dtl[level-1];
-        	dtl_old[level] = dtl[level-1];
+	for ( level = file_max_level+1; level < max_level; level++ ) {
+		tl[level] = tl[file_max_level];
+		tl_old[level] = tl_old[file_max_level];
+		dtl[level] = dtl[level-1];
+		dtl_old[level] = dtl[level-1];
 
 #ifdef COSMOLOGY
 		abox[level] = abox[file_max_level];
@@ -1161,27 +1162,7 @@ void read_artio_restart( const char *label ) {
 	cart_debug("done reading grid");
 
 #ifdef PARTICLES
-	artio_parameter_get_int( handle, "num_particle_species", &num_species);
-
-	if ( num_species > MAX_PARTICLE_SPECIES ) {
-		cart_error("Ran out of particle species!");
-	}
-
-	num_particle_species = num_species;
-
-	artio_parameter_get_int_array( handle, "particle_species_num", num_species, particle_species_num );
-	artio_parameter_get_float_array( handle, "particle_species_mass", num_species, particle_species_mass );
-
-	for ( i = 0; i < num_species; i++ ) {
-		cart_debug("particle species %d: %u particles, %e mass", i, particle_species_num[i], particle_species_mass[i] );
-	}
-
-	particle_species_indices[0] = 0;                                                                                     
-	for ( i = 0; i < num_particle_species; i++ ) {
-		particle_species_indices[i+1] = particle_species_indices[i] + particle_species_num[i];
-	}
-
-	read_artio_particles(handle, num_species );
+	read_artio_particles(handle);
 
 	cart_debug("num_local_particles = %u", num_local_particles );
 	build_particle_list();
@@ -1322,7 +1303,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 }
 
 #ifdef PARTICLES
-void read_artio_particles( artio_file handle, int num_species ) {
+void read_artio_particles( artio_file handle ) {
 	int i, j;
 	int sfc;
 	int64_t pid;
@@ -1330,12 +1311,33 @@ void read_artio_particles( artio_file handle, int num_species ) {
 	int species;
 	int subspecies;
 	long num_particles_local = 0L;
+	int num_species;
 
 	double primary_variables[7];
 	float secondary_variables[5];
 
 	int num_particles_per_species[MAX_PARTICLE_SPECIES];
-	
+
+	artio_parameter_get_int( handle, "num_particle_species", &num_species);
+
+	if ( num_species > MAX_PARTICLE_SPECIES ) {
+		cart_error("Ran out of particle species!");
+	}
+
+	num_particle_species = num_species;
+
+	artio_parameter_get_int_array( handle, "particle_species_num", num_species, particle_species_num );
+	artio_parameter_get_float_array( handle, "particle_species_mass", num_species, particle_species_mass );
+
+	for ( i = 0; i < num_species; i++ ) {
+		cart_debug("particle species %d: %u particles, %e mass", i, particle_species_num[i], particle_species_mass[i] );
+	}
+
+	particle_species_indices[0] = 0;                                                                                     
+	for ( i = 0; i < num_particle_species; i++ ) {
+		particle_species_indices[i+1] = particle_species_indices[i] + particle_species_num[i];
+	}
+
 	/* cache file offsets */
 	artio_particle_cache_sfc_range( handle, proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1]-1 );
 
@@ -1373,7 +1375,7 @@ void read_artio_particles( artio_file handle, int num_species ) {
 #ifdef STAR_FORMATION
 				if ( species == num_species - 1 ) {
 #ifdef STAR_PARTICLE_TYPES
-					star_particle_type[ipart] = subspecie;
+					star_particle_type[ipart] = subspecies;
 #endif /* STAR_PARTICLE_TYPES */
 
 					star_tbirth[ipart] = secondary_variables[0];
@@ -1401,6 +1403,5 @@ void read_artio_particles( artio_file handle, int num_species ) {
 	}
 
 	MPI_Allreduce( &num_particles_local, &num_particles_total, 1, MPI_LONG, MPI_SUM, mpi.comm.run );
-
 }
 #endif /* PARTICLES */

@@ -606,7 +606,9 @@ void load_balance_entire_volume( float *global_work,
 	} else {
 		sprintf( filename, "%s/partition.dat", output_directory );
 		partition = fopen( filename, "w" );
-		cart_assert( partition != NULL );
+		if ( partition == NULL ) {
+			cart_error("Unable to open load balance partition file %s for writing!", filename );
+		}
 
         fprintf( partition, "%u %u\n", &num_procs, &num_grid );
 

@@ -58,7 +58,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 	struct CosmologyParameters temp_cosmo;
 #endif /* COSMOLOGY */
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 	FILE *stellar_input;
 	int num_stars;
 	double st, sa;
@@ -72,16 +72,16 @@ void FUNCTION( char *header_filename, char *data_filename,
 	int *types;
 	int *star_type_page[MAX_PROCS];
 #endif /* STAR_PARTICLE_TYPES */
-#ifdef ENRICH
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT
+#ifdef ENRICHMENT_SNIa
 	#define num_star_variables	5
 #else
 	#define num_star_variables	4
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 #else
 	#define num_star_variables	3
-#endif /* ENRICH */
-#endif /* STARFORM */
+#endif /* ENRICHMENT */
+#endif /* STAR_FORMATION */
 
 	if ( local_proc_id == MASTER_NODE ) {
 		read_cart_particle_header( header_filename, &header, &endian, &nbody_flag );
@@ -217,7 +217,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 		cart_assert( num_pages > 0 && num_parts_per_page*num_pages >= num_particles_total );
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( stellar_filename == NULL ) {
 			/* ICs don't include stars, initialize species to 0 */
 			if ( num_particle_species+1 > MAX_PARTICLE_SPECIES ) {
@@ -283,12 +283,12 @@ void FUNCTION( char *header_filename, char *data_filename,
 			pw0 = cart_alloc(float, num_parts_per_page );
 			tbirth = cart_alloc(float, num_parts_per_page );
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 			zstII = cart_alloc(float, num_parts_per_page );
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 			zstIa = cart_alloc(float, num_parts_per_page );
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 
 #ifdef STAR_PARTICLE_TYPES
 			types = cart_alloc(int, num_parts_per_page );
@@ -300,12 +300,12 @@ void FUNCTION( char *header_filename, char *data_filename,
 						+ 2*sizeof(int) + num_stars*sizeof(float) /* pw */
 						+ 2*sizeof(int) + num_stars*sizeof(float) /* pw0 */
 						+ 2*sizeof(int) + num_stars*sizeof(float) /* tbirth */
-#ifdef ENRICH
+#ifdef ENRICHMENT
 						+ 2*sizeof(int) + num_stars*sizeof(float) 
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 						+ 2*sizeof(int) + num_stars*sizeof(float)   
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 				;
 
 			fseek( stellar_input, var_first, SEEK_SET );
@@ -325,7 +325,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 #endif /* STAR_PARTICLE_TYPES */
 			}
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 #ifdef COSMOLOGY
 		MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
@@ -453,7 +453,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 				}
 			}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			if ( stellar_filename != NULL ) {
 				/* have we reached star particles yet? */
 				if ( particle_id_is_star(current_id+num_parts_in_page-1) ) {
@@ -525,7 +525,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 						}
 					}
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 					/* metallicity */
 					if ( fseek( stellar_input, seek_amount, SEEK_CUR ) ) {
 						cart_error("Error seeking %u bytes in file %s", seek_amount, stellar_filename );
@@ -542,8 +542,8 @@ void FUNCTION( char *header_filename, char *data_filename,
 						}
 					}
 
-#endif /* ENRICH */
-#ifdef ENRICH_SNIa
+#endif /* ENRICHMENT */
+#ifdef ENRICHMENT_SNIa
 					if ( fseek( stellar_input, seek_amount, SEEK_CUR ) ) {
 						cart_error("Error seeking %u bytes in file %s", seek_amount, stellar_filename );
 					}
@@ -558,7 +558,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 							reorder( (char *)&zstIa[first_star_index+j], sizeof(float) );
 						}
 					}
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 #ifdef STAR_PARTICLE_TYPES                                                                                                                                                                                
 					if ( star_types_flag ) {
 						if ( fseek( stellar_input, seek_amount, SEEK_CUR ) ) {
@@ -583,10 +583,10 @@ void FUNCTION( char *header_filename, char *data_filename,
 #endif /* STAR_PARTICLE_TYPES */
 				}
 			}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 			for ( j = 0; j < num_parts_in_page; j++ ) {
-#if defined(STARFORM) && defined(STAR_PARTICLE_TYPES)
+#if defined(STAR_FORMATION) && defined(STAR_PARTICLE_TYPES)
 				if ( star_types_flag && types[j] == STAR_TYPE_DELETED ) {
 					proc = -1;
 				} else {
@@ -643,9 +643,9 @@ void FUNCTION( char *header_filename, char *data_filename,
 					proc = processor_owner( index );
 				}
 
-#if defined(STARFORM) && defined(STAR_PARTICLE_TYPES) 
+#if defined(STAR_FORMATION) && defined(STAR_PARTICLE_TYPES) 
 				}
-#endif /* STARFORM && STAR_PARTICLE_TYPES */
+#endif /* STAR_FORMATION && STAR_PARTICLE_TYPES */
 
 				while ( current_type < num_particle_species-1 && current_id >= particle_species_indices[current_type+1] ) {
 					current_type++;
@@ -674,7 +674,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 						particle_dt[ipart] = input_times[j];
 					}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 					if ( stellar_filename != NULL && particle_id_is_star( current_id ) ) {
 						cart_assert( ipart >= 0 && ipart < num_star_particles );
 						cart_assert( particle_is_star(ipart) );
@@ -685,12 +685,12 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 						cart_assert( star_initial_mass[ipart] > 0.0 );
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 						star_metallicity_II[ipart] = zstII[j];
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 						star_metallicity_Ia[ipart] = zstIa[j];
-#endif /* ENRICH_SNIa */
-#endif /* ENRICH */
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
 #ifdef STAR_PARTICLE_TYPES
 						star_particle_type[ipart] = types[j];
 #endif /* STAR_PARTICLE_TYPES */
@@ -699,7 +699,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 					}
 #else
 					particle_mass[ipart] = particle_species_mass[particle_species(current_id)];
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 				} else if ( proc >= 0 && proc < num_procs ) {
 					/* add the particle to a processor page */
@@ -715,23 +715,23 @@ void FUNCTION( char *header_filename, char *data_filename,
 						times_page[proc][count[proc]] = input_times[j];
 					}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 					if ( stellar_filename != NULL && particle_id_is_star( current_id ) ) {
 						star_page[proc][num_star_vars[proc]++] = pw[j];
 						star_page[proc][num_star_vars[proc]++] = pw0[j];
 						star_page[proc][num_star_vars[proc]++] = tbirth[j];
 					
-#ifdef ENRICH
+#ifdef ENRICHMENT
 						star_page[proc][num_star_vars[proc]++] = zstII[j];
-#endif /* ENRICH */
-#ifdef ENRICH_SNIa
+#endif /* ENRICHMENT */
+#ifdef ENRICHMENT_SNIa
 						star_page[proc][num_star_vars[proc]++] = zstIa[j];
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 #ifdef STAR_PARTICLE_TYPES
 						star_type_page[proc][count[proc]] = types[j];
 #endif /* STAR_PARTICLE_TYPES */
 					}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 					count[proc]++;
 
@@ -746,7 +746,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 								MPI_PARTICLE_TIMES_FLOAT, proc, current_page[proc], mpi.comm.run );
 						}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 						if ( stellar_filename != NULL ) {
 							MPI_Send( star_page[proc], num_star_vars[proc],
 								MPI_FLOAT, proc, current_page[proc], mpi.comm.run );
@@ -756,7 +756,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 #endif /* STAR_PARTICLE_TYPES */
 							num_star_vars[proc] = 0;
 						}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 						count[proc] = 0;
 						current_page[proc]++;
 					}
@@ -776,7 +776,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 				cart_free( times_page[proc] );
 			}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			if ( stellar_filename != NULL ) {
 				MPI_Send( star_page[proc], num_star_vars[proc], MPI_FLOAT, proc, current_page[proc], mpi.comm.run );
 				cart_free( star_page[proc] );
@@ -785,29 +785,29 @@ void FUNCTION( char *header_filename, char *data_filename,
 				cart_free( star_type_page[proc] );
 #endif /* STAR_PARTICLE_TYPES */
 			}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 			cart_free( page_ids[proc] );
 			cart_free( page[proc] );
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( stellar_filename != NULL ) {
 #ifdef STAR_PARTICLE_TYPES
             cart_free( types );
 #endif /* STAR_PARTICLE_TYPES */
-#ifdef ENRICH_SNIa
+#ifdef ENRICHMENT_SNIa
 			cart_free( zstIa );
-#endif /* ENRICH_SNIa */
-#ifdef ENRICH
+#endif /* ENRICHMENT_SNIa */
+#ifdef ENRICHMENT
 			cart_free( zstII );
-#endif /* ENRICH */
+#endif /* ENRICHMENT */
 
 			cart_free( tbirth );
 			cart_free( pw0 );
 			cart_free( pw );
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		cart_free( input_page );
 
@@ -848,14 +848,14 @@ void FUNCTION( char *header_filename, char *data_filename,
 		        times_page[local_proc_id] = cart_alloc(PARTICLE_TIMES_FLOAT, num_parts_per_proc_page );
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( stellar_filename != NULL ) {
 			star_page[local_proc_id] = cart_alloc(float, num_star_variables*num_parts_per_proc_page );
 #ifdef STAR_PARTICLE_TYPES
 			star_type_page[local_proc_id] = cart_alloc(int, num_parts_per_proc_page );
 #endif /* STAR_PARTICLE_TYPES */
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		count[local_proc_id] = num_parts_per_proc_page;
 		while ( count[local_proc_id] == num_parts_per_proc_page ) {
@@ -871,7 +871,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 					MPI_PARTICLE_TIMES_FLOAT, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
 			}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 			if ( stellar_filename != NULL ) {
 				MPI_Recv( star_page[local_proc_id], num_star_variables*num_parts_per_proc_page,
 					MPI_FLOAT, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
@@ -882,7 +882,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 						MASTER_NODE, 2*current_page[local_proc_id]+1, mpi.comm.run, MPI_STATUS_IGNORE );
 #endif /* STAR_PARTICLE_TYPES */
 			}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 			current_page[local_proc_id]++;
 
 			for ( i = 0; i < count[local_proc_id]; i++ ) {
@@ -904,7 +904,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 					particle_dt[ipart] = times_page[local_proc_id][i];
 				}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 				if ( particle_id_is_star( particle_id[ipart] ) ) {
 					cart_assert( ipart >= 0 && ipart < num_star_particles );
 					cart_assert( particle_is_star(ipart) );
@@ -913,12 +913,12 @@ void FUNCTION( char *header_filename, char *data_filename,
 					star_initial_mass[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
 					star_tbirth[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
 
-#ifdef ENRICH
+#ifdef ENRICHMENT
 					star_metallicity_II[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
-#endif /* ENRICH */
-#ifdef ENRICH_SNIa
+#endif /* ENRICHMENT */
+#ifdef ENRICHMENT_SNIa
 					star_metallicity_Ia[ipart] = star_page[local_proc_id][num_star_vars[local_proc_id]++];
-#endif /* ENRICH_SNIa */
+#endif /* ENRICHMENT_SNIa */
 #ifdef STAR_PARTICLE_TYPES
 					star_particle_type[ipart] = star_type_page[local_proc_id][i];
 #endif /* STAR_PARTICLE_TYPES */
@@ -927,18 +927,18 @@ void FUNCTION( char *header_filename, char *data_filename,
 				}
 #else
 				particle_mass[ipart] = particle_species_mass[particle_species(particle_id[ipart])];
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 			}
 		}
 
-#ifdef STARFORM
+#ifdef STAR_FORMATION
 		if ( stellar_filename != NULL ) {
 #ifdef STAR_PARTICLE_TYPES
 			cart_free( star_type_page[local_proc_id] );
 #endif
 			cart_free( star_page[local_proc_id] );
 		}
-#endif /* STARFORM */
+#endif /* STAR_FORMATION */
 
 		if ( timestep_filename != NULL ) {
 			cart_free( times_page[local_proc_id] );

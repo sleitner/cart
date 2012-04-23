@@ -26,7 +26,7 @@ extern struct gicCHullConfig gictol;
 
 
 #ifdef PARTICLES
-void gicMakeMask(const char *filename, int num_halos, const struct HALO **halos, float size, int mode, int level, int width);
+void gicMakeMask(const char *filename, const struct HALO **halos, float size, int mode, int level, int width);
 #endif
 
 #endif  /* __EXT_GIC_TOOLS_H__ */
