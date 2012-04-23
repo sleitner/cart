@@ -56,7 +56,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
   int i, j, k, i1, j1, k1, ioff, joff, koff, done, n, nbuf, lev, width2;
   int *pos, min[nDim], max[nDim], shift[nDim], box[nDim], p[3];
   char *mask = 0;
-  const halo *h;
+  halo *h;
   FILE *f;
   char str[256];
 
@@ -85,7 +85,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
   */
   for(ih=0; ih<halos->num_halos; ih++)
     {
-      h = halos->list[ih];
+      h = &halos->list[ih];
       cart_assert(h != NULL);
       if ( !h->flag ) continue;
   

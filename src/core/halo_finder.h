@@ -9,7 +9,7 @@
 
 extern double min_halo_mass;
 extern int halo_finder_frequency;
-extern char halo_finder_output_directory[];
+extern const char *halo_finder_output_directory;
 
 void config_init_halo_finder();
 void config_verify_halo_finder();

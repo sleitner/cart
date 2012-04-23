@@ -47,12 +47,12 @@ double bin_volume[MAX_HALO_BINS];
 double bin_volume_cumulative[MAX_HALO_BINS];
 
 extern int step;
-char halo_finder_output_directory[CONTROL_PARAMETER_STRING_LENGTH];
+
+char halo_finder_output_directory_d[CONTROL_PARAMETER_STRING_LENGTH] = ".";
+const char* halo_finder_output_directory = halo_finder_output_directory_d;
 
 void config_init_halo_finder() {
-	strcpy( halo_finder_output_directory, "." );
-
-	control_parameter_add2(control_parameter_string,halo_finder_output_directory,"directory:halo-finder","halo_finder_output_directory","directory for output halo catalog files." );
+	control_parameter_add2(control_parameter_string,halo_finder_output_directory_d,"directory:halo-finder","halo_finder_output_directory","directory for output halo catalog files." );
 	control_parameter_add(control_parameter_int,&halo_finder_frequency,"frequency:halo-finder","Sets number of root level steps between halo finding steps");
 
 	control_parameter_add(control_parameter_int,&halo_center_definition,"halo:center_definition","Halo centers are defined as 0=iterative cm convergence or 1=location of highest density particle");
@@ -771,7 +771,7 @@ void write_halo_list( halo_list *halos ) {
 #else
 		fprintf( output, "# Columns: halo_id x y z [Mpc] vx vy vz [peculiar km/s] Rvir [kpc]\n#        Mvir [Msun] Np [specie 0] vmax [km/s] rmax [kpc]\n" );
 #endif
-		fprintf( output, "####################################################################\n");
+		fprintf( output, "#################################################################################################################\n");
 
 		for ( ih = 0; ih < halos->num_halos; ih++ ) {
 			h = &halos->list[ih];

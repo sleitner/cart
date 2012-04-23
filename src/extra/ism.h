@@ -21,7 +21,7 @@ struct HALO_LIST;
 */
 typedef struct DUMP_WORKER
 {
-  float (*Value)(int level, int cell, double *ref_pos, float *ref_vel);
+  float (*Value)(int level, int cell, double *ref_pos, double *ref_vel);
   const char *Header;
   int WeightId;
 }
