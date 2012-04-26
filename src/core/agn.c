@@ -5,10 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "agn.h"
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "control_parameter.h"
 #include "cosmology.h"
+#include "hydro.h"
 #include "io.h"
 #include "iterators.h"
 #include "parallel.h"
@@ -19,7 +21,6 @@
 #include "times.h"
 #include "tree.h"
 #include "units.h"
-#include "agn.h"
 
 /* agn model parameters */
 int agn_accretion_recipe = 1;              /* Set to 0 for pure eddington accretion, 1 for Bondi accretion (constant-alpha), 2 for Bondi accretion (constant-beta) */

@@ -12,7 +12,7 @@
 #include "tree.h"
 
 #include "step.h"
-
+#include "particle_step.h"
 
 #ifdef GRAVITY
 void accelerate_particles( int level ) {

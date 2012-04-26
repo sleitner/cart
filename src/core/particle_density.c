@@ -6,6 +6,7 @@
 #include "min_heap.h"
 #include "particle.h"
 #include "particle_density.h"
+#include "sfc.h"
 #include "stack.h"
 #include "timing.h"
 #include "tree.h"
@@ -66,13 +67,13 @@ void particle_find_nearest_neighbors( int ipart, int *particle_flag, int num_nea
 		if ( min_heap_size( particle_heap ) < num_nearest_neighbors ) {
 			/* estimate rmax */
 			rmax = rmax_factor*pow( (double)num_nearest_neighbors /
-					max( (double)min_heap_size( particle_heap ), 1.0 ) * 
+					MAX( (double)min_heap_size( particle_heap ), 1.0 ) * 
 					cell_volume[cell_level(icell_leaf)], 1./3.);
 		} else {
 			min_heap_peek( particle_heap, &j, &rmax );
 		}
 
-		rmax = min( rmax, max_search_radius );
+		rmax = MIN( rmax, max_search_radius );
 		rprune = rmax*rmax;
 
 		/* find root cells within rmax */

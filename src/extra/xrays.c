@@ -64,14 +64,14 @@ void set_xray_redshift( double aexp ) {
 	double rs, rs1, rs2, ac, bc;
 	int irs, irs1, irs2, ilz, ilt;
 
-	rs = max( 1.0 / aexp - 1.0, 0.0 );
+	rs = MAX( 1.0 / aexp - 1.0, 0.0 );
 
 	/* find redshift bin */
 	irs = (int)((log10(rs) - zlmin)*dlzi);
-	irs1 = max(irs,0);
-	irs1 = min(irs1, nlz-1);
-	irs2 = min(irs+1,nlz-1);
-	irs2 = max(irs2,0);
+	irs1 = MAX(irs,0);
+	irs1 = MIN(irs1, nlz-1);
+	irs2 = MIN(irs+1,nlz-1);
+	irs2 = MAX(irs2,0);
 
 	if ( irs1 == irs2 ) {
 		/* just copy over specific redshift */
@@ -121,10 +121,10 @@ void xray_calibration( double Tg, double *cT, double *lambda, double *fT ) {
 		it1 = (int)((Tlog - tlmin)*dlti);
 		it2 = it1 + 1;
 
-		it1 = max(it1,0);
-		it1 = min(it1,nlt-1);
-		it2 = max(it2,0);
-		it2 = min(it2,nlt-1);
+		it1 = MAX(it1,0);
+		it1 = MIN(it1,nlt-1);
+		it2 = MAX(it2,0);
+		it2 = MIN(it2,nlt-1);
 
 		/* set up interpolation variables */
 		td = tlmin + dlt * (double)(it1+1);

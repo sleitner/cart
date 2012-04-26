@@ -19,6 +19,8 @@ void config_verify_hydro();
 void hydro_magic_one_cell( int icell );
 void hydro_magic( int level );
 
+void hydro_split_update( int level );
+
 float cell_gas_kinetic_energy(int cell);
 float cell_gas_temperature(int cell);
 

@@ -62,18 +62,18 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	ul_0	= ul;
 	ur_0	= ur;
 	p_0	= p0;
-	p_1	= max( small_R, p1 );
+	p_1	= MAX( small_R, p1 );
 
 	/* Riemann solver - secant iterations for pressure */
 
 	/* first iteration */
 	xxl = ( al * p_1 + bl ) / ( p_1 + cl );
-	w2l = 1.0/sqrt(max(small_R, xxl * stl[0] * (p_1 + stl[2])));
+	w2l = 1.0/sqrt(MAX(small_R, xxl * stl[0] * (p_1 + stl[2])));
 	ul1 = stl[1] + ( stl[2] - p_1 ) * w2l;
 	xxr = ( ar * p_1 + br ) / ( p_1 + cr );
-	w2r = 1.0/sqrt(max(small_R, xxr * str[0] * (p_1 + str[2])));
+	w2r = 1.0/sqrt(MAX(small_R, xxr * str[0] * (p_1 + str[2])));
 	ur1 = str[1] + ( p_1 - str[2] ) * w2r;
-	p2 = max( small_R, 1.0000001 * p_1 - ( ur1 - ul1 ) 
+	p2 = MAX( small_R, 1.0000001 * p_1 - ( ur1 - ul1 ) 
 			* fabs( p_1 - p_0 )
 			/ ( fabs( ur1 - ur_0 )
 			   +fabs( ul1 - ul_0 )
@@ -83,17 +83,17 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	ul_0 = ul1;
 	ur_0 = ur1;
 	devi = fabs( p2 - p_0 ) / ( p2 + p_0 );
-	dev = max( 0.0, devi );
+	dev = MAX( 0.0, devi );
 
 	iter = 1;
 	while ( iter <= maxit && dev > eps ) {
 		xxl = ( al * p_1 + bl ) / ( p_1 + cl );
-		w2l = 1.0/sqrt(max(small_R, xxl * stl[0] * (p_1 + stl[2])));
+		w2l = 1.0/sqrt(MAX(small_R, xxl * stl[0] * (p_1 + stl[2])));
 		ul1 = stl[1] + ( stl[2] - p_1 ) * w2l;
 		xxr = ( ar * p_1 + br ) / ( p_1 + cr );
-		w2r = 1.0/sqrt(max(small_R, xxr * str[0] * (p_1 + str[2])));
+		w2r = 1.0/sqrt(MAX(small_R, xxr * str[0] * (p_1 + str[2])));
 		ur1 = str[1] + ( p_1 - str[2] ) * w2r;
-		p2 = max( small_R, 1.0000001 * p_1 - ( ur1 - ul1 )
+		p2 = MAX( small_R, 1.0000001 * p_1 - ( ur1 - ul1 )
 			* fabs( p_1 - p_0 )
 			/ ( fabs( ur1 - ur_0 )
 			+fabs( ul1 - ul_0 )
@@ -137,8 +137,8 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	}
 
 	w_s	= ( a_s * p_1 + b_s ) / ( p_1 + c_s );
-	w_s	= max( small_R, w_s * rho_s * ( p_1 + p_s ) );
-	rho	= max( small_R, rho_s / ( 1.0 - rho_s * ( p_1 - p_s ) / w_s ) );
+	w_s	= MAX( small_R, w_s * rho_s * ( p_1 + p_s ) );
+	rho	= MAX( small_R, rho_s / ( 1.0 - rho_s * ( p_1 - p_s ) / w_s ) );
 	gam	= gam_s + 2.0 * ( gam_s - 1.0 ) * ( 1.0 - gam_s / bgam_s ) 
 			/ ( p_1 + p_s ) * ( p_1 - p_s );
 
@@ -201,14 +201,14 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 		dv11 = v[j][2] - v[j][0];
 		dv20 = v[j][3] - v[j][1];
 
-		dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : min( dv0a, dv1a );
-		dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : min( dv1a, dv2a );
+		dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : MIN( dv0a, dv1a );
+		dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : MIN( dv1a, dv2a );
 
-		dv00 = sign( min( 0.5*fabs(dv11), dlq0 ), dv11 ) * c[0];
-		dv01 = sign( min( 0.5*fabs(dv20), dlq1 ), dv20 ) * c[1];
+		dv00 = SIGN( MIN( 0.5*fabs(dv11), dlq0 ), dv11 ) * c[0];
+		dv01 = SIGN( MIN( 0.5*fabs(dv20), dlq1 ), dv20 ) * c[1];
 				  
-		dv[j][0] = sign( min( min( fabs(dv00), dv1a ), dv0a ), dv11 );
-		dv[j][1] = sign( min( min( fabs(dv01), dv2a ), dv1a ), dv20 );
+		dv[j][0] = SIGN( MIN( MIN( fabs(dv00), dv1a ), dv0a ), dv11 );
+		dv[j][1] = SIGN( MIN( MIN( fabs(dv01), dv2a ), dv1a ), dv20 );
 	}
 
 	/* left states */
@@ -219,9 +219,9 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	c2_l	= c_l*c_l;
 	cp_l	= u_l + a_l;
 	cm_l	= u_l - a_l;
-	x_l	= 0.5 * (1.0 - dtx * max( (float)cp_l, 0.0 ));
-	rhow_l	= max( small_R, (float)(v[0][1] + x_l*dv[0][0]));
-	pw_l	= max( small_R, (float)(v[1][1] + x_l*dv[1][0]));
+	x_l	= 0.5 * (1.0 - dtx * MAX( (float)cp_l, 0.0 ));
+	rhow_l	= MAX( small_R, (float)(v[0][1] + x_l*dv[0][0]));
+	pw_l	= MAX( small_R, (float)(v[1][1] + x_l*dv[1][0]));
 	uw_l	= v[2][1] + x_l * dv[2][0];
 	vw_l	= v[3][1] + x_l * dv[3][0];
 	ww_l	= v[4][1] + x_l * dv[4][0];
@@ -240,7 +240,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	v_l	= xx1*v0_l + xx2*vw_l;
 	w_l	= xx1*w0_l + xx2*ww_l;
 
-	stl[0]	= max( small_R,(float)(rhow_l / ( 1.0 - ( b0_l + b_l ) * rhow_l ) ) );
+	stl[0]	= MAX( small_R,(float)(rhow_l / ( 1.0 - ( b0_l + b_l ) * rhow_l ) ) );
 
 #ifdef GRAVITY_IN_RIEMANN
 	stl[1]	= uw_l - b_l * c_l + g[0];
@@ -248,7 +248,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	stl[1]	= uw_l - b_l * c_l;
 #endif
 
-	p_l	= max( small_R,(float)(pw_l + b_l * c2_l) );
+	p_l	= MAX( small_R,(float)(pw_l + b_l * c2_l) );
 	stl[2]	= p_l;
 	stl[3]	= v[6][1];
 	gam_l	= xx1 * ( gam0_l + 2.0 * ( 1.0 - v[5][1] / v[6][1] )
@@ -256,7 +256,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 					*( p_l - v[1][1] )
 					/( p_l + v[1][1] ) )
 			+ xx2 * gamw_l;
-	stl[4]	= max( gammin, min( gammax, (float)(gam_l) ) );
+	stl[4]	= MAX( gammin, MIN( gammax, (float)(gam_l) ) );
 
 	/* right states */
 	rhor_r  = 1.0/v[0][2];
@@ -266,9 +266,9 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	c2_r    = c_r*c_r;
 	cp_r    = u_r + a_r;
 	cm_r    = u_r - a_r;
-	x_r     = -(float)0.5*(1.0 + dtx * min( (float)cm_r, 0.0 ));
-	rhow_r  = max( small_R, (float)(v[0][2] + x_r*dv[0][1]));
-	pw_r    = max( small_R, (float)(v[1][2] + x_r*dv[1][1]));
+	x_r     = -(float)0.5*(1.0 + dtx * MIN( (float)cm_r, 0.0 ));
+	rhow_r  = MAX( small_R, (float)(v[0][2] + x_r*dv[0][1]));
+	pw_r    = MAX( small_R, (float)(v[1][2] + x_r*dv[1][1]));
 	uw_r    = v[2][2] + x_r * dv[2][1];
 	vw_r    = v[3][2] + x_r * dv[3][1];
 	ww_r    = v[4][2] + x_r * dv[4][1];
@@ -287,7 +287,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	v_r     = xx1*v0_r + xx2*vw_r;
 	w_r     = xx1*w0_r + xx2*ww_r;
 
-	str[0]  = max( small_R,(float)(rhow_r / ( 1.0 - ( b0_r + b_r ) * rhow_r ) ) );
+	str[0]  = MAX( small_R,(float)(rhow_r / ( 1.0 - ( b0_r + b_r ) * rhow_r ) ) );
 
 #ifdef GRAVITY_IN_RIEMANN
 	str[1]	= uw_r - b_r * c_r + g[1];
@@ -295,7 +295,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	str[1]	= uw_r - b_r * c_r;
 #endif
 
-	p_r     = max( small_R,(float)(pw_r + b_r * c2_r) );
+	p_r     = MAX( small_R,(float)(pw_r + b_r * c2_r) );
 	str[2]  = p_r;
 	str[3]  = v[6][2];
 	gam_r   = xx1 * ( gam0_r + 2.0 * ( 1.0 - v[5][2] / v[6][2] )
@@ -303,7 +303,7 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 					*( p_r - v[1][2] )
 					/( p_r + v[1][2] ) )
 			+ xx2 * gamw_r;
-	str[4]  = max( gammin, min( gammax, (float)(gam_r) ) );
+	str[4]  = MAX( gammin, MIN( gammax, (float)(gam_r) ) );
 
 	/* call to riemann function */
 	riemann( stl, str, sta );
@@ -350,11 +350,11 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 	dv11 = v[7][2] - v[7][0];
 	dv20 = v[7][3] - v[7][1];
 
-	dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv0), fabs(dv1) );
-	dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv1), fabs(dv2) );
+	dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : 2.0*MIN( fabs(dv0), fabs(dv1) );
+	dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : 2.0*MIN( fabs(dv1), fabs(dv2) );
 
-	fl = v[7][1] + ( 0.5 - dtx2 * vu ) * sign( min( 0.5 * fabs(dv11), dlq0 ), dv11 ) * c[0];
-	fr = v[7][2] - ( 0.5 + dtx2 * vu ) * sign( min( 0.5 * fabs(dv20), dlq1 ), dv20 ) * c[1];
+	fl = v[7][1] + ( 0.5 - dtx2 * vu ) * SIGN( MIN( 0.5 * fabs(dv11), dlq0 ), dv11 ) * c[0];
+	fr = v[7][2] - ( 0.5 + dtx2 * vu ) * SIGN( MIN( 0.5 * fabs(dv20), dlq1 ), dv20 ) * c[1];
 
 	f[7] = vudtx * ( fl * xup_l + fr * xup_r );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
@@ -367,11 +367,11 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 		dv11 = v[j][2] - v[j][0];
 		dv20 = v[j][3] - v[j][1];
 
-		dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv0), fabs(dv1) );
-		dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : 2.0*min( fabs(dv1), fabs(dv2) );
+		dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : 2.0*MIN( fabs(dv0), fabs(dv1) );
+		dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : 2.0*MIN( fabs(dv1), fabs(dv2) );
 
-		fl = v[j][1] + ( 0.5 - dtx2 * vu ) * sign( min( 0.5 * fabs(dv11), dlq0 ), dv11 ) * c[0];
-		fr = v[j][2] - ( 0.5 + dtx2 * vu ) * sign( min( 0.5 * fabs(dv20), dlq1 ), dv20 ) * c[1];
+		fl = v[j][1] + ( 0.5 - dtx2 * vu ) * SIGN( MIN( 0.5 * fabs(dv11), dlq0 ), dv11 ) * c[0];
+		fr = v[j][2] - ( 0.5 + dtx2 * vu ) * SIGN( MIN( 0.5 * fabs(dv20), dlq1 ), dv20 ) * c[1];
 
 		/* advected variables in v[j] must be in dimensionless units (var/density) */
 		f[j] = fmass * ( fl * xup_l + fr * xup_r );
@@ -420,13 +420,13 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, 
 		}
 	}
 		
-	diff = diffk * max( 0.0, gvisc );
+	diff = diffk * MAX( 0.0, gvisc );
 
 	if(smooth_density_gradients)
 	  {
-	    xx = drhomax * max( v[0][1], v[0][2] ) / ( min( v[0][1], v[0][2] ) );
-	    dvisc = max( 0.0, dviscmax * ( xx - 1.0 ) / ( xx + 1.0 ) );
-	    diff = max( diff, dvisc );
+	    xx = drhomax * MAX( v[0][1], v[0][2] ) / ( MIN( v[0][1], v[0][2] ) );
+	    dvisc = MAX( 0.0, dviscmax * ( xx - 1.0 ) / ( xx + 1.0 ) );
+	    diff = MAX( diff, dvisc );
 	  }
 
 	f[0] += diff * ( cell_gas_density(L1) - cell_gas_density(R1) );

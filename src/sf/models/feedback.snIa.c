@@ -159,7 +159,7 @@ void snIa_thermal_feedback(int level, int cell, int ipart, double t_next )
           cell_gas_metal_density_Ia(cell) += phi*snIa_code.metals*star_initial_mass[ipart];
 #endif /* ENRICHMENT_SNIa */
 
-          dU = min(phi*snIa_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
+          dU = MIN(phi*snIa_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
 
           /* limit energy release and don't allow to explode in hot bubble */
           if(units->temperature*cell_gas_temperature(cell) < feedback_temperature_ceiling)

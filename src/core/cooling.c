@@ -80,15 +80,15 @@ void init_cooling() {
 						ct_crit = cdum;
 					}
 
-					cdum = max( cdum, smallrate );
-					cdum = max( cdum, ct_crit );
-					hdum = max( hdum, smallrate );
+					cdum = MAX( cdum, smallrate );
+					cdum = MAX( cdum, ct_crit );
+					hdum = MAX( hdum, smallrate );
 
 #ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 					coolcl[irs][ilz][ild][ilt] = cdum - hdum;
 #else
-					coolcl[irs][ilz][ild][ilt].Cooling = max(0.0,cdum);
-					coolcl[irs][ilz][ild][ilt].Heating = max(0.0,hdum);
+					coolcl[irs][ilz][ild][ilt].Cooling = MAX(0.0,cdum);
+					coolcl[irs][ilz][ild][ilt].Heating = MAX(0.0,hdum);
 #endif
 					fion[irs][ilz][ild][ilt] = d[5] / pow( 10.0, d[1] );
 				}
@@ -105,14 +105,14 @@ void set_cooling_redshift( double auni ) {
 
 	start_time( WORK_TIMER );
 
-	rs = max( 1.0 / auni - 1.0, 0.0 );
+	rs = MAX( 1.0 / auni - 1.0, 0.0 );
 
 	/* find redshift bin */
 	irs = (int)((rs - rsmin)*drsi);
-	irs1 = max(irs,0);
-	irs1 = min(irs1, nrs-1);
-	irs2 = min(irs+1,nrs-1);
-	irs2 = max(irs2,0);
+	irs1 = MAX(irs,0);
+	irs1 = MIN(irs1, nrs-1);
+	irs2 = MIN(irs+1,nrs-1);
+	irs2 = MAX(irs2,0);
 
 	if ( irs1 == irs2 ) {
 		/* just copy over specific redshift */
@@ -183,28 +183,28 @@ cooling_t cooling_rate( double nHlog, double T_g, double Zlog ) {
 	it1 = (int)((Tlog - tlmin)*dlti);
 	it2 = it1 + 1;
 
-	it1 = max(it1,0);
-	it1 = min(it1,nlt-1);
-	it2 = max(it2,0);
-	it2 = min(it2,nlt-1);
+	it1 = MAX(it1,0);
+	it1 = MIN(it1,nlt-1);
+	it2 = MAX(it2,0);
+	it2 = MIN(it2,nlt-1);
 
 	/* compute density bin */
 	id1 = (int)((nHlog - dlmin)*dldi);
 	id2 = id1 + 1;
 
-	id1 = max(id1,0);
-	id1 = min(id1,nld-1);
-	id2 = max(id2,0);
-	id2 = min(id2,nld-1);
+	id1 = MAX(id1,0);
+	id1 = MIN(id1,nld-1);
+	id2 = MAX(id2,0);
+	id2 = MIN(id2,nld-1);
 
 	/* compute metallicity bin */
 	iz1 = (int)((Zlog - Zlmin)*dlZi);
 	iz2 = iz1 + 1;
 
-	iz1 = max(iz1,0);
-	iz1 = min(iz1,nlz-1);
-	iz2 = max(iz2,0);
-	iz2 = min(iz2,nlz-1);
+	iz1 = MAX(iz1,0);
+	iz1 = MIN(iz1,nlz-1);
+	iz2 = MAX(iz2,0);
+	iz2 = MIN(iz2,nlz-1);
 
 	/* set up interpolation variables */
 	td = tlmin + dlt * (double)(it1+1);
@@ -271,28 +271,28 @@ double cooling_fion( double nHlog, double T_g, double Zlog ) {
 	it1 = (int)((Tlog - tlmin)*dlti);
 	it2 = it1 + 1;
 
-	it1 = max(it1,0);
-	it1 = min(it1,nlt-1);
-	it2 = max(it2,0);
-	it2 = min(it2,nlt-1);
+	it1 = MAX(it1,0);
+	it1 = MIN(it1,nlt-1);
+	it2 = MAX(it2,0);
+	it2 = MIN(it2,nlt-1);
 
 	/* compute density bin */
 	id1 = (int)((nHlog - dlmin)*dldi);
 	id2 = id1 + 1;
 
-	id1 = max(id1,0);
-	id1 = min(id1,nld-1);
-	id2 = max(id2,0);
-	id2 = min(id2,nld-1);
+	id1 = MAX(id1,0);
+	id1 = MIN(id1,nld-1);
+	id2 = MAX(id2,0);
+	id2 = MIN(id2,nld-1);
 
 	/* compute metallicity bin */
 	iz1 = (int)((Zlog - Zlmin)*dlZi);
 	iz2 = iz1 + 1;
 
-	iz1 = max(iz1,0);
-	iz1 = min(iz1,nlz-1);
-	iz2 = max(iz2,0);
-	iz2 = min(iz2,nlz-1);
+	iz1 = MAX(iz1,0);
+	iz1 = MIN(iz1,nlz-1);
+	iz2 = MAX(iz2,0);
+	iz2 = MIN(iz2,nlz-1);
 
 	/* set up interpolation variables */
 	td = tlmin + dlt * (double)(it1+1);

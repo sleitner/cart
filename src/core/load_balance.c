@@ -359,7 +359,7 @@ int divide_list_linear( float *global_work, int *constrained_quantities,
 		 * can hold (max_cells_allowed), as well as allowing to go above ideal_work_per_proc
 		 * if rest of procs can't hold the cells remaining
 		 */
-		while (         index < num_root_cells_in_division - num_procs_remaining &&
+		while ( index < num_root_cells_in_division - num_procs_remaining &&
 				local_work + 0.5*global_work[index] < ideal_work_per_proc ) {
 
 			for ( c = 0; c < num_constraints; c++ ) {
@@ -458,7 +458,7 @@ void load_balance_entire_volume( float *global_work,
 			proc_fraction = 0.0;
 
 			for ( c = 0; c < num_constraints; c++ ) {
-				proc_fraction = max( proc_fraction, 
+				proc_fraction = MAX( proc_fraction, 
 					(float)sum_constraints[c] / (float)per_proc_constraints[c] );
 				sum_constraints[c] = 0;
 			}
@@ -481,7 +481,7 @@ void load_balance_entire_volume( float *global_work,
 		i++;
 	}
 
-	num_reserved_procs = min( num_reserved_procs, num_procs-1 );
+	num_reserved_procs = MIN( num_reserved_procs, num_procs-1 );
 	cart_debug("num_reserved_procs = %d", num_reserved_procs );
 	
 	total_work = 0.0;
@@ -513,7 +513,7 @@ void load_balance_entire_volume( float *global_work,
 				}
 
 				num_root_cells_in_block = i - last;
-				num_procs_in_block = max( 1, (int)floor(current_work / ideal_work_per_proc) );
+				num_procs_in_block = MAX( 1, (int)floor(current_work / ideal_work_per_proc) );
 
 				num_reserved_procs += num_procs_in_block;
 				total_work -= current_work;
@@ -534,12 +534,12 @@ void load_balance_entire_volume( float *global_work,
 
 				num_procs_in_block = 0;
 				for ( c = 0; c < num_constraints; c++ ) {
-					num_procs_in_block = max( num_procs_in_block,
+					num_procs_in_block = MAX( num_procs_in_block,
 						(int)ceil((float)sum_constraints[c]/(float)per_proc_constraints[c]) );
 				}
 			}
 
-			num_procs_in_block = min( num_procs_in_block, num_procs - current_proc );
+			num_procs_in_block = MIN( num_procs_in_block, num_procs - current_proc );
 
 			if ( i < num_root_cells ) {
 				flag = ( global_work[i] < 0 ) ? 0 : 1;
@@ -817,13 +817,13 @@ void load_balance() {
 	if ( new_proc_sfc_index[local_proc_id] <= proc_sfc_index[local_proc_id] ) {
 		if ( new_proc_sfc_index[local_proc_id+1] < proc_sfc_index[local_proc_id+1] ) {
 			pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
-				max( proc_sfc_index[local_proc_id], new_proc_sfc_index[local_proc_id+1] ),
+				MAX( proc_sfc_index[local_proc_id], new_proc_sfc_index[local_proc_id+1] ),
 				proc_sfc_index[local_proc_id+1] );
 		}
 	} else {
 		pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
 			proc_sfc_index[local_proc_id], 
-			min( new_proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1] ) );
+			MIN( new_proc_sfc_index[local_proc_id], proc_sfc_index[local_proc_id+1] ) );
 
 		if ( new_proc_sfc_index[local_proc_id+1] < proc_sfc_index[local_proc_id+1] ) {
 			pack_add_root_trees( transfer_cells, new_proc_sfc_index, 
@@ -856,7 +856,7 @@ void load_balance() {
 	/* move octs out of the way */
 	first_oct = cell_parent_oct( num_cells_per_level[min_level] + 
 					num_buffer_cells[min_level] ) + 1;
-	next_free_oct = max( next_free_oct, first_oct );
+	next_free_oct = MAX( next_free_oct, first_oct );
 
 	/* remove all octs < first_oct from free_oct_list */
 	ioct = free_oct_list;
@@ -913,7 +913,7 @@ void load_balance() {
 				new_proc_sfc_index[local_proc_id] < old_proc_sfc_index[local_proc_id+1] ) {
 
 			/* move down */
-			num_cells_moved = min( old_proc_sfc_index[local_proc_id+1], new_proc_sfc_index[local_proc_id+1] ) 
+			num_cells_moved = MIN( old_proc_sfc_index[local_proc_id+1], new_proc_sfc_index[local_proc_id+1] ) 
 						- new_proc_sfc_index[local_proc_id];
 			root_cell_shift = new_proc_sfc_index[local_proc_id] - old_proc_sfc_index[local_proc_id];
 
@@ -924,7 +924,7 @@ void load_balance() {
 			    old_proc_sfc_index[local_proc_id] < new_proc_sfc_index[local_proc_id+1] ) {
 
 			/* move up */
-			num_cells_moved = min( old_proc_sfc_index[local_proc_id+1], new_proc_sfc_index[local_proc_id+1] )
+			num_cells_moved = MIN( old_proc_sfc_index[local_proc_id+1], new_proc_sfc_index[local_proc_id+1] )
 						- old_proc_sfc_index[local_proc_id];
 			root_cell_shift = old_proc_sfc_index[local_proc_id] - new_proc_sfc_index[local_proc_id];
 

@@ -12,7 +12,6 @@
 #include "tree.h"
 #include "units.h"
 
-
 DEFINE_LEVEL_ARRAY(int,level_sweep_dir);
 
 
@@ -99,7 +98,7 @@ void hydro_magic_one_cell( int icell ) {
 			cart_debug("---------------------------------------------------------");
 			cart_debug("HIT DENSITY FLOOR:");
 			cart_debug("old density = %e g/cc", cell_gas_density(icell)*units->density/constants->gpercc );
-			cart_debug("new density = %e g/cc", max( average_density/(float)num_neighbors, gas_density_floor ) );
+			cart_debug("new density = %e g/cc", MAX( average_density/(float)num_neighbors, gas_density_floor ) );
 			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature/constants->K );
 			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density/constants->barye );
 			cart_debug("v  = %e %e %e cm/s",
@@ -111,17 +110,17 @@ void hydro_magic_one_cell( int icell ) {
 
 		failed = 1;
 
-		cell_gas_density(icell) = max( average_density/(float)num_neighbors, gas_density_floor );
+		cell_gas_density(icell) = MAX( average_density/(float)num_neighbors, gas_density_floor );
 	}
 
 	kinetic_energy = cell_gas_kinetic_energy(icell);
 	thermal_energy = gas_temperature_floor/(units->temperature*constants->wmu*(constants->gamma-1)) * cell_gas_density(icell);
 
-	cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), thermal_energy );
-	cell_gas_energy(icell) = max( cell_gas_energy(icell), thermal_energy+kinetic_energy );
+	cell_gas_internal_energy(icell) = MAX( cell_gas_internal_energy(icell), thermal_energy );
+	cell_gas_energy(icell) = MAX( cell_gas_energy(icell), thermal_energy+kinetic_energy );
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-	cell_electron_internal_energy(icell) = max( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
+	cell_electron_internal_energy(icell) = MAX( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 	for ( j = 0; j < num_chem_species; j++ ) {
@@ -130,9 +129,9 @@ void hydro_magic_one_cell( int icell ) {
 		   at least let's scale them with density and make 1e-20;
 Gnedin: 1e-20 is not small enough for chemistry, making it 1e-30
 		 */
-		cell_advected_variable(icell,j) = max( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
+		cell_advected_variable(icell,j) = MAX( 1e-30*cell_gas_density(icell), cell_advected_variable(icell,j) );
 		/* Doug had it like that:
-		   cell_advected_variable(icell,j) = max( 1e-15, cell_advected_variable(icell,j) );
+		   cell_advected_variable(icell,j) = MAX( 1e-15, cell_advected_variable(icell,j) );
 		 */
 	}
 }
@@ -154,6 +153,40 @@ void hydro_magic( int level ) {
     end_time( WORK_TIMER );
 } 
 
+void hydro_split_update( int level ) {
+	int i, j, k;
+	int icell;
+	int num_level_cells;
+	int *level_cells;
+	int children[num_children];
+	double new_var;
+	const double factor = ((double)(1.0/(1<<nDim)));
+
+	if ( level < max_level ) {
+		start_time( WORK_TIMER );
+
+		select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_REFINED, &num_level_cells, &level_cells );
+#pragma omp parallel for default(none), private(i,icell,j,k,children,new_var), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
+		for ( i = 0; i < num_level_cells; i++ ) {
+			icell = level_cells[i];
+
+			/* average over children */
+			cell_all_children( icell, children );
+
+			for ( j = 0; j < num_hydro_vars; j++ ) {
+				new_var = 0.0;
+				for ( k = 0; k < num_children; k++ ) {
+					new_var += cell_hydro_variable(children[k], j);
+				}
+
+				cell_hydro_variable(icell, j) = new_var*factor; 
+			}
+		}
+		cart_free( level_cells );
+
+		end_time( WORK_TIMER );
+	}
+}
 
 float cell_gas_kinetic_energy(int cell) {
 	int j;

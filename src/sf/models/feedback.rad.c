@@ -106,7 +106,7 @@ float rad_luminosity_popM(int ipart)
 	   + star_metallicity_Ia[ipart]
 #endif /* ENRICHMENT_SNIa */
 	   )/constants->Zsun;
-      Z = max(1.0e-10,Z);
+      Z = MAX(1.0e-10,Z);
 #else  /* ENRICHMENT */
       Z = 0.1;
 #endif /* ENRICHMENT */

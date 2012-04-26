@@ -48,7 +48,7 @@ void refine_level(int cell, int level)
       pos[j] -= 0.5*num_grid;
     }
 
-  r = scale*max(fabs(pos[0]),max(fabs(pos[1]),fabs(pos[2])));
+  r = scale*MAX(fabs(pos[0]),MAX(fabs(pos[1]),fabs(pos[2])));
 
   if(level < min_level+depth)
     {

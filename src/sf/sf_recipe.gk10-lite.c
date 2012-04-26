@@ -91,7 +91,7 @@ double sfr_rate(int cell)
     {
 #ifdef ENRICHMENT
       zSol_cell = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
-      D_MW = max(1.0e-3,zSol_cell);
+      D_MW = MAX(1.0e-3,zSol_cell);
 #else
       cart_error("SF Recipe gk10-lite with D_MW<0 only works with ENRICHMENT activated.");
       D_MW = 1.0e-3;
@@ -113,7 +113,7 @@ double sfr_rate(int cell)
   
   if(nH > sfr.very_high_density) fH2_cell = 1.0;
   
-  nH_eff = max(sfr.min_cloud_density,min(sfr.max_cloud_density,nH));
+  nH_eff = MAX(sfr.min_cloud_density,MIN(sfr.max_cloud_density,nH));
   
   if(fH2_cell > sfr.min_molecular_fraction)
     {

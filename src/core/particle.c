@@ -317,7 +317,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	/* use same page size as for I/O, could easily change to different parameter,
 	 * doesn't really matter as long as page_size is small relative to memory,
 	 * but typical of numbers of particles moved */
-	page_size = min(65536/num_procs, 1024);
+	page_size = MIN(65536/num_procs, 1024);
 	parts_page_size = num_particle_vars*page_size;
 
 #ifdef STAR_FORMATION

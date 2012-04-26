@@ -134,7 +134,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 	for ( m = 0; m < num_power_foldings; m++ ) {
 		mesh_cell_size = (float)num_grid / (float)(power_mesh_size << m);
-		mesh_level = max( min_level, power_mesh_refinements - num_root_grid_refinements + m );
+		mesh_level = MAX( min_level, power_mesh_refinements - num_root_grid_refinements + m );
 		mesh_cell_volume = mesh_cell_size*mesh_cell_size*mesh_cell_size;
 	
 		cart_debug("fold %u, mesh_level = %u, mesh_cell_size = %e, mesh_cell_volume = %e", m, mesh_level, mesh_cell_size, mesh_cell_volume );
@@ -216,7 +216,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 #ifdef HYDRO
 		if ( power_type == POWER_TYPE_TOTAL || power_type == POWER_TYPE_BARYONS || power_type == POWER_TYPE_GAS ) {
 			cart_debug("assigning gas density to mesh %u", m );
-			for ( level = min_level; level <= min( mesh_level, max_level ); level++ ) {
+			for ( level = min_level; level <= MIN( mesh_level, max_level ); level++ ) {
 				select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
 				if ( level < mesh_level ) {

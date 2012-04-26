@@ -4,5 +4,5 @@ CC      = mpicc
 CFLAGS  = -O2
 F77     = mpif77
 FFLAGS  = 
-INCLUDES= -I/home/dhr9/fftw-2.1.5/include -L/home/dhr9/fftw-2.1.5/lib -I/home/dhr9/gsl-1.12/include -L/home/dhr9/gsl-1.12/lib
+INCLUDES= -I/home/dhr9/gsl-1.12/include -L/home/dhr9/gsl-1.12/lib
 EXTRALIBS=

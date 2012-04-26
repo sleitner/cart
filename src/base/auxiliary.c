@@ -692,3 +692,14 @@ size_t dmuReportAllocatedMemory()
 }
 
 #endif /* DEBUG_MEMORY_USE */
+
+void reorder( char *buffer, int size ) {                                                                                                                  
+	int i;
+	char tmp;
+
+	for ( i = 0; i < (size/2); i++ ) {
+		tmp = buffer[i];
+		buffer[i] = buffer[size - i - 1];
+		buffer[size - i - 1] = tmp;
+	}
+}

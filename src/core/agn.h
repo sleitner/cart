@@ -19,6 +19,7 @@ void config_init_agn();
 void config_verify_agn();
 void init_agn();
 
+double compute_r_K( int ipart, int icell );
 #endif /* AGN */
 
 #endif 

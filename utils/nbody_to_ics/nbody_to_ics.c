@@ -197,8 +197,8 @@ int main ( int argc, char *argv[]) {
 		min_density = min( min_density, density[i] );
 		max_density = max( max_density, density[i] );
 
-		max_count = max( max_count, particle_count[i] );
-		min_count = min( min_count, particle_count[i] );
+		max_count = min( max_count, particle_count[i] );
+		min_count = max( min_count, particle_count[i] );
 
 		if ( particle_count[i] == 0 ) {
 			zero_count++;

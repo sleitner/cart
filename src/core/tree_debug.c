@@ -166,8 +166,8 @@ void check_map() {
 			icell = level_cells[i];
 
 			for ( j = 0; j < num_vars; j++ ) {
-				max_var[j] = max( max_var[j], cell_var(icell,j) );
-				min_var[j] = min( min_var[j], cell_var(icell,j) );
+				max_var[j] = MAX( max_var[j], cell_var(icell,j) );
+				min_var[j] = MIN( min_var[j], cell_var(icell,j) );
 			}
 		}
 
@@ -348,8 +348,8 @@ void print_cell_values(int level) {
 				cart_debug("NaN found in level %u, cell %u, var %u", level, icell, j );
 			}
 
-			max_var[j] = max( max_var[j], cell_var(icell,j) );
-			min_var[j] = min( min_var[j], cell_var(icell,j) );
+			max_var[j] = MAX( max_var[j], cell_var(icell,j) );
+			min_var[j] = MIN( min_var[j], cell_var(icell,j) );
 		}
 	}
 

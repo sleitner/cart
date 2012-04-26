@@ -5,7 +5,6 @@
 #error "Missing config.h include."
 #endif
 
-
 DECLARE_LEVEL_ARRAY(double,tl);
 
 #ifdef COSMOLOGY
@@ -15,5 +14,7 @@ DECLARE_LEVEL_ARRAY(double,auni);
 
 void config_init_times();
 void config_verify_times();
+
+extern int step;
 
 #endif /* __TIMES_H__ */

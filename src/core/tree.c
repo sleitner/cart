@@ -114,7 +114,7 @@ int max_level_now_global(MPI_Comm level_com) {
 }
 
 int max_level_now() {
-	return max( max_level_local(), max_level_buffer() );
+	return MAX( max_level_local(), max_level_buffer() );
 }
 
 int max_level_local() {

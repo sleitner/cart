@@ -1,9 +1,0 @@
-# COMPILE OPTIONS
-
-CC      = mpicc
-CFLAGS  = -O3 -m64 -ipo -openmp -Wl,-stack_size,0x10000000 
-F77     = mpif77
-FFLAGS	= $(CFLAGS)
-INCLUDES= -L/usr/local/gsl/lib -I/usr/local/gsl/include -I/usr/local/fftw-3.2.2-openmp/include -L/usr/local/fftw-3.2.2-openmp/lib -DFFTW3 -DFFT_OPENMP
-EXTRALIBS= 
-FFTWLIBS   = -lfftw3f_threads -lfftw3f

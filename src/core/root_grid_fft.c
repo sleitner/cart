@@ -579,7 +579,7 @@ void root_grid_fft_internal_send_data(cache_t *run2fft, cache_t *fft2run, int nu
   value_t **sbuffers, **rbuffers, *ptr;
   int *counts, size;
   MPI_Status status;
-  int l, lidx, kb, num_fft_buffers = max(1,root_grid_fft_tune->num_fft_buffers);
+  int l, lidx, kb, num_fft_buffers = MAX(1,root_grid_fft_tune->num_fft_buffers);
   int sender[num_fft_buffers];
 
   /*
@@ -913,7 +913,7 @@ void root_grid_fft_internal_recv_data_mapped(cache_t *run2fft, cache_t *fft2run,
   int i, k, ijk[nDim];
   fft_t **sbuffers, **rbuffers;
   int *counts, size;
-  int l, num_fft_buffers = max(1,root_grid_fft_tune->num_fft_buffers);
+  int l, num_fft_buffers = MAX(1,root_grid_fft_tune->num_fft_buffers);
 
   /*
   //  This is just send_data in the reverse order. We just need to be

@@ -75,14 +75,14 @@ void star_formation( int level, int time_multiplier )
 
 		/* randomly generate particle on timescale dt_SF */
 		if(cart_rand() > P_SF+P_mass-P_SF*P_mass)
-		  mstar = max(mstar_min,mstar);
+		  mstar = MAX(mstar_min,mstar);
 		else 
 		  mstar = 0.0;
 		  
 #else  /* OLDSTYLE_SF_ALGORITHM */
 
 		/* draw number of star formation events 0...\inf from poisson distribution */
-		mstar = max( mstar_min, mstar );
+		mstar = MAX( mstar_min, mstar );
 		mstar *= (double)cart_rand_poisson( sfr[i]*cell_volume[level]*dt_eff/mstar );
 
 #endif /* OLDSTYLE_SF_ALGORITHM */

@@ -105,7 +105,7 @@ void pack_add_root_trees( pack *p, int *new_proc_sfc_index, int sfc1, int sfc2 )
 	proc = a;
 
 	while ( sfc < sfc2 ) {
-		block_count = min( sfc2, new_proc_sfc_index[proc+1] ) - sfc;
+		block_count = MIN( sfc2, new_proc_sfc_index[proc+1] ) - sfc;
 		
 		for ( j = sfc; j < sfc+block_count; j++ ) {
 			pack_add_root_tree(p, proc, j);
@@ -402,7 +402,7 @@ void pack_communicate( pack *p ) {
 					i = 0;
 					do {
 						cart_assert( num_receives < num_recv_requests );
-						size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+						size = MIN( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 						MPI_Irecv( &root_cells[proc][i], size, MPI_INT, proc, i,
 								mpi.comm.run, &receives[num_receives++] );
 						i += size;
@@ -417,7 +417,7 @@ void pack_communicate( pack *p ) {
 				i = 0;
 				do {
 					cart_assert( num_receives < num_recv_requests );
-					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+					size = MIN( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 					MPI_Irecv( &cell_refined[proc][i], size, MPI_INT, proc, i+cell_count,
 							mpi.comm.run, &receives[num_receives++] );
 					i += size;
@@ -426,7 +426,7 @@ void pack_communicate( pack *p ) {
 				i = 0;
 				do {
 					cart_assert( num_receives < num_recv_requests );
-					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
+					size = MIN( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
 					MPI_Irecv( &cell_recv_vars[proc][i], size, MPI_FLOAT, proc,
 							i, mpi.comm.run, &receives[num_receives++] );
 					i += size;
@@ -446,7 +446,7 @@ void pack_communicate( pack *p ) {
 					i = 0;
 					do {
 						cart_assert( num_sends < num_send_requests );
-						size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+						size = MIN( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 						MPI_Isend( &p->root_cells[proc][i], size, MPI_INT, proc, i,
 								mpi.comm.run, &sends[num_sends++] );
 						i += size;
@@ -461,7 +461,7 @@ void pack_communicate( pack *p ) {
 				i = 0;
 				do {
 					cart_assert( num_sends < num_send_requests );
-					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
+					size = MIN( MPI_MAX_MESSAGE_SIZE/sizeof(int), cell_count-i );
 					MPI_Isend( &p->cell_refined[proc][level_offset[proc]+i], size, MPI_INT, 
 							proc, i+cell_count, mpi.comm.run, &sends[num_sends++] );
 					i += size;
@@ -470,7 +470,7 @@ void pack_communicate( pack *p ) {
 				i = 0;
 				do {
 					cart_assert( num_sends < num_send_requests );
-					size = min( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
+					size = MIN( MPI_MAX_MESSAGE_SIZE/sizeof(float), cell_count*num_vars-i );
 					MPI_Isend( &p->cell_vars[proc][num_vars*level_offset[proc]+i], size, MPI_FLOAT,
 							proc, i, mpi.comm.run, &sends[num_sends++] );
 					i += size;

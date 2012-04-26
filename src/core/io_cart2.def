@@ -458,13 +458,13 @@ void FUNCTION( char *header_filename, char *data_filename,
 				/* have we reached star particles yet? */
 				if ( particle_id_is_star(current_id+num_parts_in_page-1) ) {
 					/* load page values for stars */
-					first_star = max( current_id - particle_species_indices[num_particle_species-1], 0 );
+					first_star = MAX( current_id - particle_species_indices[num_particle_species-1], 0 );
 					cart_assert( first_star >= 0 && first_star < num_stars );
 
 					first_star_index = first_star + particle_species_indices[num_particle_species-1] - current_id;
 					cart_assert( first_star_index >= 0 && first_star_index < num_parts_per_page );
 
-					num_stars_to_read = min( num_parts_in_page - first_star_index, 
+					num_stars_to_read = MIN( num_parts_in_page - first_star_index, 
 						particle_species_indices[num_particle_species] - first_star );
 
 					cart_assert( num_stars_to_read >= 0 && num_stars_to_read <= num_parts_in_page );

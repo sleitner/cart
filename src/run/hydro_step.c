@@ -79,11 +79,7 @@ void hydro_sweep_1d( int level );
 void hydro_apply_gravity( int level );
 #endif /* GRAVITY */
 void compute_hydro_fluxes( int cell_list[4], double f[ /* num_hydro_vars-1 */ ] );
-void hydro_eos(int level);
-void hydro_magic(int level);
 void hydro_advance_internalenergy(int level);
-void hydro_split_update( int level );
-
 
 void hydro_step( int level ) {
 	int dir;
@@ -312,14 +308,14 @@ void hydro_eos( int level ) {
 		  }
 		else
 		  {
-		    cell_gas_internal_energy(icell) = max( cell_gas_internal_energy(icell), 0.0 );
-		    cell_gas_energy(icell) = max( kinetic_energy, cell_gas_energy(icell) );
-		    cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
+		    cell_gas_internal_energy(icell) = MAX( cell_gas_internal_energy(icell), 0.0 );
+		    cell_gas_energy(icell) = MAX( kinetic_energy, cell_gas_energy(icell) );
+		    cell_gas_pressure(icell) = MAX( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
 
 		    if(extra_pressure != NULL) cell_gas_pressure(icell) += extra_pressure(icell);
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-		    cell_electron_internal_energy(icell) = min( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );
+		    cell_electron_internal_energy(icell) = MIN( cell_electron_internal_energy(icell), cell_gas_internal_energy(icell)*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 		  }
 	}
@@ -361,7 +357,10 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	int icell;
 	double t_begin, t_end;
 	double Zlog, Hdum;
-	double Tfac, Tfac_cell, Emin_cell, blastwave_time;
+	double Tfac, Tfac_cell, Emin_cell;
+#ifdef BLASTWAVE_FEEDBACK
+	double blastwave_time;
+#endif /* BLASTWAVE_FEEDBACK */
 	double Eminfac;
 	double rhog2, nHlog;
 	double e_curr;
@@ -405,7 +404,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 		    /* take code density -> log10(n_H [cm^-3]) */
 		    nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
 #ifdef ENRICHMENT
-		    Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
+		    Zlog = log10(MAX(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
 #else
 		    Zlog = -10.0;
 #endif /* ENRICHMENT */
@@ -427,7 +426,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	
 		    qss_solve( sys, t_begin, t_end, &e_curr, err, &params );
 
-		    cell_gas_internal_energy(icell) = max(Emin_cell,e_curr);
+		    cell_gas_internal_energy(icell) = MAX(Emin_cell,e_curr);
 		    cell_gas_energy(icell) = cell_gas_kinetic_energy(icell) + cell_gas_internal_energy(icell);
 #ifdef BLASTWAVE_FEEDBACK
 			} else { 
@@ -466,9 +465,9 @@ void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, d
 		/* compute new timestep */
 		dE = unit_cl*cooling_rate( nHlog, T_gas, Zlog );
 		dE *= -rhog2 * f_curr;
-		dt_e = min( dstep * fabs( cell_gas_internal_energy(icell) / dE ), t_end - t_curr );
+		dt_e = MIN( dstep * fabs( cell_gas_internal_energy(icell) / dE ), t_end - t_curr );
 
-		ei1 = max( cell_gas_internal_energy(icell) + 0.5 * dE * dt_e, Emin_cell );
+		ei1 = MAX( cell_gas_internal_energy(icell) + 0.5 * dE * dt_e, Emin_cell );
 		T_gas = Tfact_cell * ei1 / ( f_curr * f_curr );
 
 		dE = unit_cl*cooling_rate( nHlog, T_gas, Zlog );
@@ -482,8 +481,8 @@ void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, d
 			continue_cooling = 0;
 		}
 
-		cell_gas_internal_energy(icell) = max( Emin_cell, cell_gas_internal_energy(icell) );
-		cell_gas_energy(icell) = max( Emin_cell, cell_gas_energy(icell) );
+		cell_gas_internal_energy(icell) = MAX( Emin_cell, cell_gas_internal_energy(icell) );
+		cell_gas_energy(icell) = MAX( Emin_cell, cell_gas_energy(icell) );
 
 		/* advance timestep */
 		t_curr += dt_e;
@@ -532,7 +531,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 			nHlog = log10(constants->XH*units->number_density*cell_gas_density(icell)/constants->cc);
 
 #ifdef ENRICHMENT
-			Zlog = log10(max(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
+			Zlog = log10(MAX(1.0e-10,cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell))));
 #else
 			Zlog = -10.0;
 #endif /* ENRICHMENT */
@@ -566,7 +565,7 @@ void heating_rates ( double t, double *y, void *params, double *w, double *a) {
 	double t0 = ((double *)params)[3];
 	double Hdum = ((double *)params)[4];
 	double f_curr = 1 + Hdum*(t-t0);
-	double e_curr = max( e_init, y[0] );
+	double e_curr = MAX( e_init, y[0] );
 
 	a[0] = dEfact*f_curr*f_curr*pow(e_curr,-1.5);
 	w[0] = a[0]*e_equil;
@@ -623,7 +622,7 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 				Te7 = Tefact * cell_electron_internal_energy(icell) / cell_gas_density(icell); /* a^2 Te/10^7 K */
 		
 				n_5 = nfact * cell_gas_density(icell); 
-				logcoulomb = max( 30.0, 37.8 + log(Te7) - 0.5*log(n_5) );
+				logcoulomb = MAX( 30.0, 37.8 + log(Te7) - 0.5*log(n_5) );
 				dEfact_cell = dEfact*n_5*logcoulomb*pow( cell_gas_density(icell), 1.5);
 		
 				params[0] = dEfact_cell;
@@ -634,7 +633,7 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	
 				qss_solve( sys, t_begin, t_end, &e_curr, err, &params );
 	
-				cell_electron_internal_energy(icell) = min( e_curr, e_equil );
+				cell_electron_internal_energy(icell) = MIN( e_curr, e_equil );
 			}
 		}
 
@@ -664,10 +663,10 @@ void hydro_advance_internalenergy( int level ) {
 		/* P dV term */
 		gamma1 = cell_gas_gamma(icell) - 1.0;
 		div = 1.0 + gamma1 * ref[icell] * div_dt;
-		cell_gas_internal_energy(icell) = max( 1.0e-30, cell_gas_internal_energy(icell)*div*div*div);
+		cell_gas_internal_energy(icell) = MAX( 1.0e-30, cell_gas_internal_energy(icell)*div*div*div);
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-		cell_electron_internal_energy(icell) = max( 1.0e-30, cell_electron_internal_energy(icell)*div*div*div );
+		cell_electron_internal_energy(icell) = MAX( 1.0e-30, cell_electron_internal_energy(icell)*div*div*div );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 		/* synchronize internal and total energy */
@@ -704,41 +703,6 @@ void hydro_advance_internalenergy( int level ) {
 	cart_free( level_cells );
 
 	end_time( WORK_TIMER );
-}
-
-void hydro_split_update( int level ) {
-	int i, j, k;
-	int icell;
-	int num_level_cells;
-	int *level_cells;
-	int children[num_children];
-	double new_var;
-	const double factor = ((double)(1.0/(1<<nDim)));
-
-	if ( level < max_level ) {
-		start_time( WORK_TIMER );
-
-		select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_REFINED, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,icell,j,k,children,new_var), shared(num_level_cells,level_cells,cell_child_oct,cell_vars)
-		for ( i = 0; i < num_level_cells; i++ ) {
-			icell = level_cells[i];
-
-			/* average over children */
-			cell_all_children( icell, children );
-
-			for ( j = 0; j < num_hydro_vars; j++ ) {
-				new_var = 0.0;
-				for ( k = 0; k < num_children; k++ ) {
-					new_var += cell_hydro_variable(children[k], j);
-				}
-
-				cell_hydro_variable(icell, j) = new_var*factor;	
-			}
-		}
-		cart_free( level_cells );
-
-		end_time( WORK_TIMER );
-	}
 }
 
 void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[num_hydro_vars-1] ) {
@@ -779,7 +743,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 
 	/* L2 */
 	v[0][0] = cell_gas_density(L2);
-	v[1][0] = max( pressure_floor * v[0][0]*v[0][0], cell_gas_pressure(L2) );
+	v[1][0] = MAX( pressure_floor * v[0][0]*v[0][0], cell_gas_pressure(L2) );
 	v[2][0] = cell_momentum(L2,j3)/cell_gas_density(L2);
 	v[3][0] = cell_momentum(L2,j4)/cell_gas_density(L2);
 	v[4][0] = cell_momentum(L2,j5)/cell_gas_density(L2);
@@ -796,7 +760,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	
 	/* L1 vars */
 	v[0][1] = cell_gas_density(L1);
-	v[1][1] = max( pressure_floor * v[0][1]*v[0][1], cell_gas_pressure(L1) );
+	v[1][1] = MAX( pressure_floor * v[0][1]*v[0][1], cell_gas_pressure(L1) );
 	v[2][1] = cell_momentum(L1,j3)/cell_gas_density(L1);
 	v[3][1] = cell_momentum(L1,j4)/cell_gas_density(L1);
 	v[4][1] = cell_momentum(L1,j5)/cell_gas_density(L1);
@@ -813,7 +777,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	
 	/* R1 vars */
 	v[0][2] = cell_gas_density(R1);
-	v[1][2] = max( pressure_floor * v[0][2]*v[0][2], cell_gas_pressure(R1) );
+	v[1][2] = MAX( pressure_floor * v[0][2]*v[0][2], cell_gas_pressure(R1) );
 	v[2][2] = cell_momentum(R1,j3)/cell_gas_density(R1);
 	v[3][2] = cell_momentum(R1,j4)/cell_gas_density(R1);
 	v[4][2] = cell_momentum(R1,j5)/cell_gas_density(R1);
@@ -830,7 +794,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	
 	/* R2 vars */
 	v[0][3] = cell_gas_density(R2);
-	v[1][3] = max( pressure_floor * v[0][3]*v[0][3], cell_gas_pressure(R2) );
+	v[1][3] = MAX( pressure_floor * v[0][3]*v[0][3], cell_gas_pressure(R2) );
 	v[2][3] = cell_momentum(R2,j3)/cell_gas_density(R2);
 	v[3][3] = cell_momentum(R2,j4)/cell_gas_density(R2);
 	v[4][3] = cell_momentum(R2,j5)/cell_gas_density(R2);
@@ -920,19 +884,19 @@ void hydro_copy_vars( int level, int direction ) {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
-			cell_gas_density(icell) = max( 1.0e-30, backup_hvar(icell,0) );
-			cell_gas_energy(icell) = max( 1.0e-30, backup_hvar(icell,1) );
+			cell_gas_density(icell) = MAX( 1.0e-30, backup_hvar(icell,0) );
+			cell_gas_energy(icell) = MAX( 1.0e-30, backup_hvar(icell,1) );
 			cell_momentum(icell,0) = backup_hvar(icell,2);
 			cell_momentum(icell,1) = backup_hvar(icell,3);
 			cell_momentum(icell,2) = backup_hvar(icell,4);
-			cell_gas_internal_energy(icell) = max( 1.0e-30, backup_hvar(icell,5) );
+			cell_gas_internal_energy(icell) = MAX( 1.0e-30, backup_hvar(icell,5) );
                                         
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 			cell_electron_internal_energy(icell) = backup_hvar(icell,6);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 			for ( j = 0; j < num_chem_species; j++ ) {
-				cell_advected_variable(icell,j) = max( 1.0e-30, 
+				cell_advected_variable(icell,j) = MAX( 1.0e-30, 
 						backup_hvar(icell,num_hydro_vars-num_chem_species-2+j) );
 			}
 		}
@@ -942,19 +906,19 @@ void hydro_copy_vars( int level, int direction ) {
 			icell = level_cells[i];
 
 			if ( !backup_dirty[icell] ) {                                                                                                           
-				cell_gas_density(icell) = max( 1.0e-30, backup_hvar(icell,0) );
-				cell_gas_energy(icell) = max( 1.0e-30, backup_hvar(icell,1) );
+				cell_gas_density(icell) = MAX( 1.0e-30, backup_hvar(icell,0) );
+				cell_gas_energy(icell) = MAX( 1.0e-30, backup_hvar(icell,1) );
 				cell_momentum(icell,0) = backup_hvar(icell,2);
 				cell_momentum(icell,1) = backup_hvar(icell,3);
 				cell_momentum(icell,2) = backup_hvar(icell,4);
-				cell_gas_internal_energy(icell) = max( 1.0e-30, backup_hvar(icell,5) );
+				cell_gas_internal_energy(icell) = MAX( 1.0e-30, backup_hvar(icell,5) );
                                         
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 				cell_electron_internal_energy(icell) = backup_hvar(icell,6);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 				for ( j = 0; j < num_chem_species; j++ ) {
-					cell_advected_variable(icell,j) = max( 1.0e-30, 
+					cell_advected_variable(icell,j) = MAX( 1.0e-30, 
 							backup_hvar(icell,num_hydro_vars-num_chem_species-2+j) );
 				}
 			}

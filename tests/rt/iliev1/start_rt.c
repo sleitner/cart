@@ -192,8 +192,8 @@ void FindIFront(float val, float *riAvg, float *riMin, float *riMax)
 
 	  rc = 0.5*(ra+rb);
 
-	  rmin = min(rmin,rc);
-	  rmax = max(rmax,rc);
+	  rmin = MIN(rmin,rc);
+	  rmax = MAX(rmax,rc);
 	  ravg += rc;
 	  navg++;
 	}

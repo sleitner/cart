@@ -5,6 +5,5 @@ CC      = mpicc
 CFLAGS  = -O3 -m64 -ipo -openmp -Wl,-stack_size,0x10000000 
 F77     = mpif77
 FFLAGS	= $(CFLAGS)
-INCLUDES= -L/usr/local/gsl/lib -I/usr/local/gsl/include -I/usr/local/fftw-2.1.5/include -L/usr/local/fftw-2.1.5/lib
+INCLUDES= -L/usr/local/gsl/lib -I/usr/local/gsl/include 
 EXTRALIBS= 
-FFTWLIBS   = -lsrfftw -lsfftw

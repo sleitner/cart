@@ -77,7 +77,7 @@ void config_init_star_formation()
 
   control_parameter_add3(control_parameter_double,&sf_min_stellar_particle_mass,"sf:min-stellar-particle-mass","sf_min_stellar_particle_mass","dm_star_min","minimum mass for a newly created stellar particle, in solar masses. This value should be small enough to avoid artifically boosting the SFR in the low density gas.");
 
-  control_parameter_add2(control_parameter_float,&sf_min_overdensity,"sf:min-overdensity","sf_min_overdensity","the value of the overdensity (in total mass, not gas mass) below which the gas density threshold is not allowed to descend. I.e., rho_min = max(<sf:min-gas-number-density>/(constants->XH*units->number_density),<sf:min-overdensity>*cosmology->OmegaB/cosmology->OmegaM");
+  control_parameter_add2(control_parameter_float,&sf_min_overdensity,"sf:min-overdensity","sf_min_overdensity","the value of the overdensity (in total mass, not gas mass) below which the gas density threshold is not allowed to descend. I.e., rho_min = MAX(<sf:min-gas-number-density>/(constants->XH*units->number_density),<sf:min-overdensity>*cosmology->OmegaB/cosmology->OmegaM");
 
   control_parameter_add2(control_parameter_float,&sf_metallicity_floor,"sf:metallicity-floor","sf_metallicity_floor","the minimum amount of metallicity (in solar units) sprinkled in the cell where a stellar particle is created. This parameter is designed to emulate metal enrichment from the first stars and/or early, unresolved episode of star formation. Just BEFORE a stellar particle is created, if the metallicity in the cell is less than this value, it is increased to this value. Thus, all stellar particles are created in the gas with at least this metallicity. This value is NOT taken into account when computing the SFR, only when actually creating a stellar particle. It is not related to rt:dust-to-gas floor, which MAY affect the SFR.");
 
@@ -144,7 +144,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
   tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature);
   rho_min = sf_min_gas_number_density/(constants->XH*units->number_density);
 #ifdef COSMOLOGY
-  rho_min = max(rho_min,sf_min_overdensity*cosmology->OmegaB/cosmology->OmegaM);
+  rho_min = MAX(rho_min,sf_min_overdensity*cosmology->OmegaB/cosmology->OmegaM);
 #endif
 
   if(sf_recipe->setup != NULL) sf_recipe->setup(level);
@@ -197,7 +197,7 @@ int create_star_particle( int icell, float mass, double pdt, int type ) {
 	cart_assert( ipart < num_star_particles );
 
 	/* ensure star particle cannot consume entire cell gas mass */
-	true_mass = min( mass, 0.667*cell_volume[cell_level(icell)]*cell_gas_density(icell) );
+	true_mass = MIN( mass, 0.667*cell_volume[cell_level(icell)]*cell_gas_density(icell) );
 
 	/*
 	//  This is an obscure parameter, read its help string in 
@@ -250,8 +250,8 @@ int create_star_particle( int icell, float mass, double pdt, int type ) {
 	/*
 	// NG: this is to allow non-thermal pressure contribution
 	*/
-	thermal_pressure = max((cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell),0.0);
-	cell_gas_pressure(icell) = max(0.0,cell_gas_pressure(icell)-thermal_pressure);
+	thermal_pressure = MAX((cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell),0.0);
+	cell_gas_pressure(icell) = MAX(0.0,cell_gas_pressure(icell)-thermal_pressure);
 
 	cell_gas_density(icell) = new_density;
 	cell_gas_energy(icell) *= density_fraction;

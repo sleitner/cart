@@ -64,7 +64,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 
 	struct CosmologyParameters temp_cosmo;
 
-	max_level_to_read = min( max_level, max_level_to_read );
+	max_level_to_read = MIN( max_level, max_level_to_read );
 
 	/* open file handle if parent of parallel file */
 	if ( local_proc_id == MASTER_NODE ) {
@@ -415,7 +415,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			}
 
 			cells_to_read = 0;
-			for ( level = 0; level <= min( maxlevel, max_level_to_read ); level++ ) {
+			for ( level = 0; level <= MIN( maxlevel, max_level_to_read ); level++ ) {
 				cells_to_read += cells_per_level[level];
 			}
 
@@ -425,7 +425,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			}
 
 			total_refined = total_cells - cells_per_level[maxlevel];
-			cell_refined_to_read = cells_to_read-cells_per_level[min( maxlevel, max_level_to_read)];
+			cell_refined_to_read = cells_to_read-cells_per_level[MIN( maxlevel, max_level_to_read)];
 
 			cell_refined = cart_alloc(int, cell_refined_to_read );
 			vars = cart_alloc(float, cells_to_read*num_file_vars );
@@ -487,7 +487,7 @@ void read_indexed_grid( char *filename, int num_sfcs, int *sfc_list, int max_lev
 			while ( current_level_count > 0 ) {
 				next_level_count = 0;
 
-				if ( level < min( maxlevel, max_level_to_read ) ) {
+				if ( level < MIN( maxlevel, max_level_to_read ) ) {
 					/* refine this level */
 					for ( j = 0; j < current_level_count; j++ ) {
 						cart_assert( num_refined_unpacked < cell_refined_to_read );

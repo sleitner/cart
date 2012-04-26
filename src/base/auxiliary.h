@@ -41,6 +41,10 @@ const char* extract_option0(const char* full_name, const char* short_name);
 const char* extract_option1(const char* full_name, const char* short_name, const char *default_value);
 void die_on_unknown_options();
 
+/* 
+// Endian helper function
+*/
+void reorder( char *buffer, int size );
 
 /*
 // Helper functions
@@ -53,14 +57,13 @@ void linear_array_copy_float(float *dest, float *src, int size);
 /*
 //  Useful macros
 */
-#ifndef min
-#define min(x,y)        (((x) < (y)) ? (x): (y))
+#ifndef MIN
+#define MIN(x,y)        (((x) < (y)) ? (x): (y))
 #endif
-#ifndef max
-#define max(x,y)        (((x) > (y)) ? (x): (y))
+#ifndef MAX
+#define MAX(x,y)        (((x) > (y)) ? (x): (y))
 #endif
-#define sign(x,y)       ( (y>=0) ? fabs(x) : -fabs(x) )
-
+#define SIGN(x,y)       ( (y>=0) ? fabs(x) : -fabs(x) )
 
 /*
 //  Macros for memory leak locating

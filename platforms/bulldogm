@@ -1,13 +1,8 @@
 # COMPILE OPTIONS
 
 CC		= mpicc
-CFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp
-FFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp
-# -fp-model precise or source fixes bug with 
+CFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp 
+FFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp 
 F77     = mpif77
-# use FFT_OPENMP for shared-memory version of fftw
-INCLUDES = -I/home/dhr9/include/ -L/home/dhr9/lib/ -DFFT_OPENMP
-#INCLUDES = -I/home/dhr9/include/ -L/home/dhr9/lib/
+INCLUDES = -I/usr/local/cluster/software/libraries/gsl/gsl-1.11/include
 EXTRALIBS = 
-FFTWLIBS   = -lsrfftw_threads -lsrfftw -lsfftw_threads -lsfftw
-#FFTWLIBS = -lsrfftw -lsfftw

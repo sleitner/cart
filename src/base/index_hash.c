@@ -61,7 +61,7 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 	int oldj;
 	index_hash *hash;
 	int iter = 0;
-	int total;
+	size_t total;
 	int rekey;
 	index_hash_entry tmp_entry, new_entry;
 

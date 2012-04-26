@@ -16,6 +16,7 @@
 #include "particle.h"
 #include "particle_buffer.h"
 #include "particle_density.h"
+#include "sfc.h"
 #include "stack.h"
 #include "timing.h"
 #include "times.h"

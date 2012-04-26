@@ -141,20 +141,20 @@ void qss_solve( qss_system *sys, double t_begin, double t_end, double y[],
 			}
 
 			/* check for errors */
-			errmax = fabs(sys->rs[0])/max(y[0],1e-30)/err[0];
+			errmax = fabs(sys->rs[0])/MAX(y[0],1e-30)/err[0];
 			for ( i = 1; i < sys->num_eqn; i++ ) {
-				erri = fabs(sys->rs[i])/max(y[i],1e-30)/err[i];
+				erri = fabs(sys->rs[i])/MAX(y[i],1e-30)/err[i];
 				if ( erri > errmax ) {
 					errmax = erri;
 				}
 			}
 
 			if ( errmax > 1.0 ) {
-				dt = min( 0.9*dt/sqrt(2.+errmax), t_end-t );
+				dt = MIN( 0.9*dt/sqrt(2.+errmax), t_end-t );
 			} else {
 				t += dt;
 				nstep++;
-				dt = min( 0.9*dt/pow(0.01+errmax,0.3), t_end-t );
+				dt = MIN( 0.9*dt/pow(0.01+errmax,0.3), t_end-t );
 				break;
 			}
 		}

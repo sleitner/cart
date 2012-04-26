@@ -26,8 +26,6 @@
 #include "starformation_recipes.h"
 #endif
 
-#include "step.h"
-
 FILE *steptimes;
 FILE *levelsteptimes;
 FILE *timing;
@@ -109,9 +107,9 @@ void output_star_creation( int icell, double mass, FILE *f ){
   }
   sfrbelow_UP=sfrbelow_UP/cell_volume[level_UP];
   zSol_cell_UP = cell_gas_metal_density(icell_UP)/(constants->Zsun*cell_gas_density(icell_UP));
-  zSol_cell_UP = max(1.0e-3,zSol_cell_UP);
+  zSol_cell_UP = MAX(1.0e-3,zSol_cell_UP);
   zSol_cell = cell_gas_metal_density(icell)/(constants->Zsun*cell_gas_density(icell));
-  zSol_cell = max(1.0e-3,zSol_cell);
+  zSol_cell = MAX(1.0e-3,zSol_cell);
   
   //abox, auni, tcosmo, level, side(pkpc), over_density, rho_H[msun/pc3], Z, temp, SFRD Msun/pkpc^3, mass, icell_UP,levelUP, sideUP(pkpc)...temp
   fprintf(f,"%.10lf %.6lf %e  %d %f  %e %e %e %e  %e | %e %d   %d %f  %e %e  %e %e %e  %e\n",
@@ -708,8 +706,8 @@ void log_diagnostics() {
 	MPI_Reduce( &stellar_mass, &total_stellar_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 	MPI_Reduce( &stellar_initial_mass, &total_stellar_initial_mass, 1, MPI_DOUBLE, MPI_SUM, MASTER_NODE, mpi.comm.run );
 
-	d_stellar_mass = max( 0.0, total_stellar_mass - old_stellar_mass );
-	d_stellar_initial_mass = max( 0.0, total_stellar_initial_mass - old_stellar_initial_mass );
+	d_stellar_mass = MAX( 0.0, total_stellar_mass - old_stellar_mass );
+	d_stellar_initial_mass = MAX( 0.0, total_stellar_initial_mass - old_stellar_initial_mass );
 
 	/* compute resolved volume */
 	local_resolved_volume[min_level] = 0.0;

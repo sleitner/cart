@@ -432,17 +432,6 @@ void read_cart_restart( const char *label ) {
 #endif /* PARTICLES */
 }
 
-void reorder( char *buffer, int size ) {
-	int i;
-	char tmp;
-                                                                                
-	for ( i = 0; i < (size/2); i++ ) {
-		tmp = buffer[i];
-		buffer[i] = buffer[size - i - 1];
-		buffer[size - i - 1] = tmp;
-	}
-}
-
 void set_cart_grid_file_mode(int mode)
 {
   if(mode>=-4 && mode<=4) art_grid_file_mode = mode;
@@ -3526,7 +3515,7 @@ void write_cart_grid_binary( char *filename ) {
 	page = 0;
 
 	while ( current_level_count < num_cells_per_level[min_level] ) {
-		page_count = min( page_size, num_cells_per_level[min_level] - current_level_count );
+		page_count = MIN( page_size, num_cells_per_level[min_level] - current_level_count );
 
 		for ( i = 0; i < page_count; i++ ) {
 			if ( cell_is_refined(current_level_count) ) {
@@ -3551,7 +3540,7 @@ void write_cart_grid_binary( char *filename ) {
 			i = 0;
 			page = 0;
 			while ( i < proc_num_cells[(max_level-min_level+1)*proc+min_level] ) {
-				page_count = min( page_size,  proc_num_cells[(max_level-min_level+1)*proc+min_level] - i );
+				page_count = MIN( page_size,  proc_num_cells[(max_level-min_level+1)*proc+min_level] - i );
 				MPI_Recv( cellrefined, page_count, MPI_INT, proc, page, mpi.comm.run, &status );
 				fwrite( cellrefined, sizeof(int), page_count, output );
 				i += page_count;
@@ -3596,7 +3585,7 @@ void write_cart_grid_binary( char *filename ) {
 		i = 0;
 		page = 0;
 		while ( i < current_level_count ) {
-			page_count = min( page_size, num_cells_per_level[level] - i*num_children );
+			page_count = MIN( page_size, num_cells_per_level[level] - i*num_children );
 
 			j = 0;
 			while ( j < page_count) {
@@ -3629,7 +3618,7 @@ void write_cart_grid_binary( char *filename ) {
 				i = 0;
 				page = 0;
 				while ( i < proc_num_cells[(max_level-min_level+1)*proc+level] ) {
-					page_count = min( page_size, 
+					page_count = MIN( page_size, 
 							proc_num_cells[(max_level-min_level+1)*proc+level] - i );
 					MPI_Recv( cellrefined, page_count, MPI_INT, proc, page, mpi.comm.run, &status );
 					fwrite( cellrefined, sizeof(int), page_count, output );
@@ -3693,7 +3682,7 @@ void write_cart_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE 
   page = 0;
   while ( current_level_count < num_cells_per_level[min_level] )
     {
-      page_count = min( page_size, num_cells_per_level[min_level] - current_level_count );
+      page_count = MIN( page_size, num_cells_per_level[min_level] - current_level_count );
     
       i = 0;
       while ( i < num_out_vars*page_count )
@@ -3727,7 +3716,7 @@ void write_cart_grid_binary_top_level_vars(int num_out_vars, int *out_var, FILE 
 	  page = 0;
 	  while ( i <  proc_num_cells[(max_level-min_level+1)*proc+min_level] )
 	    {
-	      page_count = min( page_size,  proc_num_cells[(max_level-min_level+1)*proc+min_level] - i );
+	      page_count = MIN( page_size,  proc_num_cells[(max_level-min_level+1)*proc+min_level] - i );
 	
 	      MPI_Recv( cellvars, num_out_vars*page_count, MPI_FLOAT, proc, page, mpi.comm.run, &status );
 	      fwrite( cellvars, sizeof(float), num_out_vars*page_count, output );
@@ -3768,7 +3757,7 @@ void write_cart_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FIL
   page = 0;
   while ( i < current_level_count )
     {
-      page_count = min( page_size, num_cells_per_level[level] - i*num_children );
+      page_count = MIN( page_size, num_cells_per_level[level] - i*num_children );
       
       j = 0;
       while ( j < num_out_vars*page_count ) { 
@@ -3805,7 +3794,7 @@ void write_cart_grid_binary_lower_level_vars(int num_out_vars, int *out_var, FIL
 	  page = 0;
 	  while ( i < proc_num_cells[(max_level-min_level+1)*proc+level] )
 	    {
-	      page_count = min( page_size, proc_num_cells[(max_level-min_level+1)*proc+level] - i );
+	      page_count = MIN( page_size, proc_num_cells[(max_level-min_level+1)*proc+level] - i );
 	      MPI_Recv( cellvars, num_out_vars*page_count, MPI_FLOAT, proc, page, mpi.comm.run, &status );
 	      fwrite( cellvars, sizeof(float), num_out_vars*page_count, output );
 	      i += page_count;
@@ -4336,8 +4325,8 @@ void read_cart_grid_binary( char *filename ) {
 		if ( proc_sfc_index[local_proc_id] < file_sfc_index[i+1] &&
 				proc_sfc_index[local_proc_id+1] >= file_sfc_index[i] ) {
 			proc_num_cells[ file_parent_proc[i] ] = 
-					min( proc_sfc_index[local_proc_id+1], file_sfc_index[i+1] ) - 
-					max( proc_sfc_index[local_proc_id], file_sfc_index[i] );
+					MIN( proc_sfc_index[local_proc_id+1], file_sfc_index[i+1] ) - 
+					MAX( proc_sfc_index[local_proc_id], file_sfc_index[i] );
 		}
 	}
 
@@ -4352,7 +4341,7 @@ void read_cart_grid_binary( char *filename ) {
 		if ( proc_num_cells[proc] > 0 ) { 
 			if ( proc == local_proc_id ) {
 				/* copy data directly */
-				start = max( 0, proc_sfc_index[local_proc_id] - file_sfc_index[file_index] );
+				start = MAX( 0, proc_sfc_index[local_proc_id] - file_sfc_index[file_index] );
 				cart_assert( start >= 0 && start <= local_file_root_cells - proc_num_cells[local_proc_id] );
 				for ( i = 0; i < proc_num_cells[local_proc_id]; i++ ) {
 					cellrefined[local_proc_id][count+i] = cellrefinedbuffer[start+i];
@@ -4387,8 +4376,8 @@ void read_cart_grid_binary( char *filename ) {
 			} else if ( start < local_file_root_cells && proc != local_proc_id && 
 					file_sfc_index[file_index]+start < proc_sfc_index[proc+1] &&
 					file_sfc_index[file_index]+start >= proc_sfc_index[proc] ) {
-				count = min( proc_sfc_index[proc+1], file_sfc_index[file_index+1] ) -
-						max( file_sfc_index[file_index] + start, proc_sfc_index[proc] ); 
+				count = MIN( proc_sfc_index[proc+1], file_sfc_index[file_index+1] ) -
+						MAX( file_sfc_index[file_index] + start, proc_sfc_index[proc] ); 
 				cart_assert( count > 0 && start + count <= local_file_root_cells );
 				for ( i = 0; i < count; i++ ) {
 					if ( cellrefinedbuffer[start+i] > 1 ) {
@@ -4504,7 +4493,7 @@ void read_cart_grid_binary( char *filename ) {
 				}
 			}
 
-			cellrefinedbuffer = cart_alloc(int, min( total_cells[level], page_size ) );
+			cellrefinedbuffer = cart_alloc(int, MIN( total_cells[level], page_size ) );
 		}
 
 		MPI_Waitall( num_requests, requests, MPI_STATUSES_IGNORE );
@@ -4515,9 +4504,9 @@ void read_cart_grid_binary( char *filename ) {
 
 			if ( proc_num_cells[proc] > 0 && proc != local_proc_id ) {
 				/* set up receive */
-				proc_page_count[proc] = min( page_size - first_page_count[proc] % page_size, 
+				proc_page_count[proc] = MIN( page_size - first_page_count[proc] % page_size, 
 								proc_num_cells[proc] );
-				cellrefined[proc] = cart_alloc(int, min( page_size, proc_num_cells[proc] ) );
+				cellrefined[proc] = cart_alloc(int, MIN( page_size, proc_num_cells[proc] ) );
 				MPI_Irecv( cellrefined[proc], proc_page_count[proc], MPI_INT, proc,
 					proc_page_count[proc], mpi.comm.run, &requests[proc] );
 				num_requests++;
@@ -4541,7 +4530,7 @@ void read_cart_grid_binary( char *filename ) {
 
 			if ( local_proc_id == file_parent && current_read_count < total_cells[level] && ready_to_read ) {
 				/* read in a page */
-				page_count = min( page_size, total_cells[level] - current_read_count );
+				page_count = MIN( page_size, total_cells[level] - current_read_count );
 				num_read = fread( cellrefinedbuffer, sizeof(int), page_count, input );
 
 				if ( num_read != page_count ) {
@@ -4563,8 +4552,8 @@ void read_cart_grid_binary( char *filename ) {
 					if ( start < page_count && current_read_count + start >= proc_first_index[proc] &&
 							current_read_count + start < proc_first_index[proc+1] ) {
 						
-						count = min( proc_first_index[proc+1], current_read_count+page_count ) -
-							max( proc_first_index[proc], current_read_count + start );
+						count = MIN( proc_first_index[proc+1], current_read_count+page_count ) -
+							MAX( proc_first_index[proc], current_read_count + start );
 
 						cart_assert( count > 0 && count <= page_count );
 
@@ -4654,8 +4643,8 @@ void read_cart_grid_binary( char *filename ) {
 
 				/* if necessary, start a new receive from that proc */
 				if ( proc_cur_cells[proc] < proc_num_cells[proc] && proc != local_proc_id ) {
-					proc_page_count[proc] = min( page_size, 
-						proc_num_cells[proc] - proc_cur_cells[proc] );
+					proc_page_count[proc] = MIN( page_size, 
+							proc_num_cells[proc] - proc_cur_cells[proc] );
 					cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
 					MPI_Irecv( cellrefined[proc], proc_page_count[proc], MPI_INT,
 						proc, proc_page_count[proc], mpi.comm.run, &requests[proc] );
@@ -4788,8 +4777,8 @@ void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_ou
 
 	if ( local_proc_id == file_parent ) {
 		fread( &size, sizeof(int), 1, input );
-		cellvars_buffer = cart_alloc(float, num_out_vars*min( local_file_root_cells, page_size ) );
-		cellvars_read_buffer = cart_alloc(float, num_in_vars*min( local_file_root_cells, page_size ) );
+		cellvars_buffer = cart_alloc(float, num_out_vars*MIN( local_file_root_cells, page_size ) );
+		cellvars_read_buffer = cart_alloc(float, num_in_vars*MIN( local_file_root_cells, page_size ) );
 	}
 
 	num_requests = 0;
@@ -4799,10 +4788,10 @@ void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_ou
 
 		if ( proc_num_cells[proc] > 0 && proc != local_proc_id )  {
 			/* set up receive */
-			proc_page_count[proc] = min( proc_num_cells[proc], 
+			proc_page_count[proc] = MIN( proc_num_cells[proc], 
 					page_size - ( proc_cell_index[proc] - 
 					file_sfc_index[(int)((proc * num_cart_input_files)/ num_procs)]) % page_size);
-			cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
+			cellvars[proc] = cart_alloc(float, num_out_vars*MIN( page_size, proc_num_cells[proc] ) );
 			MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
 					mpi.comm.run, &requests[proc] );
 			num_requests++;
@@ -4822,7 +4811,7 @@ void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_ou
 
 		if ( local_proc_id == file_parent && current_read_count < local_file_root_cells && ready_to_read ) {
 			/* read in a page */
-			page_count = min( page_size, local_file_root_cells - current_read_count );
+			page_count = MIN( page_size, local_file_root_cells - current_read_count );
 			num_read = fread( cellvars_read_buffer, sizeof(float), num_in_vars*page_count, input );
 
 			if ( num_read != num_in_vars*page_count ) {
@@ -4832,7 +4821,7 @@ void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_ou
 
 			for(i=0; i<page_count; i++)
 			  {
-			    jout = 0; for(j=0; j<max(num_in_vars,num_out_vars); j++)
+			    jout = 0; for(j=0; j<MAX(num_in_vars,num_out_vars); j++)
 			      {
 				while( jout == jskip ){
 				  cellvars_buffer[num_out_vars*i+jskip] = set_skipped_var(jskip);
@@ -4857,8 +4846,8 @@ void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_ou
 						file_sfc_index[file_index]+current_read_count+start < proc_sfc_index[proc+1] &&
 						file_sfc_index[file_index]+current_read_count+start >= proc_sfc_index[proc] ) {
 		  
-					count = min( proc_sfc_index[proc+1], file_sfc_index[file_index]+current_read_count+page_count ) - 
-							max( proc_sfc_index[proc],  file_sfc_index[file_index] + current_read_count + start );
+					count = MIN( proc_sfc_index[proc+1], file_sfc_index[file_index]+current_read_count+page_count ) - 
+							MAX( proc_sfc_index[proc],  file_sfc_index[file_index] + current_read_count + start );
 					cart_assert( count > 0 && count <= page_count );
 
 					if ( proc == local_proc_id ) {
@@ -4917,7 +4906,7 @@ void read_cart_grid_binary_top_level_vars(int num_in_vars, int jskip, int num_ou
 
 			/* if necessary, start a new receive for that proc */
 			if ( proc_cur_cells[proc] < proc_num_cells[proc] && proc != local_proc_id ) {
-				proc_page_count[proc] = min( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
+				proc_page_count[proc] = MIN( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
 				cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
 				MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], 
 						mpi.comm.run, &requests[proc] );
@@ -4988,8 +4977,8 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
   if ( local_proc_id == file_parent )
     {
       fread( &size, sizeof(int), 1, input );
-      cellvars_buffer = cart_alloc(float, num_out_vars*min( total_cells[level], page_size ) );
-      cellvars_read_buffer = cart_alloc(float, num_in_vars*min( total_cells[level], page_size ) );
+      cellvars_buffer = cart_alloc(float, num_out_vars*MIN( total_cells[level], page_size ) );
+      cellvars_read_buffer = cart_alloc(float, num_in_vars*MIN( total_cells[level], page_size ) );
     }
 	
   num_requests = 0;
@@ -5001,8 +4990,8 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
       if ( proc_num_cells[proc] > 0 && proc != local_proc_id )
 	{
 	  /* set up receive */
-	  proc_page_count[proc] = min( page_size - first_page_count[proc] % page_size, proc_num_cells[proc] );
-	  cellvars[proc] = cart_alloc(float, num_out_vars*min( page_size, proc_num_cells[proc] ) );
+	  proc_page_count[proc] = MIN( page_size - first_page_count[proc] % page_size, proc_num_cells[proc] );
+	  cellvars[proc] = cart_alloc(float, num_out_vars*MIN( page_size, proc_num_cells[proc] ) );
 	  MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], mpi.comm.run, &requests[proc] );
 	  num_requests++;
 	}
@@ -5025,7 +5014,7 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
       if ( local_proc_id == file_parent && current_read_count < total_cells[level] && ready_to_read )
 	{
 	  /* read in a page */
-	  page_count = min( page_size, total_cells[level] - current_read_count );
+	  page_count = MIN( page_size, total_cells[level] - current_read_count );
 	  num_read = fread( cellvars_read_buffer, sizeof(float), num_in_vars*page_count, input );
 	
 	  if ( num_read != num_in_vars*page_count )
@@ -5035,7 +5024,7 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
 	
 	  for(i=0; i<page_count; i++)
 	    {
-	      jout=0; for(j=0; j<max(num_in_vars,num_out_vars); j++)
+	      jout=0; for(j=0; j<MAX(num_in_vars,num_out_vars); j++)
 		{
 		  while( jout == jskip ){
 		    cellvars_buffer[num_out_vars*i+jskip] = set_skipped_var(jskip);
@@ -5062,7 +5051,7 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
 	      if ( start < page_count && current_read_count + start >= proc_first_index[proc] && current_read_count + start < proc_first_index[proc+1] )
 		{
 				
-		  count = min( proc_first_index[proc+1], current_read_count+page_count ) - max( proc_first_index[proc], current_read_count + start );
+		  count = MIN( proc_first_index[proc+1], current_read_count+page_count ) - MAX( proc_first_index[proc], current_read_count + start );
 		  cart_assert( count > 0 && count <= page_count );
 
 		  if ( proc == local_proc_id )
@@ -5143,7 +5132,7 @@ void read_cart_grid_binary_lower_level_vars(int num_in_vars, int jskip, int num_
 	  /* if necessary, start a new receive for that proc */
 	  if ( proc_cur_cells[proc] < proc_num_cells[proc] && proc != local_proc_id )
 	    {
-	      proc_page_count[proc] = min( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
+	      proc_page_count[proc] = MIN( page_size, proc_num_cells[proc] - proc_cur_cells[proc] );
 	      cart_assert( proc_page_count[proc] > 0 && proc_page_count[proc] <= page_size );
 	      MPI_Irecv( cellvars[proc], num_out_vars*proc_page_count[proc], MPI_FLOAT, proc, proc_page_count[proc], mpi.comm.run, &requests[proc] );
 	      num_requests++;

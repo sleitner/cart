@@ -238,7 +238,7 @@ void modify( int level, int op ) {
 void add_reaction( int icell ) {
 	/* cells which need splitting become sources, add reaction_increment to them */
 	if ( refinement_indicator( icell, 0 ) >= split_tolerance ) {
-		refinement_indicator( icell, 0 ) = min( 1.0, refinement_indicator( icell, 0 ) + reaction_increment );
+		refinement_indicator( icell, 0 ) = MIN( 1.0, refinement_indicator( icell, 0 ) + reaction_increment );
 	}
 
 	/* we'll use refinement_indicator[1] during the diffusion step since
@@ -279,7 +279,7 @@ void diffusion_step( int level, int icell ) {
 	}
 
 	refinement_indicator( icell, 0 ) += diffusion_coefficient * new_indicator;
-	refinement_indicator( icell, 0 ) = min( 1.0, refinement_indicator( icell, 0 ) );
+	refinement_indicator( icell, 0 ) = MIN( 1.0, refinement_indicator( icell, 0 ) );
 }
 
 void refine( int level ) {

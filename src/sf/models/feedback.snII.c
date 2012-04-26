@@ -140,18 +140,18 @@ void snII_thermal_feedback(int level, int cell, int ipart, double t_next )
         {
           if(dteff+dt>0 && dteff<0)
             {
-              phi = min((dteff+dt)/snII_code.teject,1.0);
+              phi = MIN((dteff+dt)/snII_code.teject,1.0);
             }
           else
             {
-              phi = min(dt,snII_code.teject-dteff)/snII_code.teject;
+              phi = MIN(dt,snII_code.teject-dteff)/snII_code.teject;
             }
 
 #ifdef ENRICHMENT
           cell_gas_metal_density_II(cell) += phi*snII_code.metals*star_initial_mass[ipart];
 #endif /* ENRICHMENT */
 
-          dU = min(phi*snII_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
+          dU = MIN(phi*snII_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
 
           /* limit energy release and don't allow to explode in hot bubble */
           if(units->temperature*cell_gas_temperature(cell) < feedback_temperature_ceiling)

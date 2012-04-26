@@ -9,7 +9,6 @@
 
 typedef struct HALO {
 	int id;
-	int proc;
 	double pos[nDim];
 	double vel[nDim];
 	double rhalo;
@@ -35,7 +34,7 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
 void load_halo_particle_mapping( char *filename, halo_list *halos );
 void destroy_halo_list( halo_list *halos );
 halo *find_halo_by_id(halo_list *halos, int id);
-halo_list *halo_list_alloc();
+halo_list *halo_list_alloc( int size );
 halo *halo_list_add_halo( halo_list *halos );
 
 #endif

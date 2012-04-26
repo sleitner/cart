@@ -385,8 +385,8 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	cart_debug("creating parallel file %s", filename );
 
 	handle = artio_fileset_create( filename, num_root_cells,
-            proc_sfc_index[local_proc_id],
-	    proc_sfc_index[local_proc_id+1]-1, &con );
+			proc_sfc_index[local_proc_id],
+			proc_sfc_index[local_proc_id+1]-1, &con );
 
 	/* write header variables */
 	num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
@@ -512,6 +512,8 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	artio_parameter_set_long_array( handle, "mpi_task_sfc_index", num_procs+1, local_proc_sfc_index );
 
 	if ( fileset_write_options & WRITE_GRID ) {
+		start_time( GAS_WRITE_IO_TIMER );
+
 		/* build list of variables to write */
 		define_file_variables(&num_file_vars, var_labels, var_indices);
 
@@ -539,10 +541,14 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 		cart_free( num_octs_per_root_tree );
 
 		write_artio_grid( handle, num_file_vars, var_indices );
+
+		end_time( GAS_WRITE_IO_TIMER );
 	}
 
 #ifdef PARTICLES
 	if ( fileset_write_options & WRITE_PARTICLES ) {
+		start_time( PARTICLE_WRITE_IO_TIMER );
+
 		define_particle_variables( &num_species, species_labels,
 				num_primary_variables, primary_variable_labels,
 				num_secondary_variables, secondary_variable_labels );
@@ -664,6 +670,8 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 
 		/* return particle_list_prev to doublely-linked-list state */
 		rebuild_particle_list();
+
+		end_time( PARTICLE_WRITE_IO_TIMER );
 	}
 #endif /* PARTICLES */
 
@@ -862,7 +870,7 @@ void artio_restart_load_balance( artio_file handle ) {
 		num_octs_per_level = cart_alloc( int, file_max_level );
 
 		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
-			end_sfc = min( sfc + num_grid*num_grid, num_root_cells ) - 1;
+			end_sfc = MIN( sfc + num_grid*num_grid, num_root_cells ) - 1;
 			artio_grid_cache_sfc_range(handle, sfc, end_sfc );
 
 			for ( ; sfc <= end_sfc; sfc++ ) {
@@ -890,7 +898,7 @@ void artio_restart_load_balance( artio_file handle ) {
 		num_particles_per_species = cart_alloc(int, num_species);
 
 		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
-			end_sfc = min( sfc + num_grid*num_grid, num_root_cells ) - 1;
+			end_sfc = MIN( sfc + num_grid*num_grid, num_root_cells ) - 1;
 			artio_particle_cache_sfc_range(handle, sfc, end_sfc );
 
 			for ( ; sfc <= end_sfc; sfc++ ) {
@@ -1192,6 +1200,8 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 	int oct_refined[num_children];
 	char ** file_variables;
 
+	start_time( GAS_READ_IO_TIMER );
+
 	/* load list of variables the code expects */
 	define_file_variables(&num_sim_variables, sim_var_labels, sim_var_indices);
 
@@ -1300,6 +1310,8 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 	cart_free( num_octs_per_level );
 	cart_free(root_variables);
 	cart_free (oct_variables);
+
+	end_time( GAS_READ_IO_TIMER );
 }
 
 #ifdef PARTICLES
@@ -1317,6 +1329,8 @@ void read_artio_particles( artio_file handle ) {
 	float secondary_variables[5];
 
 	int num_particles_per_species[MAX_PARTICLE_SPECIES];
+
+	start_time( PARTICLE_READ_IO_TIMER );
 
 	artio_parameter_get_int( handle, "num_particle_species", &num_species);
 
@@ -1407,5 +1421,7 @@ void read_artio_particles( artio_file handle ) {
 	MPI_Allreduce( &num_particles_local, &num_particles_total, 1, MPI_LONG, MPI_SUM, mpi.comm.run );
 */
 	num_particles_total = particle_species_indices[num_particle_species];
+
+	end_time( PARTICLE_READ_IO_TIMER );
 }
 #endif /* PARTICLES */

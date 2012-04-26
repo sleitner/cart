@@ -5,6 +5,5 @@ CC      = mpicc
 CFLAGS  = -O2
 F77     = mpif77
 FFLAGS  = -O2
-INCLUDES= -I/sw/include/ 
-EXTRALIBS= -L/sw/lib/
-
+INCLUDES= 
+EXTRALIBS= 

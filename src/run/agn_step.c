@@ -13,6 +13,7 @@
 #include "cosmology.h"
 #include "halos.h"
 #include "halo_finder.h"
+#include "hydro.h"
 #include "io.h"
 #include "iterators.h"
 #include "parallel.h"
@@ -20,6 +21,7 @@
 #include "particle_buffer.h"
 #include "starformation.h"
 #include "starformation_feedback.h"
+#include "sfc.h"
 #include "times.h"
 #include "tree.h"
 #include "units.h"
@@ -64,12 +66,11 @@ typedef struct {
 	float sink_momentum[SINK_SAMPLES_3D][nDim];
 } agn_sink_data;
 
-void agn_feedback( int level );
 void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list , int level );
 void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list , int level );
 void agn_compute_agn_physics( int num_level_agn, agn_sink_data *agn_list , int level );
-double compute_r_K( int ipart, int icell );
-void agn_find_mergers();
+void construct_agn_root_cell_lists( int *num_agn_ret, int **num_root_agn_ret, int **agn_index_ret, int **agn_particle_list_ret );
+int agn_merge_or_not( int ipart, int ipart2 );
 void agn_merge_list( int ipart, int *merge_list, int merge_count );
 int sort_particles_by_mass( const void *, const void *);
 
@@ -495,8 +496,8 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 				new_density = cell_gas_density(icell) - 
 					agn_list[i].sink_density[j] * cell_volume_inverse[ cell_level(icell) ];
 				/* Note that sink_density here has units of mass (replaced list quantities) */
-				max_level_changed = max(max_level_changed, cell_level(icell));
-				min_level_changed = min(min_level_changed, cell_level(icell));
+				max_level_changed = MAX(max_level_changed, cell_level(icell));
+				min_level_changed = MIN(min_level_changed, cell_level(icell));
 
 				density_fraction = new_density / cell_gas_density(icell);
 
@@ -511,7 +512,7 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 				/* energy due to feedback */
 				cell_gas_energy(icell) += agn_list[i].sink_energy[j];
 				cell_gas_internal_energy(icell) += agn_list[i].sink_energy[j];
-				cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
+				cell_gas_pressure(icell) = MAX( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
 			}
 		}
 	}
@@ -556,7 +557,7 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 					/* energy due to feedback */
 					cell_gas_energy(icell) += recv_cell_deltas[i][j*num_agn_cell_vars+1];
 					cell_gas_internal_energy(icell) += recv_cell_deltas[i][j*num_agn_cell_vars+1];
-					cell_gas_pressure(icell) = max( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
+					cell_gas_pressure(icell) = MAX( (cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell), 0.0 );
 				}
 
 				cart_free( recv_cell_indices[i] ); 
@@ -585,20 +586,19 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 void agn_compute_agn_physics( int num_level_agn, agn_sink_data *agn_list, int level  ) {
 	int i,j,k;
 	int ipart;
-	int agn_cell;
-	double cs_ideal, pressure_ideal;
 	double sink_averaged_cs, sink_averaged_density; 
 	double sink_averaged_gas_velocity[nDim];
-	double change_in_energy[SINK_SAMPLES_3D], change_in_mass[SINK_SAMPLES_3D], change_in_momentum[SINK_SAMPLES_3D][nDim]; 
-	double Macc, newMacc, Medd, new_momentum[nDim], new_particle_mass, Mbondi, Mbondibetafact, Mbh, Efb, virtual_sample_volume, sink_mass, dv = 0.0, dv_cell;
+	double change_in_mass[SINK_SAMPLES_3D], change_in_momentum[SINK_SAMPLES_3D][nDim]; 
+	double Macc, newMacc, Medd, new_momentum[nDim], new_particle_mass, Mbondi, Mbondibetafact, Mbh, Efb, virtual_sample_volume, sink_mass;
+	double dv = 0.0; 
 	double delta_t;
 
 	double t_next = tl[level] + dtl[level]; 
 
 #ifdef COSMOLOGY 
-#pragma omp parallel for default(none), private( cs_ideal, pressure_ideal, i, j, k, ipart, Mbh, virtual_sample_volume, delta_t, sink_mass, sink_averaged_cs, sink_averaged_density, sink_averaged_gas_velocity, new_momentum, Medd, Macc, dv, Mbondibetafact, Mbondi, change_in_mass, newMacc, change_in_momentum, new_particle_mass, Efb, agn_cell, dv_cell ), shared( num_level_agn,  agn_list, t_next, num_sink_samples, sink_sample_weights, Meddfact, Mbondifact, Efbfact, Eagncritfact, agn_accretion_recipe, particle_x, particle_v, particle_t, units, constants, particle_mass, star_metallicity_II, cell_vars, tl, abox, level, crit_bondi_gas_density, agn_dv_on_off, particle_id, bondi_normalization, bondi_exponent, radiative_efficiency )
+#pragma omp parallel for default(none), private( i, j, k, ipart, Mbh, virtual_sample_volume, delta_t, sink_mass, sink_averaged_cs, sink_averaged_density, sink_averaged_gas_velocity, new_momentum, Medd, Macc, dv, Mbondibetafact, Mbondi, change_in_mass, newMacc, change_in_momentum, new_particle_mass, Efb ), shared( num_level_agn,  agn_list, t_next, num_sink_samples, sink_sample_weights, Meddfact, Mbondifact, Efbfact, Eagncritfact, agn_accretion_recipe, particle_x, particle_v, particle_t, units, constants, particle_mass, star_metallicity_II, cell_vars, tl, abox, level, crit_bondi_gas_density, agn_dv_on_off, particle_id, bondi_normalization, bondi_exponent, radiative_efficiency )
 #else
-#pragma omp parallel for default(none), private( cs_ideal, pressure_ideal, i, j, k, ipart, Mbh, virtual_sample_volume, delta_t, sink_mass, sink_averaged_cs, sink_averaged_density, sink_averaged_gas_velocity, new_momentum, Medd, Macc, dv, Mbondibetafact, Mbondi, change_in_mass, newMacc, change_in_momentum, new_particle_mass, Efb, agn_cell, dv_cell ), shared( num_level_agn,  agn_list, t_next, num_sink_samples, sink_sample_weights, Meddfact, Mbondifact, Efbfact, Eagncritfact, agn_accretion_recipe, particle_x, particle_v, particle_t, units, constants, particle_mass, star_metallicity_II, cell_vars, tl, level, crit_bondi_gas_density, agn_dv_on_off, particle_id, bondi_normalization, bondi_exponent, radiative_efficiency )
+#pragma omp parallel for default(none), private( i, j, k, ipart, Mbh, virtual_sample_volume, delta_t, sink_mass, sink_averaged_cs, sink_averaged_density, sink_averaged_gas_velocity, new_momentum, Medd, Macc, dv, Mbondibetafact, Mbondi, change_in_mass, newMacc, change_in_momentum, new_particle_mass, Efb ), shared( num_level_agn,  agn_list, t_next, num_sink_samples, sink_sample_weights, Meddfact, Mbondifact, Efbfact, Eagncritfact, agn_accretion_recipe, particle_x, particle_v, particle_t, units, constants, particle_mass, star_metallicity_II, cell_vars, tl, level, crit_bondi_gas_density, agn_dv_on_off, particle_id, bondi_normalization, bondi_exponent, radiative_efficiency )
 #endif
 	/* loop over black holes */
 	for ( i=0; i<num_level_agn; i++ ) {
@@ -645,7 +645,7 @@ void agn_compute_agn_physics( int num_level_agn, agn_sink_data *agn_list, int le
 
 				Mbondi = bondi_normalization*Mbondifact * Mbh*Mbh * sink_averaged_density * 
 							pow( agn_dv_on_off*dv + sink_averaged_cs*sink_averaged_cs, -1.5 )*delta_t; 
-				Macc = min( Medd, Mbondi );
+				Macc = MIN( Medd, Mbondi );
 				break;
 			case 2: /* Bondi accretion (constant beta) */
 				dv = (particle_v[ipart][0]-sink_averaged_gas_velocity[0])*(particle_v[ipart][0]-sink_averaged_gas_velocity[0])+
@@ -659,16 +659,16 @@ void agn_compute_agn_physics( int num_level_agn, agn_sink_data *agn_list, int le
 				}
 				Mbondi = Mbondibetafact * Mbh*Mbh * sink_averaged_density * 
 							pow( agn_dv_on_off*dv + sink_averaged_cs*sink_averaged_cs, -1.5 )*delta_t;
-				Macc = min( Medd, Mbondi );
+				Macc = MIN( Medd, Mbondi );
 				break;
 			default :
 				cart_error("Invalid agn_accretion_recipe in agn_compute_agn_physics");
 		}
 
-		/* Calculate change_in_energy (due to feedback), change_in_mass, change_in_momentum */
+		/* Calculate change in energy (due to feedback), change_in_mass, change_in_momentum */
 		for ( j=0; j<num_sink_samples; j++ ) {
 			cart_assert( agn_list[i].sink_cell_level[j] >= 0 && agn_list[i].sink_cell_level[j] <= max_level );
-			change_in_mass[j] = min( Macc * sink_sample_weights[j] , 
+			change_in_mass[j] = MIN( Macc * sink_sample_weights[j] , 
 									.667 * agn_list[i].sink_density[j] * 
 									cell_volume[agn_list[i].sink_cell_level[j]] * sink_sample_weights[j] ); 
 			newMacc += change_in_mass[j];
@@ -688,7 +688,7 @@ void agn_compute_agn_physics( int num_level_agn, agn_sink_data *agn_list, int le
 
 		particle_mass[ipart] = new_particle_mass;
 
-		/* Compute feedback energy and change_in_energy */
+		/* Compute feedback energy and change in energy */
 
 		Efb = Efbfact*newMacc;
 #ifndef ENRICHMENT 
@@ -767,12 +767,12 @@ void construct_agn_root_cell_lists( int *num_agn_ret, int **num_root_agn_ret, in
 
     
 void agn_find_mergers() {
-	int i, j, k;
+	int i, j;
 	int dx, di, dj, dk;
 	int coords[nDim];
 	int coords2[nDim];
 	int icell, ipart, ipart2;
-	int num_agn, num_root;
+	int num_agn;
 	int agn_merger_count;
 	int *agn_particle_list;
 	int *agn_index;
@@ -860,15 +860,7 @@ void agn_find_mergers() {
 
 void agn_merge_list( int ipart, int *merge_list, int merge_count ) {
 	int i, j;
-	double particle_mass_initial = particle_mass[ipart];
-	double particle_x_initial[nDim];
-	double particle_v_initial[nDim];
 	int old_cell, new_cell;
-
-	for ( j = 0; j < nDim; j++ ) {
-		particle_x_initial[j] = particle_x[ipart][j];
-		particle_v_initial[j] = particle_v[ipart][j];
-	}
 
 	old_cell = cell_find_position( particle_x[ipart] );
 

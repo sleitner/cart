@@ -127,7 +127,7 @@ void ml_feedback(int level, int cell, int ipart, double t_next )
   if(ml.loss_rate > 0.0)
     {
       /* limit mass loss to 10% of star's current mass */
-      dmloss = min( 0.1*particle_mass[ipart],
+      dmloss = MIN( 0.1*particle_mass[ipart],
                     star_initial_mass[ipart]*dt*ml.loss_rate / 
                     (particle_t[ipart] - (double)star_tbirth[ipart] + ml_code.dt) );
                                         
@@ -158,8 +158,8 @@ void ml_feedback(int level, int cell, int ipart, double t_next )
       /*
       // NG: this is to allow non-thermal pressure contribution
       */
-      thermal_pressure = max((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0);
-      cell_gas_pressure(cell) = max(0.0,cell_gas_pressure(cell)-thermal_pressure);
+      thermal_pressure = MAX((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0);
+      cell_gas_pressure(cell) = MAX(0.0,cell_gas_pressure(cell)-thermal_pressure);
 
       cell_gas_internal_energy(cell) *= rhofact;
       cell_gas_pressure(cell) += thermal_pressure*rhofact;

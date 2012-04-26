@@ -11,8 +11,9 @@
 #include "tree.h"
 #include "units.h"
 
+#include "agn_step.h"
+#include "starformation_feedback_step.h"
 #include "step.h"
-
 
 #ifdef BLASTWAVE_FEEDBACK
 extern double blastwave_time;

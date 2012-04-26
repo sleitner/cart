@@ -167,12 +167,6 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
 			coords[0] = (int)h->pos[0];
 			coords[1] = (int)h->pos[1];
 			coords[2] = (int)h->pos[2];
-
-			if ( num_procs > 1 ) {
-				h->proc = processor_owner( sfc_index( coords ) );
-			} else {
-				h->proc = local_proc_id;
-			}
 		}
 	} while ( halos->num_halos < max_num_halos );
 

@@ -175,7 +175,7 @@ void extRFvsSFR(const char *froot, int top_level, const halo_list *halos)
 
   if(cell_is_leaf(cell))
     {
-      var[cell] = uRate*max(0.0,sfr[_Index]);
+      var[cell] = uRate*MAX(0.0,sfr[_Index]);
     }
   else
     {

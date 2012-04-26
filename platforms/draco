@@ -1,8 +1,0 @@
-# COMPILE OPTIONS
-
-# draco (icc)
-CFLAGS  = -O3 -w1 -ipo -ansi_alias
-CC      = mpicc
-F77     = mpif77
-INCLUDES= 
-

@@ -59,7 +59,7 @@ void rtGlobalValueCommunicate(struct rtGlobalValue *v, MPI_Op op, MPI_Comm level
       val = v->buffer[0];
       for(level=min_level+1; level<=max_level; level++)
 	{
-	  val = max(val,v->buffer[level-min_level]);
+	  val = MAX(val,v->buffer[level-min_level]);
 	}
     }
   else

@@ -66,7 +66,7 @@ double sfr_rate(int cell)
 
   if(nH > sfr.very_high_density) fH2_cell = 1.0;
 
-  nH_eff = max(sfr.min_cloud_density,min(sfr.max_cloud_density,nH));
+  nH_eff = MAX(sfr.min_cloud_density,MIN(sfr.max_cloud_density,nH));
 
   if(fH2_cell > sfr.min_molecular_fraction)
     {

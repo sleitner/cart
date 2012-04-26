@@ -447,7 +447,7 @@ void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf)
   /*
   //  Unpack elemental abundances 
   */
-  cell_gas_internal_energy(cell) = max(gas_temperature_floor,var[FRT_Ein])*cell_gas_density(cell)/units->temperature;
+  cell_gas_internal_energy(cell) = MAX(gas_temperature_floor,var[FRT_Ein])*cell_gas_density(cell)/units->temperature;
   cell_gas_energy(cell) = cell_gas_kinetic_energy(cell) + cell_gas_internal_energy(cell);
   cell_HI_density(cell) = var[FRT_XHI]*cell_gas_density(cell);
   cell_HII_density(cell) = var[FRT_XHII]*cell_gas_density(cell);
@@ -494,7 +494,7 @@ float rtDmw2(int cell)
   return rt_dust_to_gas_floor;
 #else
   float d = rtDmw(cell);
-  return max(rt_dust_to_gas_floor,d);
+  return MAX(rt_dust_to_gas_floor,d);
 #endif
 }
 

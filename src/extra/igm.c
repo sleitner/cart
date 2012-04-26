@@ -251,7 +251,7 @@ void extProximityZone_Collector(losBuffer *result, int num_segments, const losSe
 	    }
 	  else
 	    {
-	      dr->R[j] = min(dr->R[j],dn->R[j]);     
+	      dr->R[j] = MIN(dr->R[j],dn->R[j]);     
 	    }
 	}
     }
@@ -345,8 +345,8 @@ void extProximityZones(const char *fname, int resolution_level, int nside, int h
 	    {
 	      nd[j]++;
 	      Ravg[j] += data[ipix].R[j];
-	      Rmin[j] = min(Rmin[j],data[ipix].R[j]);
-	      Rmax[j] = max(Rmax[j],data[ipix].R[j]);
+	      Rmin[j] = MIN(Rmin[j],data[ipix].R[j]);
+	      Rmax[j] = MAX(Rmax[j],data[ipix].R[j]);
 	    }
 	}
 

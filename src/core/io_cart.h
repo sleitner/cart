@@ -7,7 +7,6 @@
 
 void config_init_io_cart();
 void config_verify_io_cart();
-void reorder( char *buffer, int size );
 
 #ifdef PARTICLES
 

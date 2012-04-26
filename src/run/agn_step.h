@@ -1,17 +1,19 @@
-#ifndef __AGN_H__
-#define __AGN_H__
+#ifndef __AGN_STEP_H__
+#define __AGN_STEP_H__
 
 
 #ifndef CONFIGURED
 #error "Missing config.h include."
 #endif
 
-#ifdef AGN
+#ifdef AGN 
 
-void agn_feedback(int level );
+#include "halos.h"
+
+void agn_feedback(int level);
 void agn_find_mergers();
 void agn_seed( halo_list *list );
 
 #endif /* AGN */
 
-#endif 
+#endif /* __AGN_STEP_H__ */

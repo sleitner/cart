@@ -247,48 +247,48 @@ void mark_refinement_indicators( int cell, int level ) {
 	float drho[nDim];
 
 	if ( refinement_indicator[DARK_MASS_INDICATOR].use[level] ) {
-		indicator = max( dark_mass_indicator(cell, level), indicator );
+		indicator = MAX( dark_mass_indicator(cell, level), indicator );
 	}
 
 #ifdef HYDRO
 	if ( refinement_indicator[GAS_MASS_INDICATOR].use[level] ) {
-		indicator = max( gas_mass_indicator( cell, level ), indicator );
+		indicator = MAX( gas_mass_indicator( cell, level ), indicator );
 	}
 
 	cell_all_neighbors( cell, neighbors );
 	for ( i = 0; i < nDim; i++ ) {
 		drho[i] = fabs( cell_gas_density( neighbors[2*i] ) 
 			- cell_gas_density( neighbors[2*i+1] ) ) / 
-			min (1.0e-35+cell_gas_density( neighbors[2*i] ), 
+			MIN(1.0e-35+cell_gas_density( neighbors[2*i] ), 
 				1.0e-35+cell_gas_density( neighbors[2*i+1] ) );
 	}
 
 	if ( refinement_indicator[SHOCK_INDICATOR].use[level] ) {
-		indicator = max( shock_indicator(cell, level,neighbors), indicator );
+		indicator = MAX( shock_indicator(cell, level,neighbors), indicator );
 	}
 
 	if ( refinement_indicator[CONTACT_DISCONTINUITY_INDICATOR].use[level] ) {
-		indicator = max( contact_discontinuity_indicator(cell,level,neighbors,drho), indicator );
+		indicator = MAX( contact_discontinuity_indicator(cell,level,neighbors,drho), indicator );
 	}
 
 	if ( refinement_indicator[DENSITY_GRADIENT_INDICATOR].use[level] ) {
-		indicator = max( density_gradient_indicator(cell,level,neighbors,drho), indicator );
+		indicator = MAX( density_gradient_indicator(cell,level,neighbors,drho), indicator );
 	}
 
 	if ( refinement_indicator[PRESSURE_GRADIENT_INDICATOR].use[level] ) {
-		indicator = max( pressure_gradient_indicator(cell,level,neighbors), indicator );
+		indicator = MAX( pressure_gradient_indicator(cell,level,neighbors), indicator );
 	}
 
 	if ( refinement_indicator[ENTROPY_GRADIENT_INDICATOR].use[level] ) {
-		indicator = max( entropy_gradient_indicator(cell,level,neighbors), indicator );
+		indicator = MAX( entropy_gradient_indicator(cell,level,neighbors), indicator );
 	}
         
 	if ( refinement_indicator[SPATIAL_INDICATOR].use[level] ) {
-		indicator = max( spatial_indicator(cell,level), indicator );
+		indicator = MAX( spatial_indicator(cell,level), indicator );
 	}
 
 	if ( refinement_indicator[JEANS_LENGTH_INDICATOR].use[level] ) {
-		indicator = max( jeans_length_indicator(cell,level), indicator );
+		indicator = MAX( jeans_length_indicator(cell,level), indicator );
 	}
 #endif /* HYDRO */
 
@@ -305,7 +305,7 @@ float dark_mass_indicator( int cell, int level ) {
 	ave_mass = 0.0;
 #endif /* PARTICLES */
 
-	return min( ave_mass, refinement_indicator[DARK_MASS_INDICATOR].weight );
+	return MIN( ave_mass, refinement_indicator[DARK_MASS_INDICATOR].weight );
 }
 
 #ifdef HYDRO
@@ -326,7 +326,7 @@ float gas_mass_indicator( int cell, int level ) {
 	float ave_mass;
 
 	ave_mass = ( cell_volume[level] * cell_gas_density(cell) ) / refinement_indicator[GAS_MASS_INDICATOR].threshold[level];
-	return min( ave_mass, refinement_indicator[GAS_MASS_INDICATOR].weight );
+	return MIN( ave_mass, refinement_indicator[GAS_MASS_INDICATOR].weight );
 }
 
 float shock_indicator( int cell, int level, int neighbors[] ) {
@@ -342,7 +342,7 @@ float shock_indicator( int cell, int level, int neighbors[] ) {
 				&& cell_level( cell_neighbor( neighbors[2*i+1], i+1 ) ) == level ) {
 			dp = fabs( cell_gas_pressure( neighbors[2*i] ) 
 				- cell_gas_pressure( neighbors[2*i+1] ) ) / 
-				min( cell_gas_pressure( neighbors[2*i] ),
+				MIN( cell_gas_pressure( neighbors[2*i] ),
 					cell_gas_pressure( neighbors[2*i+1] ) );
 
 			dv = fabs( cell_momentum(neighbors[2*i],i) ) / cell_gas_density( neighbors[2*i] )
@@ -350,7 +350,7 @@ float shock_indicator( int cell, int level, int neighbors[] ) {
 
 			if ( dp > 3.0 && dv > 0.0 && 
 					cell_gas_density(cell) > refinement_indicator[SHOCK_INDICATOR].threshold[level] ) {
-				indicator = max( refinement_indicator[SHOCK_INDICATOR].weight, indicator );
+				indicator = MAX( refinement_indicator[SHOCK_INDICATOR].weight, indicator );
 			}
 		}
 	}
@@ -370,11 +370,11 @@ float contact_discontinuity_indicator( int cell, int level, int neighbors[], flo
 				&& cell_level( cell_neighbor( neighbors[2*i+1], i+1 ) ) == level ) {
 	                dp = fabs( cell_gas_pressure( neighbors[2*i] )
         	                - cell_gas_pressure( neighbors[2*i+1] ) ) /
-                	        min( cell_gas_pressure( neighbors[2*i] ),
+                	        MIN( cell_gas_pressure( neighbors[2*i] ),
                         	        cell_gas_pressure( neighbors[2*i+1] ) );
                                                                                              
 	                if ( dp < 10.0 && drho[i] >= 0.6 ) {
-        	                indicator = max( refinement_indicator[CONTACT_DISCONTINUITY_INDICATOR].weight, indicator );
+        	                indicator = MAX( refinement_indicator[CONTACT_DISCONTINUITY_INDICATOR].weight, indicator );
 	                }
 		}
         }
@@ -390,15 +390,15 @@ float density_gradient_indicator( int cell, int level, int neighbors[], float dr
 
 	for ( i = 0; i < nDim; i++ ) {
 		rho_ind1 = fabs( cell_gas_density(cell) - cell_gas_density(neighbors[2*i]) ) /
-			min ( cell_gas_density(cell), cell_gas_density(neighbors[2*i] ) );
+			MIN( cell_gas_density(cell), cell_gas_density(neighbors[2*i] ) );
 
 		rho_ind2 = fabs(cell_gas_density(cell) - cell_gas_density(neighbors[2*i+1])) /
-			min ( cell_gas_density(cell), cell_gas_density(neighbors[2*i+1] ) );
+			MIN( cell_gas_density(cell), cell_gas_density(neighbors[2*i+1] ) );
 
-		drho_indicator = max( drho[i], max( rho_ind1, rho_ind2 ) );
+		drho_indicator = MAX( drho[i], MAX( rho_ind1, rho_ind2 ) );
 		if ( drho_indicator > 1.0 && 
 			cell_gas_density(cell) > refinement_indicator[DENSITY_GRADIENT_INDICATOR].threshold[level] ) {
-			indicator = max( indicator, refinement_indicator[DENSITY_GRADIENT_INDICATOR].weight*max(rho_ind1, rho_ind2) );
+			indicator = MAX( indicator, refinement_indicator[DENSITY_GRADIENT_INDICATOR].weight*MAX(rho_ind1, rho_ind2) );
 		}
 	}
 
@@ -407,29 +407,28 @@ float density_gradient_indicator( int cell, int level, int neighbors[], float dr
 
 float pressure_gradient_indicator( int cell, int level, int neighbors[] ) {
 	int i;
-        float press_ind1, press_ind2;
-        float indicator = 0.0;
-                                                                                             
-        for ( i = 0; i < nDim; i++ ) {
+	float press_ind1, press_ind2;
+	float indicator = 0.0;
+
+	for ( i = 0; i < nDim; i++ ) {
 		if ( cell_level( neighbors[2*i] ) == level 
 				&& cell_level( neighbors[2*i+1] ) == level
 				&& cell_level( cell_neighbor( neighbors[2*i], 2*i ) ) == level 
 				&& cell_level( cell_neighbor( neighbors[2*i+1], 2*i+1 ) ) == level ) {
 			press_ind1 = fabs( cell_gas_pressure(cell) - cell_gas_pressure(neighbors[2*i]) )
 				/ ( cell_gas_pressure(cell) + cell_gas_pressure(neighbors[2*i]) );
-                                                                                             
-	                press_ind2 = fabs(cell_gas_pressure(cell) - cell_gas_pressure(neighbors[2*i+1])) 
-				/ ( cell_gas_pressure(cell) + cell_gas_pressure(neighbors[2*i+1] ) );
-                                                                                             
-	                if ( cell_gas_density(cell) > refinement_indicator[PRESSURE_GRADIENT_INDICATOR].threshold[level] ) {
-        	                indicator = max( indicator, 
-					refinement_indicator[PRESSURE_GRADIENT_INDICATOR].weight*max(press_ind1, press_ind2) );
-                	}
-		}
-        }
-                                                                                             
-        return indicator;
 
+			press_ind2 = fabs(cell_gas_pressure(cell) - cell_gas_pressure(neighbors[2*i+1])) 
+				/ ( cell_gas_pressure(cell) + cell_gas_pressure(neighbors[2*i+1] ) );
+
+			if ( cell_gas_density(cell) > refinement_indicator[PRESSURE_GRADIENT_INDICATOR].threshold[level] ) {
+				indicator = MAX( indicator, 
+						refinement_indicator[PRESSURE_GRADIENT_INDICATOR].weight*MAX(press_ind1, press_ind2) );
+			}
+		}
+	}
+
+	return indicator;
 }
 
 
@@ -450,7 +449,7 @@ float jeans_length_indicator(int cell, int level)
   /*
   //  Sound speed squared
   */
-  cs2 = cell_gas_gamma(cell)*max((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0)/cell_gas_density(cell);
+  cs2 = cell_gas_gamma(cell)*MAX((cell_gas_gamma(cell)-1.0)*cell_gas_internal_energy(cell),0.0)/cell_gas_density(cell);
 
   /*
   //  Local velocity dispersion squared
@@ -476,7 +475,7 @@ float jeans_length_indicator(int cell, int level)
 
   q = cell_size[level]*refinement_indicator[JEANS_LENGTH_INDICATOR].threshold[level]/ljeans;
 
-  return min( q, refinement_indicator[JEANS_LENGTH_INDICATOR].weight );
+  return MIN( q, refinement_indicator[JEANS_LENGTH_INDICATOR].weight );
 }
 
 #endif /* HYDRO */

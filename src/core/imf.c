@@ -146,7 +146,7 @@ double imf_fm( double mstar )
 
 double imf_fmz( double mstar )
 {
-  return mstar * imf_internal.f(mstar) * min( 0.2, max( 0.01*mstar - 0.06, 1e-20 ) );
+  return mstar * imf_internal.f(mstar) * MIN( 0.2, MAX( 0.01*mstar - 0.06, 1e-20 ) );
 }
 
 

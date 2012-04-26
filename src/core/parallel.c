@@ -70,7 +70,7 @@ void configure_runtime_setup()
       nrun = mpi.world.size;
 
       ifft = 0;
-      nfft = min(num_grid,mpi.world.size);
+      nfft = MIN(num_grid,mpi.world.size);
     }
   else
     {

@@ -583,7 +583,7 @@ int timestep( int level, MPI_Comm level_com )
 	      {
 	        step_ret = timestep(level+1,child_com);
 		current_step_level = level;
-		ret = min(ret,step_ret);
+		ret = MIN(ret,step_ret);
 		if(ret==-1 && level<max_mpi_sync_level)
 		  {
 		    break;
@@ -676,8 +676,8 @@ int timestep( int level, MPI_Comm level_com )
                         units->time / constants->Myr );
                 cart_debug("dt bulk velocity  = %e Myr", 
                         cell_size[level]/(
-                                max( cell_momentum(courant_cell,0), 
-                                        max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
+                                MAX( cell_momentum(courant_cell,0), 
+                                        MAX( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
                                 cell_gas_density(courant_cell) ) * units->time / constants->Myr );
                 cart_debug("---------------------------------------------------------");
 
@@ -687,7 +687,7 @@ int timestep( int level, MPI_Comm level_com )
 		*/
 		if(reduce_dt_factor_step[level] == 0.0)
 		  {
-		    reduce_dt_factor_step[level] = dtl[level]/max(0.1*dtl[level],dt_needed) - 1.0;
+		    reduce_dt_factor_step[level] = dtl[level]/MAX(0.1*dtl[level],dt_needed) - 1.0;
 		  }
 		ret = -1;
 	}
@@ -838,7 +838,7 @@ void satisfy_time_refinement_constraints(int lowest_level)
   /*
   // Synch time-steps on all levels above time_refinement_level or lowest_level.
   */
-  synch_level = min(time_refinement_level,lowest_level);
+  synch_level = MIN(time_refinement_level,lowest_level);
 
   time_refinement_factor[synch_level] = 1;
   for(level=min_level; level<synch_level; level++)
@@ -852,7 +852,7 @@ void satisfy_time_refinement_constraints(int lowest_level)
   */
   for(level=synch_level+1; level<=lowest_level; level++)
     {
-      time_refinement_factor[level] = max(min_time_refinement_factor,(int)(0.999+dtl[level-1]/dtl[level]));
+      time_refinement_factor[level] = MAX(min_time_refinement_factor,(int)(0.999+dtl[level-1]/dtl[level]));
       dtl[level] = dtl[level-1]/time_refinement_factor[level];
     }
 
@@ -980,11 +980,11 @@ void set_timestepping_scheme()
       if(velocity > 0.0)
 	{
 	  dt_new = cfl_run*cell_size[level]/velocity;
-	  dtl_local[level] = min(dtl_local[level],dt_new);
+	  dtl_local[level] = MIN(dtl_local[level],dt_new);
 	  cart_debug("cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, n = %e #/cc, dt = %e Myr", 
 		     courant_cell, cell_level(courant_cell), 
-		     max( cell_momentum(courant_cell,0), 
-			  max( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
+		     MAX( cell_momentum(courant_cell,0), 
+			  MAX( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
 		     cell_gas_density(courant_cell) * units->velocity/constants->cms,
 		     sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
 			   cell_gas_density(courant_cell))*units->velocity/constants->cms,
@@ -1000,11 +1000,11 @@ void set_timestepping_scheme()
       for(i=0; i<num_particles; i++) if(particle_level[i]>=min_level && particle_level[i]<=max_level)
 	{
 	  velocity = 0.0;
-	  for(j=0; j<nDim; j++)	velocity = max(fabs(particle_v[i][j]),velocity);
+	  for(j=0; j<nDim; j++)	velocity = MAX(fabs(particle_v[i][j]),velocity);
 
 	  if(velocity > 0.0)
 	    {
-	      dtl_local[particle_level[i]] = min(dtl_local[particle_level[i]],particle_cfl*cell_size[particle_level[i]]/velocity);
+	      dtl_local[particle_level[i]] = MIN(dtl_local[particle_level[i]],particle_cfl*cell_size[particle_level[i]]/velocity);
 	    }
 	}
     }
@@ -1024,10 +1024,10 @@ void set_timestepping_scheme()
   /*
   // If we have cosmological constraints, satisfy them too.
   */
-  dda = abox_from_tcode(min(tl[min_level]+dtl[min_level],tcode_from_abox(abox[min_level]*max_a_inc))) - abox[min_level];
-  if(max_da > 0.0) dda = min(dda,max_da);
+  dda = abox_from_tcode(MIN(tl[min_level]+dtl[min_level],tcode_from_abox(abox[min_level]*max_a_inc))) - abox[min_level];
+  if(max_da > 0.0) dda = MIN(dda,max_da);
 
-  dtl[min_level] = min(dtl[min_level],tcode_from_abox(abox[min_level]+dda)-tl[min_level]);
+  dtl[min_level] = MIN(dtl[min_level],tcode_from_abox(abox[min_level]+dda)-tl[min_level]);
 #endif /* COSMOLOGY */
 
   /*
@@ -1055,7 +1055,7 @@ void set_timestepping_scheme()
       */
       if(dtl[level] > tol_dt_grow*dtl_old[level])
 	{
-	  dtl[level]  = min(dtl[level],dtl_old[level]*max_dt_inc);
+	  dtl[level]  = MIN(dtl[level],dtl_old[level]*max_dt_inc);
 #ifdef DEBUG_TIMESTEP
 	  if(local_proc_id == MASTER_NODE) cart_debug("Limiting the time-step increase at level %d to: %lg Myr",level,dtl[level]*units->time/constants->Myr);
 #endif
@@ -1065,7 +1065,7 @@ void set_timestepping_scheme()
 	  /*
 	  //  Decrease by at least min_dt_dec (so that next time no decrease may be needed).
 	  */
-	  dtl[level] = min(dtl[level],dtl_old[level]/min_dt_dec);
+	  dtl[level] = MIN(dtl[level],dtl_old[level]/min_dt_dec);
 #ifdef DEBUG_TIMESTEP
 	  if(local_proc_id == MASTER_NODE) cart_debug("Extending the time-step decrease at level %d to: %lg Myr",level,dtl[level]*units->time/constants->Myr);
 #endif
@@ -1094,7 +1094,7 @@ void set_timestepping_scheme()
   */
   for(level=lowest_level+1; level<=max_level; level++)
     {
-      time_refinement_factor[level] = min(2,max_time_refinement_factor);
+      time_refinement_factor[level] = MIN(2,max_time_refinement_factor);
       dtl[level] = dtl[level-1]/time_refinement_factor[level];
     }
 
@@ -1111,14 +1111,14 @@ void set_timestepping_scheme()
     {
       if(reduce_dt_factor[level] > 0.0)
 	{
-	  fdt[level] = max(fdt[level],reduce_dt_factor[level]);  /* we may have been already reduced by some other level */
+	  fdt[level] = MAX(fdt[level],reduce_dt_factor[level]);  /* we may have been already reduced by some other level */
 	  for(j=min_level; j<level; j++)
 	    {
-	      fdt[j] = max(fdt[j],reduce_dt_factor[level]*pow(reduce_dt_factor_shallow_dec,level-j));
+	      fdt[j] = MAX(fdt[j],reduce_dt_factor[level]*pow(reduce_dt_factor_shallow_dec,level-j));
 	    }
 	  for(j=level+1; j<=max_level; j++)
 	    {
-	      fdt[j] = max(fdt[j],reduce_dt_factor[level]*pow(reduce_dt_factor_deep_dec,j-level));
+	      fdt[j] = MAX(fdt[j],reduce_dt_factor[level]*pow(reduce_dt_factor_deep_dec,j-level));
 	    }
 	}
     }
@@ -1166,7 +1166,7 @@ void set_timestepping_scheme()
   for(level=min_level; level<=max_level; level++)
     {
       work *= time_refinement_factor[level];
-      star_formation_frequency[level] = max(1,nearest_int(min(work,sf_sampling_timescale*constants->yr/(units->time*dtl[level]))));
+      star_formation_frequency[level] = MAX(1,nearest_int(MIN(work,sf_sampling_timescale*constants->yr/(units->time*dtl[level]))));
     }
   end_time( WORK_TIMER );
 #endif /* STAR_FORMATION */

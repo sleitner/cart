@@ -15,4 +15,4 @@ void move_particles( int level );
 
 #endif /* PARTICLES */
 
-#endif
+#endif /* __PARTICLE_STEP_H__ */
