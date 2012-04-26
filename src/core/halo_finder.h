@@ -17,7 +17,10 @@ void compute_halo_mass( halo *h );
 void halo_recenter( halo *h );
 halo_list *find_halos();
 void write_halo_list( halo_list *list );
+
+#ifdef GRAVITY
 void write_halo_particle_list( halo_list *list );
+#endif /* GRAVITY */
 
 #endif /* PARTICLES */
 

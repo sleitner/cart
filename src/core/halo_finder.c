@@ -830,8 +830,9 @@ void write_halo_particle_list( halo_list *halos ) {
 	int total_particle_count;
 	int proc;
 	int *ids;
-	float *bind;
 	double dx, r, v, lgr;
+#ifdef GRAVITY
+	float *bind;
 	double phi, v2kms2, phi2kms2;
 	int plocal, pindex;
 	double thread_radial_potential[MAX_HALO_BINS];
@@ -840,6 +841,7 @@ void write_halo_particle_list( halo_list *halos ) {
 	double local_bin_volume[MAX_HALO_BINS];
 	double radial_potential[MAX_HALO_BINS];
 	double actual_bin_volume[MAX_HALO_BINS];
+#endif /* GRAVITY */
 
 	start_time( HALO_FINDER_WRITE_PARTICLES_TIMER );
 
@@ -875,6 +877,7 @@ void write_halo_particle_list( halo_list *halos ) {
 		h = &halos->list[ih];
 		rvir2 = h->rvir*h->rvir;
 
+#ifdef GRAVITY
 		for ( bin = 0; bin < num_bins; bin++ ) {
 			local_bin_volume[bin] = 0.0;
 			local_radial_potential[bin] = 0.0;
@@ -1016,13 +1019,19 @@ void write_halo_particle_list( halo_list *halos ) {
 		}
 
 		/* measure binding energy for local particles */
-		ids = cart_alloc(int, local_particle_count);
 		bind = cart_alloc(float, local_particle_count);
-		pindex = 0;
 		v2kms2 = pow( units->velocity/constants->kms, 2.0 );
 		phi2kms2 = pow( units->velocity*abox[min_level]/constants->kms, 2.0 );
+#endif /* GRAVITY */
 
+		pindex = 0;
+		ids = cart_alloc(int, local_particle_count);
+
+#ifdef GRAVITY
 #pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,cell_volume,oct_pos,oct_level,cell_delta,rvir2,particle_x,particle_id,particle_v,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids,bind,radial_potential,rl,phi2kms2,v2kms2) private(cell_list,i,j,k,m,coords,r,lgr,v,icell,dx,level,ioct,parent,child,plocal,ipart,phi,bin)
+#else
+#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,oct_pos,oct_level,cell_delta,rvir2,particle_x,particle_id,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids) private(cell_list,i,j,k,m,coords,r,lgr,icell,dx,level,ioct,parent,child,plocal,ipart,bin)
+#endif
 		{
 			cell_list = stack_init();
 
@@ -1072,6 +1081,7 @@ void write_halo_particle_list( halo_list *halos ) {
 											}
 											ids[plocal] = particle_id[ipart];
 
+#ifdef GRAVITY
 											v = 0.0;
 											for ( m = 0; m < nDim; m++ ) {
 												v += (particle_v[ipart][m]-h->vel[m])*(particle_v[ipart][m]-h->vel[m]);
@@ -1085,6 +1095,7 @@ void write_halo_particle_list( halo_list *halos ) {
 
 											/* phi = cell_potential(icell); */
 											bind[plocal] = phi*phi2kms2 + 0.5*v*v2kms2;
+#endif /* GRAVITY */
 										}
 									}
 									ipart = particle_list_next[ipart];
@@ -1111,9 +1122,10 @@ void write_halo_particle_list( halo_list *halos ) {
 
 			h->np = total_particle_count;
 			
-			size = total_particle_count*sizeof(int) + 
-					total_particle_count*sizeof(float) +
-					2*sizeof(int);
+			size = total_particle_count*sizeof(int) + 2*sizeof(int);
+#ifdef GRAVITY
+			size += total_particle_count*sizeof(float);
+#endif /* GRAVITY */
 
 			fwrite( &size, sizeof(int), 1, output );
 			fwrite( &h->id, sizeof(int), 1, output );
@@ -1128,6 +1140,7 @@ void write_halo_particle_list( halo_list *halos ) {
 				cart_free( ids );
 			}
 
+#ifdef GRAVITY
 			fwrite( bind, sizeof(float), local_particle_count, output );
 			cart_free( bind );
 
@@ -1137,15 +1150,18 @@ void write_halo_particle_list( halo_list *halos ) {
 				fwrite( bind, sizeof(float), particle_counts[proc], output );
 				cart_free( bind );
 			}
+#endif /* GRAVITY */
 
 			fwrite( &size, sizeof(int), 1, output );
 		} else {
 			/* send binding energies to root processor */
 			MPI_Send( ids, local_particle_count, MPI_INT, MASTER_NODE, 0, mpi.comm.run );
-			MPI_Send( bind, local_particle_count, MPI_FLOAT, MASTER_NODE, 0, mpi.comm.run );
-
 			cart_free( ids );
+
+#ifdef GRAVITY
+			MPI_Send( bind, local_particle_count, MPI_FLOAT, MASTER_NODE, 0, mpi.comm.run );
 			cart_free( bind );
+#endif /* GRAVITY */
 		}
 	}
 

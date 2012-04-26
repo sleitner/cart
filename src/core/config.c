@@ -377,7 +377,9 @@ void config_init()
 #endif /* AGN */
 #endif
 
+#ifdef PARTICLES
   config_init_halo_finder();
+#endif /* PARTICLES */
 
 #ifdef RADIATIVE_TRANSFER
   rtConfigInit();
@@ -422,7 +424,9 @@ void config_verify()
 #endif /* AGN */  
 #endif
 
+#ifdef PARTICLES
   config_verify_halo_finder();
+#endif /* PARTICLES */
 
 #ifdef RADIATIVE_TRANSFER
   rtConfigVerify();

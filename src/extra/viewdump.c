@@ -126,7 +126,7 @@ void print_cell_refinement_vars( int cell, int level ) {
 		for ( i = 0; i < nDim; i++ ) {
 			drho[i] = fabs( cell_gas_density( neighbors[2*i] )
 					- cell_gas_density( neighbors[2*i+1] ) ) /
-				min ( cell_gas_density( neighbors[2*i] ),
+				MIN( cell_gas_density( neighbors[2*i] ),
 					cell_gas_density( neighbors[2*i+1] ) );
 		}
 
