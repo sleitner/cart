@@ -2600,6 +2600,7 @@ void write_cart_hydro_tracers( char *filename ) {
 	int num_pages_received[MAX_PROCS];
 	int count[MAX_PROCS];
 	int pos[MAX_PROCS];
+	MPI_Status status;
 
 	cart_debug("writing hydro tracers");
 
@@ -2714,7 +2715,7 @@ void write_cart_hydro_tracers( char *filename ) {
 		for ( i = 1; i < num_procs; i++ ) {
 			num_pages_received[i] = 0;
 			MPI_Recv( page_ids[i], num_tracers_per_proc_page, 
-				MPI_INT, i, num_pages_received[i], mpi.comm.run, status );
+				MPI_INT, i, num_pages_received[i], mpi.comm.run, &status );
 			MPI_Get_count( &status, MPI_INT, &count[i] );
 			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
 			MPI_Recv( page[i], nDim*num_tracers_per_proc_page, MPI_DOUBLE, i, 
