@@ -843,17 +843,17 @@ void artio_restart_load_balance( artio_file handle ) {
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
-                /* do load balancing */
-        	constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
-        	cell_work = cart_alloc(float, num_root_cells );
+		/* do load balancing */
+		constrained_quantities = cart_alloc(int, num_constraints*num_root_cells );
+		cell_work = cart_alloc(float, num_root_cells );
 
-        	for ( i = 0; i < num_root_cells; i++ ) {
-        		cell_work[i] = 0.0;
-        	}
+		for ( i = 0; i < num_root_cells; i++ ) {
+			cell_work[i] = 0.0;
+		}
 
-        	for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
-        		constrained_quantities[i] = 0;
-        	}
+		for ( i = 0; i < num_constraints*num_root_cells; i++ ) {
+			constrained_quantities[i] = 0;
+		}
 
 		/* load grid information */
 		artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
@@ -864,7 +864,7 @@ void artio_restart_load_balance( artio_file handle ) {
 		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
 			end_sfc = min( sfc + num_grid*num_grid, num_root_cells ) - 1;
 			artio_grid_cache_sfc_range(handle, sfc, end_sfc );
-			
+
 			for ( ; sfc <= end_sfc; sfc++ ) {
 				artio_grid_read_root_cell_begin(handle, sfc, variables, 
 						&num_oct_levels, num_octs_per_level );
@@ -877,7 +877,7 @@ void artio_restart_load_balance( artio_file handle ) {
 					constrained_quantities[num_constraints*sfc] += num_children*num_octs_per_level[i];
 					cell_work[sfc] += cost_per_cell*(float)(2<<i)*num_children*num_octs_per_level[i];
 				}
-	
+
 				artio_grid_read_root_cell_end(handle);
 			}	
 		}
@@ -1402,6 +1402,10 @@ void read_artio_particles( artio_file handle ) {
 		artio_particle_read_root_cell_end(handle);
 	}
 
+/*  DHR - due to deleted particles, this code is incorrect, i.e. the sum of the local active particles
+    does not equal num_particles_total
 	MPI_Allreduce( &num_particles_local, &num_particles_total, 1, MPI_LONG, MPI_SUM, mpi.comm.run );
+*/
+	num_particles_total = particle_species_indices[num_particle_species];
 }
 #endif /* PARTICLES */
