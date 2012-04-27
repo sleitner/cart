@@ -487,7 +487,7 @@ void outslice(){
 
     /* output a 2-d slice through the center of the box */
     slice_region_hsize = slice_hsize_pc*constants->pc/units->length;
-    slice_region_hsize = min(num_grid/2,slice_region_hsize);
+    slice_region_hsize = MIN(num_grid/2,slice_region_hsize);
     cart_debug("original ouput size=%e [pc]",slice_region_hsize*units->length/constants->pc);
     slice_region_hsize=nsgrid_half*cell_size[OUTLEVEL]+cell_size[OUTLEVEL]/2.;
     cart_debug("adjusted ouput size=%e [code] %d[cells]",2*slice_region_hsize,2*nsgrid_half+1);
