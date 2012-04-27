@@ -17,6 +17,7 @@ extern const char* executable_name;
 extern char output_directory_d[]; 
 extern char logfile_directory_d[]; 
 
+char ufc_output_directory[CONTROL_PARAMETER_STRING_LENGTH] = "";
 
 #define H2C   1
 #define H2A   2
@@ -31,10 +32,12 @@ int ufc_flag = 3;     /* convert everything */
 
 void init()
 {
-  const char *str;
+  const char *str, *outdir;
   char c, *tmp;
   int n, mode;
   float v;
+
+  cart_debug("init: %s", executable_name );
 
   if(strcmp(options[0],"hart-to-cart")==0 || strcmp(options[0],"h2c")==0)
     {
@@ -84,8 +87,10 @@ void init()
 		 "  cart-to-artio or artio-to-cart (shorthand c2a/a2c)\n"
 		 "Valid options:\n"
 		 "  -j, --job-name=<name>              set the job name for the fileset\n" 
-		 "  -d, --data-directory=<dir>         set the data directory where files are\n" 
+		 "  -d, --data-directory=<dir>         set the input data directory where files are\n" 
 		 "                                     located (default is the current directory)\n"
+         "  -o, --output-directory=<dir>       set the data directory where converted output\n"
+         "                                     files are written (default is data-directory).\n"
 		 "  -l, --file-label=<label>           set the label for the fileset\n"
 		 "  -i, --input=<filename>             set the input grid filename; this option\n"
 		 "                                     combines -j, -d, and -l in one option, i.e.\n"
@@ -93,21 +98,24 @@ void init()
 		 "                                     .ext is either .d or .art\n" 
 		 "  -hf, --hart-file-name=<name>       set the name for the HART grid file\n"
 		 "                                     (default uses a .dh suffix)\n"
-		 "  -nc, --num-cart_files=<number>     set the number of cart files\n"
-		 "  -na, --num-artio_files=<number>    set the number of artio files\n"
+		 "  -nc, --num-cart_files=<number>     set the number of cart files (output only)\n"
+		 "  -na, --num-artio_files=<number>    set the number of artio files (output only)\n"
 #ifdef PARTICLES
 		 "  -p, --particle-only                convert particle files only\n"
 		 "                                     (for artio-to-* conversion)\n"
 		 "  -g, --grid-only                    convert grid files only\n"
 		 "                                     (for artio-to-* conversion)\n"
 		 "  -nrow, --cart-num-row=<number>     set the NROW parameter of hart/cart\n"
-		 "                                     particle files\n"
+		 "                                     particle files (output only)\n"
 		 "  -pfm, --particle-file-mode=<mode>  set the old-style particle file mode\n"
 		 "                                     for reading legacy files\n"
+         "                                     0 = double-prec positions, double-prec times (default),\n"
+         "                                     1 = double-prec positions, single-prec times,\n"
+         "                                     2 = single-prec positions, single-prec times\n"
 #endif
 		 "  -gfm, --grid-file-mode=<mode>      set the old-style grid file mode for\n"
 		 "                                     reading legacy files\n"
-,executable_name);
+		,executable_name,executable_name);
     }
 
   control_parameter_add2(control_parameter_string,(char *)jobname,"job-name","jobname","");
@@ -167,8 +175,15 @@ void init()
   str = extract_option1("data-directory","d",NULL);
   if(str != NULL)
     {
-      strncpy(output_directory_d,str,CONTROL_PARAMETER_STRING_LENGTH);
+      strncpy(output_directory_d,str,CONTROL_PARAMETER_STRING_LENGTH-1);
       output_directory_d[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
+    }
+
+  str = extract_option1("output-directory","o",NULL);
+  if(str != NULL)
+    {
+      strncpy(ufc_output_directory,str,CONTROL_PARAMETER_STRING_LENGTH-1);
+      ufc_output_directory[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
     }
 
   str = extract_option1("file-label","l",NULL);
@@ -282,17 +297,23 @@ void init()
 
   if(ufc_hart_fname == NULL)
     {
-      n = strlen(output_directory) + 1 + strlen(jobname);
+		if ( strcmp(ufc_output_directory,"") != 0 ) {
+			outdir = ufc_output_directory;
+		} else {
+			outdir = output_directory;
+		}
+	
+      n = strlen(outdir) + 1 + strlen(jobname);
       if(ufc_label != NULL) n += 1 + strlen(ufc_label) + 4;
       str = cart_alloc(char,n);
 
       if(ufc_label == NULL)
 	{
-	  sprintf((char *)str,"%s/%s.dh",output_directory,jobname);
+	  sprintf((char *)str,"%s/%s.dh",outdir,jobname);
 	}
       else
 	{
-	  sprintf((char *)str,"%s/%s_%s.dh",output_directory,jobname,ufc_label);
+	  sprintf((char *)str,"%s/%s_%s.dh",outdir,jobname,ufc_label);
 	}
       ufc_hart_fname = str;
     }
@@ -327,6 +348,12 @@ void read_file()
 
 void write_file()
 {
+  if ( strcmp(ufc_output_directory,"") != 0 ) {
+      cart_debug("Setting output directory to %s", ufc_output_directory);
+      strncpy(output_directory_d,ufc_output_directory,CONTROL_PARAMETER_STRING_LENGTH-1);
+      output_directory_d[CONTROL_PARAMETER_STRING_LENGTH-1] = 0;
+  }
+
   switch(ufc_mode)
     {
     case -H2A:
