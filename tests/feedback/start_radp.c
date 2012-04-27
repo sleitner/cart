@@ -38,8 +38,6 @@
 #include "rt_debug.h"
 
 #include "start_radp.h"
-void create_star_particle( int icell, float mass, double dt, int type );
-    
 
 double pos_central[nDim]={num_grid/2.,num_grid/2.,num_grid/2.};
 double tot_energy0=0;
