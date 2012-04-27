@@ -831,10 +831,10 @@ void write_halo_particle_list( halo_list *halos ) {
 	int proc;
 	int *ids;
 	double dx, r, v, lgr;
+	int plocal, pindex;
 #ifdef GRAVITY
 	float *bind;
 	double phi, v2kms2, phi2kms2;
-	int plocal, pindex;
 	double thread_radial_potential[MAX_HALO_BINS];
 	double thread_bin_volume[MAX_HALO_BINS];
 	double local_radial_potential[MAX_HALO_BINS];

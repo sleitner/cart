@@ -44,8 +44,8 @@ int cart_particle_num_row = num_grid;
 int num_cart_output_files = 1;
 int num_cart_input_files = 1;
     
-int art_grid_file_mode = 0;
-int art_particle_file_mode = 0;
+int cart_grid_file_mode = 0;
+int cart_particle_file_mode = 0;
 
 
 #ifdef RADIATIVE_TRANSFER
@@ -59,15 +59,20 @@ void rescale_radiation_fields(float scale);
 
 
 void config_init_io_cart() {
-	control_parameter_add2(control_parameter_int,&num_cart_output_files,"num-cart-output-files","num_cart_output_files","Number of parallel output files in the old art format.");
-	control_parameter_add2(control_parameter_int,&num_cart_input_files,"num-cart-input-files","num_cart_input_files","Number of parallel input files in the old art format.");
-	control_parameter_add2(control_parameter_int,&cart_particle_num_row,"cart-particle-num-row","cart_particle_num_row","Page size for old style ART particle format.");
+	control_parameter_add2(control_parameter_int,&num_cart_output_files,"io:num-cart-output-files","num_cart_output_files","Number of parallel output files in the old art format.");
+	control_parameter_add2(control_parameter_int,&num_cart_input_files,"io:num-cart-input-files","num_cart_input_files","Number of parallel input files in the old art format.");
+	control_parameter_add2(control_parameter_int,&cart_particle_num_row,"io:cart-particle-num-row","cart_particle_num_row","Page size for old style ART particle format.");
+
+	control_parameter_add2(control_parameter_int,&cart_particle_file_mode,"io:cart-particle-file-mode","particle_file_mode","Precision for old style ART particle format. 0 = double-precision positions, double-precision times (default), 1 = double-precision positions, single-precision times, 2 = single-precision positions, single-precision times");
+	control_parameter_add2(control_parameter_int,&cart_grid_file_mode,"io:cart-grid-file-mode","grid_file_mode","Grid file mode (ask Nick)");
 }
 
 void config_verify_io_cart() {
-	VERIFY(num-cart-output-files, num_cart_output_files > 0 && num_cart_output_files <= num_procs );
-	VERIFY(num-cart-input-files, num_cart_input_files > 0 && num_cart_input_files <= num_procs );
-	VERIFY(cart-particle-num-row, cart_particle_num_row > 0 );
+	VERIFY(io:num-cart-output-files, num_cart_output_files > 0 && num_cart_output_files <= num_procs );
+	VERIFY(io:num-cart-input-files, num_cart_input_files > 0 && num_cart_input_files <= num_procs );
+	VERIFY(io:cart-particle-num-row, cart_particle_num_row > 0 );
+	VERIFY(io:cart-particle-file-mode, cart_particle_file_mode >= 0 && cart_particle_file_mode <= 2 );
+	VERIFY(io:cart-grid-file-mode, cart_grid_file_mode >= 0 && cart_grid_file_mode <= 4 );
 }
 
 void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
@@ -434,13 +439,15 @@ void read_cart_restart( const char *label ) {
 
 void set_cart_grid_file_mode(int mode)
 {
-  if(mode>=-4 && mode<=4) art_grid_file_mode = mode;
+  if(mode>=0 && mode<=4) cart_grid_file_mode = mode;
+  else cart_error("Invalid grid file mode (%d)", mode );
 }
 
 #ifdef PARTICLES
 void set_cart_particle_file_mode(int mode)
 {
-  if(mode>=-2 && mode<=2) art_particle_file_mode = mode;
+  if(mode>=0 && mode<=2) cart_particle_file_mode = mode;
+  else cart_error("Invalide particle file mode (%d)", mode );
 }
 
 
@@ -492,18 +499,16 @@ void restart_load_balance_cart( char *grid_filename, char *particle_header_filen
 		/* load particle work information */
 #ifdef PARTICLES
 		if ( particle_header_filename != NULL ) {
-			switch(art_particle_file_mode) {
+			switch(cart_particle_file_mode) {
 				case 0:
 				case 1:
-				case -1:
 					restart_load_balance_cart_particle_double(particle_header_filename,particle_data,cell_work,constrained_quantities);
 					break;
 				case 2:
-				case -2:
 					restart_load_balance_cart_particle_float(particle_header_filename,particle_data,cell_work,constrained_quantities);
 					break;
 				default:
-					cart_error("Invalid art_particle_file_mode=%d",art_particle_file_mode);
+					cart_error("Invalid cart_particle_file_mode=%d",cart_particle_file_mode);
 			}
 		}
 #endif /* PARTICLES */
@@ -652,7 +657,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 #endif /* STAR_PARTICLE_TYPES */
 #endif /* STAR_FORMATION */
 
-	if(art_particle_file_mode > 0) art_particle_file_mode = 0; /* Auto-reset */
+	if(cart_particle_file_mode > 0) cart_particle_file_mode = 0; /* Auto-reset */
 
 	num_parts_per_page = cart_particle_num_row*cart_particle_num_row;
 	num_parts_per_proc_page = num_parts_per_page/num_procs;
@@ -2545,7 +2550,7 @@ void read_cart_particle_header( char *header_filename, particle_header *header, 
 void read_cart_particles( char *header_filename, char *data_filename, 
 			char *timestep_filename, char *stellar_filename,
 			int num_sfcs, int *sfc_list ) {
-  switch(art_particle_file_mode)
+  switch(cart_particle_file_mode)
     {
     case 0:
       {
@@ -2566,7 +2571,7 @@ void read_cart_particles( char *header_filename, char *data_filename,
       }
     default:
       {
-	cart_error("Invalid art_particle_file_mode=%d",art_particle_file_mode);
+	cart_error("Invalid cart_particle_file_mode=%d",cart_particle_file_mode);
       }
     }
 }
@@ -3262,7 +3267,7 @@ void write_cart_grid_binary( char *filename ) {
 	int num_other_vars = 0;
 	int *other_vars = 0;
 
-	if(art_grid_file_mode > 0) art_grid_file_mode = 0; /* Auto-reset */
+	if(cart_grid_file_mode > 0) cart_grid_file_mode = 0; /* Auto-reset */
 
 #ifdef HYDRO
 	/*
@@ -3922,7 +3927,7 @@ void read_cart_grid_binary( char *filename ) {
 #endif
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
-	switch(art_grid_file_mode)
+	switch(cart_grid_file_mode)
 	  {
 	  case  0:
 	    {
@@ -3931,14 +3936,12 @@ void read_cart_grid_binary( char *filename ) {
 	      break;
 	    }
 	  case  1:
-	  case -1:
 	    {
 	      num_in_hydro_vars = num_hydro_vars + 6;
 	      num_in_other_vars = num_other_vars + 6;
 	      break;
 	    }
 	  case  2:
-	  case -2:
 	    {
 	      num_in_hydro_vars = num_hydro_vars + 6;
 	      num_in_other_vars = num_other_vars + 8;
@@ -3946,7 +3949,6 @@ void read_cart_grid_binary( char *filename ) {
 	    }
 #ifdef BLASTWAVE_FEEDBACK
 	  case  3:
-	  case -3:
 	    {
 	      num_in_hydro_vars = num_hydro_vars - 1;
 	      num_in_other_vars = num_other_vars ;
@@ -3955,7 +3957,6 @@ void read_cart_grid_binary( char *filename ) {
 	    }
 #endif /* BLASTWAVE_FEEDBACK */
 	  case  4:
-	  case -4:
 	    {
 	      num_in_hydro_vars = num_hydro_vars;
 	      num_in_other_vars = num_other_vars + 2;
@@ -3963,7 +3964,7 @@ void read_cart_grid_binary( char *filename ) {
 	    }
 	  default:
 	    {
-	      cart_error("Invalid art_grid_file_mode=%d in a call to  read_grid_binary",art_grid_file_mode);
+	      cart_error("Invalid cart_grid_file_mode=%d in a call to  read_grid_binary",cart_grid_file_mode);
 	    }
 	  }
 
