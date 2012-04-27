@@ -4,5 +4,6 @@ CC		= mpicc
 CFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp 
 FFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp 
 F77     = mpif77
-INCLUDES = -I/usr/local/cluster/software/libraries/gsl/gsl-1.11/include
-EXTRALIBS = 
+INCLUDES = 
+#-I/usr/local/cluster/software/libraries/gsl/gsl-1.11/include
+EXTRALIBS = -lifcore
