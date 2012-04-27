@@ -37,8 +37,6 @@ void init()
   int n, mode;
   float v;
 
-  cart_debug("init: %s", executable_name );
-
   if(strcmp(options[0],"hart-to-cart")==0 || strcmp(options[0],"h2c")==0)
     {
       ufc_mode = +H2C;
