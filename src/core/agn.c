@@ -23,18 +23,18 @@
 #include "units.h"
 
 /* agn model parameters */
-int agn_accretion_recipe = 1;              /* Set to 0 for pure eddington accretion, 1 for Bondi accretion (constant-alpha), 2 for Bondi accretion (constant-beta) */
+int agn_accretion_recipe = 2;              /* Set to 0 for pure eddington accretion, 1 for Bondi accretion (constant-alpha), 2 for Bondi accretion (constant-beta) */
 int agn_feedback_recipe = 0;
 int agn_feedback_storage = 1;              /* Set to 0 for no storage, 1 for storage via Booth and Schaye (2009) Eqn (7) */
 int agn_dv_on_off = 1;                     /* Set dv to 0 in denominator of accretion rate or not (for Bondi-type accretion) */
 
 double eddington_factor = 1.0;             /* normalization of Eddington accretion (1 for standard value) */
 double radiative_efficiency = 0.1;         /* eta or eps_r */
-double feedback_efficiency = 0.05;         /* eps_f */
+double feedback_efficiency = 0.15;         /* eps_f */
 double bondi_normalization = 100.;         /* alpha normalization of standard Bondi implementations */
 double bondi_pivot_gas_density = 0.1;      /* gas density below which alpha=1 model applies, usually set to sf_min_gas_number_density */
 double bondi_exponent = 2.0;               /* Beta for constant-Beta (density dependent) model of Bondi implementations */
-double minimum_agn_feedback_temperature = 1e8; /* Tmin for critical energy in feedback */  
+double minimum_agn_feedback_temperature = 1e7;/* Tmin for critical energy in feedback */  
 double sink_particle_delta = 4.0;          /* This determines maximum r_acc=sink_particle_delta*resolution_size */
 double agn_merge_radius = 4.0;             /* maximum distance to merge two black hole particles */
 double agn_merge_velocity = 1000.;         /* maximum velocity to merge in km/s */
@@ -81,7 +81,7 @@ void config_verify_agn() {
 	VERIFY(agn:bondi_exponent, bondi_exponent > 0.0 ); 
 	VERIFY(agn:minimum_feedback_temperature, minimum_agn_feedback_temperature >= 1e6 ); 
 	VERIFY(agn:feedback_storage, agn_feedback_storage == 0 || agn_feedback_storage == 1 ); 
-	VERIFY(agn:sink_particle_delta, sink_particle_delta > 0.0); 
+	VERIFY(agn:sink_particle_delta, sink_particle_delta > 0.5); 
 	VERIFY(agn:merge_radius, agn_merge_radius > 0.0 && agn_merge_radius < pow( 2.0, max_level - 1 ) );
 	VERIFY(agn:merge_velocity, agn_merge_velocity > 0.0 );
 	VERIFY(agn:dv_on_off, agn_dv_on_off == 0 || agn_dv_on_off == 1 );
