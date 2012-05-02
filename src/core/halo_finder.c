@@ -726,7 +726,6 @@ halo_list *find_halos() {
 }
 
 void write_halo_list( halo_list *halos ) {
-	int i;
 	int ih;
 	char filename[512];
 	FILE *output;

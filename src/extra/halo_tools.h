@@ -8,6 +8,7 @@
 #include "halos.h"
 #include <mpi.h>
 
+int halo_level( const halo *h, MPI_Comm local_comm );
 void dump_region_around_halo(const char *filename, const halo *h, float size);
 
 /*

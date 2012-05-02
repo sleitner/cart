@@ -265,9 +265,6 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	double *recv_parts[MAX_PROCS];
 	int num_pages_received;
 
-	int coords[nDim], level;
-	double pos[nDim];
-
 #ifdef GRAVITY
 	float *send_potential;
 	float *recv_potential[MAX_PROCS];

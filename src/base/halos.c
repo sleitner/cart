@@ -56,7 +56,7 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
 	float px, py, pz, vx, vy, vz;
 	float rvir, rhalo, mvir;
 	float vmax, rmax, rs;
-	int np, coords[nDim];
+	int np;
 	halo_list *halos;
 	halo *h;
 	float a, OmM, OmL, OmB, h100; 
@@ -163,10 +163,6 @@ halo_list *load_halo_finder_catalog( const char *filename, int nmem_min, float m
 			h->mvir = constants->Msun/cosmology->h*mvir/units->mass;
 			h->vmax = constants->kms*vmax/units->velocity;
 			h->np = np;
-
-			coords[0] = (int)h->pos[0];
-			coords[1] = (int)h->pos[1];
-			coords[2] = (int)h->pos[2];
 		}
 	} while ( halos->num_halos < max_num_halos );
 

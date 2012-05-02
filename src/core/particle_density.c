@@ -176,7 +176,7 @@ void find_neighbors_slow( int ipart, int *particle_flag, int *num_neighbors_foun
 }
 
 void compute_particle_densities( int num_nearest_neighbors, int *particle_flag, float *particle_density ) {
-	int i, j;
+	int i;
 	double h;
 	int ipart;
 

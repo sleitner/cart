@@ -34,10 +34,10 @@ bool CellData::IsValid(const CellDataWorker& w) const
 
 
 #define DECL(var,header,weight) \
-  float var##_fun(int level, int cell, double *ref_pos, float *ref_vel); \
+  float var##_fun(int level, int cell, double *ref_pos, double *ref_vel); \
   CellDataWorker var##_impl = { var##_fun, header, weight }; \
   const CellDataWorker& var(var##_impl); \
-  float var##_fun(int level, int cell, double *ref_pos, float *ref_vel)
+  float var##_fun(int level, int cell, double *ref_pos, double *ref_vel)
 
 
 namespace ng

@@ -214,7 +214,7 @@ void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int l
 
 void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, halo_list *halos)
 {
-  int i, j, ih, node, size, rank, select;
+  int i, ih, node, size, rank, select;
   MESH_RUN_DECLARE(level,cell);
   FILE *f;
   char str[999];

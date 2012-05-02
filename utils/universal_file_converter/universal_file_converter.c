@@ -10,6 +10,7 @@
 #include "io.h"
 #include "io_artio.h"
 #include "io_cart.h"
+#include "parallel.h"
 #include "../extra/hart_io.h"
 
 
@@ -320,6 +321,8 @@ void init()
 
 void read_file()
 {
+  double wtime = MPI_Wtime();
+
   switch(ufc_mode)
     {
     case +H2C:
@@ -341,11 +344,15 @@ void read_file()
 	break;
       }
     }
+
+  cart_debug("Reading time: %lg sec",MPI_Wtime()-wtime);
 }
 
 
 void write_file()
 {
+  double wtime = MPI_Wtime();
+
   if ( strcmp(ufc_output_directory,"") != 0 ) {
       cart_debug("Setting output directory to %s", ufc_output_directory);
       strncpy(output_directory_d,ufc_output_directory,CONTROL_PARAMETER_STRING_LENGTH-1);
@@ -376,4 +383,6 @@ void write_file()
 	break;
       }
     }
+
+  cart_debug("Writing time: %lg sec",MPI_Wtime()-wtime);
 }

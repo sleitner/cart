@@ -11,6 +11,7 @@
 #include "parallel.h"
 #include "particle.h"
 #include "starformation.h"
+#include "system.h"
 #include "times.h"
 #include "timing.h"
 #include "tree.h"
@@ -27,6 +28,7 @@
 #endif
 
 FILE *steptimes;
+FILE *datesteptimes;
 FILE *levelsteptimes;
 FILE *timing;
 FILE *energy;
@@ -426,9 +428,24 @@ void init_logging( int restart ) {
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
-			fprintf(levelsteptimes,"# step dtl [Myr] dtl[levels] [code units]\n");
+			fprintf(levelsteptimes,"# step dt [Myr] dtl[levels] [code units]\n");
 #else
 			fprintf(levelsteptimes,"# step dt dtl[levels] [code units]\n");
+#endif /* COSMOLOGY */
+		}
+
+		sprintf(filename,"%s/date_times.log", logfile_directory );
+		datesteptimes = fopen(filename,mode);
+
+		if ( datesteptimes == NULL ) {
+			cart_error("Unable to open %s for writing!", filename );
+		}
+
+		if ( !restart || restart == 2 ) {
+#ifdef COSMOLOGY
+			fprintf(datesteptimes,"# step dt [Myr] UTC-time-stamp\n");
+#else
+			fprintf(datesteptimes,"# step dt UTC-time-stamp\n");
 #endif /* COSMOLOGY */
 		}
 
@@ -539,6 +556,7 @@ void finalize_logging() {
 	if ( local_proc_id == MASTER_NODE ) {
 		/* close log files */
 		fclose(steptimes);
+		fclose(datesteptimes);
 		fclose(levelsteptimes);
 		fclose(energy);
 	}
@@ -850,6 +868,9 @@ void log_diagnostics() {
 		}
 		fprintf(levelsteptimes, "\n" );
 		fflush(levelsteptimes);
+
+		fprintf(datesteptimes, "%u %e %s\n", step, current_dt, system_get_time_stamp(1) );
+		fflush(datesteptimes);
 	}
 
 #ifdef PARTICLES

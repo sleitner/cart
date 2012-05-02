@@ -21,15 +21,6 @@
 
 extern int rtOtvetMaxNumIter;
 
-//#define RT_OTVET_SOFT_SOLVER
-#ifdef RT_OTVET_SOFT_SOLVER
-#define ADX(adx) (0.5*(1.0-exp(-2*adx)))
-#define BET      1.0
-#else
-#define ADX(adx) (adx)
-#define BET      0.10
-#endif
-
 
 #ifdef RT_OTVET_SAVE_FLUX
 #ifdef RT_UV
@@ -80,7 +71,7 @@ typedef struct
 rt_laplacian_t;
 
 
-void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd, int nit, int work, rt_laplacian_t lap);
+void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, int nit, int work, rt_laplacian_t lap);
 
 extern rt_laplacian_t rt_unitary;
 extern rt_laplacian_t rt_generic;
@@ -139,7 +130,7 @@ void rtLevelUpdateTransferOtvet(int level)
   // Extra arrays
   */
   int *indL2G, *indG2L, *neib, *info, *tmp;
-  float *abc[2], *dd, *jac, *rhs;
+  float *abc[2], *dd2, *jac, *rhs, *dfx;
 
   /*
   // Work variables
@@ -268,7 +259,8 @@ void rtLevelUpdateTransferOtvet(int level)
 
       rhs = cart_alloc(float, num_level_cells );
       jac = cart_alloc(float, num_level_cells );
-      dd  = cart_alloc(float, num_level_cells );
+      dd2 = cart_alloc(float, num_level_cells );
+      dfx = cart_alloc(float, num_level_cells );
 
       /*
       // Are we using too much memory?
@@ -378,6 +370,8 @@ void rtLevelUpdateTransferOtvet(int level)
 		}
 	    }
 
+	  cart_debug("OTVET: nit=%d nit0=%d",nit,nit0);
+
 	  /*
 	  // Update local field
 	  */
@@ -399,7 +393,7 @@ void rtLevelUpdateTransferOtvet(int level)
 	    }
 	  end_time(WORK_TIMER);
 
-	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[0],rhs,jac,dd,nit,work,rt_generic);
+	  rtOtvetSolveFieldEquation(ivarL,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[0],rhs,jac,dd2,dfx,nit,work,rt_generic);
 
 	  if(work)
 	    {
@@ -458,7 +452,7 @@ void rtLevelUpdateTransferOtvet(int level)
 	      end_time(WORK_TIMER);
 	    }
 
-	  rtOtvetSolveFieldEquation(ivarG,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[1],rhs,jac,dd,nit,work,rt_unitary);
+	  rtOtvetSolveFieldEquation(ivarG,level,num_level_cells,num_total_cells,indL2G,neib,info,abc[1],rhs,jac,dd2,dfx,nit,work,rt_unitary);
 
 	  if(work)
 	    {
@@ -533,7 +527,8 @@ void rtLevelUpdateTransferOtvet(int level)
       cart_free(info);
       cart_free(rhs);
       cart_free(jac);
-      cart_free(dd);
+      cart_free(dd2);
+      cart_free(dfx);
 #ifdef RT_OTVET_CACHE_RF
       cart_free(cache_var);
 #endif
@@ -564,108 +559,25 @@ void rtLevelUpdateTransferOtvet(int level)
 
 #define RPT(ind,iL)      (varET(ind,iL)*var(iL))
 
-void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd, int nit, int work, rt_laplacian_t lap)
+
+void rtOtvetIterate1(int it, int nit, int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, rt_laplacian_t lap);
+void rtOtvetIterate2(int it, int nit, int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, rt_laplacian_t lap);
+void rtOtvetIterate3(int it, int nit, int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, rt_laplacian_t lap);
+
+
+void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, int nit, int work, rt_laplacian_t lap)
 {
-  /*
-  // Numerical parameters
-  // alpha should be: 
-  //   (1) sufficiently smaller than 1 for stability
-  //   (2) not too small for efficiency
-  */
-  const float alpha = 0.8;
-  const float beta  = BET;
-  const float gamma = 1.0;
-  const float epsNum = 1.0e-3;
-
-  int j, it, iL, *nb;
-  float abcMid[num_neighbors], flux[num_neighbors];
-  float dx = cell_size[level];
-
-  if(work)
-    {
-
-      start_time(WORK_TIMER);
-
-#pragma omp parallel for default(none), private(iL,nb,abcMid,j), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,dx,lap,rhs,dd,cache_var)
-      for(iL=0; iL<num_level_cells; iL++)
-	{
-      
-	  nb = neib + rtStencilSize*iL;
-
-	  rtOtvetMidPointAbsorptionCoefficients(level,iL,info,nb,abc,abcMid);
-	  /*
-	  //  Make everything dimensionsless
-	  */
-	  for(j=0; j<num_neighbors; j++) abcMid[j] = abcMid[j]*dx + epsNum;
-
-	  /*
-	  // Inverse Jacobian
-	  */
-	  jac[iL] = gamma/(1.0+gamma*(beta*abc[iL]*dx+lap.Diag(iL,indL2G,abcMid)));
-
-	  /*
-	  // RHS: absorption must act on the initial field only to insure
-	  // photon number conservation
-	  */
-	  rhs[iL] = dx*rhs[iL] - (1-beta)*ADX(abc[iL]*dx)*var(iL);
-	}
-
-      end_time(WORK_TIMER);
-
-    }
-
+  int it, iL;
+  
   for(it=1; it<=nit; it++)
     {
       if(work)
 	{
-
 	  start_time(WORK_TIMER);
 
-	  /*
-	  // Compute Laplacian term
-	  */
-#ifdef RT_OTVET_SAVE_FLUX
-#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd,dx,lap,cache_var,rt_flux_field,rt_flux,it,nit)
-#else
-#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd,dx,lap,cache_var)
-#endif /* RT_OTVET_SAVE_FLUX */
-	  for(iL=0; iL<num_level_cells; iL++)
-	    {
-
-	      nb = neib + rtStencilSize*iL;
-
-	      rtOtvetMidPointAbsorptionCoefficients(level,iL,info,nb,abc,abcMid);
-	      /*
-	      //  Make everything dimensionsless
-	      */
-	      for(j=0; j<num_neighbors; j++) abcMid[j] = abcMid[j]*dx + epsNum;
-
-	      /*
-	      // Main operator element
-	      */
-	      dd[iL] = lap.Full(ivar,iL,indL2G,nb,abcMid,flux) - beta*ADX(abc[iL]*dx)*var(iL) + rhs[iL];
-
-#ifdef RT_OTVET_SAVE_FLUX
-	      /* save flux at the last iteration */
-	      if(it==nit && rt_field_offset+rt_flux_field==ivar)
-		{
-		  for(j=0; j<num_neighbors; j++) rt_flux[indL2G[iL]][j] = -flux[j];
-		}
-#endif /* RT_OTVET_SAVE_FLUX */
-	    }
-
-	  /*
-	  // Update the radiation field
-	  */
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivar,dd,jac,cache_var)
-	  for(iL=0; iL<num_level_cells; iL++)
-	    {
-	      var(iL) += alpha*jac[iL]*dd[iL];
-	      if(var(iL) < 0.0) var(iL) = 0;
-	    }
+	  rtOtvetIterate1(it,nit,ivar,level,num_level_cells,num_total_cells,indL2G,neib,info,abc,rhs,jac,dd2,dfx,lap);
 
 	  end_time(WORK_TIMER);
-
 	}
 
       /*
@@ -706,6 +618,314 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
 	    }
 #endif /* RT_OTVET_CACHE_RF */
 	}
+    }
+}
+
+
+void rtOtvetIterate1(int it, int nit, int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, rt_laplacian_t lap)
+{
+  /*
+  // Numerical parameters
+  // alpha should be: 
+  //   (1) sufficiently smaller than 1 for stability
+  //   (2) not too small for efficiency
+  */
+  const float CFL = 0.8;
+  const float gamma = 1.0;
+  const float epsNum = 1.0e-3;
+  /*
+  //  NG: I am not sure why this parameter is needed, but it is found empirically to work well. 
+  */
+  const float eta = 0.1;
+
+  int j, iL, *nb;
+  float abcMid[num_neighbors], flux[num_neighbors];
+  float dx = cell_size[level];
+
+  /*
+  // Compute Laplacian term
+  */
+#ifdef RT_OTVET_SAVE_FLUX
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd2,dx,lap,cache_var,it,rt_flux_field,rt_flux,nit)
+#else
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,rhs,jac,dd2,dx,lap,cache_var,it)
+#endif /* RT_OTVET_SAVE_FLUX */
+  for(iL=0; iL<num_level_cells; iL++)
+    {
+
+      nb = neib + rtStencilSize*iL;
+
+      rtOtvetMidPointAbsorptionCoefficients(level,iL,info,nb,abc,abcMid);
+      /*
+      //  Make everything dimensionsless
+      */
+      for(j=0; j<num_neighbors; j++) abcMid[j] = abcMid[j]*dx + epsNum;
+
+      if(it == 1)
+	{
+	  /*
+	  // Jacobian
+	  */
+	  jac[iL] = gamma/(1.0+gamma*(eta*abc[iL]*dx+lap.Diag(iL,indL2G,abcMid)));
+
+	  /*
+	  // RHS: absorption must act on the initial field only to insure
+	  // photon number conservation
+	  */
+	  rhs[iL] = dx*rhs[iL] - (1-eta)*abc[iL]*dx*var(iL);
+	}
+
+      /*
+      // Main operator element
+      */
+      dd2[iL] = lap.Full(ivar,iL,indL2G,nb,abcMid,flux) - eta*abc[iL]*dx*var(iL) + rhs[iL];
+
+#ifdef RT_OTVET_SAVE_FLUX
+      /* save flux at the last iteration */
+      if(it==nit && rt_field_offset+rt_flux_field==ivar)
+	{
+	  for(j=0; j<num_neighbors; j++) rt_flux[indL2G[iL]][j] = -flux[j];
+	}
+#endif /* RT_OTVET_SAVE_FLUX */
+    }
+
+  /*
+  // Update the radiation field
+  */
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivar,dd2,jac,cache_var,eta)
+  for(iL=0; iL<num_level_cells; iL++)
+    {
+      var(iL) += CFL*jac[iL]*dd2[iL];
+      if(var(iL) < 0.0) var(iL) = 0;
+    }
+}
+
+
+void rtOtvetIterate2(int it, int nit, int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, rt_laplacian_t lap)
+{
+  /*
+  // Numerical parameters:
+  // gamma <= 2/(2alpha-1)
+  // linear stability analysis is ignorant of the value of beta
+  */
+  const float CFL = 0.8;
+  const float alpha = 1;
+  const float beta  = alpha;
+  const float gamma = 1;
+  const float epsNum = 1.0e-3;
+  const float eta = 0.15;
+
+  int j, iL, *nb;
+  float abcMid[num_neighbors], flux[num_neighbors];
+  float dx = cell_size[level];
+  float abcCen, s1, s2, b1, b2, det;
+
+  /*
+  // Compute Laplacian term
+  */
+#ifdef RT_OTVET_SAVE_FLUX
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,rhs,dd2,dfx,dx,lap,cache_var,it,rt_flux_field,rt_flux,nit)
+#else
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,rhs,dd2,dfx,dx,lap,cache_var,it)
+#endif /* RT_OTVET_SAVE_FLUX */
+  for(iL=0; iL<num_level_cells; iL++)
+    {
+
+      nb = neib + rtStencilSize*iL;
+
+      rtOtvetMidPointAbsorptionCoefficients(level,iL,info,nb,abc,abcMid);
+
+      /*
+      //  Make everything dimensionsless
+      */
+      for(j=0; j<num_neighbors; j++)
+	{
+	  abcMid[j] = abcMid[j]*dx + epsNum;
+	}
+
+      /*
+      // Main operator element
+      */
+      dd2[iL] = lap.Full(ivar,iL,indL2G,nb,abcMid,flux);
+
+      if(it == 1)
+	{
+	  /*
+	  // Jacobian
+	  */
+	  jac[iL] = lap.Diag(iL,indL2G,abcMid);
+
+	  /*
+	  // Initial value for the flux divergence
+	  */
+	  dfx[iL] = dd2[iL];
+
+	  /*
+	  // RHS: absorption must act on the initial field only to insure
+	  // photon number conservation
+	  */
+	  rhs[iL] = dx*rhs[iL] - (1-eta)*abc[iL]*dx*var(iL);
+	}
+
+#ifdef RT_OTVET_SAVE_FLUX
+      /* save flux at the last iteration */
+      if(it==1 && rt_field_offset+rt_flux_field==ivar)
+	{
+	  for(j=0; j<num_neighbors; j++) rt_flux[indL2G[iL]][j] = -flux[j];
+	}
+#endif /* RT_OTVET_SAVE_FLUX */
+    }
+
+  /*
+  // Update the radiation field
+  */
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,abcCen,det,s1,s2,b1,b2), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,dx,dd2,jac,dfx,rhs,cache_var,eta,epsNum)
+  for(iL=0; iL<num_level_cells; iL++)
+    {
+      nb = neib + rtStencilSize*iL;
+
+      rtOtvetMidPointAbsorptionCoefficients(level,iL,info,nb,abc,abcMid);
+
+      /*
+      //  Make everything dimensionsless
+      */
+      abcCen = 0.0;
+      for(j=0; j<num_neighbors; j++)
+	{
+	  abcMid[j] = abcMid[j]*dx + epsNum;
+	  abcCen += abcMid[j];
+	}
+      abcCen /= num_neighbors;
+      abcCen = abc[iL]*dx + epsNum;
+
+      s1 = 1 + gamma*eta*abc[iL]*dx;
+      s2 = 1 + gamma*beta*abcCen;
+      b1 = dfx[iL] - eta*abc[iL]*dx*var(iL) + rhs[iL];
+      b2 = -abcCen*dfx[iL] + abcCen*dd2[iL];
+
+      det = s1*s2 + alpha*gamma*gamma*abcCen*jac[iL];
+
+      var(iL) += CFL*gamma*(s2*b1+alpha*gamma*b2)/det;
+      dfx[iL] += CFL*gamma*(s1*b2-gamma*abcCen*jac[iL]*b1)/det;
+
+      if(var(iL) < 0.0) var(iL) = 0;
+    }
+}
+
+
+void rtOtvetIterate3(int it, int nit, int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, rt_laplacian_t lap)
+{
+  /*
+  // Numerical parameters:
+  // gamma <= 2/(2alpha-1)
+  // linear stability analysis is ignorant of the value of beta
+  */
+  const float CFL = 0.8;
+  const float alpha = 1;
+  const float beta  = alpha;
+  const float gamma = 1;
+  const float epsNum = 1.0e-3;
+  const float eta = 0.15;
+  float var1, var2;
+
+  int j, iL, *nb;
+  float abcMid[num_neighbors], flux[num_neighbors];
+  float dx = cell_size[level];
+  float abcCen, s1, s2, b1, b2, det;
+
+  /*
+  // Compute Laplacian term
+  */
+#ifdef RT_OTVET_SAVE_FLUX
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,rhs,dd2,dfx,dx,lap,cache_var,it,rt_flux_field,rt_flux,nit)
+#else
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,flux), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,jac,rhs,dd2,dfx,dx,lap,cache_var,it)
+#endif /* RT_OTVET_SAVE_FLUX */
+  for(iL=0; iL<num_level_cells; iL++)
+    {
+
+      nb = neib + rtStencilSize*iL;
+
+      rtOtvetMidPointAbsorptionCoefficients(level,iL,info,nb,abc,abcMid);
+
+      /*
+      //  Make everything dimensionsless
+      */
+      for(j=0; j<num_neighbors; j++)
+	{
+	  abcMid[j] = abcMid[j]*dx + epsNum;
+	}
+
+      /*
+      // Main operator element
+      */
+      dd2[iL] = lap.Full(ivar,iL,indL2G,nb,abcMid,flux);
+
+      if(it == 1)
+	{
+	  /*
+	  // Jacobian
+	  */
+	  jac[iL] = lap.Diag(iL,indL2G,abcMid);
+
+	  /*
+	  // Initial value for the flux divergence
+	  */
+	  dfx[iL] = dd2[iL];
+
+	  /*
+	  // RHS: absorption must act on the initial field only to insure
+	  // photon number conservation
+	  */
+	  rhs[iL] = dx*rhs[iL] - (1-eta)*abc[iL]*dx*var(iL);
+	}
+
+#ifdef RT_OTVET_SAVE_FLUX
+      /* save flux at the last iteration */
+      if(it==1 && rt_field_offset+rt_flux_field==ivar)
+	{
+	  for(j=0; j<num_neighbors; j++) rt_flux[indL2G[iL]][j] = -flux[j];
+	}
+#endif /* RT_OTVET_SAVE_FLUX */
+    }
+
+  /*
+  // Update the radiation field
+  */
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,abcCen,det,s1,s2,b1,b2,var1,var2), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,dx,dd2,jac,dfx,rhs,cache_var,it)
+  for(iL=0; iL<num_level_cells; iL++)
+    {
+      nb = neib + rtStencilSize*iL;
+
+      rtOtvetMidPointAbsorptionCoefficients(level,iL,info,nb,abc,abcMid);
+
+      /*
+      //  Make everything dimensionsless
+      */
+      abcCen = 0.0;
+      for(j=0; j<num_neighbors; j++)
+	{
+	  abcMid[j] = abcMid[j]*dx + epsNum;
+	  abcCen += abcMid[j];
+	}
+      abcCen /= num_neighbors;
+      abcCen = abc[iL]*dx + epsNum;
+
+      var1 = var(iL) + CFL*gamma/(1.0+gamma*(eta*abc[iL]*dx+jac[iL]))*(dd2[iL]-eta*abc[iL]*dx*var(iL)+rhs[iL]);
+
+      s1 = 1 + gamma*eta*abc[iL]*dx;
+      s2 = 1 + gamma*beta*abcCen;
+      b1 = dfx[iL] - eta*abc[iL]*dx*var(iL) + rhs[iL];
+      b2 = -abcCen*dfx[iL] + abcCen*dd2[iL];
+
+      det = s1*s2 + alpha*gamma*gamma*abcCen*jac[iL];
+
+      var2 = var(iL) + CFL*gamma*(s2*b1+alpha*gamma*b2)/det;
+      dfx[iL] += CFL*gamma*(s1*b2-gamma*abcCen*jac[iL]*b1)/det;
+
+      var(iL) = 0.95*var1 + 0.05*var2;
+
+      if(var(iL) < 0.0) var(iL) = 0;
     }
 }
 
