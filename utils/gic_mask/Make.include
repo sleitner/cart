@@ -1,0 +1,10 @@
+
+dummy_gic_mask: gic_mask
+
+include $(TOP_DIR)/Make.config
+
+gic_mask: .obj/.phony $(DEFS) $(ANL_OBJS) $(TOP_DIR)/utils/gic_mask/gic_mask.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(SRC_DIR)/extra $(INCLUDES) $(ANL_OBJS) $(TOP_DIR)/utils/gic_mask/gic_mask.c -o gic_mask $(LIBS) $(EXTRALIBS)
+
+ALL += gic_mask
+CLEAN += *.o gic_mask
