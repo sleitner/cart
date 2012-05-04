@@ -1216,7 +1216,7 @@ c
 c
 c.... grid velocity <-> km/s = (x0*Ho)/aexpn
 c
-      if ( hydro_flag .eq. 1 ) then
+      if ( art_format_flag .eq. 1 ) then
         vg2kms = 50.0*boxh0 / (aexpn*ngridc) * sqrt(Om0)
       else
         vg2kms = 100.0*boxh0 / (aexpn*ngridc)
@@ -2036,9 +2036,11 @@ c
       include 'hfind.h'
       integer ret
       character*256 fname1, fname2, fname3
-      real maxdnb, mindnb
+      real maxdnb, mindnb, mass
 
-      hydro_flag = 1
+c	  ART format flag used to switch between HART/CART formatted PMcrd file 
+c     (and velocity unit) and orig. N-body ART. Default 1 = HART/CART
+      art_format_flag = 1
 
       nfn1 = index ( fname1 , ' ' ) - 1 
       nfn2 = index ( fname2 , ' ' ) - 1
@@ -2061,9 +2063,9 @@ c.... read control information and check whether it has proper structure
       write(*,*) 'aexpn = ', AEXPN
 
       if ( ret .ne. 0 ) then
-        write(*,*) 'Not hydro, trying N-body format...',ret
+        write(*,*) 'Not hydro, trying original ART format...',ret
         rewind(23)
-        hydro_flag = 0
+        art_format_flag = 0
         read      (23,IOSTAT=ret) HEADER,
      &                  AEXPN,AEXP0,AMPLT,ASTEP,ISTEP,PARTW,
      &                  TINTG,EKIN,EKIN1,EKIN2,AU0,AEU0,
@@ -2115,7 +2117,14 @@ c.... read control information and check whether it has proper structure
          STOP
       Endif 
 
-      if ( hydro_flag .eq. 1 ) then
+      mass = wspecies(1)*lspecies(1)
+      do ispec = 2, nspecies
+        mass=mass+wspecies(ispec)*(lspecies(ispec)-lspecies(ispec-1))
+      enddo
+
+c     If we're using a hydro supported format, check for presence of baryons,
+c     and rescale particle masses to compensate.
+      if ( art_format_flag .eq. 1 .and. mass .lt. 0.99*NGRID**3 ) then
 c       rescale masses for purposes of computing properties
         do ispec = 1, nspecies
            wspecies(ispec) = wspecies(ispec) / (1.0-Omb0/Om0)
@@ -2168,7 +2177,7 @@ c     Read in densities (computed by smooth)
 c     rescale dm densities
       maxdnb = -1.e10
       mindnb = 1.e10
-      if ( hydro_flag .eq. 1 ) then
+      if ( art_format_flag .eq. 1 .and. mass .lt. 0.99*NGRID**3 ) then
         write(*,*) 'Scaling densities by 1-fb'
         do i=1,np
           dnb(i) = dnb(i) / (1.0 - Omb0/Om0)
