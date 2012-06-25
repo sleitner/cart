@@ -1,5 +1,6 @@
 #include "config.h"
-#ifdef PARTICLES
+
+#if defined(COSMOLOGY) && defined(PARTICLES)
 
 #include <dirent.h>
 #include <stdio.h>
@@ -799,7 +800,7 @@ void write_halo_list( halo_list *halos ) {
 					h->vmax*units->velocity/constants->kms,
 					h->rmax*units->length_in_chimps*1000. );
 #else
-			fprintf("%5u %10.5lf %10.5lf %10.5lf %8.2lf %8.2lf %8.2lf %9.4lf %.5le %7u %7.2lf %9.4lf\n", h->id, 
+			fprintf( output, "%5u %10.5lf %10.5lf %10.5lf %8.2lf %8.2lf %8.2lf %9.4lf %.5le %7u %7.2lf %9.4lf\n", h->id, 
 					h->pos[0]*units->length / constants->Mpc,
 					h->pos[1]*units->length / constants->Mpc,
 					h->pos[2]*units->length / constants->Mpc,
@@ -863,7 +864,11 @@ void write_halo_particle_list( halo_list *halos ) {
 		output = fopen( filename, "w" );
 
 		size = sizeof(float);
+#ifdef COSMOLOGY
 		aexp = auni[min_level];
+#else
+		aexp = 1.0;
+#endif
 
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &aexp, sizeof(float), 1, output );
@@ -1029,7 +1034,11 @@ void write_halo_particle_list( halo_list *halos ) {
 		/* measure binding energy for local particles */
 		bind = cart_alloc(float, local_particle_count);
 		v2kms2 = pow( units->velocity/constants->kms, 2.0 );
+#ifdef COSMOLOGY
 		phi2kms2 = pow( units->velocity*abox[min_level]/constants->kms, 2.0 );
+#else
+		phi2kms2 = pow( units->velocity/constants->kms, 2.0 );
+#endif
 #endif /* GRAVITY */
 
 		pindex = 0;
@@ -1181,5 +1190,5 @@ void write_halo_particle_list( halo_list *halos ) {
 	end_time( HALO_FINDER_WRITE_PARTICLES_TIMER );
 }
 
-#endif /* PARTICLES */
+#endif /* COSMOLOGY && PARTICLES */
 

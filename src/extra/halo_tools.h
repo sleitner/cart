@@ -5,6 +5,8 @@
 #error "Missing config.h include."
 #endif
 
+#ifdef COSMOLOGY
+
 #include "halos.h"
 #include <mpi.h>
 
@@ -18,4 +20,5 @@ void dump_region_around_halo(const char *filename, const halo *h, float size);
 */
 void map_halos(int resolution_level, halo_list *halos, float size_factor);
 
+#endif /* COSMOLOGY */
 #endif

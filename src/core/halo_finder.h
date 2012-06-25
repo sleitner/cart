@@ -1,7 +1,7 @@
 #ifndef __HALO_FINDER_H__
 #define __HALO_FINDER_H__
 
-#ifdef PARTICLES
+#if defined(COSMOLOGY) && defined(PARTICLES)
 
 #define MAX_HALO_BINS		150
 
@@ -18,7 +18,7 @@ void halo_recenter( halo *h );
 halo_list *find_halos();
 void write_halo_list( halo_list *list );
 void write_halo_particle_list( halo_list *list );
-#endif /* PARTICLES */
 
+#endif /* COSMOLOGY && PARTICLES */
 #endif /* __HALO_FINDER_H__ */
 

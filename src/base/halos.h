@@ -5,6 +5,8 @@
 #error "Missing config.h include."
 #endif
 
+#ifdef COSMOLOGY
+
 #include <mpi.h>
 
 typedef struct HALO {
@@ -37,4 +39,5 @@ halo *find_halo_by_id(halo_list *halos, int id);
 halo_list *halo_list_alloc( int size );
 halo *halo_list_add_halo( halo_list *halos );
 
+#endif /* COSMOLOGY */
 #endif

@@ -358,7 +358,7 @@ void run( int restart, const char *restart_label ) {
 int global_timestep() {
 	int level;
 	int ret, global_ret;
-#ifdef PARTICLES
+#if defined(COSMOLOGY) && defined(PARTICLES)
 	halo_list *halos;
 #endif
 	DEFINE_LEVEL_ARRAY(double,tmp);
@@ -440,7 +440,7 @@ int global_timestep() {
 		}
 #endif /* REFINEMENT */
 
-#ifdef PARTICLES
+#if defined(COSMOLOGY) && defined(PARTICLES)
 		if ( halo_finder_frequency > 0 && step % halo_finder_frequency == 0 ) {
 			halos = find_halos();
 			if ( halos->num_halos > 0 ) {
@@ -466,7 +466,7 @@ int global_timestep() {
 		if ( halos != NULL ) {
 			destroy_halo_list(halos);
 		}
-#endif /* PARTICLES */
+#endif /* COSMOLOGY && PARTICLES */
 
 #ifdef RADIATIVE_TRANSFER	
 		rtStepEnd();

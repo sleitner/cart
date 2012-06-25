@@ -17,6 +17,7 @@
 
 #include "../extra/healpix.h"
 #include "../extra/ifrit.h"
+#include "../extra/ism.h"
 
 
 #ifdef RT_DEBUG
@@ -218,7 +219,7 @@ void FindIFront(float val, float *riAvg, float *riMin, float *riMax)
 #include "frt/frt_c.h"
 
 #ifdef RT_OTVET_SAVE_FLUX
-float Flux(int level, int cell, double *ref_pos, float *ref_vel)
+float Flux(int level, int cell, double *ref_pos, double *ref_vel)
 {
   int j;
   double pos[3], r2;
@@ -244,13 +245,13 @@ float Flux(int level, int cell, double *ref_pos, float *ref_vel)
   return f;
 }
 #else
-float Flux(int level, int cell, double *ref_pos, float *ref_vel)
+float Flux(int level, int cell, double *ref_pos, double *ref_vel)
 {
   return 0.0;
 }
 #endif /* RT_OTVET_SAVE_FLUX */
 
-float rf1(int level, int cell, double *ref_pos, float *ref_vel)
+float rf1(int level, int cell, double *ref_pos, double *ref_vel)
 {
   float ngxi[1], wlen[1] = { 911 };
 
@@ -262,7 +263,7 @@ float rf1(int level, int cell, double *ref_pos, float *ref_vel)
 
 frt_real frtCall(getrfunits)(frt_intg *freq, frt_real *uNear, frt_real *uFar);
 
-float rf0(int level, int cell, double *ref_pos, float *ref_vel)
+float rf0(int level, int cell, double *ref_pos, double *ref_vel)
 {
   frt_intg freq = 1;
   frt_real uNear, uFar;
@@ -272,7 +273,7 @@ float rf0(int level, int cell, double *ref_pos, float *ref_vel)
   return uNear*cell_var(cell,RT_VAR_OT_FIELD);
 }
 
-float pir(int level, int cell, double *ref_pos, float *ref_vel)
+float pir(int level, int cell, double *ref_pos, double *ref_vel)
 {
   float rate[FRT_RATE_DIM];
 

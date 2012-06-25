@@ -381,17 +381,21 @@ void ifritOutputBox(const char *fileroot, int pixel_level, int nbin[], const dou
 }
 
 
-void ifritOutputHalo(const char *fileroot, int pixel_level, int nbin[], const halo *h, int nvars, const int *varid)
+void ifritOutputHalo(const char *fileroot, int pixel_level, int nbin[], const struct HALO *h, int nvars, const int *varid)
 {
+#ifdef COSMOLOGY
   if(h == NULL)
+#endif /* COSMOLOGY */
     {
       cart_debug("No halo file is loaded. Skipping ifritOutputHalo.");
       return;
     }
+#ifdef COSMOLOGY
   else
     {
       ifritOutputBox(fileroot,pixel_level,nbin,h->pos,nvars,varid);
     }
+#endif /* COSMOLOGY */
 }
 
 
