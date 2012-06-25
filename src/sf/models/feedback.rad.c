@@ -39,7 +39,7 @@ float rad_luminosity_hart(int ipart)
   /*
   //  The convention is different from HART
   */
-  x1 = rad_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]);
+  x1 = rad_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]-particle_dt[ipart]);
   if(x1 < 0.0) x1 = 0.0;
   if(x1 < 1.0e4)
     {
@@ -47,18 +47,9 @@ float rad_luminosity_hart(int ipart)
       //  This is a rough fit to Starburst99 evolving spectra
       */
       dx = rad_code.ion_rate*particle_dt[ipart];
-      if(dx > 1.0e-5)
-        {
-          x2 = x1 + dx;
-          x1 *= (0.8+x1*x1);
-          x2 *= (0.8+x2*x2);
-          q = (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
-        }
-      else
-        {
-          x2 = x1*(0.8+x1*x1);
-          q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*rad_code.ion_rate;
-        }
+      x2 = x1 + dx;
+      q = rad_code.ion_rate*(0.8+x2*x2+x2*x1+x1*x1)/(1+x1*(0.8+x1*x1))/(1+x2*(0.8+x2*x2));
+
       return 1.4e-4*q;     
     }
   else
@@ -80,7 +71,7 @@ float rad_luminosity_popM(int ipart)
   /*
   //  The convention is different from HART
   */
-  x1 = rad_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]);
+  x1 = rad_code.ion_rate*(particle_t[ipart]-star_tbirth[ipart]-particle_dt[ipart]);
   if(x1 < 0.0) x1 = 0.0;
   if(x1 < 1.0e4)
     {
@@ -88,18 +79,9 @@ float rad_luminosity_popM(int ipart)
       //  This is a rough fit to Starburst99 evolving spectra
       */
       dx = rad_code.ion_rate*particle_dt[ipart];
-      if(dx > 1.0e-5)
-        {
-          x2 = x1 + dx;
-          x1 *= (0.8+x1*x1);
-          x2 *= (0.8+x2*x2);
-          q = (x2-x1)/(1+x1)/(1+x2)/particle_dt[ipart];
-        }
-      else
-        {
-          x2 = x1*(0.8+x1*x1);
-          q = (0.8+3*x1*x1)/(1+x2)/(1+x2)*rad_code.ion_rate;
-        }
+      x2 = x1 + dx;
+      q = rad_code.ion_rate*(0.8+x2*x2+x2*x1+x1*x1)/(1+x1*(0.8+x1*x1))/(1+x2*(0.8+x2*x2));
+
 #ifdef ENRICHMENT
       Z = (star_metallicity_II[ipart]
 #ifdef ENRICHMENT_SNIa

@@ -531,12 +531,21 @@ halo_list *find_halos() {
 	cart_debug("Finding halos...");
 
 	/* set up binning */
+#ifdef COSMOLOGY
 	rlmin = log10( rmin_physical/units->length_in_chimps );
 	rlmax = log10( rmax_physical/units->length_in_chimps );
+#else
+	rlmin = log10( rmin_physical );
+	rlmax = log10( rmax_physical );
+#endif
 	drl = (rlmax-rlmin)/(double)(num_bins-1);
 
 	rl[0] = 0.0;
+#ifdef COSMOLOGY
 	rr[0] = rmin_physical/units->length_in_chimps;
+#else
+	rr[0] = rmin_physical;
+#endif
 	bin_volume[0] = 4.0*M_PI/3.0 * rr[0]*rr[0]*rr[0];
 	bin_volume_cumulative[0] = bin_volume[0];
 
@@ -776,7 +785,7 @@ void write_halo_list( halo_list *halos ) {
 		for ( ih = 0; ih < halos->num_halos; ih++ ) {
 			h = &halos->list[ih];
 #ifdef COSMOLOGY
-			fprintf( output, "%5u %10.5f %10.5f %10.5f %8.2f %8.2f %8.2f %9.4f %.5e %7u %7.2f %9.4f\n", 
+			fprintf( output, "%5u %10.5lf %10.5lf %10.5lf %8.2lf %8.2lf %8.2lf %9.4lf %.5le %7u %7.2lf %9.4lf\n", 
 					h->id, 
 					h->pos[0]*units->length_in_chimps,
 					h->pos[1]*units->length_in_chimps,
@@ -790,7 +799,7 @@ void write_halo_list( halo_list *halos ) {
 					h->vmax*units->velocity/constants->kms,
 					h->rmax*units->length_in_chimps*1000. );
 #else
-			fprintf("%5u %10.5f %10.5f %10.5f %8.2f %8.2f %8.2f %9.4f %.5e %7u %7.2f %9.4f\n", h->id, 
+			fprintf("%5u %10.5lf %10.5lf %10.5lf %8.2lf %8.2lf %8.2lf %9.4lf %.5le %7u %7.2lf %9.4lf\n", h->id, 
 					h->pos[0]*units->length / constants->Mpc,
 					h->pos[1]*units->length / constants->Mpc,
 					h->pos[2]*units->length / constants->Mpc,

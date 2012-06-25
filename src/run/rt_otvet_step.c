@@ -370,8 +370,6 @@ void rtLevelUpdateTransferOtvet(int level)
 		}
 	    }
 
-	  cart_debug("OTVET: nit=%d nit0=%d",nit,nit0);
-
 	  /*
 	  // Update local field
 	  */

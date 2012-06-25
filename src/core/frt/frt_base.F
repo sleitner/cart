@@ -528,7 +528,7 @@ C  Background from external (outside of the box) QSOs
 C
 #ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
 
-      z = 1/aExp - 1
+      z = 1/(aExp+0.5*daExp) - 1
 C
 C  My fit to Hopkins et all 2007 (ApJ, 654, 731) comoving 
 C  bolometric luminosity density from QSOs (in Lsun/Mpc^3)

@@ -328,7 +328,9 @@ void read_file()
     case +H2C:
     case +H2A:
       {
+#ifdef HYDRO
 	read_hart_grid_binary((char *)ufc_hart_fname);
+#endif
 	break;
       }
     case -H2C:
@@ -367,7 +369,9 @@ void write_file()
       }
     case -H2C:
       {
+#ifdef HYDRO
 	write_hart_grid_binary((char *)ufc_hart_fname);
+#endif
 	break;
       }
     case +H2C:

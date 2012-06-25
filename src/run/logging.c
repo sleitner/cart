@@ -443,9 +443,9 @@ void init_logging( int restart ) {
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
-			fprintf(datesteptimes,"# step dt [Myr] UTC-time-stamp\n");
+			fprintf(datesteptimes,"# step auni date-time-stamp\n");
 #else
-			fprintf(datesteptimes,"# step dt UTC-time-stamp\n");
+			fprintf(datesteptimes,"# step t date-time-stamp\n");
 #endif /* COSMOLOGY */
 		}
 
@@ -869,7 +869,11 @@ void log_diagnostics() {
 		fprintf(levelsteptimes, "\n" );
 		fflush(levelsteptimes);
 
-		fprintf(datesteptimes, "%u %e %s\n", step, current_dt, system_get_time_stamp(1) );
+#ifdef COSMOLOGY
+		fprintf(datesteptimes, "%u %e %s", step, auni[min_level], system_get_time_stamp(0) );
+#else
+		fprintf(datesteptimes, "%u %e %s", step, tl[min_level], system_get_time_stamp(0) );
+#endif /* COSMOLOGY */
 		fflush(datesteptimes);
 	}
 
