@@ -59,7 +59,7 @@ C
 #endif
 C
       dimension itab(2), pRate(iptabDim)
-      dimension chf(2,NT)
+      dimension ichf(NICH), rchf(NRCH)
 #ifdef RT_TRANSFER
 #ifdef RT_TRANSFER_FLUX_CONSERVING
       dimension rf(irfDim)
@@ -108,13 +108,13 @@ C
       call frtPhotoRates(var,rf,itab,pRate)
 
       den = uDen*var(ivarRho)
-      call frtSetCF(var(ivarZsol),den,pRate,chf)
+      call frtCFCache(den,var(ivarZsol),pRate,ichf,rchf,ierr)
 #endif
 C
 C  Query mode
 C
       if(tFin .lt. 0.0) then
-         call frtRates(var,rf,itab,w0,a0,avg0,pRate,chf)
+         call frtRates(var,rf,itab,w0,a0,avg0,pRate,ichf,rchf)
          var(ivarCool) = a0(ivarEin)*var(ivarEin)
          var(ivarHeat) = w0(ivarEin)
          return
@@ -197,7 +197,7 @@ C
 
  10   nStep = nStep + 1
 
-      call frtRates(var,rf,itab,w0,a0,avg0,pRate,chf)
+      call frtRates(var,rf,itab,w0,a0,avg0,pRate,ichf,rchf)
       do j=1,nEqs
          y0(j) = var(j)
       enddo
@@ -217,10 +217,10 @@ C
 
       if(nStep .lt. 100) then
          call frtCoolOffStepQS1(nEqs,dt,var,rf,itab,
-     .        w0,a0,rs,d1,avg1,pRate,chf)
+     .        w0,a0,rs,d1,avg1,pRate,ichf,rchf)
       else
          call frtCoolOffStepQSN(nEqs,dt,var,rf,itab,
-     .        w0,a0,rs,d1,avg1,pRate,chf)
+     .        w0,a0,rs,d1,avg1,pRate,ichf,rchf)
       endif
 
       ivarmax = 1
@@ -351,12 +351,12 @@ C
 C
 C
 C
-      subroutine frtRates(var,rf,itab,w,a,avg,pRate,chf)
+      subroutine frtRates(var,rf,itab,w,a,avg,pRate,ichf,rchf)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension var(*), rf(*), itab(*)
       dimension w(*), a(*)
-      dimension avg(*), pRate(*), chf(2,*)
+      dimension avg(*), pRate(*), ichf(*), rchf(*)
 C
       dimension aRate(irateAtomN)
 #ifdef RT_CHEMISTRY
@@ -401,7 +401,7 @@ C
 
 #ifdef RT_VARIABLE_RF
       call frtPhotoRates(var,rf,itab,pRate)
-      call frtSetCF(var(ivarZsol),den,pRate,chf)
+      call frtCFCache(den,var(ivarZsol),pRate,ichf,rchf,ierr)
 #endif
 C
 #ifdef RT_CHEMISTRY
@@ -572,7 +572,7 @@ C
 C
 C  Heavy element (from tables)
 C
-      call frtGetCFln(altem,chf,cfun,hfun)
+      call frtCFGetLn(altem,ichf,rchf,cfun,hfun)
 
       aEinll = aEinll + uRate/1.381e-16*var(ivarRho)*cfun
       wEinll = wEinll + uRate/1.381e-16*var(ivarRho)*hfun*sFact1

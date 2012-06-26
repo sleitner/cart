@@ -235,8 +235,8 @@ C
 #ifdef RT_EXTERNAL_BACKGROUND
       call frtTransferPackHelper(1,var,rawrf,rf)
 #else
-      do j=1,NSETS
-         rf(irfOgf+j) = 2*VLARGE
+      do L=1,NSETS
+         rf(irfOgf+L) = 10*VLARGE
       enddo
 #endif
 
@@ -261,7 +261,7 @@ C
 
       do L=1,NSETS
          if(rf(irfOlf+L) .gt. VLARGE) then
-            rf(irfOlf+L) = 2*VLARGE
+            rf(irfOlf+L) = 10*VLARGE
             rf(irfOlv+L) = 0.0
          else if(rf(irfOlf+j) .gt. 0.0) then
             rf(irfOlf+L) = rf(irfOlf+L) - wFlux*tau(L)
@@ -269,7 +269,7 @@ C
          endif
 #ifdef RT_EXTERNAL_BACKGROUND
          if(rf(irfOgf+L) .gt. VLARGE) then
-            rf(irfOgf+L) = 2*VLARGE
+            rf(irfOgf+L) = 10*VLARGE
             rf(irfOgv+L) = 0.0
          else if(rf(irfOgf+L) .gt. 0.0)
             rf(irfOgf+L) = rf(irfOgf+L) - wFlux*tau(L)
@@ -384,28 +384,20 @@ C
       include 'frt_transfer3.inc'
 #endif
       dimension var(*), w(*), rf(*)
-      dimension tau(NSETS)
-#ifdef RT_VARIABLE_RF
-      dimension x(NSETS)
-#endif /* RT_VARIABLE_RF */
+      dimension tau(NSETS), x(NSETS)
       include 'frt_inline.inc'
 C
 C  Works only for the NSETS=3 or 4 case
 C
-#ifdef RT_VARIABLE_RF
       x(1) = max(varLow(ivarXH1),var(ivarXH1))
       x(2) = max(varLow(ivarXG1),var(ivarXG1))
       x(3) = max(varLow(ivarXG2),var(ivarXG2))
 #ifdef RT_UV
       x(4) = max(varLow(ivarXH1),var(ivarXH1)+2*var(ivarXMH))
 #endif
-#endif /* RT_VARIABLE_RF */
 
       do L=1,NSETS
-         tau(L) = rf(k*NSETS+irfOlf+L)
-#ifdef RT_VARIABLE_RF
-     .        + x(L)*rf(k*NSETS+irfOlv+L)
-#endif /* RT_VARIABLE_RF */
+         tau(L) = rf(k*NSETS+irfOlf+L) + x(L)*rf(k*NSETS+irfOlv+L)
       enddo
 C
 C  Now apply matrix.

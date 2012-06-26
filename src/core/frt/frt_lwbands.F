@@ -98,7 +98,7 @@ C
       clight=3.e10   ![cm s-1]
       Atocm=1.e-8
       
-      open(unit=IOUNIT, file=path//'/drt_lwbands.dat',
+      open(unit=IOUNIT, file=path//'/lwbands.dat',
      .    status='old')
       do i=1,n_lines_file
          read(IOUNIT,*) lambd,ttpop3 ![erg s-1 A-1] 

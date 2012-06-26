@@ -129,7 +129,7 @@ C
 	parameter(iptabPiG1 =  4)
 	parameter(iptabPhH1 =  5)
 	parameter(iptabPiH1 =  6)
-	parameter(iptabPiO8 =  7)
+	parameter(iptabPiC6 =  7)
 	parameter(iptabCi27 =  8)
 	parameter(iptabCi28 =  9)
 	parameter(iptabCi29 = 10)
@@ -199,6 +199,4 @@ C
 C
 C  Cross sections: meatl species for CF fits
 C
-	common/RT_TAB_S/ csO8(NRAD), csS16(NRAD), csFe26(NRAD),
-     .			 csO8tr, csS16tr, csFe26tr
-	common/RT_TAB_T/ lrO8tr, lrS16tr, lrFe26tr
+	common/RT_TAB_S/ csC6(NRAD), csC6tr, lrC6tr

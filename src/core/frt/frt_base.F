@@ -79,7 +79,14 @@ C
       call frtInitSourceSpectrum
 
       ib = index(DataPath,' ') - 1
-      call frtInitCF(IOUNIT,DataPath(1:ib)//'/drt_cf.LHO13.dat')
+      if(ib .lt. 0) ib = len(DataPath)
+
+      mode = 1
+      call frtInitCF(mode,DataPath(1:ib)//'/cf_table.I2.dat')
+      if(mode .ne. 0) then
+         write(0,*) 'RT::InitRun: unable to read cf_table.I2.dat'
+         call frtAbort
+      endif
 
 #ifdef RT_CHEMISTRY
 #ifdef RT_LWBANDS

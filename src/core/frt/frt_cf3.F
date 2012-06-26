@@ -1,173 +1,180 @@
-#include "frt_config.h"      
-#ifdef RADIATIVE_TRANSFER
-      subroutine frtInitCF(io,filename)
+      subroutine frtInitCF(m,fname)
       include 'frt_cf3.inc'
-      character*(*) filename
+      character*(*) fname
 
-      open(unit=io, file=filename, status='old',
-     .     form='unformatted')
+      mode = m
 
-      read(io) lt, ld, lp1, lp2, lp3, qstp(1), qstp(2), qstp(3),
-     .     qmin(1), qmin(2), qmin(3), qmax(1), qmax(2), qmax(3)
+      open(unit=IOCF, file=fname, status='old',
+     .     form='unformatted', err=100)
 
-      if(lt.ne.NT .or. ld.ne.ND .or. lp1.ne.NP1 .or. 
-     .     lp2.ne.NP2 .or. lp3.ne.NP3) then
+      read(IOCF,err=100) lt, ld, lp1, lp2, lp3, lp4, 
+     .     (qmin(j),j=1,3), q1, (qmax(j),j=1,3), q2, lx, xmin, xmax
+
+      if(lt.ne.NT .or. ld.ne.ND .or. lx.ne.NX .or. lp1.ne.NP1 .or. 
+     .     lp2.ne.NP2 .or. lp3.ne.NP3 .or. lp4.ne.1 .or.
+     .     ld.eq.0) then
          write(0,*) 'RT::InitCF: fatal error, corrupted table:'
          write(0,*) '> NT= in file: ', lt, ' in code: ', NT
+         write(0,*) '> NX= in file: ', lx, ' in code: ', NX
          write(0,*) '> ND= in file: ', ld, ' in code: ', ND
          write(0,*) '> NP1= in file: ', lp1, ' in code: ', NP1
          write(0,*) '> NP2= in file: ', lp2, ' in code: ', NP2
          write(0,*) '> NP3= in file: ', lp3, ' in code: ', NP3
-         close(io)
-         call frtAbort
+         write(0,*) '> NP4= in file: ', lp4, ' in code: ', 1
+         close(IOCF)
+         m = -1
+         return
       endif
 
-      np(1) = NP1
-      np(2) = NP2
-      np(3) = NP3
+      np(1) = lp1
+      np(2) = lp2
+      np(3) = lp3
 
       do i=1,3
-         if(abs(qmax(i)-qmin(i)-(np(i)-1)*qstp(i)) .gt. 
-     .        0.1*qstp(i)) then
-            write(0,*) 'RT::InitCF: fatal error, corrupted table:'
-            write(0,*) '> np=', np(i), ' qmin=', qmin(i), 'qmax=', 
-     .           qmax(i), ' qstp=', qstp(i)
-            close(io)
-            call frtAbort
+         if(np(i) .gt. 1) then
+            qstp(i) = (qmax(i)-qmin(i))/(np(i)-1)
+         else
+            qstp(i) = 1.0
          endif
       enddo
 
-      if(NX .gt. 1) then
-         read(io) lx, xmin, xmax
-         if(lx.ne.NX .or. NN.ne.1) then
-            write(0,*) 'RT::InitCF: fatal error, corrupted table:'
-            write(0,*) '> NX= in file: ', lx, ' in code: ', NX
-            write(0,*) '> NX= in file: ',  1, ' in code: ', NN
-            close(io)
-            call frtAbort
-         endif
-         xstp = (xmax-xmin)/(NX-1)
-      endif
-
-      read(io) (alt(i),i=1,NT)
-      altmin = alt(1)
-      altstp = alt(2) - alt(1)
-
-      read(io) (((indx(i,j,k), i=1,NP1), j=1,NP2), k=1,NP3)
-
-      do ix=1,NX
-         do id=1,ND
-            read(io) (((data(j,ic,it,id,ix),j=1,NN),ic=1,NC),it=1,NT)
-         enddo
+      xstp = (xmax-xmin)/(NX-1)
+      do i=1,NX
+         xval(i) = xmin + xstp*(i-1)
       enddo
 
-      if(NX .gt. 1) then
-         do ix=1,NX
+      read(IOCF,err=100) (altval(i),i=1,NT)
+C
+C  Internally use natural log
+C
+      do i=1,NT
+         altval(i) = altval(i)*log(10.0)
+      enddo
+      altmin = altval(1)
+      altstp = altval(2) - altval(1)
+
+      read(IOCF,err=100)
+     .     (((indx(i,j,k),i=1,lp1),j=1,lp2),k=1,lp3)
+
+      do id=1,ld
+         read(IOCF,err=100) 
+     .        (((data(ic,it,ix,id),ic=1,NC),it=1,NT),ix=1,NX)
+      enddo
+
 C$OMP PARALLEL DO DEFAULT(NONE),
-C$OMP+PRIVATE(id,it,ic,j)
-C$OMP+SHARED(data,ix)
-            do id=1,ND
-               do it=1,NT
-                  do ic=1,NC
-                     do j=1,NN
-                        data(j,ic,it,id,ix) = log(1.0e-37+abs(
-     .                       data(j,ic,it,id,ix)))
-                     enddo
-                  enddo
+C$OMP+PRIVATE(id,ix,it,ic)
+C$OMP+SHARED(data)
+      do id=1,ND
+         do ix=1,NX
+            do it=1,NT
+               do ic=1,NC
+                  data(ic,it,ix,id) = 
+     .                 log(1.0e-37+abs(data(ic,it,ix,id)))
                enddo
             enddo
          enddo
-      endif
+      enddo
  
-      close(io)
+      close(IOCF)
+
+      if(.false.) then
+         write(6,*) 'RT::InitCF: Table size = ', 
+     .        NC*(NT*NX*ND/256/1024) +
+     .        (NP1*NP2*NP3/256/1024), ' MB'
+      endif
+
+      m = 0
+
+      return
+
+ 100  m = -1
 
       return
       end
 C
 C  Decode the interpolated function
 C
-      subroutine frtCFDecode1(p,it,id,wl,ws,jl,ju,ql,qu)
+#define IXL      ich(3)
+#define IXU      ich(4)
+#define IPP(j)   ich(4+j)
+#define WXL      rch(6)
+#define WXU      rch(7)
+#define WPL(j)   rch(7+j)
+#define WPS(j)   rch(10+j)
+C
+      subroutine frtCFPick(it,ich,rch,cfun,hfun)
       include 'frt_cf3.inc'
-      dimension p(NC), id(8), wl(3), ws(3)
-      dimension vl(8), vu(8)
+      dimension ich(*), rch(*)
+      dimension v(NC), q(8)
 C
       do ic=1,NC
-C
-C  Already turned to log at init
-C
          do j=1,8
-            vl(j) = data(1,ic,it,id(j),jl)
-            vu(j) = data(1,ic,it,id(j),ju)
+            q(j) = 
+     .           WXL*data(ic,it,IXL,IPP(j)) + 
+     .           WXU*data(ic,it,IXU,IPP(j))
          enddo
-
-         p(ic) = exp(
-     .        ql*(wl(3)*(wl(2)*(wl(1)*vl(1)+ws(1)*vl(2))+
-     .                   ws(2)*(wl(1)*vl(3)+ws(1)*vl(4))) +
-     .            ws(3)*(wl(2)*(wl(1)*vl(5)+ws(1)*vl(6))+
-     .                   ws(2)*(wl(1)*vl(7)+ws(1)*vl(8))))+
-     .        qu*(wl(3)*(wl(2)*(wl(1)*vu(1)+ws(1)*vu(2))+
-     .                   ws(2)*(wl(1)*vu(3)+ws(1)*vu(4))) +
-     .            ws(3)*(wl(2)*(wl(1)*vu(5)+ws(1)*vu(6))+
-     .                   ws(2)*(wl(1)*vu(7)+ws(1)*vu(8)))))
+         v(ic) = exp(
+     .        WPL(3)*(WPL(2)*(WPL(1)*q( 1)+WPS(1)*q( 2))+
+     .                WPS(2)*(WPL(1)*q( 3)+WPS(1)*q( 4))) +
+     .        WPS(3)*(WPL(2)*(WPL(1)*q( 5)+WPS(1)*q( 6))+
+     .                WPS(2)*(WPL(1)*q( 7)+WPS(1)*q( 8))))
 
       enddo
+
+      a0 = v(1)
+      a1 = v(2)
+      a2 = v(3)
+      v(2) = 2*a1 - 0.5*a2 - 1.5*a0
+      v(3) = 0.5*(a0+a2) - a1
+
+      a0 = v(4)
+      a1 = v(5)
+      a2 = v(6)
+      v(5) = 2*a1 - 0.5*a2 - 1.5*a0
+      v(6) = 0.5*(a0+a2) - a1
+
+      Z = rch(5)
+
+      if(mode .eq. 1) then
+         cfun = (Z*v(3)+v(2))*Z
+         hfun = (Z*v(6)+v(5))*Z
+      else
+         cfun = (Z*v(3)+v(2))*Z + v(1)
+         hfun = (Z*v(6)+v(5))*Z + v(4)
+      endif
 
       return
       end
 C
-C  Decode the fitted function
+C  Cache some table information into arrays iCache and rCache
 C
-      subroutine frtCFDecode2(p,it,id,wl,ws,dl,ds)
-      include 'frt_cf3.inc'
-      dimension p(NC), id(8), wl(3), ws(3)
-      dimension v(8)
-C
-      do ic=1,NC
-
-         do j=1,8
-            a = data(1,ic,it,id(j),1)
-            x1 = data(2,ic,it,id(j),1)*ds**data(3,ic,it,id(j),1)
-            x2 = data(4,ic,it,id(j),1)*ds**data(5,ic,it,id(j),1)
-
-            v(j) = (a**2+a*x1+x1**2)/(1+x2+x2**2)
-            if(data(6,ic,it,id(j),1) .gt. 0.0) then
-               v(j) = log(1.0e-37+abs(v(j)+data(6,ic,it,id(j),1)*dl))
-            else
-               v(j) = log(1.0e-37+abs(v(j)+data(6,ic,it,id(j),1)*ds))
-            endif
-         enddo
-
-         p(ic) = exp(
-     .        wl(3)*(wl(2)*(wl(1)*v(1)+ws(1)*v(2))+
-     .               ws(2)*(wl(1)*v(3)+ws(1)*v(4))) +
-     .        ws(3)*(wl(2)*(wl(1)*v(5)+ws(1)*v(6))+
-     .               ws(2)*(wl(1)*v(7)+ws(1)*v(8))))
-
-      enddo
-
-      return
-      end
-C
-C  Fill in the array chf(2,nmax) with cooling and heating functions
-C
-      subroutine frtSetCF(Z,den,pRate,chf)
+#define Plw  P(iptabCiLW)
+#define Ph1  P(iptabPiH1)
+#define Pg1  P(iptabPiG1)
+#define Pc6  P(iptabPiC6)
+      subroutine frtCFCache(den,Z,P,ich,rch,ierr)
+      include 'frt_base.inc'
       include 'frt_tables.inc'
       include 'frt_cf3.inc'
-      dimension pRate(*), chf(2,*)
-C
-      dimension q(3), il(3), is(3), wl(3), ws(3)
-      dimension id(8), p(NC)
+      dimension P(*), ich(*), rch(*)
+      dimension q(3), il(3), is(3)
+      include 'frt_cf3.I2.inl'
 C
 C  Convert from nb to nH from Cloudy models 
 C
       dl = max(1.0e-10,den*(1.0-0.02*Z)/1.4)
+      ierr = 0
 
-      if(pRate(iptabCiLW) .gt. 0.0) then 
-         q(1) = log10(1.0e-37+abs(pRate(iptabCiLW)/dl))
-         q(2) = log10(1.0e-37+abs(pRate(iptabPiH1)/pRate(iptabCiLW)))
-         q(3) = log10(1.0e-37+abs(pRate(iptabPiO8)/pRate(iptabCiLW)))
+      if(Plw .gt. 0.0) then
+         qh1 = log10(1.0e-37+Ph1/Plw)
+         qg1 = log10(1.0e-37+Pg1/Plw)
+         qc6 = log10(1.0e-37+Pc6/Plw)
+
+         q(1) = log10(1.0e-37+Plw/dl)
+         q(2) = fun1(qh1,qg1,qc6)
+         q(3) = fun2(qh1,qg1,qc6)
 C
-C  qmin, qstp, etc are boundries of cells, not their centers
+C  qmin, qstp, etc are boundaries of cells, not their centers
 C
          do j=1,3
             w = 0.5 + (q(j)-qmin(j))/qstp(j)
@@ -177,132 +184,121 @@ C
             else
                is(j) = il(j) - 1
             endif
-            ws(j) = abs(il(j)-0.5-w)
-            wl(j) = 1 - ws(j)
+            WPS(j) = abs(il(j)-0.5-w)
+            WPL(j) = 1 - WPS(j)
+
+            if(np(j) .gt. 1) then
+               if(max(il(j),is(j)) .gt. np(j)) ierr =  j
+               if(min(il(j),is(j)) .lt.     1) ierr = -j
+            endif
+
             if(il(j) .lt. 1) il(j) = 1
-            if(il(j) .gt. np(j)) il(j) = np(j)
             if(is(j) .lt. 1) is(j) = 1
+            if(il(j) .gt. np(j)) il(j) = np(j)
             if(is(j) .gt. np(j)) is(j) = np(j)
          enddo
+
       else
+
+         ierr = -1
          do j=1,3
             il(j) = 1
-            is(j) = 2
-            wl(j) = 1
-            ws(j) = 0
+            is(j) = 1
+            WPL(j) = 1
+            WPS(j) = 0
          enddo
-      endif
-C
-C  Do not forget C-to-F77 index conversion
-C
-      id(1) = 1 + indx(il(1),il(2),il(3))
-      id(2) = 1 + indx(is(1),il(2),il(3))
-      id(3) = 1 + indx(il(1),is(2),il(3))
-      id(4) = 1 + indx(is(1),is(2),il(3))
-      id(5) = 1 + indx(il(1),il(2),is(3))
-      id(6) = 1 + indx(is(1),il(2),is(3))
-      id(7) = 1 + indx(il(1),is(2),is(3))
-      id(8) = 1 + indx(is(1),is(2),is(3))
 
-      if(NX .gt. 1) then
+      endif
 C
 C  Density interpolation is still CIC
 C
-         w = (log10(dl)-xmin)/xstp
-         jl = int(w) + 1
-         if(jl .lt.  1) jl = 1
-         if(jl .ge. NX) jl = NX-1
-         ju = jl + 1
-         ql = max(0.0,min(1.0,jl-w))
-         qu = 1.0 - ql
-      else
-         ds = min(1.0e6,dl)
+      w = (log10(dl)-xmin)/xstp
+      IXL = int(w) + 1
+      if(IXL .lt.  1) IXL = 1
+      if(IXL .ge. NX) IXL = NX-1
+      IXU = IXL + 1
+      WXL = max(0.0,min(1.0,IXL-w))
+      WXU = 1.0 - WXL
+C
+C  Do not forget C-to-F77 index conversion
+C
+      IPP(1) = 1 + indx(il(1),il(2),il(3))
+      IPP(2) = 1 + indx(is(1),il(2),il(3))
+      IPP(3) = 1 + indx(il(1),is(2),il(3))
+      IPP(4) = 1 + indx(is(1),is(2),il(3))
+      IPP(5) = 1 + indx(il(1),il(2),is(3))
+      IPP(6) = 1 + indx(is(1),il(2),is(3))
+      IPP(7) = 1 + indx(il(1),is(2),is(3))
+      IPP(8) = 1 + indx(is(1),is(2),is(3))
+
+      rch(5) = Z
+C
+C  Clear temperature cache
+C
+      ich(1) = 0
+      ich(2) = 0
+
+      return
+      end
+C
+C  Get the cooling and heating functions for given ln(T) from the cached data
+C
+      subroutine frtCFGetLn(alt,ich,rch,cfun,hfun)
+      include 'frt_cf3.inc'
+      dimension ich(*), rch(*)
+      dimension v(NC)
+
+      il = int((alt-altmin)/altstp*0.99999) + 1
+      if(il .lt.  1) il = 1
+      if(il .ge. NT) il = NT-1
+      iu = il + 1
+      ql = max(0.0,min(1.0,(altval(iu)-alt)/altstp))
+      qu = 1.0 - ql
+C
+C  Shift cache lines as needed
+C
+      if(ich(1) .eq. iu) then
+         ich(1) = 0
+         ich(2) = iu
+         rch(3) = rch(1)
+         rch(4) = rch(2)
       endif
-
-      do it=1,NT
-
-         if(NX .gt. 1) then
-            call frtCFDecode1(p,it,id,wl,ws,jl,ju,ql,qu)
-         else
-            call frtCFDecode2(p,it,id,wl,ws,dl,ds)
-         endif
-
-         a0 = p(1)
-         a1 = p(2)
-         a2 = p(3)
-         p(2) = 2*a1 - 0.5*a2 - 1.5*a0
-         p(3) = 0.5*(a0+a2) - a1
-
-         a0 = p(4)
-         a1 = p(5)
-         a2 = p(6)
-         p(5) = 2*a1 - 0.5*a2 - 1.5*a0
-         p(6) = 0.5*(a0+a2) - a1
-
-         if(MetalPartOnly) then
-            chf(1,it) = (Z*p(3)+p(2))*Z
-            chf(2,it) = (Z*p(6)+p(5))*Z
-         else
-            chf(1,it) = (Z*p(3)+p(2))*Z + p(1)
-            chf(2,it) = (Z*p(6)+p(5))*Z + p(4)
-         endif
-
-      enddo
-
-      return
-      end
+      if(ich(2) .eq. il) then
+         ich(1) = il
+         ich(2) = 0
+         rch(1) = rch(3)
+         rch(2) = rch(4)
+      endif
 C
-C  Get the cooling and heating functions for given T from the
-C  pre-computed array chf(2,nmax)
+C  Update the cache
 C
-      subroutine frtGetCF(tem,chf,cfun,hfun)
-      include 'frt_cf3.inc'
-      dimension chf(2,*)
-
-      call frtGetCFln(log(max(1.0,tem)),chf,cfun,hfun)
-
-      return
-      end
-C
-C  Get the cooling and heating functions for given ln(T) from the
-C  pre-computed array chf(2,nmax)
-C
-      subroutine frtGetCFln(altem,chf,cfun,hfun)
-      include 'frt_cf3.inc'
-      dimension chf(2,*)
-
-      x = altem/2.3025851  !! log10(T)
-
-      il = int((x-altmin)/altstp*0.99999) + 1
-      if(il .lt.  1) il = 1
-      if(il .ge. NT) il = NT-1
-      iu = il + 1
-      ql = max(0.0,min(1.0,(alt(iu)-x)/altstp))
-      qu = 1.0 - ql
+      if(ich(1) .ne. il) then
+         ich(1) = il
+         call frtCFPick(il,ich,rch,cfun,hfun)
+         rch(1) = cfun
+         rch(2) = hfun
+      endif
+      if(ich(2) .ne. iu) then
+         ich(2) = iu
+         call frtCFPick(iu,ich,rch,cfun,hfun)
+         rch(3) = cfun
+         rch(4) = hfun
+      endif
       
-      cfun = ql*chf(1,il) + qu*chf(1,iu)
-      hfun = ql*chf(2,il) + qu*chf(2,iu)
+      cfun = ql*rch(1) + qu*rch(3)
+      hfun = ql*rch(2) + qu*rch(4)
 
       return
       end
 C
-C  Get the cooling and heating functions for given ln(T) from the
-C  pre-computed array chf(2,nmax)
+C  Get the cooling and heating functions for T
 C
-      subroutine frtGetCFlg(x,chf,cfun,hfun)
+      subroutine frtGetCF(tem,den,Z,P,cfun,hfun,ierr)
       include 'frt_cf3.inc'
-      dimension chf(2,*)
+      dimension P(*), ich(NICH), rch(NRCH)
 
-      il = int((x-altmin)/altstp*0.99999) + 1
-      if(il .lt.  1) il = 1
-      if(il .ge. NT) il = NT-1
-      iu = il + 1
-      ql = max(0.0,min(1.0,(alt(iu)-x)/altstp))
-      qu = 1.0 - ql
-      
-      cfun = ql*chf(1,il) + qu*chf(1,iu)
-      hfun = ql*chf(2,il) + qu*chf(2,iu)
+      call frtCFCache(den,Z,P,ich,rch,ierr)
+      call frtCFGetLn(log(tem),ich,rch,cfun,hfun)
 
       return
       end
-#endif

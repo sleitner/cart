@@ -60,12 +60,13 @@ C
          inited = .true.
 
          ib = index(DataPath,' ') - 1
-         open(unit=IOUNIT, file=DataPath(1:ib)//'/drt_bkg_HM.dat',
+         if(ib .lt. 0) ib = len(DataPath)
+         open(unit=IOUNIT, file=DataPath(1:ib)//'/bkg_HM.dat',
      .      status='old')
          read(IOUNIT,*) np1, nw1, nz1
          if(np1.ne.NHMP .or. nw1.ne.NHMW .or. nz1.ne.NHMZ) then
             write(0,*) 'RT::BackgroundHM: fatal error, ',
-     .           'corrupted drt_bkg_HM.dat file:'
+     .           'corrupted bkg_HM.dat file:'
             write(0,*) '> NP= in file: ', np1, ' in code: ', NHMP
             write(0,*) '> NW= in file: ', nw1, ' in code: ', NHMW
             write(0,*) '> NZ= in file: ', nz1, ' in code: ', NHMZ
@@ -84,7 +85,7 @@ C
                else
                   if(abs((1.0+z1)/(1.0+z(k))-1.0) .gt. 1.0e-4) then
                      write(0,*) 'RT::BackgroundHM: fatal error, ',
-     .                    'corrupted drt_bkg_HM.dat file:'
+     .                    'corrupted bkg_HM.dat file:'
                      write(0,*) '> Wrong z: ', k, j, z1, z(k)
                      close(IOUNIT)
                      call frtAbort
@@ -97,7 +98,7 @@ C
                else
                   if(abs(w1/w(NHMW+1-j)-1.0) .gt. 1.0e-4) then
                      write(0,*) 'RT::BackgroundHM: fatal error, ',
-     .                    'corrupted drt_bkg_HM.dat file:'
+     .                    'corrupted bkg_HM.dat file:'
                      write(0,*) '> Wrong w: ', k, j, w1, w(NHMW+1-j)
                      close(IOUNIT)
                      call frtAbort

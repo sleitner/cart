@@ -53,7 +53,7 @@ C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr,fnu,x,cs0,fn0,y0,y1,yw,ya,p,y,w)
 C$OMP+SHARED(Txi,xig,angUni,angLoc,angAvg,tauLoc,csH1,csG1,csG2,csDust,
 C$OMP+ csMH27,csMH28,csMH29,csMH30,csMH31,csMH32,csMHLW,csUV,
-C$OMP+ csO8,csS16,csFe26)
+C$OMP+ csC6)
       do lr = 1,NRAD
 
          xig(lr) = XISTEP*(real(lr)-0.5) + log(TXI0/TH1)
@@ -112,11 +112,11 @@ C$OMP+ csO8,csS16,csFe26)
      .           (1.0+sqrt(y/ya))**p/CSSTAR
          endif
 
-         if(fnu .lt. 871.4) then
-            csO8(lr) = 0.0
+         if(fnu .lt. 490) then
+            csC6(lr) = 0.0
          else
-            cs0 = 8.554e-16
-            fn0 = 27.54
+            cs0 = 1.521e-15
+            fn0 = 15.48
             y0  = 0.0 
             y1  = 0.0
             yw  = 0.0
@@ -124,39 +124,7 @@ C$OMP+ csO8,csS16,csFe26)
             p   = 2.963
             x = fnu/fn0 - y0
             y = sqrt(x**2+y1**2)
-            csO8(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
-     .           (1.0+sqrt(y/ya))**p/CSSTAR
-         endif
-
-         if(fnu .lt. 3494) then
-            csS16(lr) = 0.0
-         else
-            cs0 = 2.139e-16
-            fn0 = 110.4
-            y0  = 0.0 
-            y1  = 0.0
-            yw  = 0.0
-            ya  = 3.288e+01
-            p   = 2.963
-            x = fnu/fn0 - y0
-            y = sqrt(x**2+y1**2)
-            csS16(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
-     .           (1.0+sqrt(y/ya))**p/CSSTAR
-         endif
-
-         if(fnu .lt. 9278) then
-            csFe26(lr) = 0.0
-         else
-            cs0 = 8.099e-17
-            fn0 = 293.2
-            y0  = 0.0 
-            y1  = 0.0
-            yw  = 0.0
-            ya  = 3.288e+01
-            p   = 2.963
-            x = fnu/fn0 - y0
-            y = sqrt(x**2+y1**2)
-            csFe26(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
+            csC6(lr) = cs0*((x-1.0)**2+yw**2)*y**(0.5*p-5.5)/
      .           (1.0+sqrt(y/ya))**p/CSSTAR
          endif
 
@@ -358,20 +326,12 @@ C
       if(lrG1rB .eq. 0) lrG1rB = 1
       if(lrG2rB .eq. 0) lrG2rB = 1
 C
-      lrO8tr = 0
-      lrS16tr = 0
-      lrFe26tr = 0
+      lrC6tr = 0
       do lr=1,NRAD
-         if(lrO8tr.eq.0 .and. csO8(lr).gt.VSMALL) lrO8tr = lr
-         if(lrS16tr.eq.0 .and. csS16(lr).gt.VSMALL) lrS16tr = lr
-         if(lrFe26tr.eq.0 .and. csFe26(lr).gt.VSMALL) lrFe26tr = lr
+         if(lrC6tr.eq.0 .and. csC6(lr).gt.VSMALL) lrC6tr = lr
       enddo
-      if(lrO8tr .eq. 0) lrO8tr = 1
-      if(lrS16tr .eq. 0) lrS16tr = 1
-      if(lrFe26tr .eq. 0) lrFe26tr = 1
-      csO8tr = csO8(lrO8tr)
-      csS16tr = csS16(lrS16tr)
-      csFe26tr = csFe26(lrFe26tr)
+      if(lrC6tr .eq. 0) lrC6tr = 1
+      csC6tr = csC6(lrC6tr)
 C
       lrDUtr = 0
       do lr=1,NRAD
@@ -1298,7 +1258,7 @@ C
          wpTab(iptabPhG1,lr) = csG1(lr)*(Txi(lr)-TG1)
          wpTab(iptabPiG2,lr) = csG2(lr)
          wpTab(iptabPhG2,lr) = csG2(lr)*(Txi(lr)-TG2)
-         wpTab(iptabPiO8,lr) = csO8(lr)
+         wpTab(iptabPiC6,lr) = csC6(lr)
          wpTab(iptabCiLW,lr) = csMHLW(lr)
 #ifdef RT_CHEMISTRY
          wpTab(iptabCi27,lr) = csMH27(lr)
@@ -1317,7 +1277,7 @@ C
       uvFac(iptabPhG1) = csUVn(lrG1tr)
       uvFac(iptabPiG2) = csUVn(lrG2tr)
       uvFac(iptabPhG2) = csUVn(lrG2tr)
-      uvFac(iptabPiO8) = csUVn(lrO8tr)
+      uvFac(iptabPiC6) = csUVn(lrC6tr)
       uvFac(iptabCiLW) = 1.0
 #ifdef RT_CHEMISTRY
       uvFac(iptabCi27) = 1.0
@@ -1369,7 +1329,7 @@ C
          sumi1 = sumi1 + angAvg(lr)*csH1(lr)
          sumi2 = sumi2 + angAvg(lr)*csG1(lr)
          sumi3 = sumi3 + angAvg(lr)*csG2(lr)
-         sumi4 = sumi4 + angAvg(lr)*csO8(lr)
+         sumi4 = sumi4 + angAvg(lr)*csC6(lr)
       enddo
 
       pRate0(iptabPhH1) = max(0.0,facPhot*sumc1)
@@ -1378,7 +1338,7 @@ C
       pRate0(iptabPiH1) = max(0.0,facPhot*sumi1)
       pRate0(iptabPiG1) = max(0.0,facPhot*sumi2)
       pRate0(iptabPiG2) = max(0.0,facPhot*sumi3)
-      pRate0(iptabPiO8) = max(0.0,facPhot*sumi4)
+      pRate0(iptabPiC6) = max(0.0,facPhot*sumi4)
 
       sumiLW = 0.0
       do lr=1,NRAD
@@ -1443,7 +1403,7 @@ C
          sumi1 = sumi1 + guvEff(lr)*csH1(lr)
          sumi2 = sumi2 + guvEff(lr)*csG1(lr)
          sumi3 = sumi3 + guvEff(lr)*csG2(lr)
-         sumi4 = sumi4 + guvEff(lr)*csO8(lr)
+         sumi4 = sumi4 + guvEff(lr)*csC6(lr)
       enddo
 
       qRate0(iptabPhH1) = max(0.0,facPhot*sumc1*facLX)
@@ -1452,7 +1412,7 @@ C
       qRate0(iptabPiH1) = max(0.0,facPhot*sumi1*facLX)
       qRate0(iptabPiG1) = max(0.0,facPhot*sumi2*facLX)
       qRate0(iptabPiG2) = max(0.0,facPhot*sumi3*facLX)
-      qRate0(iptabPiO8) = max(0.0,facPhot*sumi4*facLX)
+      qRate0(iptabPiC6) = max(0.0,facPhot*sumi4*facLX)
 
       sumiLW = 0.0
       do lr=1,NRAD
