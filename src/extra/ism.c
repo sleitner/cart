@@ -47,9 +47,9 @@ float extGetCellVarInTRange(int cell, int var, float Tmin, float Tmax)
 #endif /* HYDRO */
 
 
-void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, halo_list *halos)
+void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, struct HALO_LIST *halos)
 {
-  int i, j, ih, node, size, rank, select;
+  int i, j, ih, numh, node, size, rank, select;
   MESH_RUN_DECLARE(level,cell);
   FILE *f;
   char str[999];
@@ -102,119 +102,129 @@ void extDumpLevels(const char *fname, int nout, const DumpWorker *workers, int l
       //  Map cells
       */
       map_halos(min_level,halos,1.0);
+      numh = halos->num_halos;
     }
+  else numh = 1;
 #else
   halos = NULL;
+  numh = 1;
 #endif
 
   /*
   //  Fill in the buffer for each halo
   */
-  ih = 0;
-  do
-    {
+  for(ih=0; ih<numh; ih++)
 #ifdef COSMOLOGY
-      if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
+    if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
 #endif
-	{
-	  nselproc = ntot = 0;
-	  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
+      {
+	nselproc = ntot = 0;
+	MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
 
 #pragma omp parallel for default(none), private(_Index,cell,ptr,select,i), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,buffer,ntot,halos,ih,workers,units,selected,nout,level2), reduction(+:nselproc)
-	  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+	MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
-	  if(level==level2 || cell_is_leaf(cell))
-	    {
-	      if(halos != NULL)
-		{
-		  if(ih+1 == halos->map[cell]) select = 1; else select = 0;
-		}
-	      else select = 1;
-	    }
-	  else select = 0;
+	if(level==level2 || cell_is_leaf(cell))
+	  {
+#ifdef COSMOLOGY
+	    if(halos != NULL)
+	      {
+		if(ih+1 == halos->map[cell]) select = 1; else select = 0;
+	      }
+	    else
+#endif
+	      {
+		select = 1;
+	      }
+	  }
+	else select = 0;
 
-	  selected[ntot+_Index] = select;
+	selected[ntot+_Index] = select;
 
-	  if(select)
-	    {
-	      nselproc++;
-	      ptr = buffer + nout*(ntot+_Index);
-	      for(i=0; i<nout; i++)
-		{
-		  if(halos==NULL)
-		    {
-		      ptr[i] = workers[i].Value(level,cell,NULL,NULL);
-		    }
-		  else
-		    {
-		      ptr[i] = workers[i].Value(level,cell,halos->list[ih].pos,halos->list[ih].vel);
-		    }
-		}
-	    }
-	  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+	if(select)
+	  {
+	    nselproc++;
+	    ptr = buffer + nout*(ntot+_Index);
+	    for(i=0; i<nout; i++)
+	      {
+#ifdef COSMOLOGY
+		if(halos != NULL)
+		  {
+		    ptr[i] = workers[i].Value(level,cell,halos->list[ih].pos,halos->list[ih].vel);
+		  }
+		else
+#endif
+		  {
+		    ptr[i] = workers[i].Value(level,cell,NULL,NULL);
+		  }
+	      }
+	  }
+	MESH_RUN_OVER_CELLS_OF_LEVEL_END;
 
-	  ntot += _Num_level_cells;
+	ntot += _Num_level_cells;
 
-	  MESH_RUN_OVER_LEVELS_END;
+	MESH_RUN_OVER_LEVELS_END;
   
-	  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
-	  if(nseltot > 0)
-	    {
-	      if(halos != NULL)
-		{
-		  sprintf(str,"%s.%05d",fname,halos->list[ih].id);
-		}
-	      else strcpy(str,fname);
+	MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
+	if(nseltot > 0)
+	  {
+#ifdef COSMOLOGY
+	    if(halos != NULL)
+	      {
+		sprintf(str,"%s.%05d",fname,halos->list[ih].id);
+	      }
+	    else
+#endif
+	      {
+		strcpy(str,fname);
+	      }
 
-	      /*
-	      //  Write to a file in order of a proc rank
-	      */
-	      MPI_Comm_size(mpi.comm.run,&size);
-	      MPI_Comm_rank(mpi.comm.run,&rank);
-	      for(node=0; node<size; node++)
-		{
-		  MPI_Barrier(mpi.comm.run);
-		  if(node == rank)
-		    {
-		      cart_debug("Writing file piece #%d",node);
-		      f = fopen(str,(node==0?"w":"a"));
-		      cart_assert(f != NULL);
+	    /*
+	    //  Write to a file in order of a proc rank
+	    */
+	    MPI_Comm_size(mpi.comm.run,&size);
+	    MPI_Comm_rank(mpi.comm.run,&rank);
+	    for(node=0; node<size; node++)
+	      {
+		MPI_Barrier(mpi.comm.run);
+		if(node == rank)
+		  {
+		    cart_debug("Writing file piece #%d",node);
+		    f = fopen(str,(node==0?"w":"a"));
+		    cart_assert(f != NULL);
 
-		      if(node == 0)
-			{
-			  fprintf(f,"# Levels: from %d to %d\n",level1,level2);
-			  fprintf(f,"# Columns:\n");
-			  for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,workers[i].Header);
-			  fprintf(f,"#\n");
-			}
+		    if(node == 0)
+		      {
+			fprintf(f,"# Levels: from %d to %d\n",level1,level2);
+			fprintf(f,"# Columns:\n");
+			for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,workers[i].Header);
+			fprintf(f,"#\n");
+		      }
 
-		      for(j=0; j<ntot; j++)
-			{
-			  ptr = buffer + nout*j;
-			  if(selected[j])
-			    {
-			      fprintf(f,"%9.3e",ptr[0]);
-			      for(i=1; i<nout; i++) fprintf(f," %9.3e",ptr[i]);
-			      fprintf(f,"\n");
-			    }
-			}
-		      fclose(f);
-		    }
-		}
-	    }
-	}
-      ih++;
-    }
-  while(halos!=NULL && ih<halos->num_halos);
+		    for(j=0; j<ntot; j++)
+		      {
+			ptr = buffer + nout*j;
+			if(selected[j])
+			  {
+			    fprintf(f,"%9.3e",ptr[0]);
+			    for(i=1; i<nout; i++) fprintf(f," %9.3e",ptr[i]);
+			    fprintf(f,"\n");
+			  }
+		      }
+		    fclose(f);
+		  }
+	      }
+	  }
+      }
 
   cart_free(selected);
   cart_free(buffer);
 }
 
 
-void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, halo_list *halos)
+void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *workers, int level1, int level2, struct HALO_LIST *halos)
 {
-  int i, ih, node, size, rank, select;
+  int i, ih, numh, node, size, rank, select;
   MESH_RUN_DECLARE(level,cell);
   FILE *f;
   char str[999];
@@ -265,122 +275,137 @@ void extDumpLevelsLowMemory(const char *fname, int nout, const DumpWorker *worke
       //  Map cells
       */
       map_halos(min_level,halos,1.0);
+      numh = halos->num_halos;
     }
+  else numh = 1;
 #else
   halos = NULL;
+  numh = 1;
 #endif
 
   /*
   //  Fill in the buffer for each halo
   */
-  ih = 0;
-  do
-    {
+  for(ih=0; ih<numh; ih++)
 #ifdef COSMOLOGY
-      if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
+    if(halos==NULL || halo_level(&halos->list[ih],mpi.comm.run)>=level1)
 #endif
-	{
-	  nselproc = ntot = 0;
-	  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
+      {
+	nselproc = ntot = 0;
+	MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
 
 #pragma omp parallel for default(none), private(_Index,cell,select,i), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,halos,ih,level2), reduction(+:nselproc)
-	  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+	MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
-	  if(level==level2 || cell_is_leaf(cell))
-	    {
-	      if(halos != NULL)
-		{
-		  if(ih+1 == halos->map[cell]) select = 1; else select = 0;
-		}
-	      else select = 1;
-	    }
-	  else select = 0;
+	if(level==level2 || cell_is_leaf(cell))
+	  {
+#ifdef COSMOLOGY
+	    if(halos != NULL)
+	      {
+		if(ih+1 == halos->map[cell]) select = 1; else select = 0;
+	      }
+	    else
+#endif
+	      {
+		select = 1;
+	      }
+	  }
+	else select = 0;
 
-	  if(select) nselproc++;
+	if(select) nselproc++;
 
-	  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
-	  MESH_RUN_OVER_LEVELS_END;
+	MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+	MESH_RUN_OVER_LEVELS_END;
   
-	  MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
+	MPI_Allreduce(&nselproc,&nseltot,1,MPI_INT,MPI_SUM,mpi.comm.run);
 
-	  if(nseltot == 0) continue;
+	if(nseltot == 0) continue;
 
-	  if(halos != NULL)
-	    {
-	      sprintf(str,"%s.%05d",fname,halos->list[ih].id);
-	    }
-	  else strcpy(str,fname);
+#ifdef COSMOLOGY
+	if(halos != NULL)
+	  {
+	    sprintf(str,"%s.%05d",fname,halos->list[ih].id);
+	  }
+	else
+#endif
+	  {
+	    strcpy(str,fname);
+	  }
 
-	  /*
-	  //  Write to a file in order of a proc rank
-	  */
-	  MPI_Comm_size(mpi.comm.run,&size);
-	  MPI_Comm_rank(mpi.comm.run,&rank);
-	  for(node=0; node<size; node++)
-	    {
-	      MPI_Barrier(mpi.comm.run);
-	      if(node == rank)
-		{
-		  cart_debug("Writing file piece #%d",node);
-		  f = fopen(str,(node==0?"w":"a"));
-		  cart_assert(f != NULL);
+	/*
+	//  Write to a file in order of a proc rank
+	*/
+	MPI_Comm_size(mpi.comm.run,&size);
+	MPI_Comm_rank(mpi.comm.run,&rank);
+	for(node=0; node<size; node++)
+	  {
+	    MPI_Barrier(mpi.comm.run);
+	    if(node == rank)
+	      {
+		cart_debug("Writing file piece #%d",node);
+		f = fopen(str,(node==0?"w":"a"));
+		cart_assert(f != NULL);
 
-		  if(node == 0)
-		    {
-		      fprintf(f,"# Levels: from %d to %d\n",level1,level2);
-		      fprintf(f,"# Columns:\n");
-		      for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,workers[i].Header);
-		      fprintf(f,"#\n");
-		    }
+		if(node == 0)
+		  {
+		    fprintf(f,"# Levels: from %d to %d\n",level1,level2);
+		    fprintf(f,"# Columns:\n");
+		    for(i=0; i<nout; i++) fprintf(f,"#   %2d. %s\n",i+1,workers[i].Header);
+		    fprintf(f,"#\n");
+		  }
 
-		  MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
-		  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+		MESH_RUN_OVER_LEVELS_BEGIN(level,level1,level2);
+		MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
-		  if(level==level2 || cell_is_leaf(cell))
-		    {
-		      if(halos != NULL)
-			{
-			  if(ih+1 == halos->map[cell]) select = 1; else select = 0;
-			}
-		      else select = 1;
-		    }
-		  else select = 0;
+		if(level==level2 || cell_is_leaf(cell))
+		  {
+#ifdef COSMOLOGY
+		    if(halos != NULL)
+		      {
+			if(ih+1 == halos->map[cell]) select = 1; else select = 0;
+		      }
+		    else
+#endif
+		      {
+			select = 1;
+		      }
+		  }
+		else select = 0;
 
-		  if(select)
-		    {
-		      for(i=0; i<nout; i++)
-			{
-			  if(halos==NULL)
-			    {
-			      ptr[i] = workers[i].Value(level,cell,NULL,NULL);
-			    }
-			  else
-			    {
-			      ptr[i] = workers[i].Value(level,cell,halos->list[ih].pos,halos->list[ih].vel);
-			    }
-			}
+		if(select)
+		  {
+		    for(i=0; i<nout; i++)
+		      {
+#ifdef COSMOLOGY
+			if(halos != NULL)
+			  {
+			    ptr[i] = workers[i].Value(level,cell,halos->list[ih].pos,halos->list[ih].vel);
+			  }
+			else
+#endif
+			  {
+			    ptr[i] = workers[i].Value(level,cell,NULL,NULL);
+			  }
+		      }
 
-		      fprintf(f,"%9.3e",ptr[0]);
-		      for(i=1; i<nout; i++) fprintf(f," %9.3e",ptr[i]);
-		      fprintf(f,"\n");
-		    }
-		  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
-		  MESH_RUN_OVER_LEVELS_END;
+		    fprintf(f,"%9.3e",ptr[0]);
+		    for(i=1; i<nout; i++) fprintf(f," %9.3e",ptr[i]);
+		    fprintf(f,"\n");
+		  }
+		MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+		MESH_RUN_OVER_LEVELS_END;
   
-		  fclose(f);
-		}
-	    }
-	}
-      ih++;
-    }
-  while(halos!=NULL && ih<halos->num_halos);
+		fclose(f);
+	      }
+	  }
+      }
 
   cart_free(ptr);
 }
 
 
 #ifdef COSMOLOGY
-void extDumpHaloProfiles(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, halo_list *halos, int resolution_level, float outer_edge)
+void extDumpHaloProfiles(const char *fname, int nout, const DumpWorker *workers, float rmin, float rmax, int ndex, struct HALO_LIST *halos, int resolution_level, float outer_edge)
 {
   const int num_weights = 4;
   int i, j, ih;
@@ -714,7 +739,7 @@ void extDumpPointProfile(const char *fname, int nout, const DumpWorker *workers,
 
 
 #if defined(PARTICLES) && defined(STAR_FORMATION)
-void extStarFormationLaw(const char *fname, float spatial_scale, float time_scale, float stellar_age_limit, const halo_list *halos)
+void extStarFormationLaw(const char *fname, float spatial_scale, float time_scale, float stellar_age_limit, const struct HALO_LIST *halos)
 {
   int i, j, ih, level, size, rank, lstarted, gstarted, select;
   int num_level_cells, *level_cells, *index, cell;
@@ -945,7 +970,7 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
 
 
 #if defined (HYDRO) && defined(STAR_FORMATION)
-void extStarFormationLaw2(const char *fname, float spatial_scale, const halo_list *halos)
+void extStarFormationLaw2(const char *fname, float spatial_scale, const struct HALO_LIST *halos)
 {
   int i, j, ih, level, ll, size, rank, lstarted, gstarted, select;
   int num_level_cells, *level_cells, cell;
