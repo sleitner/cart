@@ -21,8 +21,8 @@
 
 #include "power.h"
 
-#define num_power_foldings	4
-#define power_mesh_refinements	9		/* 512 mesh */
+#define num_power_foldings	5
+#define power_mesh_refinements	9		/* 256 mesh */
 #define power_mesh_size		(1<<power_mesh_refinements)
 
 
@@ -30,14 +30,14 @@ int bin_from_d(double d) {
 	/* NG: old Doug's binning */
 	// return (int)(d-.5);
 	/* NG: logarithmically spaced binning */
-	return (int)(10*log10(d)+0.5);
+	return (int)(20*log10(d)+0.5);
 }
 
 int mesh_index( int ix, int iy, int iz ) {
 	cart_assert( ix >= 0 && ix < power_mesh_size );
 	cart_assert( iy >= 0 && iy < power_mesh_size );
 	cart_assert( iz >= 0 && iz < power_mesh_size );
-	return iz + power_mesh_size * ( iy + power_mesh_size * ix );
+	return iz + (power_mesh_size+2) * ( iy + power_mesh_size * ix );
 }
 
 void compute_power_spectrum( char *filename, int power_type ) {
@@ -55,21 +55,22 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	int ix, iy, iz;
 	int ix1, iy1, iz1;
 	int ix2, iy2, iz2;
-	float xs, ys, zs;
-	float dx0, dx1, dy0, dy1, dz0, dz1;
+	double xs, ys, zs;
+        float dx0, dx1, dy0, dy1, dz0, dz1;
 	float d00, d01, d10, d11;
 	int ipart;
-	float mesh_offset;
-	float mesh_cell_size, mesh_cell_volume;
-	int num_modes[power_mesh_size];
-	double power[power_mesh_size];
-	double avg_k[power_mesh_size];
+	double mesh_offset;
+	double mesh_cell_size, mesh_cell_volume;
+	int *num_modes;
+	double *power;
+	double *avg_k;
+	int num_bins;
 	double di, dj, dk;
 	double d, Pq, Pk, wk;
 	float mass_factor, fb;
 	double stellar_mass, total_stellar_mass;
 	int bin;
-	int pads[] = { 1, 0, 0 };
+	int pads[] = { 0, 0, 0 };
 	int dims[3], bbox[6];
 	int num_power_mesh, jk[2];
 	size_t offset;
@@ -121,6 +122,10 @@ void compute_power_spectrum( char *filename, int power_type ) {
 		cart_assert(global_mesh != NULL);
 		memset(global_mesh,0,sizeof(fft_t)*num_power_mesh);
 
+		cart_debug("num_power_mesh = %d",num_power_mesh);
+		cart_debug("dims = %d %d %d",dims[0],dims[1],dims[2]);
+		cart_debug("bbox = %d %d %d %d %d %d",bbox[0],bbox[1],bbox[2],bbox[3],bbox[4],bbox[5]);
+
 		output = fopen( filename, "w" );
 		if ( output == NULL ) {
 			cart_error("Unable to open %s for writing.", output );
@@ -128,7 +133,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 		fprintf( output, "aexp: %le Dplus[aexp]: %le  Dplus[1]: %le\n", auni[min_level], dplus_from_auni(auni[min_level]), dplus_from_auni(1.0) );
 	}
 
-	local_mesh = cart_alloc(fft_t, num_power_mesh );
+	local_mesh = fft3_allocate_data();
 
 	cart_debug("mass_factor = %e", mass_factor );
 
@@ -165,13 +170,14 @@ void compute_power_spectrum( char *filename, int power_type ) {
 #else
 						( power_type == POWER_TYPE_DARK ) ) ) {
 #endif /* STAR_FORMATION */
+
 					xs = particle_x[ipart][0]/mesh_cell_size - 0.5;
 					ys = particle_x[ipart][1]/mesh_cell_size - 0.5;
 					zs = particle_x[ipart][2]/mesh_cell_size - 0.5;
 
-					if(xs < 0) xs += power_mesh_size;
-					if(ys < 0) ys += power_mesh_size;
-					if(zs < 0) zs += power_mesh_size;
+					if(xs < 0) xs += (float)(power_mesh_size << m);
+					if(ys < 0) ys += (float)(power_mesh_size << m);
+					if(zs < 0) zs += (float)(power_mesh_size << m);
 
 					ix = (int)(xs) % power_mesh_size;
 					ix1 = (ix+1) % power_mesh_size;
@@ -277,7 +283,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 		cart_debug("sending densities to master_node");
 
 		/* merge */
-		MPI_Reduce( local_mesh, global_mesh, num_power_mesh, MPI_FLOAT, 
+		MPI_Reduce( local_mesh, global_mesh, (size_t)(power_mesh_size+2)*power_mesh_size*power_mesh_size, MPI_FLOAT, 
 				MPI_SUM, MASTER_NODE, mpi.comm.run );
 
 		/* compute power spectrum */
@@ -289,8 +295,36 @@ void compute_power_spectrum( char *filename, int power_type ) {
 
 			fft3_x2k(global_mesh,FFT3_FLAG_WACKY_K_SPACE);
 
+			
+			if(0)
+			  {
+			    fft3_k2x(global_mesh,FFT3_FLAG_WACKY_K_SPACE);
+
+			    float d, dmax = 0.0;
+			    for(ix=0; ix<power_mesh_size; ix++)
+			      {
+				for(iy=0; iy<power_mesh_size; iy++)
+				  {
+				    for(iz=0; iz<power_mesh_size; iz++)
+				      {
+					d = fabs(local_mesh[mesh_index(ix,iy,iz)]-global_mesh[mesh_index(ix,iy,iz)]/num_power_mesh);
+					if(d > dmax) dmax = d;
+				      }
+				  }
+			      }
+			    cart_error("dmax = %g",dmax);
+			  }
+
+
+			num_bins = bin_from_d(1.0*power_mesh_size) + 1;
+			cart_debug("Using %d bins",num_bins);
+
+			num_modes = cart_alloc(int,num_bins);
+			avg_k = cart_alloc(double,num_bins);
+			power = cart_alloc(double,num_bins);
+
 			/* now average over modes */
-			for ( i = 0; i < power_mesh_size; i++ ) {
+			for ( i = 0; i < num_bins; i++ ) {
 				num_modes[i] = 0;
 				avg_k[i] = 0.0;
 				power[i] = 0.0;
@@ -322,6 +356,8 @@ void compute_power_spectrum( char *filename, int power_type ) {
 						d = sqrt( di + dj + dk );
 						bin = bin_from_d(d);
 
+						cart_assert(bin>=0 && bin<num_bins);
+
 						Pq = global_mesh[2*i+0+offset*dims[0]]*global_mesh[2*i+0+offset*dims[0]] + global_mesh[2*i+1+offset*dims[0]]*global_mesh[2*i+1+offset*dims[0]];
 
 						power[bin] += 2.0*Pq;
@@ -335,6 +371,8 @@ void compute_power_spectrum( char *filename, int power_type ) {
 						d = sqrt( di + dj + dk );
 						bin = bin_from_d(d);
 
+						cart_assert(bin>=0 && bin<num_bins);
+
 						Pq = global_mesh[2*i+0+offset*dims[0]]*global_mesh[2*i+0+offset*dims[0]] + global_mesh[2*i+1+offset*dims[0]]*global_mesh[2*i+1+offset*dims[0]];
 
 						power[bin] += 1.0*Pq;
@@ -345,7 +383,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 			}
 
 			/* now write out modes */
-			for ( i = 0; i < power_mesh_size; i++ ) {
+			for ( i = 0; i < num_bins; i++ ) {
 				if ( num_modes[i] > 0 ) {
 					wk = avg_k[i]/(double)num_modes[i] * (2.*M_PI*(double)(1<<m)/box_size);
 					Pk = power[i]/(double)num_modes[i] * (box_size*box_size*box_size) / 
@@ -355,6 +393,10 @@ void compute_power_spectrum( char *filename, int power_type ) {
 					fprintf(output, "%u %le %le %u\n", m, wk, Pk, num_modes[i] );
 				}
 			}
+
+			cart_free(num_modes);
+			cart_free(avg_k);
+			cart_free(power);
 		}
 	}
 
