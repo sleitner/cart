@@ -38,6 +38,16 @@ namespace ng
 
 
   //
+  //  Output J_nu (making it a class to be dir-aware)
+  //
+  class Jnu : public Algorithm
+  {
+  public:
+
+    virtual void Exec(const char *path);
+  };
+
+  //
   //  Compute gas and other mass fractions for halos.
   //
   class MassFractions : public Algorithm

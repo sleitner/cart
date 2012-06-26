@@ -1,0 +1,9 @@
+# COMPILE OPTIONS
+
+CC		= mpicc 
+CFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -openmp -shared-intel -mcmodel large
+FFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -openmp -shared-intel -mcmodel large
+F77     = mpif77 
+INCLUDES = 
+EXTRALIBS = -lifcore -lmpi_f77
+

@@ -1,0 +1,6 @@
+CFLAGS  = -fast -mp -mcmodel=medium
+CC      = mpicc
+FFLAGS  = -fast -mp -mcmodel=medium
+F77     = mpif77
+EXTRALIBS = -pgf77libs 
+

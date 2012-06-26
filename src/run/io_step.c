@@ -1,5 +1,7 @@
 #include "config.h"
 
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "io.h"
 #include "io_cart.h"

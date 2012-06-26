@@ -1,0 +1,10 @@
+
+dummy_aph: aph
+
+include $(TOP_DIR)/Make.config
+
+aph: .obj/.phony $(IOL_OBJS) $(TOP_DIR)/utils/artio_file_utilities/artio_print_header.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/tools/artio $(INCLUDES) $(IOL_OBJS) $(TOP_DIR)/utils/artio_file_utilities/artio_print_header.c -o aph $(LIBS) $(EXTRALIBS)
+
+ALL += aph
+CLEAN += *.o aph

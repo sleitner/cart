@@ -71,7 +71,11 @@ void init_td_exe_()
 
 #ifdef GRAVITY
       MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
+#ifdef COMPILER_GCC
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars)
+#else
 #pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,cell_volume_inverse)
+#endif
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
       
       cell_total_density(cell) = cell_total_mass(cell)*cell_volume_inverse[level] + 1.0;
@@ -98,7 +102,11 @@ void init_sd_exe_()
 
 #if defined(GRAVITY) && defined(STAR_FORMATION)
       MESH_RUN_OVER_ALL_LEVELS_BEGIN(level);
+#ifdef COMPILER_GCC
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars)
+#else
 #pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,cell_volume_inverse)
+#endif
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
       
       cell_stellar_density(cell) *= cell_volume_inverse[level];

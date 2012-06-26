@@ -155,6 +155,21 @@ void MassFractions::Exec(const char *path)
 
 
 //
+//  Class Jnu
+//
+void Jnu::Exec(const char *path)
+{
+#if defined(COSMOLOGY) && defined(RADIATIVE_TRANSFER)
+  init->RadiativeTransfer();
+
+  extDumpRadiationBackground(this->File(path));
+#else
+  cart_debug("COSMOLOGY and RADIATIVE_TRANSFER are not set. Skipping writing cosmic background...");
+#endif /* COSMOLOGY && RADIATIVE_TRANSFER */
+}
+
+
+//
 //  Class KSR
 //
 KSRelation::KSRelation() : dt(p.TimeScale), dl(p.LengthScale), lim(p.StellarAgeLimit)

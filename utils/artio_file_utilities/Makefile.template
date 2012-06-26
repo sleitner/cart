@@ -1,0 +1,13 @@
+#
+# DO NOT CHANGE THE REPOSITORY!!!
+# 1. Copy Makefile.template into any other directory <dir>, that directory 
+#    can be ANYWHERE on your file system.
+# 2. Rename it Makefile and set TOP_DIR below to the top directory of the 
+#    ART distribution.
+# 3. UFC will be compiled in <dir>.
+#
+TOP_DIR = <NEEDS-TO-BE-SET>
+#
+#  Include one or more Make.include files here
+#
+include $(TOP_DIR)/utils/artio_file_utilities/Make.include

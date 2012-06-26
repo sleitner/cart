@@ -13,7 +13,7 @@ extern "C"
 
 
 using namespace ng;
-using namespace ifrit;
+using namespace ng::ifrit;
   
 
 //

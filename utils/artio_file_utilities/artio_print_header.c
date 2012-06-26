@@ -15,7 +15,7 @@ int main( int argc, char *argv[] ) {
 	float *tmp_float;
 
 	if ( argc != 2 ) {
-		fprintf(stderr,"Usage: artio_print_header fileset_prefix\n");
+	  fprintf(stderr,"Usage: %s fileset_prefix\n",argv[0]);
 		exit(1);
 	}
 
