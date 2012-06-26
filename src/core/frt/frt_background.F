@@ -40,6 +40,7 @@ C
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
       dimension ang2(NRLW)
 #endif /*  defined(RT_CHEMISTRY) && defined(RT_LWBANDS) */
+      include 'frt_files.inc'
 C
       parameter(NHMZ = 50)
       parameter(NHMW = 432)
@@ -59,10 +60,7 @@ C  Load the data on the first call
 C
          inited = .true.
 
-         ib = index(DataPath,' ') - 1
-         if(ib .lt. 0) ib = len(DataPath)
-         open(unit=IOUNIT, file=DataPath(1:ib)//'/bkg_HM.dat',
-     .      status='old')
+         open(unit=IOUNIT, file=fileHM, status='old')
          read(IOUNIT,*) np1, nw1, nz1
          if(np1.ne.NHMP .or. nw1.ne.NHMW .or. nz1.ne.NHMZ) then
             write(0,*) 'RT::BackgroundHM: fatal error, ',

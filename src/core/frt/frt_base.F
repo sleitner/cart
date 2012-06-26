@@ -17,8 +17,6 @@ C
       IREC = ir
       IOUNIT = io
 C
-      DataPath = './drt'
-C
       call frtInitRun
 C
       return
@@ -35,6 +33,7 @@ C
 #ifdef RT_XRAYS
       include 'frt_xrays.inc'
 #endif
+      include 'frt_files.inc'
 C
       data Yp/0.24/, Tmin/10.0/, D2Gmin/1.0e-3/
       data ClumpH2/30.0/, CohLenH2/0.3/
@@ -78,13 +77,10 @@ C
       call frtInitTables
       call frtInitSourceSpectrum
 
-      ib = index(DataPath,' ') - 1
-      if(ib .lt. 0) ib = len(DataPath)
-
       mode = 1
-      call frtInitCF(mode,DataPath(1:ib)//'/cf_table.I2.dat')
+      call frtInitCF(mode,fileCF)
       if(mode .ne. 0) then
-         write(0,*) 'RT::InitRun: unable to read cf_table.I2.dat'
+         write(0,*) 'RT::InitRun: unable to read file ', fileCF
          call frtAbort
       endif
 
@@ -94,7 +90,7 @@ C
 C  Call Massimo's routine
 C
       call frtLW_InitRun()
-      call frtLW_ReadData(DataPath(1:ib),guvLW0)
+      call frtLW_ReadData(guvLW0)
 #endif
 #endif
 C
