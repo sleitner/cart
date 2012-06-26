@@ -385,7 +385,9 @@ void assign_particle_density_smoothed( int level ) {
 		}
 
 		if ( i == num_particles-1 || count == DENSITY_CHUNK_SIZE ) {
+#ifndef COMPILER_GCC
 #pragma omp parallel for default(none), private(j,ipart,is_star), shared(count,level,size2,size_inverse,size2_star,size_star_inverse,particle_list,cell_list,mass_assigned,particle_species_indices,num_particle_species,particle_id,max_dark_matter_level)
+#endif
 			for ( j = 0; j < count; j++ ) {
 				ipart = particle_list[j];
 #ifdef STAR_FORMATION				

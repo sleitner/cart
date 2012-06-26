@@ -79,7 +79,7 @@ void control_parameter_set_outputs(const char *value, void *ptr, int ind)
       if(sscanf(tok,"(%g,%g,%g)",&a1,&a2,&da) == 3)
 	{
 	  cart_assert(da > 0.0);
-	  while(a1 < a2)
+	  while(a1 < a2+0.5*da)
 	    {
 	      if(num_outputs == outputs_size)
 		{

@@ -720,7 +720,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 		header.Nrow		= cart_particle_num_row;
 		header.Ngrid	= num_grid;
 		header.Nspecies	= num_particle_species;
-		header.Nseed	= 0.0;
+		header.Nseed	= 0;
 		header.Wp5	= 0.0;
 
 		header.magic1	= PARTICLE_HEADER_MAGIC;  /* for indentifying legacy files */
@@ -5203,10 +5203,15 @@ void rescale_radiation_fields(float scale)
 #pragma omp parallel for default(none), private(cell,j), shared(cell_vars,scale)
   for(cell=0; cell<num_cells; cell++)
     {
+#ifdef rt_far_freq_offset
+      for(j=0; j<rt_far_freq_offset; j++)
+#else
       for(j=0; j<rt_num_disk_vars; j++)
+#endif
         {
           cell_var(cell,rt_disk_offset+j) *= scale;
         }
     }
+
 }
 #endif /* RADIATIVE_TRANSFER */

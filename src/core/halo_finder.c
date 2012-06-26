@@ -152,7 +152,11 @@ void compute_halo_mass( halo *h ) {
 		}
 	}
 
+#ifdef OPENMP_DECLARE_CONST
 #pragma omp parallel default(none) shared(h,rr,cell_child_oct,cell_particle_list,particle_list_next,cell_vars,particle_mass,particle_x,particle_v,num_bins,local_mass,local_cv,oct_pos,oct_level,cell_delta,rlmin,drl) private(bin,i,j,k,m,coords,cell_list,icell,ipart,r,thread_local_mass,thread_local_cv,lgr,dx,parent,child,level,ioct)
+#else
+#pragma omp parallel default(none) shared(h,rr,cell_child_oct,cell_particle_list,particle_list_next,cell_vars,particle_mass,particle_x,particle_v,num_bins,local_mass,local_cv,oct_pos,oct_level,rlmin,drl) private(bin,i,j,k,m,coords,cell_list,icell,ipart,r,thread_local_mass,thread_local_cv,lgr,dx,parent,child,level,ioct)
+#endif /* OPENMP_DECLARE_CONST */
 	{
 		cell_list = stack_init();
 
@@ -355,7 +359,11 @@ void halo_recenter( halo *h ) {
 			cm[i] = 0.0;
 		}
 
+#ifdef OPENMP_DECLARE_CONST
 #pragma omp parallel default(none) shared(h,cm,cm_mass,rcm,cell_child_oct,cell_particle_list,particle_list_next,cell_vars,particle_mass,particle_x,num_bins,cell_volume,oct_pos,oct_level,cell_delta) private(cell_list,i,j,k,m,local_cm,local_cm_mass,coords,r,icell,ipart,dx,mass,level,ioct,parent,child)
+#else
+#pragma omp parallel default(none) shared(h,cm,cm_mass,rcm,cell_child_oct,cell_particle_list,particle_list_next,cell_vars,particle_mass,particle_x,num_bins,oct_pos,oct_level) private(cell_list,i,j,k,m,local_cm,local_cm_mass,coords,r,icell,ipart,dx,mass,level,ioct,parent,child)
+#endif /* OPENMP_DECLARE_CONST */
 		{
 			cell_list = stack_init();
 			local_cm_mass = 0.0;
@@ -532,21 +540,12 @@ halo_list *find_halos() {
 	cart_debug("Finding halos...");
 
 	/* set up binning */
-#ifdef COSMOLOGY
 	rlmin = log10( rmin_physical/units->length_in_chimps );
 	rlmax = log10( rmax_physical/units->length_in_chimps );
-#else
-	rlmin = log10( rmin_physical );
-	rlmax = log10( rmax_physical );
-#endif
 	drl = (rlmax-rlmin)/(double)(num_bins-1);
 
 	rl[0] = 0.0;
-#ifdef COSMOLOGY
 	rr[0] = rmin_physical/units->length_in_chimps;
-#else
-	rr[0] = rmin_physical;
-#endif
 	bin_volume[0] = 4.0*M_PI/3.0 * rr[0]*rr[0]*rr[0];
 	bin_volume_cumulative[0] = bin_volume[0];
 
@@ -696,18 +695,6 @@ halo_list *find_halos() {
 			}
 		}
 
-#ifdef DEBUG
-		if ( local_proc_id == MASTER_NODE ) {
-			cart_debug("halo %d %e %e %e %e %e", 
-					hid,
-					h->pos[0]*units->length_in_chimps, 
-					h->pos[1]*units->length_in_chimps,
-					h->pos[2]*units->length_in_chimps,
-					h->rvir*units->length_in_chimps, 
-					h->mvir*units->mass/constants->Msun );
-		}
-#endif /* DEBUG */
-
 		/* eliminate lower density centers */
 #pragma omp parallel for default(none) shared(order,num_centers_local,i,particle_x,h) private(j,r)
 		for ( j = i; j < num_centers_local; j++ ) {
@@ -725,12 +712,6 @@ halo_list *find_halos() {
 	cart_free( order );
 
 	end_time( HALO_FINDER_TIMER );
-
-#ifdef DEBUG
-	cart_debug( "mass timer = %f", total_time( HALO_FINDER_MASS_TIMER, -1 ) );
-	cart_debug( "cm timer = %f", total_time( HALO_FINDER_RECENTER_TIMER, -1 ) );
-	cart_debug( "halo finder = %f", total_time( HALO_FINDER_TIMER, -1 ) );
-#endif /* DEBUG */
 
 	return halos;
 }
@@ -785,7 +766,6 @@ void write_halo_list( halo_list *halos ) {
 
 		for ( ih = 0; ih < halos->num_halos; ih++ ) {
 			h = &halos->list[ih];
-#ifdef COSMOLOGY
 			fprintf( output, "%5u %10.5lf %10.5lf %10.5lf %8.2lf %8.2lf %8.2lf %9.4lf %.5le %7u %7.2lf %9.4lf\n", 
 					h->id, 
 					h->pos[0]*units->length_in_chimps,
@@ -799,20 +779,6 @@ void write_halo_list( halo_list *halos ) {
 					h->np,
 					h->vmax*units->velocity/constants->kms,
 					h->rmax*units->length_in_chimps*1000. );
-#else
-			fprintf( output, "%5u %10.5lf %10.5lf %10.5lf %8.2lf %8.2lf %8.2lf %9.4lf %.5le %7u %7.2lf %9.4lf\n", h->id, 
-					h->pos[0]*units->length / constants->Mpc,
-					h->pos[1]*units->length / constants->Mpc,
-					h->pos[2]*units->length / constants->Mpc,
-					h->vel[0]*units->velocity/constants->kms,
-					h->vel[1]*units->velocity/constants->kms,
-					h->vel[2]*units->velocity/constants->kms,
-					h->rvir*units->length / constants->kpc,
-					h->mvir*units->mass/constants->Msun,
-					h->np,
-					h->vmax*units->velocity/constants->kms,
-					h->rmax*units->length / constants->kpc );
-#endif
 		}
 
 		fclose(output);
@@ -864,11 +830,7 @@ void write_halo_particle_list( halo_list *halos ) {
 		output = fopen( filename, "w" );
 
 		size = sizeof(float);
-#ifdef COSMOLOGY
 		aexp = auni[min_level];
-#else
-		aexp = 1.0;
-#endif
 
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &aexp, sizeof(float), 1, output );
@@ -898,7 +860,11 @@ void write_halo_particle_list( halo_list *halos ) {
 		local_particle_count = 0;
 
 		/* construct radial average potential */
+#ifdef OPENMP_DECLARE_CONST
 #pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,cell_volume,oct_pos,oct_level,cell_delta,rvir2,particle_id,particle_x,cell_particle_list,particle_list_next,rlmin,rr,drl,local_radial_potential,local_bin_volume,local_particle_count) private(cell_list,i,j,k,m,coords,r,icell,dx,level,ioct,parent,child,lgr,bin,thread_radial_potential,thread_bin_volume,thread_particle_count,ipart)
+#else
+#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,oct_pos,oct_level,rvir2,particle_id,particle_x,cell_particle_list,particle_list_next,rlmin,rr,drl,local_radial_potential,local_bin_volume,local_particle_count) private(cell_list,i,j,k,m,coords,r,icell,dx,level,ioct,parent,child,lgr,bin,thread_radial_potential,thread_bin_volume,thread_particle_count,ipart)
+#endif /* OPENMP_DECLARE_CONST */
         {
             cell_list = stack_init();
 
@@ -1034,21 +1000,25 @@ void write_halo_particle_list( halo_list *halos ) {
 		/* measure binding energy for local particles */
 		bind = cart_alloc(float, local_particle_count);
 		v2kms2 = pow( units->velocity/constants->kms, 2.0 );
-#ifdef COSMOLOGY
 		phi2kms2 = pow( units->velocity*abox[min_level]/constants->kms, 2.0 );
-#else
-		phi2kms2 = pow( units->velocity/constants->kms, 2.0 );
-#endif
 #endif /* GRAVITY */
 
 		pindex = 0;
 		ids = cart_alloc(int, local_particle_count);
 
+#ifdef OPENMP_DECLARE_SHARED
 #ifdef GRAVITY
 #pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,cell_volume,oct_pos,oct_level,cell_delta,rvir2,particle_x,particle_id,particle_v,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids,bind,radial_potential,rl,phi2kms2,v2kms2) private(cell_list,i,j,k,m,coords,r,lgr,v,icell,dx,level,ioct,parent,child,plocal,ipart,phi,bin)
 #else
 #pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,oct_pos,oct_level,cell_delta,rvir2,particle_x,particle_id,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids) private(cell_list,i,j,k,m,coords,r,lgr,icell,dx,level,ioct,parent,child,plocal,ipart,bin)
-#endif
+#endif /* GRAVITY */
+#else
+#ifdef GRAVITY
+#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,oct_pos,oct_level,rvir2,particle_x,particle_id,particle_v,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids,bind,radial_potential,rl,phi2kms2,v2kms2) private(cell_list,i,j,k,m,coords,r,lgr,v,icell,dx,level,ioct,parent,child,plocal,ipart,phi,bin)
+#else
+#pragma omp parallel default(none) shared(h,cell_child_oct,cell_vars,num_bins,oct_pos,oct_level,rvir2,particle_x,particle_id,particle_list_next,cell_particle_list,rlmin,drl,pindex,ids) private(cell_list,i,j,k,m,coords,r,lgr,icell,dx,level,ioct,parent,child,plocal,ipart,bin)
+#endif /* GRAVITY */
+#endif /* OPENMP_DECLARE_SHARED */
 		{
 			cell_list = stack_init();
 
