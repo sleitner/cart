@@ -84,7 +84,8 @@ extern double max_da;
 //  reduce_dt_factor=0 means no reduction.
 */
 DEFINE_LEVEL_ARRAY(double,reduce_dt_factor);
-DEFINE_LEVEL_ARRAY(double,reduce_dt_factor_step);
+DEFINE_LEVEL_ARRAY(double,dtl_try);
+int post_cfl_violation = 0;
 
 extern double reduce_dt_factor_shallow_dec;
 extern double reduce_dt_factor_deep_dec;
@@ -105,6 +106,9 @@ void run_output();
 int global_timestep();
 int timestep( int level, MPI_Comm level_com );
 
+void set_post_cfl_timestepping_scheme();
+void satisfy_time_refinement_constraints(int lowest_level);
+void finalize_timestepping_scheme();
 #ifdef HYDRO
 void hydro_cfl_condition( int level, int *courant_cell, double *velocity );
 #endif
@@ -282,6 +286,8 @@ void run( int restart, const char *restart_label ) {
 		if ( global_timestep() == -1 ) {
 			cart_debug("Error: could not complete timestep, restarting from previous timestep" );
 
+			post_cfl_violation = 1;
+
 			start_time( RESTART_TIMER );
 			destroy_cell_buffer();
 #ifdef PARTICLES
@@ -317,10 +323,7 @@ void run( int restart, const char *restart_label ) {
 		} else {
 			current_steps++;
 
-			/*
-			//  Reset the reduction factor, lest it accumulates
-			*/
-			for ( level = min_level; level <= max_level; level++ ) reduce_dt_factor[level] = 0.0;
+			post_cfl_violation = 0;
 
 			save_check();
 			/*
@@ -361,7 +364,6 @@ int global_timestep() {
 #if defined(COSMOLOGY) && defined(PARTICLES)
 	halo_list *halos;
 #endif
-	DEFINE_LEVEL_ARRAY(double,tmp);
 
 	cart_assert( buffer_enabled );
 
@@ -386,9 +388,28 @@ int global_timestep() {
 	end_time( WORK_TIMER );
 
 	/*
-	//  Specify the hierarchy of time-steps
+	//  Specify the hierarchy of time-steps. We can come here in two cases: as a new step,
+	//  or after va CFL violation. In the latter case we don't care about any time-stepping
+	//  scheme, we should just reduce the last step further.
 	*/
-	set_timestepping_scheme();
+	if(post_cfl_violation == 0)
+	  {
+	    set_timestepping_scheme();
+	  }
+	else
+	  {
+	    set_post_cfl_timestepping_scheme();
+	  }
+
+	/*
+	// Reset reduction factors for the new step, save the step we
+	// are trying
+	*/
+	for(level=min_level; level<=max_level; level++)
+	  {
+	    reduce_dt_factor[level] = 0.0;
+	    dtl_try[level] = dtl[level];
+	  }
 
 #ifdef RADIATIVE_TRANSFER
 	rtStepBegin();
@@ -409,8 +430,6 @@ int global_timestep() {
 #endif /* STAR_FORMATION */
 
 	PLUGIN_POINT(GlobalStepBegin)();
-
-	for ( level = min_level; level <= max_level; level++ ) reduce_dt_factor_step[level] = 0.0;
 
 	ret = timestep( min_level, mpi.comm.run );
 	current_step_level = -1;
@@ -474,36 +493,6 @@ int global_timestep() {
 
 		PLUGIN_POINT(GlobalStepEnd)();
 
-	} else {
-		start_time( COMMUNICATION_TIMER );
-
-		/*
-		//  Find the global time-step reduction factors
-		*/
-		for(level=min_level; level<=max_level; level++)
-		  {
-		    tmp[level] = reduce_dt_factor_step[level];
-		  }
-		   
-		MPI_Allreduce(&tmp[min_level],&reduce_dt_factor_step[min_level],max_level-min_level+1,MPI_DOUBLE,MPI_MAX,mpi.comm.run);
-
-		end_time( COMMUNICATION_TIMER );
-#ifdef DEBUG_TIMESTEP
-		for(level=min_level; level<=max_level; level++)
-		  {
-		    if(reduce_dt_factor[level]>0.0 || reduce_dt_factor_step[level]>0.0)
-		      {
-			cart_debug("Must reduce timestep[%d] by factor=%lg x factor=%lg (total=%lg)",level,reduce_dt_factor[level]+1,reduce_dt_factor_step[level]+1,(reduce_dt_factor[level]+1)*(reduce_dt_factor_step[level]+1));
-		      }
-		  }
-#endif
-		/*
-		//  (1+Rtot) = (1+Rold)*(1+Rnew)
-		*/
-		for(level=min_level; level<=max_level; level++)
-		  {
-		    reduce_dt_factor[level] += reduce_dt_factor_step[level]*(reduce_dt_factor[level]+1);
-		  }
 	}
 
 	end_time(LEVEL_TIMER);
@@ -689,9 +678,13 @@ int timestep( int level, MPI_Comm level_com )
 		//  Set-up a time-step restriction (but only the first time,
 		//  other times the solution is already bogus).
 		*/
-		if(reduce_dt_factor_step[level] == 0.0)
+		if(reduce_dt_factor[level] == 0.0)
 		  {
-		    reduce_dt_factor_step[level] = dtl[level]/MAX(0.1*dtl[level],dt_needed) - 1.0;
+		    /*
+		    //  It does not make much sense for rdf to be too small, it may get swallowed 
+		    //  by the changes in time-steps due to time-refinement being done by integer factors
+		    */
+		    reduce_dt_factor[level] = MAX(min_dt_dec,dtl[level]/MAX(0.1*dtl[level],dt_needed)) - 1.0;
 		  }
 		ret = -1;
 	}
@@ -834,64 +827,15 @@ int timestep( int level, MPI_Comm level_com )
 }
 
 
-void satisfy_time_refinement_constraints(int lowest_level)
-{
-  int level, synch_level, done, j;
-  double q;
-
-  /*
-  // Synch time-steps on all levels above time_refinement_level or lowest_level.
-  */
-  synch_level = MIN(time_refinement_level,lowest_level);
-
-  time_refinement_factor[synch_level] = 1;
-  for(level=min_level; level<synch_level; level++)
-    {
-      time_refinement_factor[level] = 1;
-      dtl[level] = dtl[synch_level];
-    }
-
-  /*
-  // Satisfy min_time_refinement_factor limit on all levels below synch_level.
-  */
-  for(level=synch_level+1; level<=lowest_level; level++)
-    {
-      time_refinement_factor[level] = MAX(min_time_refinement_factor,(int)(0.999+dtl[level-1]/dtl[level]));
-      dtl[level] = dtl[level-1]/time_refinement_factor[level];
-    }
-
-  /*
-  // Satisfy max_time_refinement_factor limit on all levels below synch_level.
-  */
-  do
-    {
-      done = 1;
-      for(level=synch_level+1; level<=lowest_level; level++)
-	{
-	  if(time_refinement_factor[level] > max_time_refinement_factor)
-	    {
-	      q = (double)max_time_refinement_factor/time_refinement_factor[level];
-	      for(j=min_level; j<level; j++)
-		{
-		  dtl[j] *= q;
-		}
-	      time_refinement_factor[level] = max_time_refinement_factor;
-	      done = 0;
-	    }
-	}
-    }
-  while(!done);
-}
-
-
 #ifdef CONSTANT_TIMESTEP
 
 void set_timestepping_scheme()
 {
-  int level, lowest_level;
-  double dt_new, work;
+  int level;
+  double dt_new;
 
   start_time( CHOOSE_TIMESTEP_TIMER );
+  start_time( WORK_TIMER );
 
   dt_new = max_dt;
 #ifdef RADIATIVE_TRANSFER
@@ -905,32 +849,11 @@ void set_timestepping_scheme()
       dtl[level] = dt_new*pow(0.5,level-min_level);
     }
 
+  end_time( WORK_TIMER );
+
+  finalize_timestepping_scheme();
+
   end_time( CHOOSE_TIMESTEP_TIMER );
-  lowest_level = max_level_now_global(mpi.comm.run);
-
-  if(local_proc_id == MASTER_NODE)
-    {
-      cart_debug("chose %le %s as our next global time-step (%lg of the optimal value)",
-#ifdef COSMOLOGY
-                 dtl[min_level]*units->time/constants->Myr, "Myr",
-#else
-                 dtl[min_level]*units->time, "s",
-#endif
-                 dtl[min_level]/dt_new );
-
-      work = 1.0;
-      for(level=min_level+1; level<=lowest_level; level++)
-        {
-          work *= time_refinement_factor[level];
-          cart_debug("level %d, dt = %9.3le %s, time-ref = %d, global time-ref = %lg", level,
-#ifdef COSMOLOGY
-                     dtl[level]*units->time/constants->Myr, "Myr",
-#else
-                     dtl[level]*units->time, "s",
-#endif
-                     time_refinement_factor[level],work);
-        }
-    }
 }
 
 #else  /* CONSTANT_TIMESTEP */
@@ -940,9 +863,8 @@ void set_timestepping_scheme()
   int level, i, j, lowest_level;
   int courant_cell;
   double velocity;
-  double dt_new, dda, work;
+  double dt_new, dda;
   DEFINE_LEVEL_ARRAY(double,dtl_local);
-  DEFINE_LEVEL_ARRAY(double,fdt);
 
   start_time( CHOOSE_TIMESTEP_TIMER );
   start_time( WORK_TIMER );
@@ -1102,14 +1024,59 @@ void set_timestepping_scheme()
       dtl[level] = dtl[level-1]/time_refinement_factor[level];
     }
 
+  end_time( WORK_TIMER );
+
+  finalize_timestepping_scheme();
+
+  end_time( CHOOSE_TIMESTEP_TIMER );
+}
+
+#endif /* CONSTANT_TIMESTEP */
+
+
+void set_post_cfl_timestepping_scheme()
+{
+  int level, j;
+  DEFINE_LEVEL_ARRAY(double,fdt);
+
+  start_time( CHOOSE_TIMESTEP_TIMER );
+
   /*
-  //  Now we have a complete scheme without any extra reduction. If we came here after
-  //  the CFL violation, impose the reduction factor(s). We do that in a complex way,
+  //  Find the global time-step reduction factors
+  */
+  start_time( COMMUNICATION_TIMER );
+
+  for(level=min_level; level<=max_level; level++)
+    {
+      fdt[level] = reduce_dt_factor[level];
+    }
+		   
+  MPI_Allreduce(&fdt[min_level],&reduce_dt_factor[min_level],max_level-min_level+1,MPI_DOUBLE,MPI_MAX,mpi.comm.run);
+
+  end_time( COMMUNICATION_TIMER );
+
+#ifdef DEBUG_TIMESTEP
+  for(level=min_level; level<=max_level; level++)
+    {
+      if(reduce_dt_factor[level] > 0.0)
+	{
+	  cart_debug("Must reduce timestep[%d] by factor=%lg",level,reduce_dt_factor[level]+1);
+	}
+    }
+#endif
+
+  start_time( WORK_TIMER );
+
+  /*
+  //  Impose the reduction factor(s). We do that in a complex way,
   //  by reducing the offending level and levels around it, but the latter with progressively
   //  lower reduction factors. We extend the process into the non-existent levels as
   //  well, just in case. New reduction factors go into fdt array.
   */
-  for(level=min_level; level<=max_level; level++) fdt[level] = 0.0;
+  for(level=min_level; level<=max_level; level++)
+    {
+      fdt[level] = 0.0;
+    }
 
   for(level=min_level; level<=max_level; level++)
     {
@@ -1127,27 +1094,118 @@ void set_timestepping_scheme()
 	}
     }
 
+  /*
+  //  dtl was overwritten on restart, but dtl_try contains the actual steps which were taken
+  */
   for(level=min_level; level<=max_level; level++)
     {
-      dtl[level] /= (1+fdt[level]);
+#ifdef DEBUG_TIMESTEP
+      if(fdt[level] > 0.0)
+	{
+	  cart_debug("reducing dt at level[%d]: %12.6le -> %12.6le, fdt=%lg",level,dtl[level],dtl[level]/(1+fdt[level]),fdt[level]);
+	}
+#endif
+      dtl[level] = dtl_try[level]/(1+fdt[level]);
     }
 
   /*
-  //  Impose the constraints once more, this time down to max_level
+  //  These changes could have violated the constraints, so impose them again.
   */
   satisfy_time_refinement_constraints(max_level);
 
   end_time( WORK_TIMER );
 
+  finalize_timestepping_scheme();
+
+  end_time( CHOOSE_TIMESTEP_TIMER );
+}
+
+
+void satisfy_time_refinement_constraints(int lowest_level)
+{
+  int level, synch_level, done, j;
+  double q;
+
+  /*
+  // Synch time-steps on all levels above time_refinement_level or lowest_level.
+  */
+  synch_level = MIN(time_refinement_level,lowest_level);
+
+  time_refinement_factor[synch_level] = 1;
+  for(level=min_level; level<synch_level; level++)
+    {
+      time_refinement_factor[level] = 1;
+      dtl[level] = dtl[synch_level];
+    }
+
+  /*
+  // Satisfy min_time_refinement_factor limit on all levels below synch_level.
+  */
+#ifdef DEBUG_TIMESTEP
+  DEFINE_LEVEL_ARRAY(double,dt0);
+  for(level=min_level; level<=lowest_level; level++) dt0[level] = dtl[level];
+#endif
+
+  for(level=synch_level+1; level<=lowest_level; level++)
+    {
+      time_refinement_factor[level] = MAX(min_time_refinement_factor,(int)(0.999+dtl[level-1]/dtl[level]));
+      dtl[level] = dtl[level-1]/time_refinement_factor[level];
+    }
+
+#ifdef DEBUG_TIMESTEP
+  DEFINE_LEVEL_ARRAY(double,dt1);
+  for(level=min_level; level<=lowest_level; level++) dt1[level] = dtl[level];
+#endif
+
+  /*
+  // Satisfy max_time_refinement_factor limit on all levels below synch_level.
+  */
+  do
+    {
+      done = 1;
+      for(level=synch_level+1; level<=lowest_level; level++)
+	{
+	  if(time_refinement_factor[level] > max_time_refinement_factor)
+	    {
+	      q = (double)max_time_refinement_factor/time_refinement_factor[level];
+	      for(j=min_level; j<level; j++)
+		{
+		  dtl[j] *= q;
+		}
+	      time_refinement_factor[level] = max_time_refinement_factor;
+	      cart_assert(fabs(dtl[level]/dtl[level-1]*time_refinement_factor[level]-1.0) < 1.0e-5);
+	      done = 0;
+	    }
+	}
+    }
+  while(!done);
+
+#ifdef DEBUG_TIMESTEP
+  cart_debug("satisfy_time_refinement_constraints:");
+  for(level=min_level; level<=lowest_level; level++)
+    {
+      cart_debug("level[%d]: %12.6le -> %12.6le -> %12.6le",level,dt0[level],dt1[level],dtl[level]);
+    }
+#endif
+}
+
+
+void finalize_timestepping_scheme()
+{
+  int level, lowest_level;
+  double work;
+
+  lowest_level = max_level_now_global(mpi.comm.run);
+
   if(local_proc_id == MASTER_NODE)
     {
-      cart_debug("chose %le %s as our next global time-step (%lg of the optimal value)",
+      cart_debug("chose %le %s as our next global time-step",
 #ifdef COSMOLOGY
-		 dtl[min_level]*units->time/constants->Myr, "Myr",
+		 dtl[min_level]*units->time/constants->Myr, "Myr"
 #else
-		 dtl[min_level]*units->time, "s",
+		 dtl[min_level]*units->time, "s"
 #endif
-		 dtl[min_level]/dt_new );
+		 );
 
       work = 1.0;
       for(level=min_level+1; level<=lowest_level; level++)
@@ -1174,11 +1232,7 @@ void set_timestepping_scheme()
     }
   end_time( WORK_TIMER );
 #endif /* STAR_FORMATION */
-
-  end_time( CHOOSE_TIMESTEP_TIMER );
 }
-
-#endif /* CONSTANT_TIMESTEP */
 
 
 #ifdef HYDRO

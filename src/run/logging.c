@@ -28,8 +28,7 @@
 #endif
 
 FILE *steptimes;
-FILE *datesteptimes;
-FILE *levelsteptimes;
+FILE *runtimes;
 FILE *timing;
 FILE *energy;
 FILE *workload;
@@ -413,39 +412,24 @@ void init_logging( int restart ) {
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
-			fprintf(steptimes,"# step tl [Gyr] dtl [Myr] auni abox dabox\n");
+			fprintf(steptimes,"# step tl [Gyr] dtl [Myr] auni abox dabox dtl[levels] [code units]\n");
 #else
-			fprintf(steptimes,"# step tl dt\n");
+			fprintf(steptimes,"# step tl dt dtl[levels] [code units]\n");
 #endif /* COSMOLOGY */
 		}
 
-		sprintf(filename,"%s/level_times.log", logfile_directory );
-		levelsteptimes = fopen(filename,mode);
+		sprintf(filename,"%s/run.log", logfile_directory );
+		runtimes = fopen(filename,mode);
 
-		if ( levelsteptimes == NULL ) {
+		if ( runtimes == NULL ) {
 			cart_error("Unable to open %s for writing!", filename );
 		}
 
 		if ( !restart || restart == 2 ) {
 #ifdef COSMOLOGY
-			fprintf(levelsteptimes,"# step dt [Myr] dtl[levels] [code units]\n");
+			fprintf(runtimes,"# step tl [Gyr] auni abox dabox time-stamp\n");
 #else
-			fprintf(levelsteptimes,"# step dt dtl[levels] [code units]\n");
-#endif /* COSMOLOGY */
-		}
-
-		sprintf(filename,"%s/date_times.log", logfile_directory );
-		datesteptimes = fopen(filename,mode);
-
-		if ( datesteptimes == NULL ) {
-			cart_error("Unable to open %s for writing!", filename );
-		}
-
-		if ( !restart || restart == 2 ) {
-#ifdef COSMOLOGY
-			fprintf(datesteptimes,"# step auni date-time-stamp\n");
-#else
-			fprintf(datesteptimes,"# step t date-time-stamp\n");
+			fprintf(runtimes,"# step tl dt date-time-stamp\n");
 #endif /* COSMOLOGY */
 		}
 
@@ -556,8 +540,7 @@ void finalize_logging() {
 	if ( local_proc_id == MASTER_NODE ) {
 		/* close log files */
 		fclose(steptimes);
-		fclose(datesteptimes);
-		fclose(levelsteptimes);
+		fclose(runtimes);
 		fclose(energy);
 	}
 
@@ -860,21 +843,19 @@ void log_diagnostics() {
 #else
 		fprintf(steptimes, "%u %e %e\n", step, current_age, current_dt );
 #endif /* COSMOLOGY */
+
+		for ( i = min_level; i <= max_level; i++ ) {
+			fprintf(steptimes, " %e", dtl[i] );
+		}
+		fprintf(steptimes, "\n" );
 		fflush(steptimes);
 
-		fprintf(levelsteptimes, "%u %e", step, current_dt );
-		for ( i = min_level; i <= max_level; i++ ) {
-			fprintf(levelsteptimes, " %e", dtl[i] );
-		}
-		fprintf(levelsteptimes, "\n" );
-		fflush(levelsteptimes);
-
 #ifdef COSMOLOGY
-		fprintf(datesteptimes, "%u %e %s", step, auni[min_level], system_get_time_stamp(0) );
+		fprintf(runtimes, "%u %e %e %e %e %s", step, current_age, auni[min_level], abox[min_level], abox[min_level]-abox_old[min_level], system_get_time_stamp(0) );
 #else
-		fprintf(datesteptimes, "%u %e %s", step, tl[min_level], system_get_time_stamp(0) );
+		fprintf(runtimes, "%u %e %e %s", step, current_age, current_dt, system_get_time_stamp(0) );
 #endif /* COSMOLOGY */
-		fflush(datesteptimes);
+		fflush(runtimes);
 	}
 
 #ifdef PARTICLES

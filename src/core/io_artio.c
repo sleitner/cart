@@ -841,7 +841,7 @@ void artio_restart_load_balance( artio_file handle ) {
 	int *num_octs_per_level;
 	int num_file_variables;
 	int num_file_species;
-	int num_species, *num_particles_per_species;
+	int *num_particles_per_species;
 	
 	if ( num_procs == 1 ) {
 		proc_sfc_index[0] = 0;
@@ -894,8 +894,8 @@ void artio_restart_load_balance( artio_file handle ) {
 		cart_free( variables );
 
 #ifdef PARTICLES
-		artio_parameter_get_int( handle, "num_particle_species", &num_species);
-		num_particles_per_species = cart_alloc(int, num_species);
+		artio_parameter_get_int( handle, "num_particle_species", &num_file_species);
+		num_particles_per_species = cart_alloc(int, num_file_species);
 
 		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
 			end_sfc = MIN( sfc + num_grid*num_grid, num_root_cells ) - 1;
