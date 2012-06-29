@@ -26,7 +26,7 @@ void sfr_config_init()
 {
   control_parameter_add4(control_parameter_double,&sfr.slope,"sf:slope","sfr.slope","sf:recipe=0:slope","alpha_sf","the slope of the star formation law with gas density (see HART documentation for exact definition).");
 
-  control_parameter_add4(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=0:slope","eps_sf","the relative efficiency of the star formation law (see HART documentation for exact definition).");
+  control_parameter_add4(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=0:efficiency","eps_sf","the relative efficiency of the star formation law (see HART documentation for exact definition).");
 }
 
 
