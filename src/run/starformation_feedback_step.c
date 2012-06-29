@@ -43,10 +43,13 @@ void star_particle_feedback(int level) {
 	t_next = tl[level] + dtl[level];
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+#ifndef COMPILER_GCC
+		/* Get compiler segfault under GCC */
 #ifdef STAR_PARTICLE_TYPES
 #pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next), schedule(dynamic)
 #else
 #pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,particle_species_indices,num_particle_species,particle_list_next), schedule(dynamic)
+#endif
 #endif
 	for ( i = 0; i < num_level_cells; i++ ) {
 		iter_cell = level_cells[i];

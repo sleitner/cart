@@ -35,7 +35,7 @@ void FUNCTION( char *particle_header_filename, char *particle_data, float *cell_
 
 	num_particles_total = header.num[ header.Nspecies - 1 ];
 	num_parts_per_page = header.Nrow*header.Nrow;
-	num_pages = (num_particles_total-1) / num_parts_per_page + 1;
+	num_pages = (num_particles_total>0) ? (num_particles_total-1) / num_parts_per_page + 1 : 0;
 
 	cart_debug("num_parts_per_page = %d", num_parts_per_page );
 	cart_debug("num_particles_total = %d", num_particles_total );

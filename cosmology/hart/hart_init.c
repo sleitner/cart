@@ -5,6 +5,7 @@
 #include "auxiliary.h"
 #include "cell_buffer.h"
 #include "hydro.h"
+#include "hydro_tracer.h"
 #include "io.h"
 #include "io_cart.h"
 #include "load_balance.h"
@@ -20,11 +21,25 @@
 
 #include "hart_init.h"
 
-void hart_init(const char *path) {
+void hart_init() {
 	int i;
 	char filename[256], filename2[256];
+	const char *tmp;
+	const char *path;
 
-	if ( path == NULL ) path = output_directory;
+	tmp = extract_option1("initial-conditions-path","ics",NULL);
+	if(tmp != NULL) {
+		path = tmp;
+	} else {
+		path = output_directory;
+    }
+
+	/*
+	//  No more options are allowed.
+	 */
+	if(num_options > 0) {
+		cart_error("Unrecognized option: %s",options[0]);
+	}
 
 #ifdef PARTICLES
 	sprintf( filename, "%s/PMcrd.DAT", path );
@@ -69,6 +84,10 @@ void hart_init(const char *path) {
 		refinement_volume_max[i] = (double)num_grid;
 	}
 #endif /* PARTICLES */
+
+#ifdef HYDRO_TRACERS
+//	set_hydro_tracers_to_particles();
+#endif /* HYDRO_TRACERS */
 
 	if ( !buffer_enabled ) {
 		cart_debug("building cell buffer");

@@ -213,7 +213,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 		num_parts_per_page = header.Nrow*header.Nrow;
 		num_parts_per_proc_page = num_parts_per_page/num_procs;
-		num_pages = (num_particles_total-1) / num_parts_per_page + 1;
+		num_pages = (num_particles_total > 0) ? (num_particles_total-1) / num_parts_per_page + 1 : 0;
 
 		cart_assert( num_pages > 0 && num_parts_per_page*num_pages >= num_particles_total );
 

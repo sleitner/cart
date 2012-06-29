@@ -833,11 +833,11 @@ void extStarFormationLaw(const char *fname, float spatial_scale, float time_scal
   //  Turn mass into SFR density
   */
   nselproc = 0;
-#ifdef OPENMP_DECLARE_SHARED
+#ifdef OPENMP_DECLARE_CONST
 #pragma omp parallel for default(none), private(i), shared(num_level_cells,sfr,mst,zst,cell_volume,level), reduction(+:nselproc)
 #else
 #pragma omp parallel for default(none), private(i), shared(num_level_cells,sfr,mst,zst,level), reduction(+:nselproc)
-#endif /* OPENMP_DECLARE_SHARED */
+#endif /* OPENMP_DECLARE_CONST */
   for(i=0; i<num_level_cells; i++)
     {
       sfr[i] /= cell_volume[level];
@@ -1077,11 +1077,11 @@ void extStarFormationLaw2(const char *fname, float spatial_scale, const struct H
   //  Finish volume-weighing of SFR density
   */
   nselproc = 0;
-#ifdef OPENMP_DECLARE_SHARED
+#ifdef OPENMP_DECLARE_CONST
 #pragma omp parallel for default(none), private(i), shared(num_level_cells,sfr,cell_volume,cell_vars,level_cells,level), reduction(+:nselproc)
 #else
 #pragma omp parallel for default(none), private(i), shared(num_level_cells,sfr,cell_vars,level_cells,level), reduction(+:nselproc)
-#endif /* OPENMP_DECLARE_SHARED */
+#endif /* OPENMP_DECLARE_CONST */
   for(i=0; i<num_level_cells; i++)
     {
       sfr[i] /= cell_volume[level];

@@ -195,6 +195,8 @@ extern type *const name
 */
 #ifndef COMPILER_GCC
 #define OPENMP_DECLARE_CONST
+#else
+#define OPENMP_NO_COLLAPSE_CLAUSE
 #endif
 
 #endif

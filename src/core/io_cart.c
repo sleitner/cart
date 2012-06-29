@@ -661,7 +661,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 	num_parts_per_page = cart_particle_num_row*cart_particle_num_row;
 	num_parts_per_proc_page = num_parts_per_page/num_procs;
-	num_pages = (num_particles_total-1) / num_parts_per_page + 1;
+	num_pages = (num_particles_total > 0) ? (num_particles_total-1) / num_parts_per_page + 1 : 0;
 
 	/* construct mapping of id -> particle index */
 	particle_order = cart_alloc(int, num_local_particles);
@@ -2611,7 +2611,7 @@ void write_cart_hydro_tracers( char *filename ) {
 
 	num_tracers_per_page = num_tracer_row*num_tracer_row;
 	num_tracers_per_proc_page = num_tracers_per_page/num_procs;
-	num_pages = (num_tracers_total-1) / num_tracers_per_page + 1;
+	num_pages = (num_tracers_total>0) ? (num_tracers_total-1) / num_tracers_per_page + 1 : 0;
 
 	/* construct mapping of id -> tracer id */
 	tracer_order = cart_alloc(int, num_local_tracers );
@@ -2740,7 +2740,7 @@ void write_cart_hydro_tracers( char *filename ) {
 				num_tracers_in_page = num_tracers_per_page;
 			}
 
-			cart_assert( num_tracers_in_page >= 0 && num_tracers_in_page <= num_tracers_per_page );
+			cart_assert( num_tracers_in_page > 0 && num_tracers_in_page <= num_tracers_per_page );
 
 			while ( num_tracers_written < num_tracers_in_page ) {
 				/* add from our list */
@@ -2796,7 +2796,7 @@ void write_cart_hydro_tracers( char *filename ) {
 
 		cart_free( output_page );
 
-                /* allocate actual page which will be written */
+		/* allocate actual page which will be written */
 		output_vars_page = cart_alloc(float, num_hydro_vars_traced*num_tracers_per_page );
 
 		/* receive initial pages */
@@ -2822,7 +2822,7 @@ void write_cart_hydro_tracers( char *filename ) {
 				num_tracers_in_page = num_tracers_per_page;
 			}
 
-			cart_assert( num_tracers_in_page >= 0 && num_tracers_in_page <= num_tracers_per_page );
+			cart_assert( num_tracers_in_page > 0 && num_tracers_in_page <= num_tracers_per_page );
 
 			while ( num_tracers_written < num_tracers_in_page ) {
 				/* add from our list */
@@ -3079,7 +3079,7 @@ void read_cart_hydro_tracers( char *filename ) {
 
 	num_tracers_per_page = num_tracer_row*num_tracer_row;
 	num_tracers_per_proc_page = num_tracers_per_page/num_procs;
-	num_pages = (num_tracers_total-1) / num_tracers_per_page + 1;
+	num_pages = (num_tracers_total>0) ? (num_tracers_total-1) / num_tracers_per_page + 1 : 0;
 
 	if ( local_proc_id == MASTER_NODE ) {
 		input_page = cart_alloc(double, nDim*num_tracers_per_page );

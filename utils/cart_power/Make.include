@@ -1,0 +1,10 @@
+
+dummy_cart_power: cart_power
+
+include $(TOP_DIR)/Make.config
+
+cart_power: .obj/.phony $(DEFS) $(ANL_OBJS) $(TOP_DIR)/utils/cart_power/cart_power.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(SRC_DIR)/extra $(INCLUDES) $(ANL_OBJS) $(TOP_DIR)/utils/cart_power/cart_power.c -o cart_power $(LIBS) $(EXTRALIBS)
+
+ALL += cart_power
+CLEAN += *.o cart_power

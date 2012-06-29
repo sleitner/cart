@@ -48,8 +48,12 @@ int last_restart_step;
 
 int output_frequency = 0;
 int restart_frequency = 1;
+#ifdef PARTICLES
 int particle_output_frequency = 0;
+#endif /* PARTICLES */
+#ifdef HYDRO_TRACERS
 int tracer_output_frequency = 0;
+#endif /* HYDRO_TRACERS */
 int grid_output_frequency = 0;
 
 int num_outputs = 0;
@@ -189,9 +193,13 @@ void config_init_io()
 
   control_parameter_add2(control_parameter_int,&restart_frequency,"frequency:restart","restart_frequency","frequency (in global time steps) of producing restart files. Zero frequency disables this option.");
 
+#ifdef PARTICLES
   control_parameter_add2(control_parameter_int,&particle_output_frequency,"frequency:particle-output","particle_output_frequency","frequency (in global time steps) of producing particle output files. Zero frequency disables this option.");
+#endif /* PARTICLES */
 
+#ifdef HYDRO_TRACERS
   control_parameter_add2(control_parameter_int,&tracer_output_frequency,"frequency:tracer-output","tracer_output_frequency","frequency (in global time steps) of producing tracer output files. Zero frequency disables this option.");
+#endif /* HYDRO_TRACERS */
 
   control_parameter_add2(control_parameter_int,&grid_output_frequency,"frequency:grid-output","grid_output_frequency","frequency (in global time steps) of calling producing grid output files. Every time a grid file is writtent to disk, particle and tracer files are also written, irrespectively of the values of <frequency:particle-output> and <frequency:tracer-output> parameters. Zero frequency disables regular output of grid files; however, outputs are still produced in cosmological simulations at cosmic scale factors set by <snapshot-epochs> parameter.");
 
@@ -232,9 +240,13 @@ void config_verify_io()
 
   VERIFY(frequency:restart, restart_frequency >= 0 );
 
+#ifdef PARTICLES
   VERIFY(frequency:particle-output, particle_output_frequency >= 0 );
+#endif /* PARTICLES */
 
+#ifdef HYDRO_TRACERS
   VERIFY(frequency:tracer-output, tracer_output_frequency >= 0 );
+#endif /* HYDRO_TRACERS */
 
   VERIFY(frequency:grid-output, grid_output_frequency >= 0 );
 

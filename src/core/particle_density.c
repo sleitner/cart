@@ -190,7 +190,10 @@ void compute_particle_densities( int num_nearest_neighbors, int *particle_flag, 
 	neighbors = cart_alloc(int, num_nearest_neighbors);
 	distances = cart_alloc(double, num_nearest_neighbors);
 
-	#pragma omp parallel default(none) shared(particle_flag,particle_density,particle_mass,num_nearest_neighbors) private(ipart,num_neighbors_found,neighbors,distances,h,W,i)
+#ifndef COMPILER_GCC
+		/* Get compiler segfault under GCC */
+#pragma omp parallel default(none) shared(particle_flag,particle_density,particle_mass,num_nearest_neighbors) private(ipart,num_neighbors_found,neighbors,distances,h,W,i)
+#endif
 	{
 		neighbors = cart_alloc(int, num_nearest_neighbors);	
 		distances = cart_alloc(double, num_nearest_neighbors);

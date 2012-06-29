@@ -10,9 +10,11 @@
 #include "control_parameter.h"
 #include "cosmology.h"
 #include "hydro.h"
+#include "hydro_tracer.h"
 #include "index_hash.h"
 #include "io.h"
 #include "io_artio.h"
+#include "io_cart.h" 
 #include "iterators.h"
 #include "load_balance.h"
 #include "parallel.h"
@@ -154,6 +156,9 @@ void define_file_variables(int *num_variables, char *variable_labels[num_vars],
 	add_variable( "HVAR_METAL_DENSITY_Ia", HVAR_METAL_DENSITY_Ia );
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
+#ifdef BLASTWAVE_FEEDBACK
+	add_variable( "HVAR_BLASTWAVE_TIME", HVAR_BLASTWAVE_TIME );
+#endif /* BLASTWAVE_FEEDBACK */
 #endif /* HYDRO */
 
 #ifdef GRAVITY
@@ -299,11 +304,15 @@ void create_artio_filename( int filename_flag, char *label, char *filename ) {
 }
 
 void write_artio_restart_worker( char *filename, int fileset_write_options );
+#ifdef HYDRO_TRACERS
+char filename_tracers[256];
+#endif /* HYDRO_TRACERS */
 
 void write_artio_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) { 
 	/* ignores tracer_filename_flag for now... */
 	char label[256];
 	char filename[256];
+	int fileset_options = 0;
 
 #ifdef COSMOLOGY
 	sprintf(label,"a%06.4f",auni[min_level]);
@@ -311,33 +320,69 @@ void write_artio_restart( int grid_filename_flag, int particle_filename_flag, in
 	sprintf(label,"%06d",step);
 #endif /* COSMOLOGY */
 
+#ifdef HYDRO_TRACERS
+	/* DHR - hack to allow writing cart format tracer files for now */
+	if ( tracer_filename_flag != NO_WRITE ) {
+		fileset_options |= WRITE_TRACERS;
+
+		switch(tracer_filename_flag) {
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+			case WRITE_SAVE:
+				sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
+				break;
+			case WRITE_BACKUP:
+				sprintf( filename_tracers, "%s/%s_2.dtr", output_directory, jobname );
+				break;
+			case WRITE_GENERIC:
+				sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
+				break;
+#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
+			case WRITE_SAVE:
+				sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
+				break;
+			case WRITE_BACKUP:
+				sprintf( filename_tracers, "%s/tracers_2.dat", output_directory );
+				break;
+			case WRITE_GENERIC:
+				sprintf( filename_tracers, "%s/tracers.dat", output_directory );
+				break;
+#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
+			default:
+				cart_error("Invalid value for tracer_filename_flag in write_artio_restart!");
+		}
+	}
+#endif /* HYDRO_TRACERS */	
+
 	if ( particle_filename_flag == NO_WRITE ) {
 		if ( grid_filename_flag != NO_WRITE ) {
 			create_artio_filename(grid_filename_flag, label, filename);
-			write_artio_restart_worker( filename, WRITE_GRID );
+			write_artio_restart_worker( filename, fileset_options | WRITE_GRID );
+		} else if ( fileset_options ) {
+			create_artio_filename(grid_filename_flag, label, filename);
+			write_artio_restart_worker( filename, fileset_options );
 		}
 	} else {
 		if ( particle_filename_flag == grid_filename_flag ) {
 			create_artio_filename(particle_filename_flag, label, filename);
-			write_artio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
+			write_artio_restart_worker( filename, fileset_options | WRITE_GRID | WRITE_PARTICLES );
 		} else {
 			if ( grid_filename_flag == WRITE_BACKUP || grid_filename_flag == WRITE_GENERIC ) {
 				create_artio_filename(grid_filename_flag, label, filename);
-				write_artio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
+				write_artio_restart_worker( filename, fileset_options | WRITE_GRID | WRITE_PARTICLES );
 
 				create_artio_filename(particle_filename_flag, label, filename);
 				write_artio_restart_worker( filename, WRITE_PARTICLES );
 			} else if ( grid_filename_flag == WRITE_SAVE ) {
 				/* implies particle_filename_flag == BACKUP || GENERIC */
 				create_artio_filename(particle_filename_flag, label, filename);
-				write_artio_restart_worker( filename, WRITE_GRID | WRITE_PARTICLES );
+				write_artio_restart_worker( filename, fileset_options | WRITE_GRID | WRITE_PARTICLES );
 
 				create_artio_filename(grid_filename_flag, label, filename);
 				write_artio_restart_worker( filename, WRITE_GRID );
 			} else {
 				/* implies particle_filename_flag == WRITE_SAVE */
 				create_artio_filename(particle_filename_flag, label, filename);
-				write_artio_restart_worker( filename, WRITE_PARTICLES );
+				write_artio_restart_worker( filename, fileset_options | WRITE_PARTICLES );
 			}
 		}
 	}
@@ -381,305 +426,318 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	int *num_particles_per_species_per_root_tree;
 #endif
 
-	/* create new parallel file */
-	cart_debug("creating parallel file %s", filename );
+	if ( fileset_write_options & WRITE_GRID || fileset_write_options & WRITE_PARTICLES ) {
+		cart_debug("creating parallel file %s", filename );
+		handle = artio_fileset_create( filename, num_root_cells,
+				proc_sfc_index[local_proc_id],
+				proc_sfc_index[local_proc_id+1]-1, &con );
 
-	handle = artio_fileset_create( filename, num_root_cells,
-			proc_sfc_index[local_proc_id],
-			proc_sfc_index[local_proc_id+1]-1, &con );
+		/* write header variables */
+		num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
 
-	/* write header variables */
-	num_levels = max_level_now_global(mpi.comm.run) - min_level + 1;
+		artio_parameter_set_string( handle, "jobname", (char *)jobname );
+		cart_debug("jobname: %s", jobname );
 
-	artio_parameter_set_string( handle, "jobname", (char *)jobname );
-	cart_debug("jobname: %s", jobname );
+		artio_parameter_set_int( handle, "sfc", SFC );
+		artio_parameter_set_int( handle, "max_refinement_level", num_levels-1 );
 
-	artio_parameter_set_int( handle, "sfc", SFC );
-	artio_parameter_set_int( handle, "max_refinement_level", num_levels-1 );
-	
-	/* timestepping variables */
-	artio_parameter_set_int( handle, "step", step );
-	artio_parameter_set_double_array( handle, "tl", num_levels, tl );
-	artio_parameter_set_double_array( handle, "tl_old", num_levels, tl_old );
-	artio_parameter_set_double_array( handle, "dtl", num_levels, dtl );
-	artio_parameter_set_double_array( handle, "dtl_old", num_levels, dtl_old );
+		/* timestepping variables */
+		artio_parameter_set_int( handle, "step", step );
+		artio_parameter_set_double_array( handle, "tl", num_levels, tl );
+		artio_parameter_set_double_array( handle, "tl_old", num_levels, tl_old );
+		artio_parameter_set_double_array( handle, "dtl", num_levels, dtl );
+		artio_parameter_set_double_array( handle, "dtl_old", num_levels, dtl_old );
 
-	artio_parameter_set_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
-	artio_parameter_set_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );
+		artio_parameter_set_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
+		artio_parameter_set_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );
 
 #ifdef HYDRO	
-	artio_parameter_set_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
+		artio_parameter_set_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
 #endif
-	
-	/* unit parameters */
-	artio_parameter_set_double( handle, "box_size", box_size );
+
+		/* unit parameters */
+		artio_parameter_set_double( handle, "box_size", box_size );
 #ifdef COSMOLOGY 
-	artio_parameter_set_double( handle, "OmegaM", cosmology->OmegaM );
-	artio_parameter_set_double( handle, "OmegaL", cosmology->OmegaL );
-	artio_parameter_set_double( handle, "OmegaB", cosmology->OmegaB );
-	artio_parameter_set_double( handle, "hubble", cosmology->h );
-	artio_parameter_set_double( handle, "DeltaDC", cosmology->DeltaDC );
+		artio_parameter_set_double( handle, "OmegaM", cosmology->OmegaM );
+		artio_parameter_set_double( handle, "OmegaL", cosmology->OmegaL );
+		artio_parameter_set_double( handle, "OmegaB", cosmology->OmegaB );
+		artio_parameter_set_double( handle, "hubble", cosmology->h );
+		artio_parameter_set_double( handle, "DeltaDC", cosmology->DeltaDC );
 
-	artio_parameter_set_double( handle, "auni_init", auni_init );
-	artio_parameter_set_double_array( handle, "abox", num_levels, abox );
-	artio_parameter_set_double_array( handle, "auni", num_levels, auni );
+		artio_parameter_set_double( handle, "auni_init", auni_init );
+		artio_parameter_set_double_array( handle, "abox", num_levels, abox );
+		artio_parameter_set_double_array( handle, "auni", num_levels, auni );
 
-	artio_parameter_set_double( handle, "Hbox", Hubble(abox[min_level]) );
+		artio_parameter_set_double( handle, "Hbox", Hubble(abox[min_level]) );
 #endif /* COSMOLOGY */
 
-	/* write unit conversion factors independent of cosmology flag */
-	artio_parameter_set_double( handle, "mass_unit", primary_units->mass );
-	artio_parameter_set_double( handle, "time_unit", primary_units->time );
-	artio_parameter_set_double( handle, "length_unit", primary_units->length );
+		/* write unit conversion factors independent of cosmology flag */
+		artio_parameter_set_double( handle, "mass_unit", primary_units->mass );
+		artio_parameter_set_double( handle, "time_unit", primary_units->time );
+		artio_parameter_set_double( handle, "length_unit", primary_units->length );
 
 #ifdef PARTICLES
-	/* energy conservation variables */	
-	artio_parameter_set_double( handle, "energy:tintg", tintg );
-	artio_parameter_set_double( handle, "energy:ekin", ekin );
-	artio_parameter_set_double( handle, "energy:ekin1", ekin1 );
-	artio_parameter_set_double( handle, "energy:ekin2", ekin2 );
-	artio_parameter_set_double( handle, "energy:au0", au0 );
-	artio_parameter_set_double( handle, "energy:aeu0", aeu0 );
-	artio_parameter_set_double( handle, "energy:ap0", ap0 );
+		/* energy conservation variables */	
+		artio_parameter_set_double( handle, "energy:tintg", tintg );
+		artio_parameter_set_double( handle, "energy:ekin", ekin );
+		artio_parameter_set_double( handle, "energy:ekin1", ekin1 );
+		artio_parameter_set_double( handle, "energy:ekin2", ekin2 );
+		artio_parameter_set_double( handle, "energy:au0", au0 );
+		artio_parameter_set_double( handle, "energy:aeu0", aeu0 );
+		artio_parameter_set_double( handle, "energy:ap0", ap0 );
 #endif /* PARTICLES */
 
-	/* refinement boundaries */
-	artio_parameter_set_float_array( handle, "refinement_volume_min", 
-			nDim, refinement_volume_min );
-	artio_parameter_set_float_array( handle, "refinement_volume_max", 
-			nDim, refinement_volume_max );
+		/* refinement boundaries */
+		artio_parameter_set_float_array( handle, "refinement_volume_min", 
+				nDim, refinement_volume_min );
+		artio_parameter_set_float_array( handle, "refinement_volume_max", 
+				nDim, refinement_volume_max );
 
 #ifdef STAR_FORMATION
-	artio_parameter_set_float_array( handle, "star_formation_volume_min", 
-			nDim, star_formation_volume_min );
-	artio_parameter_set_float_array( handle, "star_formation_volume_max", 
-			nDim, star_formation_volume_max );
+		artio_parameter_set_float_array( handle, "star_formation_volume_min", 
+				nDim, star_formation_volume_min );
+		artio_parameter_set_float_array( handle, "star_formation_volume_max", 
+				nDim, star_formation_volume_max );
 #endif /* STAR_FORMATION */
 
 #ifdef RADIATIVE_TRANSFER
-	n = 0;
-	frtCall(packradiationfields)(&n,0);
-	if(n < 1)
-	  {
-	    cart_error("Unable to pack Radiation Field data.");
-	  }
+		n = 0;
+		frtCall(packradiationfields)(&n,0);
+		if(n < 1)
+		{
+			cart_error("Unable to pack Radiation Field data.");
+		}
 
-	data = cart_alloc(frt_real, n );
-	frtCall(packradiationfields)(&n,data);
+		data = cart_alloc(frt_real, n );
+		frtCall(packradiationfields)(&n,data);
 
-	if(sizeof(float) == sizeof(frt_real))
-	  {
-	    buffer = (float *)data;
-	  }
-	else
-	  {
-	    buffer = cart_alloc(float,n);
-	    for(i=0; i<n; i++) buffer[i] = data[i];
-	  }
+		if(sizeof(float) == sizeof(frt_real))
+		{
+			buffer = (float *)data;
+		}
+		else
+		{
+			buffer = cart_alloc(float,n);
+			for(i=0; i<n; i++) buffer[i] = data[i];
+		}
 
-	artio_parameter_set_float_array( handle, "radiation_background", n, buffer );
+		artio_parameter_set_float_array( handle, "radiation_background", n, buffer );
 
-	if(sizeof(float) == sizeof(frt_real))
-	  {
-	  }
-	else
-	  {
-	    cart_free(buffer);
-	  }
+		if(sizeof(float) == sizeof(frt_real))
+		{
+		}
+		else
+		{
+			cart_free(buffer);
+		}
 
-	cart_free(data);
+		cart_free(data);
 
 #ifdef RT_SINGLE_SOURCE
-	artio_parameter_set_int( handle, "rt:single_source:level", rtSingleSourceLevel );
-	artio_parameter_set_float( handle, "rt:single_source:value", rtSingleSourceValue );
-	artio_parameter_set_double_array( handle, "rt:single_source:pos", nDim, rtSingleSourcePos );
+		artio_parameter_set_int( handle, "rt:single_source:level", rtSingleSourceLevel );
+		artio_parameter_set_float( handle, "rt:single_source:value", rtSingleSourceValue );
+		artio_parameter_set_double_array( handle, "rt:single_source:pos", nDim, rtSingleSourcePos );
 #endif
 #endif /* RADIATIVE_TRANSFER */
 
-	/* load balance parameters */
-	artio_parameter_set_int( handle, "num_octs_per_mpi_task", num_octs );
+		/* load balance parameters */
+		artio_parameter_set_int( handle, "num_octs_per_mpi_task", num_octs );
 #ifdef PARTICLES
-	artio_parameter_set_int( handle, "num_particles_per_mpi_task", num_particles );
+		artio_parameter_set_int( handle, "num_particles_per_mpi_task", num_particles );
 #ifdef STAR_FORMATION
-	artio_parameter_set_int( handle, "num_star_particles_per_mpi_task", num_star_particles );
+		artio_parameter_set_int( handle, "num_star_particles_per_mpi_task", num_star_particles );
 #endif /* STAR_FORMATION */
 #endif /* PARTICLES */
 
-	for ( i = 0; i < num_procs+1; i++ ) {
-		local_proc_sfc_index[i] = proc_sfc_index[i];
-	}
-
-	artio_parameter_set_long_array( handle, "mpi_task_sfc_index", num_procs+1, local_proc_sfc_index );
-
-	if ( fileset_write_options & WRITE_GRID ) {
-		start_time( GAS_WRITE_IO_TIMER );
-
-		/* build list of variables to write */
-		define_file_variables(&num_file_vars, var_labels, var_indices);
-
-		/* collect tree information */
-		num_levels_per_root_tree = cart_alloc( int, num_cells_per_level[min_level] );
-		num_octs_per_root_tree = cart_alloc( int, num_cells_per_level[min_level] );
-
-		for ( sfc = proc_sfc_index[local_proc_id]; sfc < proc_sfc_index[local_proc_id+1]; sfc++ ) {
-			icell = root_cell_location(sfc);
-			num_levels_per_root_tree[sfc-proc_sfc_index[local_proc_id]] = tree_max_level( icell );
-			num_octs_per_root_tree[sfc-proc_sfc_index[local_proc_id]] = tree_oct_count( icell );
+		for ( i = 0; i < num_procs+1; i++ ) {
+			local_proc_sfc_index[i] = proc_sfc_index[i];
 		}
 
-		artio_fileset_add_grid( handle,
-				num_artio_grid_files, artio_grid_allocation_strategy,
-				num_file_vars, var_labels,
-				num_levels_per_root_tree,
-				num_octs_per_root_tree );
+		artio_parameter_set_long_array( handle, "mpi_task_sfc_index", num_procs+1, local_proc_sfc_index );
 
-		for (j=0;j<num_file_vars;j++) {
-			cart_free(var_labels[j]);
+		if ( fileset_write_options & WRITE_GRID ) {
+			start_time( GAS_WRITE_IO_TIMER );
+
+			/* build list of variables to write */
+			define_file_variables(&num_file_vars, var_labels, var_indices);
+
+			/* collect tree information */
+			num_levels_per_root_tree = cart_alloc( int, num_cells_per_level[min_level] );
+			num_octs_per_root_tree = cart_alloc( int, num_cells_per_level[min_level] );
+
+			for ( sfc = proc_sfc_index[local_proc_id]; sfc < proc_sfc_index[local_proc_id+1]; sfc++ ) {
+				icell = root_cell_location(sfc);
+				num_levels_per_root_tree[sfc-proc_sfc_index[local_proc_id]] = tree_max_level( icell );
+				num_octs_per_root_tree[sfc-proc_sfc_index[local_proc_id]] = tree_oct_count( icell );
+			}
+
+			artio_fileset_add_grid( handle,
+					num_artio_grid_files, artio_grid_allocation_strategy,
+					num_file_vars, var_labels,
+					num_levels_per_root_tree,
+					num_octs_per_root_tree );
+
+			for (j=0;j<num_file_vars;j++) {
+				cart_free(var_labels[j]);
+			}
+
+			cart_free( num_levels_per_root_tree );
+			cart_free( num_octs_per_root_tree );
+
+			write_artio_grid( handle, num_file_vars, var_indices );
+
+			end_time( GAS_WRITE_IO_TIMER );
 		}
-
-		cart_free( num_levels_per_root_tree );
-		cart_free( num_octs_per_root_tree );
-
-		write_artio_grid( handle, num_file_vars, var_indices );
-
-		end_time( GAS_WRITE_IO_TIMER );
-	}
 
 #ifdef PARTICLES
-	if ( fileset_write_options & WRITE_PARTICLES ) {
-		start_time( PARTICLE_WRITE_IO_TIMER );
+		if ( fileset_write_options & WRITE_PARTICLES ) {
+			start_time( PARTICLE_WRITE_IO_TIMER );
 
-		define_particle_variables( &num_species, species_labels,
-				num_primary_variables, primary_variable_labels,
-				num_secondary_variables, secondary_variable_labels );
+			define_particle_variables( &num_species, species_labels,
+					num_primary_variables, primary_variable_labels,
+					num_secondary_variables, secondary_variable_labels );
 
-		/* redo particle linked list */
-		root_tree_particle_list = cart_alloc( int, num_cells_per_level[min_level] );
+			/* redo particle linked list */
+			root_tree_particle_list = cart_alloc( int, num_cells_per_level[min_level] );
 
-		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
-			ipart = cell_particle_list[i];
-			if ( ipart != NULL_PARTICLE ) {
-				while (particle_list_next[ipart] != NULL_PARTICLE ) {
-					ipart = particle_list_next[ipart];
-				}
-			}
-
-			root_tree_particle_list[i] = ipart;
-		}
-
-		for ( level = min_level+1; level <= max_level; level++ ) {
-			select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
-
-			for ( i = 0; i < num_level_cells; i++ ) {
-				icell = level_cells[i];
-
-				if ( cell_particle_list[icell] != NULL_PARTICLE ) {
-					iroot = cell_parent_root_cell(icell);
-					ipart = cell_particle_list[icell];
-					particle_list_prev[ipart] = root_tree_particle_list[iroot];
-
-					/* find tail of list */
-					while ( particle_list_next[ipart] != NULL_PARTICLE ) {
+			for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {
+				ipart = cell_particle_list[i];
+				if ( ipart != NULL_PARTICLE ) {
+					while (particle_list_next[ipart] != NULL_PARTICLE ) {
 						ipart = particle_list_next[ipart];
 					}
+				}
 
-					root_tree_particle_list[iroot] = ipart;
+				root_tree_particle_list[i] = ipart;
+			}
+
+			for ( level = min_level+1; level <= max_level; level++ ) {
+				select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+
+				for ( i = 0; i < num_level_cells; i++ ) {
+					icell = level_cells[i];
+
+					if ( cell_particle_list[icell] != NULL_PARTICLE ) {
+						iroot = cell_parent_root_cell(icell);
+						ipart = cell_particle_list[icell];
+						particle_list_prev[ipart] = root_tree_particle_list[iroot];
+
+						/* find tail of list */
+						while ( particle_list_next[ipart] != NULL_PARTICLE ) {
+							ipart = particle_list_next[ipart];
+						}
+
+						root_tree_particle_list[iroot] = ipart;
+					}
+				}
+
+				cart_free( level_cells );
+			}
+
+			num_particles_per_species_per_root_tree = cart_alloc( int, 
+					num_cells_per_level[min_level]*num_particle_species );
+
+			for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {		
+				/* count particle species in root cell */
+				for ( j = 0; j < num_particle_species; j++ ) {
+					num_particles_per_species_per_root_tree[num_particle_species*i+j] = 0;
+				}
+
+				ipart = root_tree_particle_list[i];
+				while ( ipart != NULL_PARTICLE ) {
+					num_particles_per_species_per_root_tree[
+						num_particle_species*i+particle_species(particle_id[ipart])]++;
+					ipart = particle_list_prev[ipart];
+				}
+
+				total = 0;
+				for ( j = 0; j < num_particle_species; j++ ) {
+					total += num_particles_per_species_per_root_tree[num_particle_species*i+j];
+				}
+
+				/* sort linked list by species, id */
+				order = cart_alloc( int, total );
+
+				ipart = root_tree_particle_list[i];
+				j = 0;
+				while ( ipart != NULL_PARTICLE ) {
+					order[j++] = ipart;
+					ipart = particle_list_prev[ipart];
+				}
+
+				qsort( order, total, sizeof(int), compare_particle_species_id );
+
+				if ( total > 0 ) {
+					root_tree_particle_list[i] = order[0];
+					for ( j = 0; j < total-1; j++ ) {
+						particle_list_prev[order[j]] = order[j+1];
+					}
+					particle_list_prev[order[total-1]] = NULL_PARTICLE;
+				}
+
+				cart_free( order );	
+			}
+
+			artio_fileset_add_particles( handle,
+					num_artio_particle_files, 
+					artio_particle_allocation_strategy,
+					num_species, 
+					species_labels,
+					num_primary_variables,
+					num_secondary_variables,
+					primary_variable_labels,
+					secondary_variable_labels,
+					num_particles_per_species_per_root_tree );
+
+			for ( i = 0; i < num_species; i++ ) {
+				for ( j = 0; j < num_primary_variables[i]; j++ ) {
+					cart_free( primary_variable_labels[i][j] );
+				}
+				cart_free( primary_variable_labels[i] );
+
+				for ( j = 0; j < num_secondary_variables[i]; j++ ) {
+					cart_free( secondary_variable_labels[i][j] );
+				}
+				if ( num_secondary_variables[i] > 0 ) {
+					cart_free( secondary_variable_labels[i] );
 				}
 			}
 
-			cart_free( level_cells );
+			artio_parameter_set_int_array( handle, "particle_species_num", 
+					num_particle_species, particle_species_num );
+			artio_parameter_set_float_array( handle, "particle_species_mass", 
+					num_particle_species, particle_species_mass );
+
+			write_artio_particles( handle, root_tree_particle_list, num_particles_per_species_per_root_tree );
+			cart_free( num_particles_per_species_per_root_tree );
+			cart_free( root_tree_particle_list );
+
+			/* return particle_list_prev to doublely-linked-list state */
+			rebuild_particle_list();
+
+			end_time( PARTICLE_WRITE_IO_TIMER );
 		}
+#endif /* PARTICLES */
 
-		num_particles_per_species_per_root_tree = cart_alloc( int, 
-				num_cells_per_level[min_level]*num_particle_species );
+		artio_fileset_close(handle);
+	}
 
-		for ( i = 0; i < num_cells_per_level[min_level]; i++ ) {		
-			/* count particle species in root cell */
-			for ( j = 0; j < num_particle_species; j++ ) {
-				num_particles_per_species_per_root_tree[num_particle_species*i+j] = 0;
-			}
-
-			ipart = root_tree_particle_list[i];
-			while ( ipart != NULL_PARTICLE ) {
-				num_particles_per_species_per_root_tree[
-					num_particle_species*i+particle_species(particle_id[ipart])]++;
-				ipart = particle_list_prev[ipart];
-			}
-
-			total = 0;
-			for ( j = 0; j < num_particle_species; j++ ) {
-				total += num_particles_per_species_per_root_tree[num_particle_species*i+j];
-			}
-
-			/* sort linked list by species, id */
-			order = cart_alloc( int, total );
-
-			ipart = root_tree_particle_list[i];
-			j = 0;
-			while ( ipart != NULL_PARTICLE ) {
-				order[j++] = ipart;
-				ipart = particle_list_prev[ipart];
-			}
-
-			qsort( order, total, sizeof(int), compare_particle_species_id );
-
-			if ( total > 0 ) {
-				root_tree_particle_list[i] = order[0];
-				for ( j = 0; j < total-1; j++ ) {
-					particle_list_prev[order[j]] = order[j+1];
-				}
-				particle_list_prev[order[total-1]] = NULL_PARTICLE;
-			}
-
-			cart_free( order );	
-		}
-
-		artio_fileset_add_particles( handle,
-				num_artio_particle_files, 
-				artio_particle_allocation_strategy,
-				num_species, 
-				species_labels,
-				num_primary_variables,
-				num_secondary_variables,
-				primary_variable_labels,
-				secondary_variable_labels,
-				num_particles_per_species_per_root_tree );
-
-		for ( i = 0; i < num_species; i++ ) {
-			for ( j = 0; j < num_primary_variables[i]; j++ ) {
-				cart_free( primary_variable_labels[i][j] );
-			}
-			cart_free( primary_variable_labels[i] );
-
-			for ( j = 0; j < num_secondary_variables[i]; j++ ) {
-				cart_free( secondary_variable_labels[i][j] );
-			}
-			if ( num_secondary_variables[i] > 0 ) {
-				cart_free( secondary_variable_labels[i] );
-			}
-		}
-
-		artio_parameter_set_int_array( handle, "particle_species_num", 
-				num_particle_species, particle_species_num );
-		artio_parameter_set_float_array( handle, "particle_species_mass", 
-				num_particle_species, particle_species_mass );
-
-		write_artio_particles( handle, root_tree_particle_list, num_particles_per_species_per_root_tree );
-		cart_free( num_particles_per_species_per_root_tree );
-		cart_free( root_tree_particle_list );
-
-		/* return particle_list_prev to doublely-linked-list state */
-		rebuild_particle_list();
-
+#ifdef HYDRO_TRACERS
+	if ( fileset_write_options & WRITE_TRACERS ) {
+		start_time( PARTICLE_WRITE_IO_TIMER );
+		write_cart_hydro_tracers( filename_tracers );                                                                                                  
 		end_time( PARTICLE_WRITE_IO_TIMER );
 	}
-#endif /* PARTICLES */
+#endif /* HYDRO_TRACERS */
 
 	if ( local_proc_id == MASTER_NODE &&
 			fileset_write_options & WRITE_GRID 
 #ifdef PARTICLES
 			&& fileset_write_options & WRITE_PARTICLES
 #endif /* PARTICLES */
+#ifdef HYDRO_TRACERS 
+			&& fileset_write_options & WRITE_TRACERS 
+#endif /* HYDRO_TRACERS */
 	) {
 		/* write out restart file */
 		sprintf( restart_filename, "%s/restart.dat", output_directory );
@@ -688,10 +746,11 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 			cart_error("Unable to open restart file %s for writing!", restart_filename );
 		}
 		fprintf( restart, "%s\n", filename );
+#ifdef HYDRO_TRACERS
+		fprintf( restart, "%s\n", filename_tracers );
+#endif /* HYDRO_TRACERS */
         fclose(restart);
 	}
-
-	artio_fileset_close(handle);
 }
 
 void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices ) {
@@ -962,12 +1021,29 @@ void read_artio_restart( const char *label ) {
 		if ( restart == NULL ) {
 			cart_debug("Unable to locate restart.dat, trying default filename!");
 			sprintf( filename, "%s/%s", output_directory, jobname );
+#ifdef HYDRO_TRACERS
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
+#else
+			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
+#endif
+#endif /* HYDRO_TRACERS */
 		} else {
 			fscanf( restart, "%s\n", filename );
+#ifdef HYDRO_TRACERS
+			fscanf( restart, "%s\n", filename_tracers );
+#endif /* HYDRO_TRACERS */
 			fclose(restart);
 		}
 	} else {
 		sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
+#ifdef HYDRO_TRACERS
+#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
+        sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
+#else
+        sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
+#endif
+#endif /* HYDRO_TRACERS */
 	}	
 
 	type = ARTIO_OPEN_GRID;
@@ -1176,7 +1252,14 @@ void read_artio_restart( const char *label ) {
 	build_particle_list();
 #endif /* PARTICLES */
 
-	artio_fileset_close(handle);	
+	artio_fileset_close(handle);
+
+#ifdef HYDRO_TRACERS
+	start_time( PARTICLE_READ_IO_TIMER );
+	read_cart_hydro_tracers( filename_tracers );
+	end_time( PARTICLE_READ_IO_TIMER );
+#endif /* HYDRO_TRACERS */
+
 }
 
 void read_artio_grid( artio_file handle, int file_max_level ) {

@@ -14,4 +14,7 @@ void compute_power_spectrum( char *filename, int power_type );
 #define POWER_TYPE_GAS		3
 #define POWER_TYPE_STARS	4
 
+extern int num_power_foldings;
+extern int power_mesh_size;
+
 #endif

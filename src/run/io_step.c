@@ -21,8 +21,14 @@
 extern int old_cart_io_flag;
 extern int restart_frequency;
 extern int grid_output_frequency;
+
+#ifdef PARTICLES
 extern int particle_output_frequency;
+#endif /* PARTICLES */
+
+#ifdef HYDRO_TRACERS
 extern int tracer_output_frequency;
+#endif /* HYDRO_TRACERS */
 
 
 void write_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
@@ -120,14 +126,18 @@ void save_check() {
 	if ( grid_output_frequency != 0 && step % grid_output_frequency == 0 ) {
 		grid_save_flag = WRITE_SAVE;		
     }
- 
+
+#ifdef PARTICLES
 	if ( particle_output_frequency != 0 && step % particle_output_frequency == 0 ) {
 		particle_save_flag = WRITE_SAVE;
 	} 
+#endif /* PARTICLES */
 
+#ifdef HYDRO_TRACERS
 	if ( tracer_output_frequency != 0 && step % tracer_output_frequency == 0 ) {
 		tracer_save_flag = WRITE_SAVE;
 	}
+#endif /* HYDRO_TRACERS */
 
 	write_restart( grid_save_flag, particle_save_flag, tracer_save_flag );
 }

@@ -690,7 +690,7 @@ void rtOtvetIterate1(int it, int nit, int ivar, int level, int num_level_cells, 
   /*
   // Update the radiation field
   */
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivar,dd2,jac,cache_var,eta)
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivar,dd2,jac,cache_var)
   for(iL=0; iL<num_level_cells; iL++)
     {
       var(iL) += CFL*jac[iL]*dd2[iL];
@@ -777,7 +777,11 @@ void rtOtvetIterate2(int it, int nit, int ivar, int level, int num_level_cells, 
   /*
   // Update the radiation field
   */
+#ifdef OPENMP_DECLARE_CONST
 #pragma omp parallel for default(none), private(iL,nb,abcMid,j,abcCen,det,s1,s2,b1,b2), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,dx,dd2,jac,dfx,rhs,cache_var,eta,epsNum)
+#else
+#pragma omp parallel for default(none), private(iL,nb,abcMid,j,abcCen,det,s1,s2,b1,b2), shared(num_level_cells,cell_vars,indL2G,ivar,abc,neib,level,info,dx,dd2,jac,dfx,rhs,cache_var)
+#endif /* OPENMP_DECLARE_CONST */
   for(iL=0; iL<num_level_cells; iL++)
     {
       nb = neib + rtStencilSize*iL;

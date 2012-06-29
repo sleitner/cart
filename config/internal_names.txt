@@ -23,6 +23,7 @@ PARTICLE_FLOAT
 PARTICLE_TIMES_FLOAT
 rt_abs_field_offset
 rt_field_offset
+rt_far_freq_offset
 rt_num_extra_vars
 rt_num_fields_per_freq
 rt_num_freqs

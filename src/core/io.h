@@ -30,4 +30,5 @@ void set_jobname( const char *str );
 
 #define WRITE_GRID		1
 #define WRITE_PARTICLES	2
+#define WRITE_TRACERS	4
 #endif

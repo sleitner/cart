@@ -8,6 +8,7 @@
 #include "cell_buffer.h"
 #include "cosmology.h"
 #include "hydro.h"
+#include "hydro_tracer.h"
 #include "iterators.h"
 #include "load_balance.h"
 #include "parallel.h"
@@ -1297,5 +1298,9 @@ void gic_init()
       star_formation_volume_max[i] = refinement_volume_max[i];
     }
 #endif
+
+#ifdef HYDRO_TRACERS
+  set_hydro_tracers_to_particles();
+#endif /* HYDRO_TRACERS */
 }
 

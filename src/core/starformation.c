@@ -233,13 +233,28 @@ int create_star_particle( int icell, float mass, double pdt, int type ) {
 	particle_mass[ipart] = true_mass;
 	star_initial_mass[ipart] = true_mass;
 
+#ifdef STAR_PARTICLE_TYPES
+	if ( type == STAR_TYPE_NORMAL ) {
+#endif /* STAR_PARTICLE_TYPES */
+
 #ifdef ENRICHMENT
 	star_metallicity_II[ipart] = cell_gas_metal_density_II(icell) / cell_gas_density(icell);
 #ifdef ENRICHMENT_SNIa
 	star_metallicity_Ia[ipart] = cell_gas_metal_density_Ia(icell) / cell_gas_density(icell);
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
-	
+
+#ifdef STAR_PARTICLE_TYPES
+	} else {
+#ifdef ENRICHMENT
+    star_metallicity_II[ipart] = 0.0;
+#ifdef ENRICHMENT_SNIa
+	star_metallicity_Ia[ipart] = 0.0;
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
+	}	
+#endif /* STAR_PARTICLE_TYPES */
+
 	/* insert particle into cell linked list */
 	insert_particle( icell, ipart );
 

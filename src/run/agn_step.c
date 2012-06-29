@@ -428,8 +428,6 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 	float *send_cell_deltas[MAX_PROCS];
 	int *recv_cell_indices[MAX_PROCS];
 	float *recv_cell_deltas[MAX_PROCS];
-	int min_level_changed = level;
-	int max_level_changed = level;
 
 	/* calculate processors to communicate with */
 	for ( i = 0; i < num_procs; i++ ) {
@@ -495,10 +493,6 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 				icell = agn_list[i].sink_cell_index[j];
 				new_density = cell_gas_density(icell) - 
 					agn_list[i].sink_density[j] * cell_volume_inverse[ cell_level(icell) ];
-				/* Note that sink_density here has units of mass (replaced list quantities) */
-				max_level_changed = MAX(max_level_changed, cell_level(icell));
-				min_level_changed = MIN(min_level_changed, cell_level(icell));
-
 				density_fraction = new_density / cell_gas_density(icell);
 
 				cell_gas_density(icell) = new_density;
@@ -507,6 +501,10 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 
 				for ( k = 0; k < nDim; k++ ) {
 					cell_momentum(icell,k) = density_fraction*cell_momentum(icell,k) + agn_list[i].sink_momentum[j][k];
+				}
+
+				for ( k = 0; k < num_chem_species; k++ ) {                                                                                                                                  
+					cell_advected_variable(icell,k) *= density_fraction;
 				}
 
 				/* energy due to feedback */
@@ -554,6 +552,10 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 						cell_momentum(icell,k) = density_fraction*cell_momentum(icell,k) + recv_cell_deltas[i][j*num_agn_cell_vars+2+k];
 					}
 
+					for ( k = 0; k < num_chem_species; k++ ) {                                                                                                                                  
+						cell_advected_variable(icell,k) *= density_fraction;
+					}
+
 					/* energy due to feedback */
 					cell_gas_energy(icell) += recv_cell_deltas[i][j*num_agn_cell_vars+1];
 					cell_gas_internal_energy(icell) += recv_cell_deltas[i][j*num_agn_cell_vars+1];
@@ -574,12 +576,6 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 			cart_free( send_cell_deltas[i] );
 		}
 	}
-
-#ifdef DEBUG
-	if ( max_level_changed > level || min_level_changed < level ) {
-	  cart_debug("level = %d, max_level_changed = %d, min_level_changed = %d, timestep = %e ", level, max_level_changed, min_level_changed, tl[level]);
-	}
-#endif
 }
 
 
