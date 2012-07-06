@@ -5,5 +5,5 @@ C
 	character*(*) fileCF, fileLW, fileHM
 	parameter(fileCF = 'drt/cf_table.I2.dat')
 	parameter(fileLW = 'drt/lwbands.dat')
-	parameter(fileHM = 'drt/cf_table.I2.dat')
+	parameter(fileHM = 'drt/bkg_HM.dat')
 
