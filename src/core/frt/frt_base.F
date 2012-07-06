@@ -1079,6 +1079,25 @@ C
 
       return
       end
+C
+C
+C
+      subroutine frtOpenFile(io,fname)
+      include 'frt_base.inc'
+      character*(*) fname
+
+      open(unit=io, file=fname, status='old', err=10)
+      return
+
+ 10   write(0,*) 'RT: Unable to open file ', fname
+      write(0,*) '    All fortran data files must be in the'
+      write(0,*) '    subdirectory drt of the run-time directory.'
+      write(0,*) '    That subdirectory can be directly checked out'
+      write(0,*) '    from the SNM repository /data/drt.'
+      call frtAbort
+
+      return
+      end
 #endif
       subroutine frtDummyBase(i)
       i = 0

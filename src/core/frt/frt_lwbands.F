@@ -90,15 +90,15 @@ C
       parameter (n_lines_file=399)
       parameter (pi=3.14159265e0)
       dimension JLWH2(0:NRH2), tempJ(0:n_lines_file)
-      integer jl, ii, i, IOUNIT
-      parameter(IOUNIT = 99)
+      integer jl, ii, i
+      include 'frt_f77.inc'
       include 'frt_files.inc'
 
       XISH2=(lnu_b-lnu_a)/NRH2
       clight=3.e10   ![cm s-1]
       Atocm=1.e-8
       
-      open(unit=IOUNIT, file=fileLW, status='old')
+      call frtOpenFile(IOUNIT,fileLW)
       do i=1,n_lines_file
          read(IOUNIT,*) lambd,ttpop3 ![erg s-1 A-1] 
          nu=clight/lambd/Atocm

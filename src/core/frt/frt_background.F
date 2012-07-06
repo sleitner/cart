@@ -60,7 +60,7 @@ C  Load the data on the first call
 C
          inited = .true.
 
-         open(unit=IOUNIT, file=fileHM, status='old')
+         call frtOpenFile(IOUNIT,fileHM)
          read(IOUNIT,*) np1, nw1, nz1
          if(np1.ne.NHMP .or. nw1.ne.NHMW .or. nz1.ne.NHMZ) then
             write(0,*) 'RT::BackgroundHM: fatal error, ',
