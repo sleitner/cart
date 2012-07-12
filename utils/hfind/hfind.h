@@ -129,5 +129,5 @@ c     Change to real*4 for single-precision particle files
       CHARACTER*45      HEADER
       COMMON / HEADDR/  HEADER
 
-      integer		hydro_flag
-      common / HFLAG /  hydro_flag
+      integer		art_format_flag
+      common / ARTFLAG /  art_format_flag
