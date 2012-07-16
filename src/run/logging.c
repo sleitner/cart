@@ -34,6 +34,10 @@ FILE *energy;
 FILE *workload;
 FILE *dependency;
 
+#ifdef PAPI_PROFILING
+FILE *papi_profile;
+#endif /* PAPI_PROFILING */
+
 #ifdef STAR_FORMATION
 FILE *star_log;
 #endif /* STAR_FORMATION */
@@ -488,6 +492,30 @@ void init_logging( int restart ) {
 		fflush(timing);
 	}
 
+#ifdef PAPI_PROFILING                                                                                                                                                                 
+	sprintf( filename, "%s/papi_profile_%s.%03u.log", logfile_directory, papi_eventset_description, local_proc_id );
+	papi_profile = fopen(filename, mode );
+
+	if ( papi_profile == NULL ) {
+		cart_error("Unable to open %s for writing!", filename );
+	}
+
+	if ( !restart || restart == 2 ) {
+		fprintf( papi_profile, "# %u levels %u timers %u papi events\n", num_refinement_levels+2, NUM_TIMERS-1, num_papi_events );
+		fprintf( papi_profile, "# papi events:" );
+		for ( i = 0; i < num_papi_events; i++ ) {
+			fprintf( papi_profile, " %s", PAPI_event_desc[i] );
+		}
+		fprintf(papi_profile, "\n");
+		fprintf( papi_profile, "# step total_time" );
+		for ( i = 1; i < NUM_TIMERS; i++ ) {
+			fprintf( papi_profile, " %s", timer_name[i][0] );
+		}
+		fprintf( papi_profile, "\n" );
+		fflush(papi_profile);
+	}
+#endif /* PAPI_PROFILING */
+
 	sprintf(filename, "%s/workload.%03u.dat", logfile_directory, local_proc_id );
 	workload = fopen(filename, mode);
 
@@ -543,6 +571,10 @@ void finalize_logging() {
 		fclose(runtimes);
 		fclose(energy);
 	}
+
+#ifdef PAPI_PROFILING                                                                                                                                                                 
+	fclose(papi_profile);
+#endif
 
 	fclose(timing);
 	fclose(workload);
@@ -606,6 +638,19 @@ void log_diagnostics() {
 	}
 	fprintf( timing, "\n" );
 	fflush(timing);
+
+#ifdef PAPI_PROFILING                                                                                                                                                                 
+	fprintf( papi_profile, "%u %e", step, current_time( TOTAL_TIME, min_level-1 ) );
+	for ( level = min_level-1; level <= max_level; level++ ) {
+		for ( i = 1; i < NUM_TIMERS; i++ ) {
+			for ( j = 0; j < num_papi_events; j++ ) {
+				fprintf( papi_profile, " %llu", papi_total_counter(i,level,j) );
+			}
+		}
+	}
+	fprintf( papi_profile, "\n" );
+	fflush(papi_profile);
+#endif /* PAPI_PROFILING */
 
 	/* log workload information */
 #ifdef PARTICLES

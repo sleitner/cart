@@ -68,7 +68,8 @@ double dtx2;
 double dxi;
 double dxi2;
 
-const int momentum_permute[2*nDim][nDim] = {  { 0, 1, 2 }, { 0, 1, 2 },
+const int momentum_permute[2*nDim][nDim] = {  
+	{ 0, 1, 2 }, { 0, 1, 2 },
 	{ 1, 0, 2 }, { 1, 0, 2 },
 	{ 2, 1, 0 }, { 2, 1, 0 } };
 
@@ -124,12 +125,11 @@ void hydro_step( int level ) {
 		if ( dir == nDim - 1 ) {
 			hydro_copy_vars( level, HYDRO_RESTORE_ALL );
 		} else {
-
 			hydro_copy_vars( level, HYDRO_RESTORE_CLEAN );
-					
+
 			hydro_magic( level );
 			hydro_eos( level );
-			
+
 			start_time( HYDRO_UPDATE_TIMER );
 			update_buffer_level( level, all_hydro_vars, num_hydro_vars );
 			end_time( HYDRO_UPDATE_TIMER );
@@ -268,7 +268,7 @@ void hydro_apply_gravity( int level ) {
 
 		gravadd = backup_hvar(icell,0) * cell_accel(icell,sweep_dimension);
 		backup_hvar(icell,1) += cell_accel(icell,sweep_dimension) *
-		  ( backup_hvar(icell,mj3) + 0.5 * gravadd );
+			( backup_hvar(icell,mj3) + 0.5 * gravadd );
 		backup_hvar(icell,mj3) += gravadd;
 	}
 
@@ -708,20 +708,20 @@ void hydro_advance_internalenergy( int level ) {
 void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[num_hydro_vars-1] ) {
 	int j;
 
-        backup_hvar(icell,0) += factor*f[0];
-        backup_hvar(icell,1) += factor*f[4];
-        backup_hvar(icell,mj3) += factor*f[1];
-        backup_hvar(icell,mj4) += factor*f[2];
-        backup_hvar(icell,mj5) += factor*f[3];
-        backup_hvar(icell,5) += factor*f[5];
+	backup_hvar(icell,0) += factor*f[0];
+	backup_hvar(icell,1) += factor*f[4];
+	backup_hvar(icell,mj3) += factor*f[1];
+	backup_hvar(icell,mj4) += factor*f[2];
+	backup_hvar(icell,mj5) += factor*f[3];
+	backup_hvar(icell,5) += factor*f[5];
 	ref[icell] += factor*f[6]*dxi_factor;
 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-        backup_hvar(icell,6) += factor*f[7];
+	backup_hvar(icell,6) += factor*f[7];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 	for ( j = num_hydro_vars-num_chem_species-2; j < num_hydro_vars-2; j++ ) {
-                backup_hvar(icell,j) += factor*f[j+1];
+		backup_hvar(icell,j) += factor*f[j+1];
 	}
 }
 

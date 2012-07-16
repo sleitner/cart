@@ -5,18 +5,15 @@
 #error "Missing config.h include."
 #endif
 
+#ifdef PAPI_PROFILING
+extern const char papi_eventset_description[];
+extern int PAPI_events[];
+extern char *PAPI_event_desc[];
+extern const int num_papi_events;
+long long papi_total_counter( int timerid, int level, int counter );
+#endif /* PAPI_PROFILING */
 
-typedef struct TIMER {
-	int num_calls;
-	double current_time;
-	double last_time;
-	double total_time;
-#ifdef DEBUG_TIMING
-	double last_wtime;
-	const char* last_file;
-	int last_line;
-#endif
-} timer;
+typedef struct TIMER timer;
 
 #define	    TOTAL_TIME                              0
 #define	    INIT_TIMER                              1
@@ -112,6 +109,7 @@ extern int event[2*NUM_TIMERS];
 #endif
 
 extern const char *timer_name[][2];
+extern timer timers[num_refinement_levels+2][NUM_TIMERS];
 
 void init_timers();
 void start_timing_level( int level );

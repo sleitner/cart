@@ -1,8 +1,0 @@
-# COMPILE OPTIONS
-
-CFLAGS  = -fopenmp -O3 -mcmodel=large -DCOMPILER_GCC
-CC      = mpicc -cc=gcc
-FFLAGS  = -fopenmp -O3 -mcmodel=large -DCOMPILER_GCC
-F77     = mpif77 -fc=gfortran
-EXTRALIBS = -lgfortran 
-

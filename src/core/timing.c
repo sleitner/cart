@@ -5,13 +5,20 @@
 #include "parallel.h"
 #include "timing.h"
 
+#ifdef PAPI_PROFILING
+#include <papi.h>
+#ifdef _OPENMP
+#include <omp.h>
+#endif /* OPENMP */
+#endif /* PAPI_PROFILING */
+
 #ifdef MPE_LOG
 #include <mpe.h>
-#endif
-
+#endif /* MPE_LOG */
 
 timer timers[num_refinement_levels+2][NUM_TIMERS];
-int current_timer_level;
+int current_timer_level = -1;
+int num_active_timers = 0;
 
 #ifdef DEBUG_TIMING
 double timing_synch_precision = 0.01;  /* fraction precision */
@@ -21,12 +28,70 @@ int report_gaps = 0;                   /* need to block gap reporting between le
 
 int balanced_timers_ids[] = { WORK_TIMER, COMMUNICATION_TIMER, LOWER_LEVEL_TIMER };
 const int num_balanced_timers = sizeof(balanced_timers_ids)/sizeof(int);
-
 #endif
 
 #ifdef MPE_LOG
 int event[2*NUM_TIMERS];
-#endif 
+#endif /* MPE_LOG */
+
+#ifdef PAPI_PROFILING
+const char papi_eventset_description[] = "cache";
+int PAPI_events[] = {
+PAPI_TOT_CYC,
+PAPI_L2_TCA,
+PAPI_L3_TCA,
+PAPI_L3_TCM,
+PAPI_TLB_DM 
+};
+
+char *PAPI_event_desc[] = {
+"PAPI_TOT_CYC",
+"PAPI_L2_TCA",
+"PAPI_L3_TCA",
+"PAPI_L3_TCM",
+"PAPI_TLB_DM"
+};
+
+/*
+const char papi_eventset_description[] = "perf";
+int PAPI_events[] = {
+PAPI_TOT_CYC,
+PAPI_TOT_INS,
+PAPI_FP_INS,
+PAPI_FP_OPS,
+PAPI_STL_ICY,
+PAPI_BR_MSP,
+PAPI_BR_PRC
+};
+
+char *PAPI_event_desc[] = {
+"PAPI_TOT_CYC",
+"PAPI_TOT_INS",
+"PAPI_FP_INS",
+"PAPI_FP_OPS",
+"PAPI_STL_ICY",
+"PAPI_BR_MSP",
+"PAPI_BR_PRC"
+};
+*/
+
+const int num_papi_events = sizeof(PAPI_events)/sizeof(int);
+#endif /* PAPI_PROFILING */
+
+struct TIMER {
+    int num_calls;
+    double current_time;
+    double last_time;
+    double total_time;
+#ifdef DEBUG_TIMING
+    double last_wtime;
+    const char* last_file;
+    int last_line;
+#endif
+#ifdef PAPI_PROFILING
+    long long *papi_counters;
+#endif
+};
 
 const char *timer_name[][2] = {
 { "total", "blue" }, 
@@ -107,7 +172,10 @@ const char *timer_name[][2] = {
 };
 
 void init_timers() {
-	int i, j;
+	int i, j, k;
+#ifdef PAPI_PROFILING
+	int ret;
+#endif /* PAPI_PROFILING */
 
 	for ( i = min_level-1; i <= max_level; i++ ) {
 		for ( j = 0; j < NUM_TIMERS; j++ ) {
@@ -118,6 +186,12 @@ void init_timers() {
 #ifdef DEBUG_TIMING 
 			timers[i+1][j].last_wtime = 0.0;
 #endif
+#ifdef PAPI_PROFILING
+			timers[i+1][j].papi_counters = cart_alloc( long long, num_papi_events );
+			for ( k = 0; k < num_papi_events; k++ ) {
+				timers[i+1][j].papi_counters[k] = 0;
+			}
+#endif /* PAPI_PROFILING */
 		}
 	}
 
@@ -134,6 +208,18 @@ void init_timers() {
 	MPI_Barrier(mpi.comm.run);
 	MPE_Start_log();
 #endif /* MPE_LOG */
+
+#ifdef PAPI_PROFILING
+	if ( PAPI_library_init(PAPI_VER_CURRENT) != PAPI_VER_CURRENT ) {
+		cart_error("PAPI library init error!\n");
+	}
+
+#ifdef _OPENMP
+	if (PAPI_thread_init((unsigned long(*)(void)) ( omp_get_thread_num )) != PAPI_OK) {
+		cart_error("PAPI thread library init error!");
+	}
+#endif /* _OPENMP */
+#endif /* PAPI_PROFILING */
 }
 
 void start_time_at_location( int timerid, const char *file, int line ) {
@@ -143,6 +229,9 @@ void start_time_at_location( int timerid, const char *file, int line ) {
 	timer *prev;
 	int i, check_balance;
 #endif
+#ifdef PAPI_PROFILING
+	int ret;
+#endif /* PAPI_PROFILING */
 
 	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
 	if ( timers[current_timer_level+1][timerid].current_time != -1.0 ) {
@@ -151,6 +240,15 @@ void start_time_at_location( int timerid, const char *file, int line ) {
 	}
 
 	timers[current_timer_level+1][timerid].current_time = wtime;
+
+#ifdef PAPI_PROFILING
+	if ( num_active_timers == 0 ) {
+		ret = PAPI_start_counters( PAPI_events, num_papi_events );
+		if ( ret != PAPI_OK ) {
+			cart_error("Error initializing papi timers!");
+		}
+	}
+#endif /* PAPI_PROFILING */
 
 #ifdef DEBUG_TIMING
 
@@ -201,6 +299,8 @@ void start_time_at_location( int timerid, const char *file, int line ) {
 #ifdef DEBUG
 	debug_breakpoint(timerid,1,file,line);
 #endif
+
+	num_active_timers++;
 }
 
 double end_time_at_location( int timerid, const char *file, int line ) {
@@ -209,6 +309,11 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 #ifdef DEBUG_TIMING
 	int i;
 #endif
+#ifdef PAPI_PROFILING
+	int j, k;
+	int level;
+	long long papi_event_counters[num_papi_events];
+#endif /* PAPI_PROFILING */
 
 	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
 	if(timers[current_timer_level+1][timerid].current_time < 0.0)
@@ -217,6 +322,19 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 	  }
 
 	elapsed = wtime - timers[current_timer_level+1][timerid].current_time;
+
+#ifdef PAPI_PROFILING 
+	PAPI_read_counters( papi_event_counters, num_papi_events );
+	for ( level = min_level-1; level <= current_timer_level; level++ ) {
+        for ( j = 0; j < NUM_TIMERS; j++ ) {
+			if ( timers[level+1][j].current_time != -1.0 ) {
+				for ( k = 0; k < num_papi_events; k++ ) {
+					timers[level+1][j].papi_counters[k] += papi_event_counters[k];
+				}
+			}
+		}
+	}
+#endif /* PAPI_PROFILING */
 
 #ifdef MPE_LOG
 	MPE_Log_event( event[2*timerid+1], current_timer_level, timer_name[timerid][0] );
@@ -241,6 +359,9 @@ double end_time_at_location( int timerid, const char *file, int line ) {
 #ifdef DEBUG
 	debug_breakpoint(timerid,0,file,line);
 #endif
+
+	num_active_timers--;
+	cart_assert( num_active_timers >= 0 );
 
 	return elapsed;
 }
@@ -284,6 +405,14 @@ void end_timing_level( int level ) {
 	current_timer_level = level-1;
 }
 
+#ifdef PAPI_PROFILING
+long long papi_total_counter( int timerid, int level, int counter ) {
+	cart_assert( timerid >= 0 && timerid < NUM_TIMERS );
+	cart_assert( level >= min_level-1 && level <= max_level );
+	cart_assert( counter >= 0 && counter < num_papi_events );
+	return timers[level+1][timerid].papi_counters[counter];
+}
+#endif /* PAPI_PROFILING */
 
 #ifdef DEBUG
 

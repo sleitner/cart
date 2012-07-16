@@ -315,11 +315,10 @@ void run( int restart, const char *restart_label ) {
 #endif /* RADIATIVE_TRANSFER */
 	
 #ifdef LOG_STAR_CREATION
-                        cart_debug("wipe temp_star files in case of CFL restart");
-                        log_star_creation(-1,-1.0,FILE_CLOSE); 
-                        log_star_creation(-1,-1.0,FILE_OPEN); 
+			cart_debug("wipe temp_star files in case of CFL restart");
+			log_star_creation(-1,-1.0,FILE_CLOSE); 
+			log_star_creation(-1,-1.0,FILE_OPEN); 
 #endif
-
 		} else {
 			current_steps++;
 
@@ -333,7 +332,7 @@ void run( int restart, const char *restart_label ) {
 			//  restart file.
 			*/
 			if(last_restart_step == step) restart_label = NULL;
-		
+
 			if ( load_balance_frequency > 0 && step % load_balance_frequency == 0 ) {
 				load_balance();
 			}
@@ -352,7 +351,7 @@ void run( int restart, const char *restart_label ) {
 		destroy_cell_buffer();
 	}
 	
-	cart_debug("total time = %f", total_time(TOTAL_TIME,min_level-1) );
+	cart_debug("total time = %f", current_time(TOTAL_TIME,min_level-1) );
 
 	finalize_logging();
 }
@@ -520,14 +519,43 @@ int timestep( int level, MPI_Comm level_com )
 
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
-	
+
 	PLUGIN_POINT(LevelStepBegin)(level,level_com);
+
+	start_time( WORK_TIMER );
+	units_update(level);
+	end_time( WORK_TIMER );
+
+	/*
+	//  NG: These two calls look like a waste - HOWEVER, they are needed
+	//  for lower levels when they pick up values from the parent cells.
+	//  Since we cannot restrict these calls to only refined nodes (they
+	//  call update_buffer_level), we need to have them for all
+	//  nodes, even if it is a waste for unrefined nodes.
+	*/
+#ifdef HYDRO
+	/*
+	//  Backup hydro variables for updating fluxes on lower levels and 
+	//   for initial hydro level step
+	*/
+	hydro_copy_vars( level, HYDRO_COPY_ALL );
+
+#if defined(GRAVITY) && defined(PARTICLES)
+	/*
+	//  The accelerations on this level may be used by boundary
+	//  cells on a lower level, so we need to pre-compute them.
+	//  Also necessary even if !refined, due to update_buffer_level
+	//  call.
+	*/
+	compute_accelerations_particles(level);
+#endif /* GRAVITY && PARTICLES */
+#endif /* HYDRO */
 
 	start_time( LOWER_LEVEL_TIMER );  /* this is for internal accounting only */
 
 	refined = (level<max_level && level<max_level_now());
 
-        if(level <= max_mpi_sync_level)
+	if(level <= max_mpi_sync_level)
           {
 	    /* 
 	    //  Create a child communicator
@@ -541,55 +569,26 @@ int timestep( int level, MPI_Comm level_com )
 	    child_com = level_com;
 	  }
 
-	start_time( WORK_TIMER );
-	units_update(level);
-	end_time( WORK_TIMER );
-
-
-	/*
-	//  NG: These two calls look like a waste - HOWEVER, they are needed
-	//  for lower levels when they pick up values from the parent cells.
-	//  Since we cannot restrict these calls to only refined nodes (they
-	//  call update_buffer_level), we need to have them for all
-	//  nodes, even if it is a waste for unrefined nodes.
-	//
-	//  Perhaps, in the future these calls may be restricted to only cells
-	//  that border refined regions.
-	*/
-#ifdef HYDRO
-	/*
-	//  Backup hydro variables for updating fluxes on lower levels
-	*/
-	hydro_copy_vars( level, HYDRO_COPY_ALL );
-#endif /* HYDRO */
-#if defined(GRAVITY) && defined(PARTICLES)
-	/*
-	//  The accelerations on this level may be used by boundary
-	//  cells on a lower level, so we need to pre-compute them.
-	*/
-	compute_accelerations_particles(level);
-#endif /* GRAVITY && PARTICLES */
-
 	if(refined)
-	  {
-	    for(j=0; j<time_refinement_factor[level+1]; j++)
-	      {
-	        step_ret = timestep(level+1,child_com);
-		current_step_level = level;
-		ret = MIN(ret,step_ret);
-		if(ret==-1 && level<max_mpi_sync_level)
-		  {
-		    break;
-		  }
-	      }
-	  }
+	{
+		for(j=0; j<time_refinement_factor[level+1]; j++)
+		{
+			step_ret = timestep(level+1,child_com);
+			current_step_level = level;
+			ret = MIN(ret,step_ret);
+			if(ret==-1 && level<max_mpi_sync_level)
+			{
+				break;
+			}
+		}
+	}
 
-        if(level <= max_mpi_sync_level)
-          {
-	    start_time( COMMUNICATION_TIMER );
-	    MPI_Comm_free( &child_com );
-	    end_time( COMMUNICATION_TIMER );
-	  }
+	if(level <= max_mpi_sync_level)
+	{
+		start_time( COMMUNICATION_TIMER );
+		MPI_Comm_free( &child_com );
+		end_time( COMMUNICATION_TIMER );
+	}
 
 	end_time( LOWER_LEVEL_TIMER );
 
@@ -649,43 +648,43 @@ int timestep( int level, MPI_Comm level_com )
 
 	/* check for cfl condition violation... */
 	if ( dtl[level] > dt_needed && ret != -1 ) {
-                cart_debug("---------------------------------------------------------");
-                cart_debug("CFL CONDITION VIOLATED:");
-                cart_debug("current dt = %.25e Myr", dtl[level]*units->time / constants->Myr );
-                cart_debug("needed  dt = %.25e Myr", dt_needed*units->time / constants->Myr );
-                cart_debug("CFL tolerance = %.3f / %.3f = %.4e", cfl_max, cfl_run, cfl_max/cfl_run );
-                cart_debug("courant cell information:");
-                cart_debug("T  = %e K", cell_gas_temperature(courant_cell)*units->temperature/constants->K );
-                cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(courant_cell)*units->energy_density/constants->barye );
-                cart_debug("n  = %e cm^-3", cell_gas_density(courant_cell)*units->number_density*constants->cc );
-                cart_debug("cs = %e cm/s", sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
-                        cell_gas_density(courant_cell))*units->velocity/constants->cms );
-                cart_debug("v  = %e %e %e cm/s", 
-                        cell_momentum(courant_cell,0)/cell_gas_density(courant_cell)*units->velocity/constants->cms, 
-                        cell_momentum(courant_cell,1)/cell_gas_density(courant_cell)*units->velocity/constants->cms,
-                        cell_momentum(courant_cell,2)/cell_gas_density(courant_cell)*units->velocity/constants->cms );
-                cart_debug("dt sound crossing = %e Myr", ( cell_size[level] / 
-                        sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / cell_gas_density(courant_cell)) )*
-                        units->time / constants->Myr );
-                cart_debug("dt bulk velocity  = %e Myr", 
-                        cell_size[level]/(
-                                MAX( cell_momentum(courant_cell,0), 
-                                        MAX( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
-                                cell_gas_density(courant_cell) ) * units->time / constants->Myr );
-                cart_debug("---------------------------------------------------------");
+		cart_debug("---------------------------------------------------------");
+		cart_debug("CFL CONDITION VIOLATED:");
+		cart_debug("current dt = %.25e Myr", dtl[level]*units->time / constants->Myr );
+		cart_debug("needed  dt = %.25e Myr", dt_needed*units->time / constants->Myr );
+		cart_debug("CFL tolerance = %.3f / %.3f = %.4e", cfl_max, cfl_run, cfl_max/cfl_run );
+		cart_debug("courant cell information:");
+		cart_debug("T  = %e K", cell_gas_temperature(courant_cell)*units->temperature/constants->K );
+		cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(courant_cell)*units->energy_density/constants->barye );
+		cart_debug("n  = %e cm^-3", cell_gas_density(courant_cell)*units->number_density*constants->cc );
+		cart_debug("cs = %e cm/s", sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
+					cell_gas_density(courant_cell))*units->velocity/constants->cms );
+		cart_debug("v  = %e %e %e cm/s", 
+				cell_momentum(courant_cell,0)/cell_gas_density(courant_cell)*units->velocity/constants->cms, 
+				cell_momentum(courant_cell,1)/cell_gas_density(courant_cell)*units->velocity/constants->cms,
+				cell_momentum(courant_cell,2)/cell_gas_density(courant_cell)*units->velocity/constants->cms );
+		cart_debug("dt sound crossing = %e Myr", ( cell_size[level] / 
+					sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / cell_gas_density(courant_cell)) )*
+				units->time / constants->Myr );
+		cart_debug("dt bulk velocity  = %e Myr", 
+				cell_size[level]/(
+					MAX( cell_momentum(courant_cell,0), 
+						MAX( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
+					cell_gas_density(courant_cell) ) * units->time / constants->Myr );
+		cart_debug("---------------------------------------------------------");
 
 		/*
 		//  Set-up a time-step restriction (but only the first time,
 		//  other times the solution is already bogus).
 		*/
 		if(reduce_dt_factor[level] == 0.0)
-		  {
-		    /*
-		    //  It does not make much sense for rdf to be too small, it may get swallowed 
-		    //  by the changes in time-steps due to time-refinement being done by integer factors
-		    */
-		    reduce_dt_factor[level] = MAX(min_dt_dec,dtl[level]/MAX(0.1*dtl[level],dt_needed)) - 1.0;
-		  }
+		{
+			/*
+			//  It does not make much sense for rdf to be too small, it may get swallowed 
+			//  by the changes in time-steps due to time-refinement being done by integer factors
+			*/
+			reduce_dt_factor[level] = MAX(min_dt_dec,dtl[level]/MAX(0.1*dtl[level],dt_needed)) - 1.0;
+		}
 		ret = -1;
 	}
 	end_time( WORK_TIMER );
@@ -696,7 +695,7 @@ int timestep( int level, MPI_Comm level_com )
 		end_time( COMMUNICATION_TIMER );
 
 		if ( true_ret < 0 ) {
-		        PLUGIN_POINT(LevelStepFail)(level,level_com);
+			PLUGIN_POINT(LevelStepFail)(level,level_com);
 			end_time( LEVEL_TIMER );
 			end_timing_level( level ); 
 			return true_ret;
