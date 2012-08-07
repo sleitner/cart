@@ -16,7 +16,6 @@
 #include <mpe.h>
 #endif /* MPE_LOG */
 
-timer timers[num_refinement_levels+2][NUM_TIMERS];
 int current_timer_level = -1;
 int num_active_timers = 0;
 
@@ -44,14 +43,6 @@ PAPI_L3_TCM,
 PAPI_TLB_DM 
 };
 
-char *PAPI_event_desc[] = {
-"PAPI_TOT_CYC",
-"PAPI_L2_TCA",
-"PAPI_L3_TCA",
-"PAPI_L3_TCM",
-"PAPI_TLB_DM"
-};
-
 /*
 const char papi_eventset_description[] = "perf";
 int PAPI_events[] = {
@@ -63,22 +54,12 @@ PAPI_STL_ICY,
 PAPI_BR_MSP,
 PAPI_BR_PRC
 };
-
-char *PAPI_event_desc[] = {
-"PAPI_TOT_CYC",
-"PAPI_TOT_INS",
-"PAPI_FP_INS",
-"PAPI_FP_OPS",
-"PAPI_STL_ICY",
-"PAPI_BR_MSP",
-"PAPI_BR_PRC"
-};
 */
 
 const int num_papi_events = sizeof(PAPI_events)/sizeof(int);
 #endif /* PAPI_PROFILING */
 
-struct TIMER {
+typedef struct TIMER {
     int num_calls;
     double current_time;
     double last_time;
@@ -91,7 +72,9 @@ struct TIMER {
 #ifdef PAPI_PROFILING
     long long *papi_counters;
 #endif
-};
+} timer;
+
+timer timers[num_refinement_levels+2][NUM_TIMERS];
 
 const char *timer_name[][2] = {
 { "total", "blue" }, 

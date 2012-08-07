@@ -390,13 +390,16 @@ void copy_file(char *file_path_from, char *file_path_to){
 }
 
 
-#endif //LOG_STAR_CREATION
-#endif //STAR_FORMATION
+#endif /* LOG_STAR_CREATION */
+#endif /* STAR_FORMATION */
 
 void init_logging( int restart ) {
 	int i;
 	char mode[2];
 	char filename[256];
+#ifdef PAPI_PROFILING
+	char event_name[PAPI_MAX_STR_LEN];
+#endif /* PAPI_PROFILING */
 
 	if ( restart ) {
 		mode[0] = 'a';
@@ -504,7 +507,8 @@ void init_logging( int restart ) {
 		fprintf( papi_profile, "# %u levels %u timers %u papi events\n", num_refinement_levels+2, NUM_TIMERS-1, num_papi_events );
 		fprintf( papi_profile, "# papi events:" );
 		for ( i = 0; i < num_papi_events; i++ ) {
-			fprintf( papi_profile, " %s", PAPI_event_desc[i] );
+			PAPI_event_code_to_name( PAPI_event[i], &event_name );
+			fprintf( papi_profile, " %s", event_name );
 		}
 		fprintf(papi_profile, "\n");
 		fprintf( papi_profile, "# step total_time" );
