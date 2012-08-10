@@ -1,6 +1,6 @@
-CFLAGS  = -fast -mp -mcmodel=medium
+CFLAGS  = -fast -mp -mcmodel=medium -tp nehalem,sandybridge
 CC      = mpicc
-FFLAGS  = -fast -mp -mcmodel=medium
+FFLAGS  = -fast -mp -mcmodel=medium -tp nehalem,sandybridge
 F77     = mpif77
 EXTRALIBS = -pgf77libs 
 

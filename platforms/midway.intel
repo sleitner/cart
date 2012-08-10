@@ -1,9 +1,9 @@
 # COMPILE OPTIONS
 
 CC		= mpicc 
-CFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -openmp -shared-intel -mcmodel large #-DPAPI_PROFILING
-FFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -openmp -shared-intel -mcmodel large #-DPAPI_PROFILING
+CFLAGS  = -m64 -axAVX,SSE4.2 -xSSE2 -O3 -ipo -fp-model precise -openmp -shared-intel -mcmodel large #-DPAPI_PROFILING
+FFLAGS  = -m64 -axAVX,SSE4.2 -xSSE2 -O3 -ipo -fp-model precise -openmp -shared-intel -mcmodel large #-DPAPI_PROFILING
 F77     = mpif77 
 INCLUDES = 
-EXTRALIBS = -lifcore #-lpapi
+EXTRALIBS = -lifcore #-lmpi_f77 #-lpapi
 

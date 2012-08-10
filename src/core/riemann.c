@@ -15,8 +15,11 @@
 #define diffusion	(0.1)
 #define dviscmax	(0.1)
 #define drhomax		(0.2)
-#define small_R     1.0e-20
+#define small_R     (1.0e-20)
 
+#ifndef M_SQRT_2
+#define M_SQRT_2    0.7071067811865476
+#endif
 
 extern int smooth_density_gradients;
 
@@ -58,7 +61,7 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 
 	ul	= stl[1];
 	ur	= str[1];
-	p1	= (((ul-ur)*q_l*0.707106781 + p_l)*q_r + p_r*q_l) / (q_l + q_r);
+	p1	= (((ul-ur)*q_l*M_SQRT_2+ p_l)*q_r + p_r*q_l) / (q_l + q_r);
 	ul_0	= ul;
 	ur_0	= ur;
 	p_0	= p0;
@@ -73,11 +76,11 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 	xxr = ( ar * p_1 + br ) / ( p_1 + cr );
 	w2r = 1.0/sqrt(MAX(small_R, xxr * str[0] * (p_1 + str[2])));
 	ur1 = str[1] + ( p_1 - str[2] ) * w2r;
-	p2 = MAX( small_R, 1.0000001 * p_1 - ( ur1 - ul1 ) 
+	p2 = MAX( small_R, (1.+eps) * p_1 - ( ur1 - ul1 ) 
 			* fabs( p_1 - p_0 )
 			/ ( fabs( ur1 - ur_0 )
 			   +fabs( ul1 - ul_0 )
-			   +small_R ) );
+			   +(small_R/eps) ) );
 	p_0 = p_1;
 	p_1 = p2;
 	ul_0 = ul1;
@@ -93,11 +96,11 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 		xxr = ( ar * p_1 + br ) / ( p_1 + cr );
 		w2r = 1.0/sqrt(MAX(small_R, xxr * str[0] * (p_1 + str[2])));
 		ur1 = str[1] + ( p_1 - str[2] ) * w2r;
-		p2 = MAX( small_R, 1.0000001 * p_1 - ( ur1 - ul1 )
+		p2 = MAX( small_R, (1.+eps) * p_1 - ( ur1 - ul1 )
 			* fabs( p_1 - p_0 )
 			/ ( fabs( ur1 - ur_0 )
 			+fabs( ul1 - ul_0 )
-			+small_R ) );
+			+(small_R/eps) ) );
 		dev = fabs( p2 - p_1 ) / ( p2 + p_1 );
 		p_0 = p_1;
                 p_1 = p2;
