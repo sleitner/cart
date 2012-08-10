@@ -103,9 +103,9 @@ void riemann( double stl[5], double str[5], double sta[4] ) {
 			+(small_R/eps) ) );
 		dev = fabs( p2 - p_1 ) / ( p2 + p_1 );
 		p_0 = p_1;
-                p_1 = p2;
-                ul_0 = ul1;
-                ur_0 = ur1;
+		p_1 = p2;
+		ul_0 = ul1;
+		ur_0 = ur1;
 		iter++;
 	}
 
