@@ -886,11 +886,11 @@ void log_diagnostics() {
 		fflush(energy);
 
 #ifdef COSMOLOGY
-		fprintf(steptimes, "%u %e %e %e %e %e\n", 
+		fprintf(steptimes, "%u %e %e %e %e %e", 
 				step, current_age, current_dt, auni[min_level], abox[min_level], 
 				abox[min_level]-abox_old[min_level] );
 #else
-		fprintf(steptimes, "%u %e %e\n", step, current_age, current_dt );
+		fprintf(steptimes, "%u %e %e", step, current_age, current_dt );
 #endif /* COSMOLOGY */
 
 		for ( i = min_level; i <= max_level; i++ ) {

@@ -51,11 +51,11 @@ DECLARE_LEVEL_ARRAY(double,abox_old);
 
 extern double auni_init;
 
-int num_artio_grid_files = 0;
+int num_artio_grid_files = 1;
 int artio_grid_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 
 #ifdef PARTICLES
-int num_artio_particle_files = 0;
+int num_artio_particle_files = 1;
 int artio_particle_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 #endif /* PARTICLES */
 
