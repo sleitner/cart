@@ -68,7 +68,7 @@ void compute_power_spectrum( char *filename, int power_type ) {
 	int power_mesh_refinements = 0;
 
 	i = power_mesh_size;
-	while ( i > 0 ) {
+	while ( i > 1 ) {
 		cart_assert( (i & 1) == 0 || (i >> 1) == 0 ); /* check for power of two */
 		power_mesh_refinements++;
 		i >>= 1;
