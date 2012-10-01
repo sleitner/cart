@@ -164,7 +164,7 @@ void cosmology_init()
 	{
 	  c.OmegaK = 1.0 - (c.OmegaM+c.OmegaL);
 	}
-      c.OmegaR = 5.837e-5/(c.h*c.h);
+      c.OmegaR = 4.166e-5/(c.h*c.h);
 
       c.Omh2 = c.OmegaM*c.h*c.h;
       c.Obh2 = c.OmegaB*c.h*c.h;
