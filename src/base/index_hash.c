@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #include "auxiliary.h"
@@ -64,43 +65,57 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 	size_t total;
 	int rekey;
 	index_hash_entry tmp_entry, new_entry;
+	int64_t a0, b0, min_a0, min_b0;
+	size_t min_total;
 
 	/* allocate space for the new hash */
 	hash = cart_alloc( index_hash, 1 );
-	
+
 	/* create universal hash function for first layer */
 	hash->hash_size = size;
 	hash->p = next_largest_prime64( 3*max_key );
 
 	hash->a = cart_alloc( int64_t, hash->hash_size );
 	hash->b = cart_alloc( int64_t, hash->hash_size );
-	hash->s = cart_alloc( int, hash->hash_size );
+	hash->s = cart_alloc( int64_t, hash->hash_size );
 	hash->n = cart_alloc( int, hash->hash_size );
+
+	min_total = SIZE_MAX;
 
 	do { 
 		/* choose a first-level hash function */
-		hash->a0 = (int)(hash->p*cart_rand()) + 1;
-		hash->b0 = (int)(hash->p*cart_rand());
+		a0 = (int64_t)(hash->p*cart_rand()) + 1;
+		b0 = (int64_t)(hash->p*cart_rand());
 		
-		for ( i = 0; i < hash->hash_size; i++ ) {
+		for ( i = 0; i < size; i++ ) {
 			hash->n[i] = 0;
 		}
 
 		for ( i = 0; i < size; i++ ) {
-			h = (((int64_t)remote_index[i]*hash->a0 + hash->b0) % hash->p) % hash->hash_size;		
+			h = (((int64_t)remote_index[i]*a0 + b0) % hash->p) % hash->hash_size;
 			hash->n[h]++;
 		}
 
 		total = 0;
-		for ( i = 0; i < hash->hash_size; i++ ) {
+		for ( i = 0; i < size; i++ ) {
 			hash->n[i] *= hash->n[i];
 			total += hash->n[i];
 		}
+
+		if ( total < min_total ) {
+			min_total = total;
+			min_a0 = a0;
+			min_b0 = b0;
+		}
+
 		iter++;
-	} while ( total >= 1.5*size && iter < 1000 );
+	} while ( min_total >= 2*size && iter < 20 );
+
+	hash->a0 = min_a0;
+	hash->b0 = min_b0;
 
 	total = 0;
-	for ( i = 0; i < hash->hash_size; i++ ) {
+	for ( i = 0; i < size; i++ ) {
 		hash->s[i] = total;
 		total += hash->n[i];
 	}
@@ -112,7 +127,7 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 		hash->hash_array[i] = null_entry;
 	}
 
-	for ( i = 0; i < hash->hash_size; i++ ) {
+	for ( i = 0; i < size; i++ ) {
 		hash->n[i] = 0;
 	}
 
@@ -123,18 +138,19 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 		hash->n[h]++;
 	}
 
-	for ( i = 0; i < hash->hash_size; i++ ) {
+	for ( i = 0; i < size; i++ ) {
 		hash->n[i] *= hash->n[i];
 	}	
 	
 	/* hash each secondary array */
+	#pragma omp parallel for default(none) shared(hash,null_entry,size) private(i,j,k,oldj,rekey,tmp_entry,new_entry) schedule(dynamic)
 	for ( i = 0; i < size; i++ ) {
 		do {
 			rekey = 0;
 	
 			/* choose secondary hash function */
-			hash->a[i] = (int)(hash->p*cart_rand()) + 1;
-			hash->b[i] = (int)(hash->p*cart_rand());
+			hash->a[i] = (int64_t)(hash->p*cart_rand()) + 1;
+			hash->b[i] = (int64_t)(hash->p*cart_rand());
 
 			for ( j = 0; j < hash->n[i]; j++ ) {
 				if ( hash->hash_array[ hash->s[i] + j ].remote_index != -1 ) {
@@ -145,7 +161,6 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 
 					while (1) {
 						k = ((hash->a[i]*(int64_t)new_entry.remote_index + hash->b[i]) % hash->p) % hash->n[i];
-
 						if ( hash->hash_array[ hash->s[i] + k ].remote_index == -1 ) {
 							hash->hash_array[ hash->s[i] + k ] = new_entry;
 							break;
@@ -192,10 +207,10 @@ int index_hash_lookup ( index_hash *hash, int remote_index )
 	int h, k;
 
 	if ( remote_index != INDEX_HASH_NULL_ENTRY ) {
-		h = (int)(((int64_t)remote_index*hash->a0 + hash->b0) % hash->p) % hash->hash_size;      
+		h = (((int64_t)remote_index*hash->a0 + hash->b0) % hash->p) % hash->hash_size;      
 
 		if ( hash->n[h] > 0 ) {
-			k = (int)((hash->a[h]*(int64_t)remote_index+hash->b[h]) % hash->p) % hash->n[h];
+			k = ((hash->a[h]*(int64_t)remote_index+hash->b[h]) % hash->p) % hash->n[h];
 			if ( hash->hash_array[ hash->s[h] + k ].remote_index == remote_index ) {
 				return hash->hash_array[ hash->s[h] + k ].local_index;
 			}

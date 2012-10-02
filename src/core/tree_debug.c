@@ -33,13 +33,13 @@ void check_map() {
 	int species_count_total[100];
 #ifdef GRAVITY
 	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
-        const int color[num_children] = {
-                #if nDim == 3
-                        0, 1, 1, 0, 1, 0, 0, 1
-                #else
-                        #error "Unknown nDim in color (smooth)"
-                #endif
-        };
+	const int color[num_children] = {
+#if nDim == 3
+		0, 1, 1, 0, 1, 0, 0, 1
+#else
+#error "Unknown nDim in color (smooth)"
+#endif
+	};
 #endif
 
 	/* test root cells */
@@ -267,6 +267,8 @@ void check_map() {
 #ifdef GRAVITY
 	for ( level = min_level+1; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
+
+#pragma omp parallel for private(icell,neighbors,i,j) 
 		for ( k = 0; k < num_level_cells; k++ ) {
 			icell = level_cells[k];
 			cell_all_neighbors( icell, neighbors );
@@ -294,6 +296,7 @@ void check_map() {
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
+#pragma omp parallel for default(none) private(icell,pos,j) shared(level_cells,cell_vars)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -310,6 +313,7 @@ void check_map() {
 
 		select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
 
+#pragma omp parallel for default(none) private(icell,pos,j) shared(level_cells,cell_vars,cell_size)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -323,6 +327,8 @@ void check_map() {
 		cart_free( level_cells );
 	}
 #endif /* GRAVITY */
+
+	cart_debug("done with check_map");
 }
 
 void print_cell_values(int level) {

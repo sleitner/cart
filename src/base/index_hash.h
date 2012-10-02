@@ -14,8 +14,8 @@ typedef struct INDEX_HASH {
 	int hash_size;
 	int64_t a0, b0;
 	int64_t p;
-	int *n, *s;
-	int64_t *a, *b;
+	int *n;
+	int64_t *a, *b, *s;
     index_hash_entry *hash_array;
 } index_hash;
 

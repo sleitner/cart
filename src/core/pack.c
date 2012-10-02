@@ -495,7 +495,6 @@ void pack_communicate( pack *p ) {
 					for ( i = 0; i < p->num_receiving_cells[proc][min_level-min_level]; i++ ) {
 						local_buffers[min_level][proc][i] = 
 							cell_buffer_local_index( root_cells[proc][i] );
-						cart_assert( cell_is_leaf( local_buffers[min_level][proc][i] ) );
 					}
 				}
 			} 

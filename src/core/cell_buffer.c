@@ -332,11 +332,13 @@ void build_root_cell_buffer() {
 	if ( num_procs > 1 ) {
 		buffer_list = skiplist_init();
 
+		#pragma omp parallel for default(none) private(sfc,neighbors,i) shared(buffer_list,local_proc_id,proc_sfc_index)
 		for ( sfc = proc_sfc_index[local_proc_id]; sfc < proc_sfc_index[local_proc_id+1]; sfc++ ) {	
 			root_cell_uniform_stencil( sfc, neighbors );
 
 			for ( i = 0; i < num_stencil; i++ ) {
 				if ( !root_cell_is_local(neighbors[i]) ) {
+					#pragma omp critical 
 					skiplist_insert( buffer_list, neighbors[i] );
 				}
 			}
@@ -414,6 +416,8 @@ void build_cell_buffer()
 
 	/* loop over all of our local cells, and determine if another processor
 	 * needs to buffer them, assumes the stencil is symmetric */
+	#pragma omp parallel default(none) shared(local_proc_id,proc_sfc_index,buffer_list) \
+		private(sfc,neighbors,i,processor)
 	for ( sfc = proc_sfc_index[local_proc_id]; sfc < proc_sfc_index[local_proc_id+1]; sfc++ ) {
 		cart_assert( root_cell_is_local( sfc ) );
 
@@ -422,6 +426,7 @@ void build_cell_buffer()
 		for ( i = 0; i < num_stencil; i++ ) {
 			if ( !root_cell_is_local( neighbors[i] ) ) {
 				processor = processor_owner( neighbors[i] );
+				#pragma omp critical
 				pack_add_root_tree( buffer_list, processor, sfc );
 			}
 		}

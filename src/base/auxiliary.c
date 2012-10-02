@@ -186,10 +186,10 @@ void cart_debug( const char *fmt, ... ) {
 		f = fopen(filename,"w");
 	}
 
-        if ( f != NULL ) {
-                fprintf(f,"%s%s\n",prompt,message);
-                fflush(f);
-        }
+	if ( f != NULL ) {
+		fprintf(f,"%s%s\n",prompt,message);
+		fflush(f);
+	}
 }
 #endif
 

@@ -167,12 +167,12 @@ void hilbert_coords( int index, int coords[nDim] )
 		sigma_ |= rollRight( sigma, num_shifts, dimMask );
 
 		principal = nDim - 1;
-                for ( j = 1; j < nDim; j++ ) {
-                        if ( (index & singleMask) != ((index >> j) & singleMask) ) {
-                                principal = nDim - j - 1;
-                                break;
-                        }
-                }
+		for ( j = 1; j < nDim; j++ ) {
+			if ( (index & singleMask) != ((index >> j) & singleMask) ) {
+				principal = nDim - j - 1;
+				break;
+			}
+		}
 
 		/* complement nth bit */
 		tau = sigma ^ singleMask;
