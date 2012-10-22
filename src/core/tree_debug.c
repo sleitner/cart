@@ -296,7 +296,7 @@ void check_map() {
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
-#pragma omp parallel for default(none) private(icell,pos,j) shared(level_cells,cell_vars)
+#pragma omp parallel for default(none) private(icell,pos,j) shared(num_level_cells,level_cells,cell_vars)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
@@ -313,7 +313,7 @@ void check_map() {
 
 		select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
 
-#pragma omp parallel for default(none) private(icell,pos,j) shared(level_cells,cell_vars,cell_size)
+#pragma omp parallel for default(none) private(icell,pos,j) shared(level,num_level_cells,level_cells,cell_vars,cell_size)
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 
