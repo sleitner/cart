@@ -561,13 +561,6 @@ void pack_communicate( pack *p ) {
 						cart_assert( cell_child_oct[icell] != NULL_OCT );
 						cart_assert( oct_level[ cell_child_oct[icell] ] == level+1 );
 						cart_assert( oct_parent_cell[cell_child_oct[icell]] == icell );
-
-						/*
-						for ( i = 0; i < num_cells_split; i++ ) {
-							cart_assert( next_level_octs[i] != cell_child_oct[icell] );
-						}
-						*/
-
 						cart_assert( num_cells_split < next_level_count );
 						next_level_octs[num_cells_split++] = cell_child_oct[icell];
 

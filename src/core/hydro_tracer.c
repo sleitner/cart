@@ -179,19 +179,15 @@ void update_tracer_list( int level ) {
 	int iter_cell;
 	int num_level_cells;
 	int *level_cells;
-	int coords[nDim];
 	int num_tracers_to_send[MAX_PROCS];
 	int tracer_list_to_send[MAX_PROCS];
 	int tracer2, new_cell;
 	int last;
 	int proc;
 	int collect_level;
-
-	int min_level_modified, max_level_modified;
+	int sfc;
 
 	start_time( WORK_TIMER );
-
-	min_level_modified = max_level_modified = level;
 
 	/* now move tracers from one cell list to another */
 	for ( i = 0; i < num_procs; i++ ) {
@@ -207,31 +203,24 @@ void update_tracer_list( int level ) {
 			tracer = cell_tracer_list[iter_cell];
 
 			while ( tracer != NULL_TRACER ) {
-        	                tracer2 = tracer_list_next[tracer];
-                	        new_cell = cell_find_position( tracer_x[tracer] );
+				tracer2 = tracer_list_next[tracer];
 
-				if ( new_cell == NULL_OCT ) {
-					for ( i = 0; i < nDim; i++ ) {
-						coords[i] = (int)(tracer_x[tracer][i]);
-					}
-					proc = processor_owner( sfc_index( coords ) );
+				sfc = sfc_index_position( tracer_x[tracer] );
+				proc = processor_owner( sfc );
 
-					delete_tracer( iter_cell, tracer );
-					tracer_list_next[tracer] = tracer_list_to_send[proc];
-					tracer_list_to_send[proc] = tracer;
-				} else { 
+				if ( proc == local_proc_id ) {
+					new_cell = cell_find_position_sfc( sfc, tracer_x[tracer] );
+
 					if ( new_cell != iter_cell ) {
-						if ( cell_level(new_cell) < min_level_modified ) {
-							min_level_modified = cell_level( new_cell );
-						}
-	
-						if ( cell_level(new_cell) > max_level_modified ) {
-							max_level_modified = cell_level( new_cell );
-						}
-	
 						delete_tracer( iter_cell, tracer );
 						insert_tracer( new_cell, tracer );
 					}
+				} else if ( proc == -1 ) {
+					cart_error("Unable to find processor owner for tracer %d", tracer_id[tracer] );
+				} else {
+					delete_tracer( iter_cell, tracer );
+					tracer_list_next[tracer] = tracer_list_to_send[proc];
+					tracer_list_to_send[proc] = tracer;
 				}
 
 				tracer = tracer2;
@@ -240,39 +229,10 @@ void update_tracer_list( int level ) {
 	}
 
 	cart_free( level_cells );
-
 	end_time( WORK_TIMER );
 
 	start_time( COMMUNICATION_TIMER );
-
-	/* now collect tracers which ended up in buffer cells */
-	for ( collect_level = min_level_modified; collect_level <= max_level_modified; collect_level++ ) {
-		select_level( collect_level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
-		for ( i = 0; i < num_level_cells; i++ ) {
-			iter_cell = level_cells[i];
-
-			if ( cell_tracer_list[iter_cell] != NULL_TRACER ) {
-				proc = processor_owner( cell_parent_root_sfc( iter_cell ) );
-
-				last = cell_tracer_list[iter_cell];
-				num_tracers_to_send[proc]++;
-
-				while ( tracer_list_next[last] != NULL_TRACER ) {
-					last = tracer_list_next[last];
-					num_tracers_to_send[proc]++;
-				}
-
-				tracer_list_next[last] = tracer_list_to_send[proc];
-				tracer_list_to_send[proc] = cell_tracer_list[iter_cell];
-
-				cell_tracer_list[iter_cell] = NULL_TRACER;
-			}
-		}
-		cart_free( level_cells );
-	}
-
 	trade_tracer_lists( num_tracers_to_send, tracer_list_to_send, level );
-
 	end_time( COMMUNICATION_TIMER );
 }
 

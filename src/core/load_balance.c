@@ -662,7 +662,6 @@ void load_balance() {
 	int proc;
 	int first_oct, old_first_oct;
 	int new_oct;
-	int coords[nDim];
 	int receive_counts[MAX_PROCS];
 	int receive_displacements[MAX_PROCS];
 	int old_proc_sfc_index[MAX_PROCS+1];
@@ -960,12 +959,7 @@ void load_balance() {
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( particle_level[ipart] != FREE_PARTICLE_LEVEL ) {
 			/* check which processor this particle now belongs to */
-			for ( i = 0; i < nDim; i++ ) {
-				coords[i] = (int)(particle_x[ipart][i]);
-				cart_assert( coords[i] >= 0 && coords[i] < num_grid );
-			}
-
-			proc = processor_owner( sfc_index( coords ) );
+			proc = processor_owner( sfc_index_position( particle_x[ipart] ) );
 
 			if ( proc != local_proc_id ) {
 				num_parts_to_send[proc]++;
@@ -983,12 +977,7 @@ void load_balance() {
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( particle_level[ipart] != FREE_PARTICLE_LEVEL ) {
 			/* check which processor this particle now belongs to */
-			for ( i = 0; i < nDim; i++ ) {
-				coords[i] = (int)(particle_x[ipart][i]);
-				cart_assert( coords[i] >= 0 && coords[i] < num_grid );
-			}
-
-			proc = processor_owner( sfc_index( coords ) );
+			proc = processor_owner( sfc_index_position( particle_x[ipart] ) );
 
 			if ( proc != local_proc_id ) {
 				/* don't need to call delete_particle here since the particles
@@ -1021,11 +1010,7 @@ void load_balance() {
 	for ( tracer = 0; tracer < num_tracers; tracer++ ) {
 		if ( tracer_id[tracer] != NULL_TRACER ) {
 			/* check which processor this particle now belongs to */
-			for ( i = 0; i < nDim; i++ ) {
-				coords[i] = (int)(tracer_x[tracer][i]);
-			}
-
-			proc = processor_owner( sfc_index( coords ) );
+			proc = processor_owner( sfc_index_position( tracer_x[tracer] ) );
 
 			if ( proc != local_proc_id ) {
 				/* don't need to call delete_tracer here since the 

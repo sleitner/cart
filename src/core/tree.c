@@ -377,35 +377,24 @@ void cell_center_position( int c, double position[nDim] ) {
 }
 
 int cell_find_position( double position[nDim] ) {
-	int i;
-	int coords[nDim];
-	int root_index;
-	int c;
-	int child;
-	double pos[nDim];
+	return cell_find_position_sfc( sfc_index_position(position), position );
+}
 
-	for ( i = 0; i < nDim; i++ ) {
-		coords[i] = (int)(position[i]);
-
-		if ( coords[i]<0 || coords[i]>=num_grid ) {
-			return -1;
-		}
-	}
-	root_index = sfc_index( coords );
+int cell_find_position_sfc( int root_index, double position[nDim] ) {
+	int i, c, child, ioct;
 
 	c = root_cell_location(root_index);
 	if ( c != NULL_OCT ) {	
 		while ( cell_is_refined(c) ) {
-			cell_center_position(c, pos);
+			ioct = cell_child_oct[c];
 
 			/* determine which child cell contains the point */
 			child = 0;
 			for ( i = 0; i < nDim; i++ ) {
-				if ( position[i] >= pos[i] ) {
+				if ( position[i] >= oct_pos[ioct][i] ) {
 					child += (1<<i);
 				}
 			}
-
 			c = cell_child( c, child );
 		}
 	}
@@ -414,33 +403,23 @@ int cell_find_position( double position[nDim] ) {
 }
 
 int cell_find_position_level( int level, double position[nDim] ) {
-	int i;
-	int curlevel;
-	int coords[nDim];
-	int root_index;
-	int c;
-	int child;
-	double pos[nDim];
+	return cell_find_position_level_sfc( sfc_index_position(position), level, position );
+}
 
-	for ( i = 0; i < nDim; i++ ) {
-		coords[i] = (int)(position[i]);
 
-		if ( coords[i]<0 || coords[i]>=num_grid ) {
-			return -1;
-		}
-	}
-	root_index = sfc_index( coords );
+int cell_find_position_level_sfc( int root_index, int level, double position[nDim] ) {
+	int i, c, child, ioct, curlevel;
 
 	c = root_cell_location(root_index);
 	curlevel = min_level;
 	if ( c != NULL_OCT ) {
 		while ( curlevel != level && cell_is_refined(c) ) {
-			cell_center_position(c, pos);
-
+			ioct = cell_child_oct[c];
+	
 			/* determine which child cell contains the point */
 			child = 0;
 			for ( i = 0; i < nDim; i++ ) {
-				if ( position[i] >= pos[i] ) {
+				if ( position[i] >= oct_pos[ioct][i] ) {
 					child += (1<<i);
 				}
 			}
@@ -458,34 +437,26 @@ int cell_find_position_level( int level, double position[nDim] ) {
 }
 
 int cell_find_position_above_level( int level, double position[nDim] ) {
+	return cell_find_position_above_level_sfc( sfc_index_position(position), level, position );
+}
+
+int cell_find_position_above_level_sfc( int root_index, int level, double position[nDim] ) {
 	int i;
 	int curlevel;
-	int coords[nDim];
-	int root_index;
 	int c;
 	int child;
-	double pos[nDim];
+	int ioct;
 
-	for ( i = 0; i < nDim; i++ ) {
-		coords[i] = (int)(position[i]);
-
-		if ( coords[i]<0 || coords[i]>=num_grid ) {
-			return -1;
-		}
-	}
-	
-	root_index = sfc_index( coords );
 	c = root_cell_location(root_index);
 	curlevel = min_level;
-
 	if ( c != NULL_OCT ) {
 		while ( curlevel != level && cell_is_refined(c) ) {
-			cell_center_position(c, pos);
+			ioct = cell_child_oct[c];
 
 			/* determine which child cell contains the point */
 			child = 0;
 			for ( i = 0; i < nDim; i++ ) {
-				if ( position[i] >= pos[i] ) {
+				if ( position[i] >= oct_pos[ioct][i] ) {
 					child += (1<<i);
 				}
 			}

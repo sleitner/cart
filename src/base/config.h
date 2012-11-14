@@ -100,6 +100,9 @@
 #error "Switches METALCOOLING and NO_METALCOOLING are now obsolete; metal cooling is on by default (as physically meaningful), to disable metal cooling do not use ENRICHMENT define."
 #endif
 
+#if defined(CLOUDY_COOLING)
+#error "The CLOUDY_COOLING define is now obsolete."
+#endif
 
 #if defined(FEEDBACK) || defined(FEEDBACK_SNIa)
 #error "Switches FEEDBACK and FEEDBACK_SNIa are now obsolete; stellar feedback is on by default, set <snII:energy-per-explosion> and <snIa:energy-per-explosion> control parameters to zero in the .cfg file to disable stellar feedback of each kind."

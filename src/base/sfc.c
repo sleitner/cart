@@ -238,6 +238,16 @@ void slab_coords( int index, int coords[nDim] ) {
 	cart_assert( slab_index( coords ) == index );
 }
 
+int sfc_index_position( double position[nDim] ) {
+	int i;
+	int coords[nDim];
+
+	for ( i = 0; i < nDim; i++ ) {
+		coords[i] = (int)position[i];
+	}
+	return sfc_index(coords);
+}
+
 int sfc_index( int coords[nDim] ) {
 	#if SFC == SLAB
 		return slab_index( coords );

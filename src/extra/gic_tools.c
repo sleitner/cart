@@ -55,7 +55,8 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
   int ih;
   int i, j, k, i1, j1, k1, ioff, joff, koff, done, n, nbuf, lev, width2;
   int *pos, min[nDim], max[nDim], shift[nDim], box[nDim], p[3];
-  char *mask = 0;
+  char *mask = NULL;
+  char *halo_mask = NULL;
   halo *h;
   FILE *f;
   char str[256];
@@ -74,6 +75,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 
   if(local_proc_id == MASTER_NODE)
     {
+      halo_mask = cart_alloc(char,num_root_cells);
       mask = cart_alloc(char,num_root_cells);
       memset(mask,0,sizeof(char)*num_root_cells);
     }
@@ -140,7 +142,8 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
       */
       if(local_proc_id == MASTER_NODE)
 	{
-	  gicMakeMaskAddPoints(mode,n,pos,mask);
+	  memset(halo_mask,0,sizeof(char)*num_root_cells);
+	  gicMakeMaskAddPoints(mode,n,pos,halo_mask);
 	  for(i=1; i<num_procs; i++)
 	    {
 	      MPI_Recv(&n,1,MPI_INT,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
@@ -151,7 +154,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 		  pos = cart_alloc(int,nDim*nbuf);
 		}
 	      MPI_Recv(pos,nDim*n,MPI_INT,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
-	      gicMakeMaskAddPoints(mode,n,pos,mask);
+	      gicMakeMaskAddPoints(mode,n,pos,halo_mask);
 	    }
 	  cart_free(pos);
 
@@ -165,7 +168,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 		      {
 			for(i=0; i<num_grid; i++)
 			  {
-			    mask[i+num_grid*(j+num_grid*k)] *= level;
+			    halo_mask[i+num_grid*(j+num_grid*k)] *= level;
 			  }
 		      }
 		  }
@@ -186,6 +189,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 		      {
 			cart_debug("Unable to account for the periodic BC.");
 			cart_debug("gicMakeMask call is skipped.");
+			cart_free(halo_mask);
 			cart_free(mask);
 			return;
 		      }
@@ -202,7 +206,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 			    p[0] = i;
 			    p[1] = j;
 			    p[2] = k;
-			    if(chIsPointInside(p)) mask[i+num_grid*(j+num_grid*k)] = level;
+			    if(chIsPointInside(p)) halo_mask[i+num_grid*(j+num_grid*k)] = level;
 			  }
 		      }
 		  }
@@ -212,38 +216,21 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 	    }
 
 	  /*
-	  //  Diffuse to create lower level buffers
+	  // Merge halo mask into complete mask
 	  */
-	  for(lev=level-1; lev>0; lev--)
-	    {
-	      for(k=0; k<num_grid; k++)
-		{
-		  for(j=0; j<num_grid; j++)
-		    {
-		      for(i=0; i<num_grid; i++)
-			{
-			  if(mask[i+num_grid*(j+num_grid*k)] == 0)
-			    {
-			      done = 0;
-			      for(koff=-width; done==0 && koff<=width; koff++) for(joff=-width; done==0 && joff<=width; joff++) for(ioff=-width; done==0 && ioff<=width; ioff++)
-				{
-				  if(ioff*ioff+joff*joff+koff*koff <= width2)
-				    {
-				      i1 = (i+ioff+num_grid) % num_grid;
-				      j1 = (j+joff+num_grid) % num_grid;
-				      k1 = (k+koff+num_grid) % num_grid;
-				      if(mask[i1+num_grid*(j1+num_grid*k1)] > lev)
-					{
-					  mask[i+num_grid*(j+num_grid*k)] = lev;
-					  done = 1;
-					}
-				    }
-				}
-			    }
-			}
-		    }
-		}
-	    }
+	  for(k=0; k<num_grid; k++)
+	  {
+              k1 = (k+shift[2])%box[2];
+	      for(j=0; j<num_grid; j++)
+	      {
+		  j1 = (j+shift[1])%box[1];
+		  for(i=0; i<num_grid; i++)
+		  {
+		      i1 = (i+shift[0])%box[0];
+		      mask[i+num_grid*(j+num_grid*k)] |= halo_mask[i1+num_grid*(j1+num_grid*k1)];
+		  }
+	      }
+	  }
 	}
       else
 	{
@@ -256,7 +243,41 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
     }
 
   /*
-  //  Write plain ascii files. Should consider adding writing a GIC .rfm file directly.
+  //  Diffuse to create lower level buffers
+  */
+  for(lev=level-1; lev>0; lev--)
+  {
+      for(k=0; k<num_grid; k++)
+      {
+	  for(j=0; j<num_grid; j++)
+	  {
+	      for(i=0; i<num_grid; i++)
+	      {
+		  if(mask[i+num_grid*(j+num_grid*k)] == 0)
+		  {
+		      done = 0;
+		      for(koff=-width; done==0 && koff<=width; koff++) for(joff=-width; done==0 && joff<=width; joff++) for(ioff=-width; done==0 && ioff<=width; ioff++)
+		      {
+			  if(ioff*ioff+joff*joff+koff*koff <= width2)
+			  {
+			      i1 = (i+ioff+num_grid) % num_grid;
+			      j1 = (j+joff+num_grid) % num_grid;
+			      k1 = (k+koff+num_grid) % num_grid;
+			      if(mask[i1+num_grid*(j1+num_grid*k1)] > lev)
+			      {
+				  mask[i+num_grid*(j+num_grid*k)] = lev;
+				  done = 1;
+			      }
+			  }
+		      }
+		  }
+	      }
+	  }
+      }
+  }
+
+  /*
+  //  Write plain ascii files. 
   */
   if(local_proc_id == MASTER_NODE)
     {
@@ -266,7 +287,9 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 	  f = fopen(str,"w");
 	  cart_assert(f != NULL);
 
-	  fprintf(f,"%d %d %d\n",shift[0],shift[1],shift[2]);
+	  /* fprintf(f,"%d %d %d\n",shift[0],shift[1],shift[2]); */
+          /* DHR: masks are now always unshifted */
+          fprintf(f, "0 0 0\n");
 
 	  for(k=0; k<num_grid; k++)
 	    {
@@ -285,6 +308,7 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
 	  fclose(f);
 	}
 
+      cart_free(halo_mask);
       cart_free(mask);
     }
 }

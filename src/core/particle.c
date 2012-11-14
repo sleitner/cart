@@ -109,20 +109,17 @@ void update_particle_list( int level ) {
 	int iter_cell;
 	int num_level_cells;
 	int *level_cells;
-	int coords[nDim];
+	double pos[nDim];
 	int num_parts_to_send[MAX_PROCS];
 	int particle_list_to_send[MAX_PROCS];
 	int *particle_array_to_send[MAX_PROCS];
 	int ipart2, new_cell;
 	int proc;
 	int collect_level;
-
-	int min_level_modified, max_level_modified;
+	int sfc;
 
 	start_time( UPDATE_PARTS_TIMER );
 	start_time( WORK_TIMER );
-
-	min_level_modified = max_level_modified = level;
 
 	/* now move particles from one cell list to another */
 	for ( i = 0; i < num_procs; i++ ) {
@@ -134,41 +131,30 @@ void update_particle_list( int level ) {
 	for ( k = 0; k < num_level_cells; k++ ) {
 		iter_cell = level_cells[k];
 
-		if ( cell_is_leaf(iter_cell) ) {
-			ipart = cell_particle_list[iter_cell];
+		ipart = cell_particle_list[iter_cell];
+		while ( ipart != NULL_PARTICLE ) {
+			ipart2 = particle_list_next[ipart];
 
-			while ( ipart != NULL_PARTICLE ) {
-				ipart2 = particle_list_next[ipart];
-				new_cell = cell_find_position( particle_x[ipart] );
+			sfc = sfc_index_position( particle_x[ipart] );
+			proc = processor_owner(sfc);
 
-				if ( new_cell == NULL_OCT ) {
-					for ( i = 0; i < nDim; i++ ) {
-						coords[i] = (int)(particle_x[ipart][i]);
-					}
-					proc = processor_owner( sfc_index( coords ) );
-					cart_assert( proc != local_proc_id );
-
+			if ( proc == local_proc_id ) {
+				new_cell = cell_find_position_sfc( sfc, particle_x[ipart] );
+				if ( new_cell != iter_cell ) {
+					cart_assert( cell_is_local(new_cell) );
 					delete_particle( iter_cell, ipart );
-					particle_list_next[ipart] = particle_list_to_send[proc];
-					particle_list_to_send[proc] = ipart;
-					num_parts_to_send[proc]++;
-				} else { 
-					if ( new_cell != iter_cell ) {
-						if ( cell_level(new_cell) < min_level_modified ) {
-							min_level_modified = cell_level( new_cell );
-						}
-	
-						if ( cell_level(new_cell) > max_level_modified ) {
-							max_level_modified = cell_level( new_cell );
-						}
-	
-						delete_particle( iter_cell, ipart );
-						insert_particle( new_cell, ipart );
-					}
+					insert_particle( new_cell, ipart );
 				}
-
-				ipart = ipart2;
+			} else if ( proc == -1 ) {
+				cart_error( "Unable to locate processor for particle %d!", particle_id[ipart]);
+			} else {
+				delete_particle( iter_cell, ipart );
+				particle_list_next[ipart] = particle_list_to_send[proc];
+				particle_list_to_send[proc] = ipart;
+				num_parts_to_send[proc]++;
 			}
+
+			ipart = ipart2;
 		}
 	}
 
@@ -179,59 +165,18 @@ void update_particle_list( int level ) {
 	start_time( COMMUNICATION_TIMER );
 	start_time( UPDATE_PARTS_COMMUNICATION_TIMER );
 
-	/* now collect particles which ended up in buffer cells */
-	for ( collect_level = min_level_modified; collect_level <= max_level_modified; collect_level++ ) {
-		select_level( collect_level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
-		for ( i = 0; i < num_level_cells; i++ ) {
-			iter_cell = level_cells[i];
-
-			if ( cell_particle_list[iter_cell] != NULL_PARTICLE ) {
-				proc = processor_owner( cell_parent_root_sfc( iter_cell ) );
-				
-				ipart = cell_particle_list[iter_cell];
-				while ( ipart != NULL_PARTICLE ) {
-					num_parts_to_send[proc]++;
-					ipart = particle_list_next[ipart];
-				}
-			}
-		}
-		cart_free( level_cells );
-	}
-
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_parts_to_send[proc] > 0 ) {
 			particle_array_to_send[proc] = cart_alloc(int, num_parts_to_send[proc]);
 			num_parts_to_send[proc] = 0;
 
-			/* add particles that ended up in linked list */
+			/* add particles that ended up in processor linked list */
 			ipart = particle_list_to_send[proc];
 			while ( ipart != NULL_PARTICLE ) {
 				particle_array_to_send[proc][ num_parts_to_send[proc]++ ] = ipart;
-				particle_id[ipart] = NULL_PARTICLE;
-				particle_level[ipart] = FREE_PARTICLE_LEVEL;
 				ipart = particle_list_next[ipart];
 			}
 		}
-	}
-
-	for ( collect_level = min_level_modified; collect_level <= max_level_modified; collect_level++ ) {
-		select_level( collect_level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
-		for ( i = 0; i < num_level_cells; i++ ) {
-			iter_cell = level_cells[i];
-
-			if ( cell_particle_list[iter_cell] != NULL_PARTICLE ) {
-				proc = processor_owner( cell_parent_root_sfc( iter_cell ) );
-
-				ipart = cell_particle_list[iter_cell];
-				while ( ipart != NULL_PARTICLE ) {
-					particle_array_to_send[proc][ num_parts_to_send[proc]++ ] = ipart;
-					ipart = particle_list_next[ipart];
-				}
-
-				cell_particle_list[iter_cell] = NULL_PARTICLE;                                                                                                               
-			}
-		}
-		cart_free( level_cells );
 	}
 
 	trade_particle_lists( num_parts_to_send, particle_array_to_send, level, FREE_PARTICLE_LISTS );
@@ -744,7 +689,16 @@ int particle_alloc( int id ) {
 #ifdef STAR_FORMATION
 	if ( particle_id_is_star(id) ) {
 		if ( free_star_particle_list == NULL_PARTICLE ) {
-			if ( next_free_star_particle >= num_star_particles ) {
+			/* search for first free star particle */
+			while ( next_free_star_particle < num_star_particles &&
+					particle_level[next_free_star_particle] != FREE_PARTICLE_LEVEL ) {
+				next_free_star_particle++;
+			}
+
+			if ( next_free_star_particle < num_star_particles ) {
+				ipart = next_free_star_particle;
+				next_free_star_particle++;
+			} else {
 				/* block from 0->num_star_particles completely filled, try to find a non-star */
 				for ( i = 0; i < num_star_particles; i++ ) {
 					if ( !particle_is_star(i) ) {
@@ -760,9 +714,6 @@ int particle_alloc( int id ) {
 				if ( i == num_star_particles ) {
 					cart_error("Ran out of star particles, increase num_star_particles!");
 				}
-			} else {
-				ipart = next_free_star_particle;
-				next_free_star_particle++;
 			}
 		} else {
 			/* take off the recently removed stack */
@@ -777,6 +728,11 @@ int particle_alloc( int id ) {
 			if ( next_free_particle >= num_particles ) {
 				/* ran out of normal particles, start using stars */
 				if ( free_star_particle_list == NULL_PARTICLE ) {
+					while ( next_free_star_particle < num_star_particles &&
+							particle_level[next_free_star_particle] != FREE_PARTICLE_LEVEL ) {
+						next_free_star_particle++;
+					}
+
 					if ( next_free_star_particle >= num_star_particles ) {
 						cart_error("Ran out of particles, increase num_particles!");
 					} else {
@@ -787,7 +743,7 @@ int particle_alloc( int id ) {
 					ipart = free_star_particle_list;
 					free_star_particle_list = particle_list_next[free_star_particle_list];
 				}
-                        } else {
+			} else {
 				ipart = next_free_particle;
 				next_free_particle++;
 			}

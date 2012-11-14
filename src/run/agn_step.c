@@ -162,10 +162,10 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 	int proc;
 	int agn_index;
 	int sample;
+	int sfc;
 	int num_agn_cell_vars = 5;
 	double r_K = 0.0; 
 	double sample_x[nDim];
-	int coords[nDim];
 	int num_send_requests = 0;	
 	int sync_flag[MAX_PROCS];
 	int recv_sample_count[MAX_PROCS];
@@ -229,17 +229,12 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 				} 
 			} 
 
-			icell = cell_find_position( sample_x );
+			sfc = sfc_index_position( sample_x );
+			proc = processor_owner( sfc );
 
-			if ( icell == -1 || !cell_is_local(icell) ) {
-				for ( k = 0; k < nDim; k++ ) {
-					coords[k] = (int)sample_x[k];
-				}
+			if ( proc == local_proc_id ) {
+				icell = cell_find_positioni_sfc( sfc, sample_x );
 
-				proc = processor_owner( sfc_index( coords ) );
-				send_sample_count[proc]++;
-				agn_list[i].sink_cell_proc[j] = proc;
-			} else {
 				agn_list[i].sink_cell_proc[j] = local_proc_id;
 				agn_list[i].sink_cell_index[j] = icell;
 				agn_list[i].sink_cell_level[j] = cell_level(icell);
@@ -249,6 +244,11 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 				for ( k = 0; k < nDim; k++ ) {
 					agn_list[i].sink_momentum[j][k] = cell_momentum(icell, k);
 				}
+			} else if ( proc == -1 ) {
+				cart_error("Unable to find processor owner of sink position for agn %d\n", particle_id[ipart] );
+			} else {
+				send_sample_count[proc]++;
+				agn_list[i].sink_cell_proc[j] = proc;
 			}
 		}
 	}
