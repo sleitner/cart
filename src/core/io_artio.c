@@ -34,7 +34,6 @@
 #endif /* RADIATIVE_TRANSFER */
 
 #include "../tools/artio/artio.h"
-#include "../tools/artio/artio_mpi.h"
 
 extern int step;
 
