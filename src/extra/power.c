@@ -31,8 +31,8 @@ int bin_from_d(double d) {
 	return (int)(20*log10(d)+0.5);
 }
 
-int mesh_index( int ix, int iy, int iz ) {
-	return iz + (power_mesh_size+2) * ( iy + power_mesh_size * ix );
+size_t mesh_index( int ix, int iy, int iz ) {
+  return iz + (power_mesh_size+2) * ( iy + (size_t)power_mesh_size * ix );
 }
 
 void compute_power_spectrum( char *filename, int power_type ) {
@@ -188,10 +188,25 @@ void compute_power_spectrum( char *filename, int power_type ) {
 			for ( level = min_level; level <= MIN( mesh_level, max_level ); level++ ) {
 				select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
+				/*
+				//  NG: for large mesh_level - level the original assignment was extremely
+				//  inefficient, this is a more optimized version
+				*/
+#ifdef DEBUG
+				cart_debug("... assigning density to level=%d at mesh_level=%d",level,mesh_level);
+#endif
+
 				if ( level < mesh_level ) {
+				        float *wrap_buf;   // BTW: this is legal C89
+					int wrap_size;
+
 					mesh_count = 1 << ( mesh_level - level );
 					mesh_offset = 0.5*(cell_size[level] - mesh_cell_size );
-			
+		    
+					wrap_size = (power_mesh_size+mesh_count-1)/mesh_count;  // just in case
+					wrap_buf = cart_alloc(fft_t,wrap_size*wrap_size*wrap_size);
+					memset(wrap_buf,0,sizeof(float)*wrap_size*wrap_size*wrap_size);
+
 					for ( i = 0; i < num_level_cells; i++ ) {
 						icell = level_cells[i];
 	
@@ -207,20 +222,27 @@ void compute_power_spectrum( char *filename, int power_type ) {
 							iy1 = (int)(pos[1]/mesh_cell_size) % power_mesh_size;
 							iz1 = (int)(pos[2]/mesh_cell_size) % power_mesh_size;
 	
-							mass = cell_gas_density(icell)*mesh_cell_volume;
-	
-							for ( ix = ix1; ix < ix1 + mesh_count; ix++ ) {
-								ix2 = ix % power_mesh_size;
-								for ( iy = iy1; iy < iy1 + mesh_count; iy++ ) {
-									iy2 = iy % power_mesh_size;
-									for ( iz = iz1; iz < iz1 + mesh_count; iz++ ) {
-										iz2 = iz % power_mesh_size;
-										local_mesh[mesh_index(ix2,iy2,iz2)] += mass;
-									}
-								}
+							ix2 = ix1 / mesh_count;
+							iy2 = iy1 / mesh_count;
+							iz2 = iz1 / mesh_count;
+
+							wrap_buf[iz2+wrap_size*(iy2+wrap_size*ix2)] += cell_gas_density(icell)*mesh_cell_volume;
+						}
+					}
+
+					for ( ix = 0; ix < power_mesh_size; ix++ ) {
+						ix2 = ix / mesh_count;
+						for ( iy = 0; iy < power_mesh_size; iy++ ) {
+							iy2 = iy / mesh_count;
+							for ( iz = 0; iz < power_mesh_size; iz++ ) {
+								iz2 = iz / mesh_count;
+								local_mesh[mesh_index(ix,iy,iz)] += wrap_buf[iz2+wrap_size*(iy2+wrap_size*ix2)];
 							}
 						}
 					}
+
+					cart_free(wrap_buf);
+
 				} else {
 					/* assign this density even if it's not a leaf */
 					for ( i = 0; i < num_level_cells; i++ ) {
@@ -246,8 +268,10 @@ void compute_power_spectrum( char *filename, int power_type ) {
 		cart_debug("sending densities to master_node");
 
 		/* merge */
-		MPI_Reduce( local_mesh, global_mesh, num_power_mesh2, MPI_FLOAT, 
+		MPI_Reduce( local_mesh, global_mesh, num_power_mesh2, MPI_TYPE_FFT, 
 				MPI_SUM, MASTER_NODE, mpi.comm.run );
+
+		cart_debug("densities have been sent");
 
 		/* compute power spectrum */
 		if ( local_proc_id == MASTER_NODE ) {
