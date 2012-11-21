@@ -335,7 +335,7 @@ void die_on_unknown_options()
 
 
 /*
-//  Compute the maxium and minimum of a (cached) 1-component array.
+//  Compute the maxium and minimum of a (cached) float 1-component array.
 */
 void linear_array_maxmin(int n, float *arr, float *max, float *min)
 {
@@ -378,6 +378,47 @@ void linear_array_maxmin(int n, float *arr, float *max, float *min)
 
   cart_free(vmax);
   cart_free(vmin);
+}
+
+
+/*
+//  Compute the maxium a (cached) 1-component int array.
+*/
+void linear_array_max_int(int n, int *arr, int *max)
+{
+  int j, i, ibeg, iend;
+  int *vmax;
+#ifdef _OPENMP
+  int num_pieces = omp_get_num_threads();
+#else
+  int num_pieces = 1;
+#endif 
+  int len_piece = (n+num_pieces-1)/num_pieces;
+  
+  vmax = cart_alloc(int, num_pieces );
+
+#pragma omp parallel for default(none), private(j,i,ibeg,iend), shared(arr,vmax,n,len_piece,num_pieces)
+  for(j=0; j<num_pieces; j++)
+    {
+      ibeg = j*len_piece;
+      iend = ibeg + len_piece;
+      if(iend > n) iend = n;
+  
+      vmax[j] = arr[ibeg];
+      for(i=ibeg+1; i<iend; i++)
+	{
+	  if(arr[i] > vmax[j]) vmax[j] = arr[i];
+	}
+    }
+
+
+  *max = vmax[0];
+  for(j=1; j<num_pieces; j++)
+    {
+      if(*max < vmax[j]) *max = vmax[j];
+    }
+
+  cart_free(vmax);
 }
 
 

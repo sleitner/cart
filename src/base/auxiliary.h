@@ -50,6 +50,7 @@ void reorder( char *buffer, int size );
 // Helper functions
 */
 void linear_array_maxmin(int n, float *arr, float *max, float *min);
+void linear_array_max_int(int n, int *arr, int *max);
 void linear_array_copy_int(int *dest, int *src, int size);
 void linear_array_copy_float(float *dest, float *src, int size);
 

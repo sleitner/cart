@@ -129,13 +129,13 @@ void rtLevelUpdateTransferOtvet(int level)
   /*
   // Extra arrays
   */
-  int *indL2G, *indG2L, *neib, *info, *tmp;
+  int *indL2G, *neib, *info, *tmp;
   float *abc[2], *dd2, *jac, *rhs, *dfx;
 
   /*
   // Work variables
   */
-  int work;
+  int work, num_hashed;
   int num_level_cells, num_all_cells, num_total_cells, *nb;
   int iL, iG, j, offset, index;
   int nit, freq, ivarL, ivarG, nit0;
@@ -156,7 +156,11 @@ void rtLevelUpdateTransferOtvet(int level)
       /* 
       //  Allocate memory for index arrays
       */
-      indG2L = cart_alloc(int, num_cells );  /* NG: I do not know how to avoid using this large array */
+#ifdef RT_OTVET_NO_GLOBAL_ARRAY
+      int *indG2L = cart_alloc(int,num_cells);
+#else
+      static int indG2L[num_cells];
+#endif
 
       /*
       //  Find all leaves (if we solve levels separately, we can never insure that 
@@ -172,10 +176,16 @@ void rtLevelUpdateTransferOtvet(int level)
       linear_array_copy_int(indL2G,info,num_level_cells);
 
       /*
+      // Find the minimum size of the hash table
+      */
+      linear_array_max_int(num_level_cells,indL2G,&num_hashed);
+      num_hashed++;
+
+      /*
       // Initialize the global-to-local index array
       */
-#pragma omp parallel for default(none), private(iG), shared(indG2L,size_cell_array)
-      for(iG=0; iG<num_cells; iG++)
+#pragma omp parallel for default(none), private(iG), shared(indG2L,size_cell_array,num_hashed)
+      for(iG=0; iG<num_hashed; iG++)
 	{
 	  indG2L[iG] = -1;
 	}
@@ -217,7 +227,25 @@ void rtLevelUpdateTransferOtvet(int level)
 	  
 	  for(j=0; j<rtStencilSize; j++)
 	    {
-	      index = indG2L[nb[j]];
+	      if(nb[j] < num_hashed)
+		{
+		  index = indG2L[nb[j]];
+		}
+	      else
+		{
+		  /*
+		  // Initialize the next segment of the global-to-local index array
+		  */
+#pragma omp parallel for default(none), private(iG), shared(indG2L,size_cell_array,num_hashed,nb,j)
+		  for(iG=num_hashed; iG<=nb[j]; iG++)
+		    {
+		      indG2L[iG] = -1;
+		    }
+		  num_hashed = nb[j] + 1;
+		  index = -1;
+
+		}
+
 	      if(index >= 0)
 		{
 		  nb[j] = index;
@@ -252,10 +280,12 @@ void rtLevelUpdateTransferOtvet(int level)
 	    }
 	}
 
+#ifdef RT_OTVET_NO_GLOBAL_ARRAY
       /*
       //  It is not needed any more
       */
       cart_free(indG2L);
+#endif
 
       rhs = cart_alloc(float, num_level_cells );
       jac = cart_alloc(float, num_level_cells );

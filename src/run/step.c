@@ -539,7 +539,7 @@ int timestep( int level, MPI_Comm level_com )
 	//   for initial hydro level step
 	*/
 	hydro_copy_vars( level, HYDRO_COPY_ALL );
-
+#endif /* HYDRO */
 #if defined(GRAVITY) && defined(PARTICLES)
 	/*
 	//  The accelerations on this level may be used by boundary
@@ -549,7 +549,6 @@ int timestep( int level, MPI_Comm level_com )
 	*/
 	compute_accelerations_particles(level);
 #endif /* GRAVITY && PARTICLES */
-#endif /* HYDRO */
 
 	start_time( LOWER_LEVEL_TIMER );  /* this is for internal accounting only */
 
