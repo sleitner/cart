@@ -348,6 +348,8 @@ void linear_array_maxmin(int n, float *arr, float *max, float *min)
 #endif 
   int len_piece = (n+num_pieces-1)/num_pieces;
   
+  cart_assert(n > 0);
+
   vmax = cart_alloc(float, num_pieces );
   vmin = cart_alloc(float, num_pieces );
 
@@ -395,6 +397,8 @@ void linear_array_max_int(int n, int *arr, int *max)
 #endif 
   int len_piece = (n+num_pieces-1)/num_pieces;
   
+  cart_assert(n > 0);
+
   vmax = cart_alloc(int, num_pieces );
 
 #pragma omp parallel for default(none), private(j,i,ibeg,iend), shared(arr,vmax,n,len_piece,num_pieces)

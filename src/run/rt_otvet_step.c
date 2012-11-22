@@ -178,8 +178,12 @@ void rtLevelUpdateTransferOtvet(int level)
       /*
       // Find the minimum size of the hash table
       */
-      linear_array_max_int(num_level_cells,indL2G,&num_hashed);
-      num_hashed++;
+      if(num_level_cells > 0)
+	{
+	  linear_array_max_int(num_level_cells,indL2G,&num_hashed);
+	  num_hashed++;
+	}
+      else num_hashed = 0;
 
       /*
       // Initialize the global-to-local index array
