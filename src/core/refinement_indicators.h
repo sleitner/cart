@@ -8,7 +8,7 @@
 
 #ifdef REFINEMENT
 
-#define num_refinement_indicators	9
+#define num_refinement_indicators	11
 
 #define DARK_MASS_INDICATOR             0
 #define GAS_MASS_INDICATOR              1
@@ -19,6 +19,8 @@
 #define ENTROPY_GRADIENT_INDICATOR      6
 #define SPATIAL_INDICATOR               7
 #define JEANS_LENGTH_INDICATOR          8
+#define DARK_1STSPEC_INDICATOR          9
+#define GAS_1STSPEC_INDICATOR           10
 
 
 typedef struct REFINEMENT_INDICATOR_TYPE
@@ -40,6 +42,8 @@ void mark_refinement_indicators( int cell, int level );
 
 float dark_mass_indicator( int cell, int level );
 float gas_mass_indicator( int cell, int level );
+float dark_1stspec_indicator( int cell, int level );
+float gas_1stspec_indicator( int cell, int level );
 float spatial_indicator( int cell, int level );
 float shock_indicator( int cell, int level, int neighbors[] );
 float contact_discontinuity_indicator( int cell, int level, int neighbors[], float drho[] );

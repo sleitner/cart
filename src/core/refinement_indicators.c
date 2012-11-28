@@ -12,6 +12,10 @@
 #include "refinement_indicators.h"
 #include "tree.h"
 
+#ifdef PARTICLES
+#include "particle.h"
+extern float particle_species_mass[MAX_PARTICLE_SPECIES];
+#endif /* PARTICLES */
 
 /*
 //  List of units for the 
@@ -250,9 +254,17 @@ void mark_refinement_indicators( int cell, int level ) {
 		indicator = MAX( dark_mass_indicator(cell, level), indicator );
 	}
 
+	if ( refinement_indicator[DARK_1STSPEC_INDICATOR].use[level] ) {
+		indicator = MAX( dark_1stspec_indicator(cell, level), indicator );
+	}
+
 #ifdef HYDRO
 	if ( refinement_indicator[GAS_MASS_INDICATOR].use[level] ) {
 		indicator = MAX( gas_mass_indicator( cell, level ), indicator );
+	}
+
+	if ( refinement_indicator[GAS_1STSPEC_INDICATOR].use[level] ) {
+		indicator = MAX( gas_1stspec_indicator( cell, level ), indicator );
 	}
 
 	cell_all_neighbors( cell, neighbors );
@@ -308,6 +320,20 @@ float dark_mass_indicator( int cell, int level ) {
 	return MIN( ave_mass, refinement_indicator[DARK_MASS_INDICATOR].weight );
 }
 
+float dark_1stspec_indicator( int cell, int level ) {
+	float ave_mass;
+
+#ifdef PARTICLES
+	ave_mass = (cell_first_species_mass(cell)) /
+	    (particle_species_mass[0] 
+	     * refinement_indicator[DARK_1STSPEC_INDICATOR].threshold[level] );
+#else
+	ave_mass = 0.0;
+	cart_error("need particle defined for gas_1stspec_indicator");
+#endif /* PARTICLES */
+	return MIN( ave_mass, refinement_indicator[DARK_1STSPEC_INDICATOR].weight );
+}
+
 #ifdef HYDRO
 
 float spatial_indicator( int cell, int level ) {
@@ -327,6 +353,23 @@ float gas_mass_indicator( int cell, int level ) {
 
 	ave_mass = ( cell_volume[level] * cell_gas_density(cell) ) / refinement_indicator[GAS_MASS_INDICATOR].threshold[level];
 	return MIN( ave_mass, refinement_indicator[GAS_MASS_INDICATOR].weight );
+}
+
+float gas_1stspec_indicator( int cell, int level ) {
+	float ave_mass;
+
+#ifdef PARTICLES 
+	ave_mass = ( cell_volume[level] * cell_gas_density(cell) ) / 
+	    ( particle_species_mass[0] 
+#ifdef COSMOLOGY
+	      * cosmology->OmegaB/cosmology->OmegaM
+#endif
+	      * refinement_indicator[GAS_1STSPEC_INDICATOR].threshold[level] );
+#else
+	ave_mass = 0.0;
+	cart_error("need particle defined for gas_1stspec_indicator");
+#endif /* PARTICLES */
+	return MIN( ave_mass, refinement_indicator[GAS_1STSPEC_INDICATOR].weight );
 }
 
 float shock_indicator( int cell, int level, int neighbors[] ) {
