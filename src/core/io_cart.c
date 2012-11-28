@@ -2521,6 +2521,101 @@ void read_cart_particle_header( char *header_filename, particle_header *header, 
 	  }
 }
 
+void read_cart_header_to_units( char *header_filename) { 
+	int i, j;
+	int proc;
+	double dt;
+	int size, endian, dt_endian;
+	particle_header header;
+	MPI_Status status;
+	int nbody_flag=0;
+
+	if ( local_proc_id == MASTER_NODE ) {
+	    read_cart_particle_header( header_filename, &header, &endian, &nbody_flag );
+	    
+	    cart_debug("auni  = %e", header.aunin );
+	    cart_debug("auni0 = %e", header.auni0 );
+	    cart_debug("amplt = %e", header.amplt );
+	    cart_debug("astep = %e", header.astep );
+	    cart_debug("istep = %u", header.istep );
+	    cart_debug("Ngrid = %u", header.Ngrid );
+	    cart_debug("Nrow = %u", header.Nrow );
+	    cart_debug("Nspecies = %u", header.Nspecies );
+	    cart_debug("OmegaM = %e", header.OmM0 );
+	    cart_debug("OmegaL = %e", header.OmL0 );
+	    cart_debug("hubble = %e", header.h100 );
+	    cart_debug("OmegaB = %e", header.OmB0 );
+	    
+	    cart_debug("DelDC = %e", header.DelDC );
+	    cart_debug("Lbox/h = %e", header.fill[NFILL_HEADER-1] );
+	    
+#ifdef COSMOLOGY
+	    cart_debug("abox  = %e", header.abox );
+
+	    /* set cosmology & units */
+	    cosmology_set(OmegaM,header.OmM0);
+	    cosmology_set(OmegaL,header.OmL0);
+	    cosmology_set(OmegaB,header.OmB0);
+	    cosmology_set(h,header.h100);
+	    cosmology_set(DeltaDC,header.DelDC);
+	    box_size = header.fill[NFILL_HEADER-1];
+	    cart_debug("box_size[chimps]=%f ",box_size);
+
+	    /* NG: trust only the global scale factor */
+	    auni[min_level]	= header.aunin;
+	    auni_init	= header.auni0;
+
+	    tl[min_level]  = tcode_from_auni(auni[min_level]);
+	    abox[min_level] = abox_from_auni(auni[min_level]);
+	    abox_old[min_level] = abox[min_level] - header.astep;
+
+	    if ( header.astep > 0.0 ) {
+		dt = tl[min_level] - tcode_from_abox(abox[min_level]-header.astep);
+	    } else {
+		dt = 0.0;
+	    }
+
+#else
+	    cart_debug("tl    = %e", header.abox );
+	    tl[min_level]  = header.abox;
+	    dt = 0.0;
+	    units_set(header.OmM0,header.OmB0,header.OmL0);
+
+#endif /* COSMOLOGY */
+
+	    step                  = header.istep;
+	    cart_particle_num_row  = header.Nrow;
+	
+	    /* only root node needs to keep energy conservation variables */
+	    tintg		= header.tintg;
+	    ekin		= header.ekin;
+	    ekin1		= header.ekin1;
+	    ekin2		= header.ekin2;
+	    au0		        = header.au0;
+	    aeu0		= header.aeu0;
+
+#ifdef COSMOLOGY
+	    ap0         = abox_from_tcode( tl[min_level] - 0.5*dt );
+#else
+	    ap0         = 1.0;
+#endif
+	}
+
+#ifdef COSMOLOGY
+//	    MPI_Bcast( (char *)header, sizeof(particle_header), MPI_BYTE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( (char *)cosmology, sizeof(struct CosmologyParameters), MPI_BYTE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &auni[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &abox[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &auni_init, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &box_size, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+#endif /* COSMOLOGY */
+	
+	MPI_Bcast( &tl[min_level], 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &dt, 1, MPI_DOUBLE, MASTER_NODE, mpi.comm.run );
+	
+	
+	units_init();
+}
 
 /*
 //  Create multiple versions of read_particles using

@@ -9,7 +9,7 @@ void config_init_io_cart();
 void config_verify_io_cart();
 
 #ifdef PARTICLES
-
+#define NFILL_HEADER 75
 typedef struct {
 	float aunin;
 	float auni0;
@@ -40,7 +40,7 @@ typedef struct {
 	float abox;   /* Scale factor in the box */
 	float Hbox;   /* Hubble constant in the box */
 	float magic2;
-	float fill[75];
+	float fill[NFILL_HEADER];
 } particle_header;
 
 typedef struct {
@@ -72,7 +72,7 @@ typedef struct {
 	float abox;   /* Scale factor in the box */
 	float Hbox;   /* Hubble constant in the box */
 	float magic2;
-	float fill[75];
+	float fill[NFILL_HEADER];
 } nbody_particle_header;
 
 void write_cart_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename );

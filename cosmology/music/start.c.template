@@ -1,0 +1,16 @@
+#include "config.h"
+
+
+#include "music_init.h"
+
+
+void run_output()
+{
+}
+
+
+void init_run()
+{
+  music_init();
+}
+

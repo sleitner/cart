@@ -1,0 +1,21 @@
+#
+# DO NOT CHANGE THE REPOSITORY!!!
+# 1. Copy Makefile.template into any other directory <dir>, that directory 
+#    can be ANYWHERE on your file system.
+# 2. Rename it Makefile and set TOP_DIR below to the top directory of the 
+#    ART distribution.
+# 3. ART will be compiled in <dir>.
+# 4. You also need start.c. If you don't have it already, a standard one 
+#    will be created automatically during the first compilation. You can 
+#    then modify it as you see fit. 
+#
+TOP_DIR = <NEEDS-TO-BE-SET>
+#
+#  List your plugin file(s) here (if needed).
+#  Adding /extra will cause all code from src/extra linked in as well.
+#
+PLUGIN = 
+#
+#  Include one or more Make.include files here
+#
+include $(TOP_DIR)/cosmology/music/Make.include
