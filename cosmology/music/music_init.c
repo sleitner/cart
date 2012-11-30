@@ -86,7 +86,6 @@ void music_init() {
   char filename_header[257];  
   char filename_particles[257];
   char filename_hydro[257];  
-  int num_options;
   int i, level;
   const char *rootname, *tmp;
   char type[2];
