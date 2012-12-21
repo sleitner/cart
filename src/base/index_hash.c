@@ -62,11 +62,10 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 	int oldj;
 	index_hash *hash;
 	int iter = 0;
-	size_t total;
 	int rekey;
 	index_hash_entry tmp_entry, new_entry;
 	int64_t a0, b0, min_a0, min_b0;
-	size_t min_total;
+	int64_t total, min_total;
 
 	/* allocate space for the new hash */
 	hash = cart_alloc( index_hash, 1 );
@@ -80,7 +79,7 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 	hash->s = cart_alloc( int64_t, hash->hash_size );
 	hash->n = cart_alloc( int, hash->hash_size );
 
-	min_total = SIZE_MAX;
+	min_total = 0;
 
 	do { 
 		/* choose a first-level hash function */
@@ -102,7 +101,7 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 			total += hash->n[i];
 		}
 
-		if ( total < min_total ) {
+		if ( min_total == 0 || total < min_total ) {
 			min_total = total;
 			min_a0 = a0;
 			min_b0 = b0;
