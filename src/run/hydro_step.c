@@ -355,7 +355,7 @@ void adjust_internalenergy( double t, double *y, void *params ) {
 void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	int i;
 	int icell;
-	double t_begin, t_end;
+	double t_begin, t_stop;
 	double Zlog, Hdum;
 	double Tfac, Tfac_cell, Emin_cell;
 #ifdef BLASTWAVE_FEEDBACK
@@ -370,10 +370,10 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	qss_system *sys;
 
 	t_begin	= tl[level];
-	t_end = tl[level] + dtl[level];
+	t_stop = tl[level] + dtl[level];
 
 #ifdef COSMOLOGY
-	Hdum = (abox_from_tcode(t_end)/abox[level] - 1) / dtl[level];
+	Hdum = (abox_from_tcode(t_stop)/abox[level] - 1) / dtl[level];
 #else
 	Hdum = 0.0;
 #endif
@@ -383,9 +383,9 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	Eminfac = gas_temperature_floor/(units->temperature*constants->wmu*(constants->gamma-1));
 
 #ifdef BLASTWAVE_FEEDBACK
-#pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,Eminfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
+#pragma omp parallel default(none), shared(num_level_cells,level_cells,level,t_begin,Tfac,Eminfac,units,t_stop,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys,blastwave_time)
 #else
-#pragma omp parallel default(none), shared(num_level_cells,level_cells,t_begin,Tfac,Eminfac,units,t_end,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys)
+#pragma omp parallel default(none), shared(num_level_cells,level_cells,t_begin,Tfac,Eminfac,units,t_stop,cell_child_oct,err,constants,cell_vars,Hdum,unit_cl), private(i,icell,rhog2,nHlog,Zlog,Tfac_cell,e_curr,Emin_cell,params,sys)
 #endif /* BLASTWAVE_FEEDBACK*/
 	{
 	  sys = qss_alloc( 1, &qss_getcooling, &adjust_internalenergy );
@@ -424,7 +424,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 		    params[7] = t_begin;
 		    params[8] = Hdum;
 	
-		    qss_solve( sys, t_begin, t_end, &e_curr, err, &params );
+		    qss_solve( sys, t_begin, t_stop, &e_curr, err, &params );
 
 		    cell_gas_internal_energy(icell) = MAX(Emin_cell,e_curr);
 		    cell_gas_energy(icell) = cell_gas_kinetic_energy(icell) + cell_gas_internal_energy(icell);
@@ -446,7 +446,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 
 #else /* OLDSTYLE_COOLING_EXPLICIT_SOLVER */
 
-void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, double Zlog, double nHlog, double rhog2, double Tfact_cell, double Emin_cell, double unit_cl) {
+void hydro_cool_one_cell(int icell, double t_begin, double t_stop, double Hdum, double Zlog, double nHlog, double rhog2, double Tfact_cell, double Emin_cell, double unit_cl) {
 	int continue_cooling;
 	double t_curr, f_curr;
 	double dE;
@@ -458,14 +458,14 @@ void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, d
 	t_curr = t_begin;
 
 	/* integrate cooling using smaller timestep */
-	while ( ( t_curr < t_end ) && continue_cooling ) {
+	while ( ( t_curr < t_stop ) && continue_cooling ) {
 		f_curr = 1 + Hdum*(t_curr-t_begin);
 		T_gas = Tfact_cell * cell_gas_internal_energy(icell) / ( f_curr * f_curr );
 
 		/* compute new timestep */
 		dE = unit_cl*cooling_rate( nHlog, T_gas, Zlog );
 		dE *= -rhog2 * f_curr;
-		dt_e = MIN( dstep * fabs( cell_gas_internal_energy(icell) / dE ), t_end - t_curr );
+		dt_e = MIN( dstep * fabs( cell_gas_internal_energy(icell) / dE ), t_stop - t_curr );
 
 		ei1 = MAX( cell_gas_internal_energy(icell) + 0.5 * dE * dt_e, Emin_cell );
 		T_gas = Tfact_cell * ei1 / ( f_curr * f_curr );
@@ -492,7 +492,7 @@ void hydro_cool_one_cell(int icell, double t_begin, double t_end, double Hdum, d
 void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	int i;
 	int icell;
-	double t_begin, t_end;
+	double t_begin, t_stop;
 	double Zlog, Hdum;
 	double Tfac, Tfac_cell, Emin_cell;
 	double Eminfac;
@@ -500,10 +500,10 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	double unit_cl = units->time*pow(constants->XH*units->number_density,2.0)/units->energy_density;
 
 	t_begin	= tl[level];
-	t_end = tl[level] + dtl[level];
+	t_stop = tl[level] + dtl[level];
 
 #ifdef COSMOLOGY
-	Hdum = (abox_from_tcode(t_end)/abox[level] - 1) / dtl[level];
+	Hdum = (abox_from_tcode(t_stop)/abox[level] - 1) / dtl[level];
 #else
 	Hdum = 0.0;
 #endif
@@ -513,9 +513,9 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 	Eminfac = gas_temperature_floor/(units->temperature*constants->wmu*(constants->gamma-1));
 
 #ifdef BLASTWAVE_FEEDBACK
-#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,Eminfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
+#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell,blastwave_time), shared(num_level_cells,level_cells,t_begin,t_stop,Tfac,Eminfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl,blastwave_time_cut,blastwave_time_floor)
 #else
-#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_end,Tfac,Eminfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
+#pragma omp parallel for default(none), private(icell,i,rhog2,nHlog,Zlog,Tfac_cell,Emin_cell), shared(num_level_cells,level_cells,t_begin,t_stop,Tfac,Eminfac,units,constants,cell_child_oct,cell_vars,Hdum,unit_cl)
 #endif /* BLASTWAVE_FEEDBACK*/ 
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
@@ -539,7 +539,7 @@ void hydro_apply_cooling(int level, int num_level_cells, int *level_cells) {
 			Tfac_cell = Tfac/cell_gas_density(icell);
 			Emin_cell = Eminfac*cell_gas_density(icell);
 
-			hydro_cool_one_cell(icell,t_begin,t_end,Hdum,Zlog,nHlog,rhog2,Tfac_cell,Emin_cell,unit_cl);
+			hydro_cool_one_cell(icell,t_begin,t_stop,Hdum,Zlog,nHlog,rhog2,Tfac_cell,Emin_cell,unit_cl);
 			
 #ifdef BLASTWAVE_FEEDBACK
 		  }else { 
@@ -585,7 +585,7 @@ void adjust_temperatures( double t, double *y, void *params ) {
 void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cells) {
 	int i;
 	int icell;
-	double t_begin, t_end, Hdum;
+	double t_begin, t_stop, Hdum;
 	double e_equil, e_curr;
 	double nfact, Tefact, dEfact;
 	double n_5, Te7, dEfact_cell;
@@ -596,10 +596,10 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	qss_system *sys;
 
 	t_begin	= tl[level];
-	t_end = tl[level] + dtl[level];
+	t_stop = tl[level] + dtl[level];
 
 #ifdef COSMOLOGY
-	Hdum = (abox_from_tcode(t_end)/abox[level] - 1) / dtl[level];
+	Hdum = (abox_from_tcode(t_stop)/abox[level] - 1) / dtl[level];
 #else
 	Hdum = 0.0;
 #endif
@@ -608,7 +608,7 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	Tefact = units->temperature*constants->wmu_e*(constants->gamma-1)/1.0e7/constants->K;
 	dEfact = pow(Tefact,-1.5)*units->time/(constants->yr*6.3e8)/40.0/(1.0-constants->wmu/constants->wmu_e)/constants->erg; 
 
-#pragma omp parallel default(none), shared(nfact,Tefact,dEfact,Hdum,cell_vars,t_begin,t_end,num_level_cells,level_cells,cell_child_oct,err,constants), private(i,icell,e_equil,e_curr,Te7,n_5,logcoulomb,dEfact_cell,params,sys)
+#pragma omp parallel default(none), shared(nfact,Tefact,dEfact,Hdum,cell_vars,t_begin,t_stop,num_level_cells,level_cells,cell_child_oct,err,constants), private(i,icell,e_equil,e_curr,Te7,n_5,logcoulomb,dEfact_cell,params,sys)
 	{
 		sys = qss_alloc( 1, &heating_rates, &adjust_temperatures );
 
@@ -631,7 +631,7 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 				params[3] = t_begin;
 				params[4] = Hdum;
 	
-				qss_solve( sys, t_begin, t_end, &e_curr, err, &params );
+				qss_solve( sys, t_begin, t_stop, &e_curr, err, &params );
 	
 				cell_electron_internal_energy(icell) = MIN( e_curr, e_equil );
 			}

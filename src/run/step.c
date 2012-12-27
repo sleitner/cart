@@ -41,16 +41,14 @@
 #include "step.h"
 
 
-extern double t_init;
-extern double t_end;
-
 extern int min_time_refinement_factor;
 extern int max_time_refinement_factor;
 extern int time_refinement_level;
 
 #ifdef COSMOLOGY
-extern double auni_init;
 extern double auni_end;
+#else
+extern double t_end;
 #endif /* COSMOLOGY */
 
 DEFINE_LEVEL_ARRAY(unsigned int,num_steps_on_level);

@@ -7,9 +7,6 @@
 #include "units.h"
 
 
-double t_init = -1.0e38;
-double t_end = 1.0e38;
-
 DEFINE_LEVEL_ARRAY(double,tl);
 DEFINE_LEVEL_ARRAY(double,tl_old);
 DEFINE_LEVEL_ARRAY(double,dtl);
@@ -31,6 +28,9 @@ double auni_end = 1.0;
 DEFINE_LEVEL_ARRAY(double,abox);
 DEFINE_LEVEL_ARRAY(double,auni);
 DEFINE_LEVEL_ARRAY(double,abox_old);
+#else
+double t_init = -1.0e38;
+double t_end = 1.0e38;
 #endif /* COSMOLOGY */
 
 int max_steps = 0;
@@ -153,11 +153,11 @@ void config_init_times()
   control_parameter_add3(control_parameter_a_inc,&max_a_inc,"max-a-increment","max_a_inc","max_frac_da","the largest factor by which the cosmic scale factor is allowed to increase in one time-step.");
 
   control_parameter_add2(control_parameter_double,&max_da,"max-da","max_da","maximum allowed step in the cosmic scale factor.");
-#endif /* COSMOLOGY */
-
+#else
   control_parameter_add2(control_parameter_tini,&t_init,"time-start","t_init","starting value for the code time variable (in code units).");
 
   control_parameter_add2(control_parameter_tend,&t_end,"time-stop","t_end","last value for the code time variable (in code units). The simulation stops if this value is reached.");
+#endif /* COSMOLOGY */
 
   control_parameter_add2(control_parameter_int,&max_steps,"num-steps","max_steps","number of time-steps to make. Zero value disables this limit.");
 
@@ -215,13 +215,12 @@ void config_verify_times()
   VERIFY(max-a-increment, max_a_inc > 1.0 );
 
   VERIFY(max-da, max_da >= 0.0 );
+#else
+  VERIFY(time-stop, 1 );
+  VERIFY(time-start, !(t_init > t_end) );
 #endif /* COSMOLOGY */
 
   VERIFY(walltime-limit, !(timelimit < 0.0) );
-
-  VERIFY(time-stop, 1 );
-
-  VERIFY(time-start, !(t_init > t_end) );
 
   VERIFY(num-steps, max_steps >= 0 );
 
