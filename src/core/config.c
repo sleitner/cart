@@ -202,8 +202,8 @@ void config_print_to_file(const char *filename, int append)
       fprintf(f,"\n");
     }
 
-  fprintf(f,"SVN Branch: %s\n", SVNBRANCH );
-  fprintf(f,"SVN Revision: %s\n", SVNREVISION );
+  fprintf(f,"Repository: %s\n", REPO_PARENT );
+  fprintf(f,"Version:    %s-%s\n", REPO_VERSION, REPO_REVISION );
   fprintf(f,title_sep);
 
   fprintf(f,"\n");
