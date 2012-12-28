@@ -117,11 +117,11 @@ void compute_accelerations_hydro( int level ) {
 				phi_r = cell_potential_hydro(R1);
 			} else {
 				if ( cell_level(L1) < level ) {
-					phi_l = cell_interpolate( L1, local[cell_child_number(icell)][2*j], VAR_POTENTIAL );
-					phi_r = cell_potential(R1);
+					phi_l = cell_interpolate( L1, local[cell_child_number(icell)][2*j], VAR_POTENTIAL_HYDRO );
+					phi_r = cell_potential_hydro(R1);
 				} else {
-					phi_l = cell_potential(L1);
-					phi_r = cell_interpolate( R1, local[cell_child_number(icell)][2*j], VAR_POTENTIAL );
+					phi_l = cell_potential_hydro(L1);
+					phi_r = cell_interpolate( R1, local[cell_child_number(icell)][2*j], VAR_POTENTIAL_HYDRO );
 				}
 			}
 
