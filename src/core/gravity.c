@@ -592,7 +592,8 @@ void smooth( int level ) {
 	wsor6 = 1.0 / 6.0;
 	trfi2 = units->potential * cell_size_inverse[level];
 
-	niter = ( step < num_initial_smooth_steps ) num_initial_smooth_iterations : num_smooth_iterations;
+	niter = ( step < num_initial_smooth_steps ) ? 
+				num_initial_smooth_iterations : num_smooth_iterations;
 
 	for ( iter = 0; iter < niter; iter++ ) {
 		if ( iter > 0 ) {
