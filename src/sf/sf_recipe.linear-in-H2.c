@@ -56,8 +56,8 @@ double sfr_rate(int cell)
   */
   double rhoH2 = 1.36*2*cell_H2_density(cell);
 #else 
-  double Umw = rtUmw(cell);
-  double Dmw = rtDmw2(cell);  /* floor included */
+  double Umw = rtUmwFS(cell);
+  double Dmw = rtDmwFL(cell);  /* floor included */
   double alpha = 5*(Umw/2)/(1+pow(Umw/2,2.0)); 
   double Dstar = 1.5e-3*log(1+pow(3*Umw,1.7)); 
   double s = 0.04/(Dstar+Dmw); 

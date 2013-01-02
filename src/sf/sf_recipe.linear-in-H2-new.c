@@ -61,8 +61,8 @@ double sfr_rate(int cell)
   */
   double fracH2 = 2*cell_H2_density(cell)/(0.76*cell_gas_density(cell));
 #else 
-  double Umw = rtUmw(cell);
-  double Dmw = rtDmw2(cell);  /* floor included */
+  double Umw = rtUmwFS(cell);
+  double Dmw = rtDmwFL(cell);  /* floor included */
   double Dstar = 8.0e-3*sqrt(0.01+Umw); 
   double g = 0.08/(1+Umw*pow(Dmw/Dstar,6.0));
   double Lambda = log(1+pow(g+pow(Dmw,0.75)*(Umw/15),4.0/7.0));
