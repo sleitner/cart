@@ -128,23 +128,34 @@ void snII_setup(int level)
 void snII_thermal_feedback(int level, int cell, int ipart, double t_next )
 {
   double dteff, phi, dU;
-  double dt = t_next - particle_t[ipart];
-  double tage = particle_t[ipart] - star_tbirth[ipart];
+
+#ifdef COSMOLOGY
+  double tn = tphys_from_tcode(t_next);
+  double tb = tphys_from_tcode(star_tbirth[ipart]);
+  double t = tphys_from_tcode(particle_t[ipart]);
+#else  /* COSMOLOGY */
+  double tn = t_next;
+  double tb = star_tbirth[ipart];
+  double t = particle_t[ipart];
+#endif /* COSMOLOGY */
+
+  double dt = tn - t;
+  double tage = t - tb; 
 
   /* do feedback, enrichment, etc */
   if(snII_phys.energy>0.0 || snII_phys.metals>0.0)
     {
       /* snII proceeds for fpb_snII_code.teject */
-      dteff = tage - snII_code.tdelay; 
-      if(dteff<snII_code.teject && dteff+dt>0) 
+      dteff = tage - snII_phys.tdelay; 
+      if(dteff<snII_phys.teject && dteff+dt>0) 
         {
           if(dteff+dt>0 && dteff<0)
             {
-              phi = MIN((dteff+dt)/snII_code.teject,1.0);
+              phi = MIN((dteff+dt)/snII_phys.teject,1.0);
             }
           else
             {
-              phi = MIN(dt,snII_code.teject-dteff)/snII_code.teject;
+              phi = MIN(dt,snII_phys.teject-dteff)/snII_phys.teject;
             }
 
 #ifdef ENRICHMENT

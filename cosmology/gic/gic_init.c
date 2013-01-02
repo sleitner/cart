@@ -1237,7 +1237,7 @@ void gic_init()
       cell_momentum(i,1) = 0;
       cell_momentum(i,2) = 0;
 
-      cell_gas_gamma(i) = constants->gamma;
+      cell_gas_gamma(i) = 0;
       cell_gas_internal_energy(i) =  1;
       cell_gas_pressure(i) = cell_gas_internal_energy(i)*(constants->gamma-1);
       cell_gas_energy(i) = cell_gas_internal_energy(i);

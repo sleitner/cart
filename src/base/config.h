@@ -181,12 +181,25 @@
 #define max_level		(num_refinement_levels)
 
 
+#ifdef __cplusplus
+
+#define DEFINE_LEVEL_ARRAY(type,name) \
+type name##_buffer[max_level-min_level+1]; \
+type * name = name##_buffer - min_level
+
+#define DECLARE_LEVEL_ARRAY(type,name) \
+extern type * name
+
+#else  /* __cplusplus */
+
 #define DEFINE_LEVEL_ARRAY(type,name) \
 type name##_buffer[max_level-min_level+1]; \
 type *const name = name##_buffer - min_level
 
 #define DECLARE_LEVEL_ARRAY(type,name) \
 extern type *const name
+
+#endif /* __cplusplus */
 
 
 #ifdef RADIATIVE_TRANSFER

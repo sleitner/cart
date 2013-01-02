@@ -70,14 +70,9 @@ void rtStepBeginTransfer()
 
 void rtStepEndTransfer()
 {
-  int i;
-  frt_real abc[rt_num_freqs];
-
-  for(i=0; i<rt_num_freqs; i++) abc[i] = rtGlobalAC[i];
-
-  start_time(WORK_TIMER);
-  frtCall(stependtransfer)(abc);
-  end_time(WORK_TIMER);
+  /*
+  //  Just a placeholder
+  */
 }
 
 

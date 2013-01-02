@@ -97,6 +97,7 @@ void constants_init()
 
   constants_internal.Msun = 1.32712440018e26/constants_internal.G;
   constants_internal.Zsun = 0.0199; /* reference (MW) metallicity */
+  constants_internal.Dsun = 0.01;   /* reference (MW) gas-to-dust ratio */
 
   constants_internal.Yp    = 0.24;                /* He mass fraction */
   constants_internal.wmu   = 4.0/(8.0-5.0*constants_internal.Yp); /* mol weight */

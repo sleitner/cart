@@ -162,7 +162,6 @@ void map_halos(int resolution_level, halo_list *halos, float size_factor)
 #pragma omp parallel for default(none), private(_Index,cell,j,dx,r2,iold,r2old,pos), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,r2Cut,halos,ih,map)
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
-      if(cell_is_leaf(cell))
 	{
 	  cell_center_position(cell,pos);
 	  for(j=0, r2=0.0; j<nDim; j++)

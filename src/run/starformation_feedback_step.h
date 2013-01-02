@@ -13,7 +13,7 @@
 void check_bwtime_precision(int level);
 #endif /* BLASTWAVE_FEEDBACK */
 
-void star_particle_feedback(int level);
+void star_particle_feedback(int level, int time_multiplier);
 
 #endif /* STAR_FORMATION */
 

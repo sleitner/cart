@@ -23,6 +23,7 @@
 #include "refinement.h"
 #include "rt.h"
 #include "starformation.h"
+#include "starformation_feedback.h"
 #include "system.h"
 #include "times.h"
 #include "timing.h"
@@ -753,17 +754,19 @@ int timestep( int level, MPI_Comm level_com )
 #endif /* GRAVITY */
 
 #ifdef STAR_FORMATION
-        star_particle_feedback(level);
+        if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
+          star_particle_feedback(level, star_feedback_frequency[level]);
 
-	/* update cell values changed by starformation and feedback */
-	start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
-	update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+	  /* update cell values changed by starformation and feedback */
+	  start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
+	  update_buffer_level( level, all_hydro_vars, num_hydro_vars );
 #ifdef AGN
-	for ( j = level+1; j <= max_level; j++ ) {
+	  for ( j = level+1; j <= max_level; j++ ) {
                 update_buffer_level( j, all_hydro_vars, num_hydro_vars );
-        }
+          }
 #endif /* AGN */
-	end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
+	  end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
+	}  
 #endif /* STAR_FORMATION */
 
 	move_particles( level );
@@ -905,9 +908,7 @@ void set_timestepping_scheme()
 	  dtl_local[level] = MIN(dtl_local[level],dt_new);
 	  cart_debug("cfl cell %d [level %d]: velocity = %e cm/s, cs = %e cm/s, n = %e #/cc, dt = %e Myr", 
 		     courant_cell, cell_level(courant_cell), 
-		     MAX( cell_momentum(courant_cell,0), 
-			  MAX( cell_momentum(courant_cell,1), cell_momentum(courant_cell,2) )) /
-		     cell_gas_density(courant_cell) * units->velocity/constants->cms,
+		     velocity * units->velocity/constants->cms,
 		     sqrt( cell_gas_gamma(courant_cell) * cell_gas_pressure(courant_cell) / 
 			   cell_gas_density(courant_cell))*units->velocity/constants->cms,
 		     cell_gas_density(courant_cell)*units->number_density/constants->cc,
@@ -1219,12 +1220,13 @@ void finalize_timestepping_scheme()
 
 #ifdef STAR_FORMATION
   start_time( WORK_TIMER );
-  /* compute frequency of star formation calls */
+  /* compute frequency of star formation calls & star feedback calls */
   work = 1.0;
   for(level=min_level; level<=max_level; level++)
     {
       work *= time_refinement_factor[level];
       star_formation_frequency[level] = MAX(1,nearest_int(MIN(work,sf_sampling_timescale*constants->yr/(units->time*dtl[level]))));
+      star_feedback_frequency[level] = MAX(1,nearest_int(MIN(work,fb_sampling_timescale*constants->yr/(units->time*dtl[level]))));
     }
   end_time( WORK_TIMER );
 #endif /* STAR_FORMATION */

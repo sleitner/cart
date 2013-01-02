@@ -59,6 +59,199 @@ double f_grav = 1;
 double min_DV = 1;   /* km/s */
 double const_DV = 3; /* km/s */
 
+/* generic function that computes property of all cells up to given level */
+/* size(var) needs to be num_cell */
+void compute_upto_level_hierarchy( void (*flevel)(int , int , int *, float *), float (*favg)(int , float *), int top_level, float *var) {
+				   
+  MESH_RUN_DECLARE(level,cell);
+  float *var_level;
+  
+  MESH_RUN_OVER_LEVELS_BEGIN(level,_MaxLevel,top_level);
+
+  var_level = cart_alloc(float,_Num_level_cells);
+  
+  flevel(level,_Num_level_cells,_Level_cells,var_level);
+  
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,var_level,var,cell_child_oct,cell_vars,level, units,constants,favg)
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+
+  if(cell_is_leaf(cell)) {
+      var[cell] = MAX(0.0,var_level[_Index]);
+  } else {
+      var[cell] = favg(cell,var);
+  }
+  cart_assert( var[cell]>=0 && !(var[cell]!=var[cell]) );
+  
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+  
+  cart_free(var_level);
+
+  MESH_RUN_OVER_LEVELS_END;
+}
+
+/* generic function that computes property of all cells on given level (including non-leaves) */
+/* size(var) needs to be num_level_cells */
+void compute_upto_level( void (*flevel)(int, int, int *, float *), float (*favg)(int, float *), int top_level, float *var) {
+	
+  MESH_RUN_DECLARE(level,cell);
+  float *var2;
+  
+  var2 = cart_alloc(float,num_cells);
+  memset(var2,0,sizeof(float)*num_cells);
+  
+  compute_upto_level_hierarchy(flevel,favg,top_level, var2);
+    
+  MESH_RUN_OVER_LEVELS_BEGIN(level,top_level,top_level);
+  
+#pragma omp parallel for default(none), private(_Index,cell), shared(_Num_level_cells,_Level_cells,cell_child_oct,cell_vars,level,var,var2)
+  MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
+
+  var[_Index]=var2[cell];
+  
+  MESH_RUN_OVER_CELLS_OF_LEVEL_END;
+
+  MESH_RUN_OVER_LEVELS_END;
+  
+  cart_free(var2);		   
+}
+
+float xfactor_avg(int cell, float *var) {
+  
+      double aux1=0.; 
+      double aux2=0.;
+      float soblen;
+      int j,c;
+      
+#ifdef XLSOB
+      for(j=0; j<num_children; j++) {
+          c = cell_child(cell,j);
+	  
+	  soblen = cell_sobolev_length2(c,cell_level(c),NULL);
+	  
+	  aux1 += cell_H2_density(c)*soblen;
+	  aux2 += cell_H2_density(c)*soblen/var[c];
+      }
+#else
+      for(j=0; j<num_children; j++) {
+	  aux1 += cell_H2_density(cell_child(cell,j));
+	  aux2 += cell_H2_density(cell_child(cell,j))/var[cell_child(cell,j)];
+      }
+#endif 
+     
+      if (aux2==0)
+        return FLT_MAX;
+      else	  
+        return aux1/aux2;
+}
+
+float NH2_avg(int cell, float *var) {
+  
+      double aux=0.; 
+      int j;
+      
+      for(j=0; j<num_children; j++) {
+        aux += var[cell_child(cell,j)]/4;
+      }
+      
+      return aux;
+}
+
+float WCO_avg(int cell, float *var) {
+  
+      double aux=0.; 
+      int j;
+      
+      for(j=0; j<num_children; j++) {
+        aux += var[cell_child(cell,j)]/4;
+      }
+      
+      return aux;
+}
+
+void xfactor_level(int level, int num_level_cells, int *level_cells, float *var_level)
+{
+  int i;
+  int cell;
+  
+  setup_xfactor_methods(level);
+
+  fprintf(stderr,"Level %d - Tables loaded: num_cells=%d\n",level,num_level_cells);
+
+  for(i=0; i<num_level_cells; i++)
+    {
+      cell = level_cells[i];
+      var_level[i] = -1.0;
+      if(cell_is_leaf(cell))
+	  var_level[i] = xfactor_cell(cell,rtUmw(cell),level);     
+    }
+    
+  unset_xfactor_methods(level);  
+    
+}
+
+void NH2_level(int level, int num_level_cells, int *level_cells, float *var_level)
+{
+  int i;
+  int cell;
+
+  for(i=0; i<num_level_cells; i++)
+    {
+      cell = level_cells[i];
+      var_level[i] = -1.0;
+      if(cell_is_leaf(cell))
+	  var_level[i] = get_NH2(cell,rtUmw(cell),level);
+    }
+}
+
+void WCO_level(int level, int num_level_cells, int *level_cells, float *var_level)
+{
+  int i;
+  int cell;
+
+  setup_xfactor_methods(level);
+
+  for(i=0; i<num_level_cells; i++)
+    {
+      cell = level_cells[i];
+      var_level[i] = -1.0;
+      if(cell_is_leaf(cell))
+	  var_level[i] = get_NH2(cell,rtUmw(cell),level) / xfactor_cell(cell,rtUmw(cell),level);
+    }
+
+  unset_xfactor_methods(level); 
+
+}
+
+
+
+/* compute X-factor at given level; taking into account this level and all higher res. levels */
+void xfactor_upto_level(int top_level, float *var) {
+  compute_upto_level( xfactor_level, xfactor_avg, top_level, var);
+}
+
+void xfactor_upto_level_hierarchy(int top_level, float *var) {
+  compute_upto_level_hierarchy( xfactor_level, xfactor_avg, top_level, var);
+}
+
+/* compute NH2 at given level; taking into account this level and all higher res. levels */
+void NH2_upto_level(int top_level, float *var) {
+  compute_upto_level( NH2_level, NH2_avg, top_level, var);
+}
+
+void NH2_upto_level_hierarchy(int top_level, float *var) {
+  compute_upto_level_hierarchy( NH2_level, NH2_avg, top_level, var);
+}
+
+/* compute WCO at given level; taking into account this level and all higher res. levels */
+void WCO_upto_level(int top_level, float *var) {
+  compute_upto_level( WCO_level, WCO_avg, top_level, var);
+}
+
+void WCO_upto_level_hierarchy(int top_level, float *var) {
+  compute_upto_level_hierarchy( WCO_level, WCO_avg, top_level, var);
+}
+
+#if 0
 /* compute X-factor at given level; taking into account this level and all higher res. levels */
 void xfactor_upto_level(int top_level, float *xf) {
   MESH_RUN_DECLARE(level,cell);
@@ -140,42 +333,7 @@ void xfactor_upto_level_hierarchy(int top_level, float *var) {
 
   MESH_RUN_OVER_LEVELS_END;
 }
-
-
-void xfactor_level(int level, int num_level_cells, int *level_cells, float *var_level)
-{
-  int i;
-  int cell;
-  
-  setup_xfactor_methods(level);
-
-  fprintf(stderr,"Level %d - Tables loaded: num_cells=%d\n",level,num_level_cells);
-
-  for(i=0; i<num_level_cells; i++)
-    {
-      cell = level_cells[i];
-      var_level[i] = -1.0;
-      if(cell_is_leaf(cell))
-	  var_level[i] = xfactor_cell(cell,rtUmw(cell),level);     
-    }
-    
-  unset_xfactor_methods(level);  
-    
-}
-
-void NH2_level(int level, int num_level_cells, int *level_cells, float *var_level)
-{
-  int i;
-  int cell;
-
-  for(i=0; i<num_level_cells; i++)
-    {
-      cell = level_cells[i];
-      var_level[i] = -1.0;
-      if(cell_is_leaf(cell))
-	  var_level[i] = get_NH2(cell,rtUmw(cell),level);
-    }
-}
+#endif
 
 double get_xCO(double AV, double Lcm,  double Z, double UMW) {
     

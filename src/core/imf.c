@@ -17,7 +17,6 @@ double imf_f_Kroupa(double m);
 double imf_fm( double mstar );
 double imf_fmz( double mstar );
 
-
 struct imf_t
 {
   const char* name;
@@ -149,5 +148,60 @@ double imf_fmz( double mstar )
   return mstar * imf_internal.f(mstar) * MIN( 0.2, MAX( 0.01*mstar - 0.06, 1e-20 ) );
 }
 
+/* RF: log_10 of stellar lifetimes in yr according to Raiteri+1996 */
+/* they use trackes of Bertelli+94, which span the range tl 4e6 - 1.6e10 yr */
+double tlf( double logM, double logZ )
+{
+  double a0, a1, a2;
+
+  if (logZ<-4.155)
+    logZ=-4.155;
+  else if (logZ>-1.523)
+    logZ=-1.523;
+
+  if (logM<-0.222)
+    logM=-0.222;
+  else if (logM>2.079)
+    logM=2.079;
+
+  a0 = 10.13 + 0.07547*logZ - 0.008084*logZ*logZ;
+  a1 = -4.424 - 0.7939*logZ - 0.1187*logZ*logZ;
+  a2 = 1.262 + 0.3385*logZ + 0.05417*logZ*logZ; 
+
+  return a0 + a1*logM + a2*logM*logM;
+}
+
+/* RF: inverse of imf_tlf */
+double mlf( double logt, double logZ )
+{
+  double det, logM;
+  double a0, a1, a2;
+
+  if (logZ<-4.155)
+    logZ=-4.155;
+  else if (logZ>-1.523)
+    logZ=-1.523;
+
+  if (logt<6.6) /* I checked that for logt>=6.6 (and the given logZ range) det is always>0 */
+    logt=6.6;  
+
+  a0 = 10.13 + 0.07547*logZ - 0.008084*logZ*logZ;
+  a1 = -4.424 - 0.7939*logZ - 0.1187*logZ*logZ;
+  a2 = 1.262 + 0.3385*logZ + 0.05417*logZ*logZ; 
+
+  /* check determinant */
+  det = (a1*a1 - 4*a2*(a0-logt));
+  cart_assert(det>=0);
+
+  /* always pick the smaller root (note always a2>0) */
+  logM = -(sqrt(det)+a1)/(2*a2);
+
+  if (logM<-0.222)
+    logM=-0.222;
+  else if (logM>2.079)
+    logM=2.079;
+
+  return logM;
+}
 
 #endif /* STAR_FORMATION */

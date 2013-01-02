@@ -14,10 +14,16 @@
 #define nltmax		500
 #define nlzmax		500
 
+
+#if defined(COOLING) && !defined(RADIATIVE_TRANSFER)
+extern int nlt, nlz;
+extern double tlmin, tlmax, dlt, dlti; /* temperature */
+#else
 int nlt, nlz;
-double tlmin, tlmax, dlt; /* temperature */
+double tlmin, tlmax, dlt, dlti; /* temperature */
+#endif
 double zlmin, zlmax, dlz; /* redshift */
-double dlzi, dlti;
+double dlzi;
 
 double cT_table[nlzmax][nltmax];
 double cT_fixed[nltmax];

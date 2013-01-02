@@ -36,7 +36,7 @@ int cdWorker(int id, int cell, double r1, double r2, losBuffer data)
 }
 
 
-void cdCollector(losBuffer *result, int num_segments, const losSegment *segments)
+void cdCollector(const losBuffer *result, int num_segments, const losSegment *segments)
 {
   int i, j;
   cdData *dn, *dr = (cdData *)result->Data;

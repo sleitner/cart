@@ -145,15 +145,26 @@ void snIa_setup(int level)
 void snIa_thermal_feedback(int level, int cell, int ipart, double t_next )
 {
   double dteff, phi, dU;
-  double dt = t_next - particle_t[ipart];
+
+#ifdef COSMOLOGY
+  double tn = tphys_from_tcode(t_next);
+  double tb = tphys_from_tcode(star_tbirth[ipart]);
+  double t = tphys_from_tcode(particle_t[ipart]);
+#else  /* COSMOLOGY */
+  double tn = t_next;
+  double tb = star_tbirth[ipart];
+  double t = particle_t[ipart];
+#endif /* COSMOLOGY */
+
+  double dt = tn - t;
 
   if(snIa_phys.energy>0.0 || snIa_phys.metals>0.0)
     {
       /* snIa starts at 0.1*snIa_code.dt peaks at snIa_code.dt*/
-      dteff = t_next - star_tbirth[ipart];
-      if(dteff > 0.1*snIa_code.teject) 
+      dteff = tn - tb;
+      if(dteff > 0.1*snIa_phys.teject) 
         {
-          phi = f_SNIa(snIa_code.teject/dteff)*(dt/snIa_code.teject);
+          phi = f_SNIa(snIa_phys.teject/dteff)*(dt/snIa_phys.teject);
 
 #ifdef ENRICHMENT_SNIa
           cell_gas_metal_density_Ia(cell) += phi*snIa_code.metals*star_initial_mass[ipart];

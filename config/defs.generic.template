@@ -7,6 +7,7 @@
 ?#define PARTICLES
 ?#define REFINEMENT
 ?#define STAR_FORMATION
+?#define DUST_EVOLUTION
 ?#define RADIATIVE_TRANSFER
 ?#define ELECTRON_ION_NONEQUILIBRIUM
 
@@ -34,6 +35,7 @@
 ?#define DEBUG_MEMORY_USE_VERBOSE
 ?#define NDEBUG
 ?#define MPE_LOG
+?#define PAPI_PROFILING
 
 ?#define DISABLE_PLUGINS
 

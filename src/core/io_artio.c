@@ -1333,7 +1333,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 		cart_error("Not enough variables in file header!" );
 	} else if (num_file_variables > num_sim_variables) {
 		cart_debug(
-				"WARNING: file %s contains more variables than code expects (%d vs %d), hope you know what you're doing...",
+				"WARNING: input file contains more variables than code expects (%d vs %d), hope you know what you're doing...",
 				num_file_variables, num_sim_variables);
 	}
 

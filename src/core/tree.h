@@ -162,14 +162,29 @@ extern int size_cell_array;
     #define cell_gas_metal_density_II(c)	(cell_var(c,HVAR_METAL_DENSITY_II))
 
     #ifdef ENRICHMENT_SNIa
-      #define num_enrichment_species		2
+      #ifdef DUST_EVOLUTION
+        #define num_enrichment_species          3
+        #define HVAR_DUST_DENSITY               (HVAR_ADVECTED_VARIABLES+rt_num_chem_species+2)
+      #else
+        #define num_enrichment_species          2
+      #endif
       #define HVAR_METAL_DENSITY_Ia		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
       #define cell_gas_metal_density_Ia(c)	(cell_var(c,HVAR_METAL_DENSITY_Ia))
       #define cell_gas_metal_density(c)		(cell_gas_metal_density_II(c)+cell_gas_metal_density_Ia(c))
     #else
-      #define num_enrichment_species		1
+      #ifdef DUST_EVOLUTION
+        #define num_enrichment_species          2
+        #define HVAR_DUST_DENSITY               (HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
+      #else
+        #define num_enrichment_species          1
+      #endif
       #define cell_gas_metal_density(c)		cell_gas_metal_density_II(c)
     #endif /* ENRICHMENT_SNIa */
+
+    #ifdef DUST_EVOLUTION
+      #define cell_dust_density(c)              (cell_var(c,HVAR_DUST_DENSITY))
+    #endif
+
   #else
     #define num_enrichment_species		0
   #endif /* ENRICHMENT */

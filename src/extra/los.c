@@ -90,10 +90,9 @@ void losTraverseSegment(int id, double pos0[3], double theta, double phi, double
 //  Collect all LOS segments from different processors on the master node
 //  and broadcast them back.
 */
-void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCallback collector)
+void losCollectSegments(const losBuffer *result, const losSegment *segment, losCollectorCallback collector)
 {
   int i;
-  char *buf = NULL;
   losSegment *line;
 
   if(local_proc_id == MASTER_NODE)
@@ -101,30 +100,24 @@ void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCall
       cart_assert(collector != 0);
 
       line = cart_alloc(losSegment,num_procs);
-      if(segment->Buffer.Size > 0)
-	{
-	  buf = cart_alloc(char,segment->Buffer.Size*num_procs);
-	} 
 
       line[0] = *segment;
       for(i=1; i<num_procs; i++)
 	{
 	  MPI_Recv(line+i,sizeof(losSegment),MPI_BYTE,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 
-	  cart_assert(segment->Buffer.Size == line[i].Buffer.Size);
-
-	  if(segment->Buffer.Size > 0)
+	  if(line[i].Buffer.Size > 0)
 	    {
-	      line[i].Buffer.Data = buf + segment->Buffer.Size*i;
-	      MPI_Recv(line[i].Buffer.Data,segment->Buffer.Size,MPI_BYTE,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
+	      line[i].Buffer.Data = cart_alloc(char,line[i].Buffer.Size);
+	      MPI_Recv(line[i].Buffer.Data,line[i].Buffer.Size,MPI_BYTE,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	    }
 	}
       
       collector(result,num_procs,line);
 
-      if(segment->Buffer.Size > 0)
+      for(i=1; i<num_procs; i++) if(line[i].Buffer.Size > 0)
 	{
-	  cart_free(buf);
+	  cart_free(line[i].Buffer.Data);
 	}
       cart_free(line);
 
@@ -135,7 +128,7 @@ void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCall
     }
   else
     {
-      MPI_Send(segment,sizeof(losSegment),MPI_BYTE,MASTER_NODE,0,mpi.comm.run);
+      MPI_Send((void *)segment,sizeof(losSegment),MPI_BYTE,MASTER_NODE,0,mpi.comm.run);
       if(segment->Buffer.Size > 0)
 	{
 	  MPI_Send(segment->Buffer.Data,segment->Buffer.Size,MPI_BYTE,MASTER_NODE,0,mpi.comm.run);

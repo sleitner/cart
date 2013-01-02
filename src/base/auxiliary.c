@@ -143,7 +143,7 @@ void cart_error( const char *fmt, ... ) {
 
 	if(logfile_directory != NULL)
 	  {
-	    sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+	    sprintf(filename,"%s/stdout.%05u.log",logfile_directory,local_proc_id);
 	    f = fopen(filename,"a");
 	    if (f != NULL) {
 	      fprintf(f,"ERROR: %s\n",message);
@@ -182,7 +182,7 @@ void cart_debug( const char *fmt, ... ) {
 	va_end(args);
 
 	if ( f==NULL && logfile_directory!=NULL ) {
-		sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+		sprintf(filename,"%s/stdout.%05u.log",logfile_directory,local_proc_id);
 		f = fopen(filename,"w");
 	}
 

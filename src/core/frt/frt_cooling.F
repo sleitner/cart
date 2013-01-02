@@ -41,14 +41,18 @@ C  dEin/dt = fEinExt + fEinHeat - fEinCool from t=0 to t=tFin
 C
       parameter(errlim = 1.0e-2)
 #ifdef RT_8SPECIES
-      parameter(nEqs = 9)
-#else
+      parameter(nEqs = 10)
+#else  /* RT_8SPECIES */
 #ifdef RT_CHEMISTRY
+#ifdef RT_DUST_EVOLUTION
+      parameter(nEqs = 8)
+#else  /* RT_DUST_EVOLUTION */
       parameter(nEqs = 7)
-#else
+#endif /* RT_DUST_EVOLUTION */
+#else  /* RT_CHEMISTRY */
       parameter(nEqs = 6)
-#endif
-#endif
+#endif /* RT_CHEMISTRY */
+#endif /* RT_8SPECIES */
 C
       dimension y0(nEqs), rs(nEqs)
       dimension w0(nEqs), a0(nEqs)
@@ -74,24 +78,17 @@ C
       EinSave = var(ivarEin)
 #endif
 
-C
-C  var(ivarDGas) - dust-to-gas ratio. We assume it is proportional to 
-C                  metallicity in solar units (more precisely, it is 
-C                  10*SMC value is SMC metallicity is 0.1 solar).
-C
-#ifdef RT_CUSTOM_DUST_TO_GAS
-      var(ivarDGas) = max(D2Gmin,frtDustToGas(var))
-#else
-#ifdef RT_FIXED_ISM
-      var(ivarDGas) = D2Gmin
-#else
-      var(ivarDGas) = max(D2Gmin,var(ivarZsol))
-#endif
-#endif
       var(ivarRecB) = facRecB*var(ivarRho)
 
 #ifdef RT_CHEMISTRY
       var(ivarSobL) = uColumn*var(ivarRho)*var(ivarSobL)
+#endif
+
+#ifdef RT_DUST_EVOLUTION
+C
+C  This is the gas-phase metallicity
+C
+      var(ivarZsol) = max(0.0,var(ivarZsol)-var(ivarD2G))
 #endif
 
 #ifdef RT_TRANSFER
@@ -123,7 +120,9 @@ C
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       do j=1,iavgMax1
          avg(j) = 0.0
-      enddo
+         avg0(j) = 0.0
+         avg1(j) = 0.0
+       enddo
 #endif
 
 #ifdef RT_CHEMISTRY
@@ -133,8 +132,9 @@ C
       if(var(ivarNumF) .gt. 1.0e-10) then
          XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
          XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
-         cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
-         sFact1 = exp(-0.25*d_sDUST*cdDUl)
+         cddll = max(D2GminH2,var(ivarD2G))*(XH1ll+2*XMHll)*
+     .        var(ivarSobL)
+         sFact1 = exp(-0.25*d_sDUST*cddll)
          fac = (1.0-sFact1)*var(ivarNumF)*tFin
          var(ivarEin) = var(ivarEin)/(1+fac*var(ivarEin)/30.0)
          var(ivarXH1) = var(ivarXH1)/(1+fac/max(1.0e-6,var(ivarXH1)/XH))
@@ -159,8 +159,8 @@ C
 #ifdef RT_CHEMISTRY
          XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
          XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
-         cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
-         write(IOUNIT,*) 'Dust opacity: ', d_sDUST*cdDUl
+         cddll = var(ivarD2G)*(XH1ll+2*XMHll)*var(ivarSobL)
+         write(IOUNIT,*) 'Dust opacity: ', d_sDUST*cddll
 #endif
       endif
 #endif
@@ -349,6 +349,46 @@ C
       return
       end
 C
+C  Extra shielding factors
+C
+      subroutine frtGetSFactors(var,Xdust,XMHll,sFactI,sFact1,sFact2)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      dimension var(*)
+C
+#ifdef RT_CHEMISTRY
+      den = uDen*var(ivarRho)
+      cdDUl = Xdust*var(ivarSobL)
+
+      sFact1 = exp(-d_sDUST*cdDUl)
+#ifdef RT_UV
+      sFactI = exp(-d_sDUST*cdDUl)
+#else
+      sFactI = exp(-d_sDUST*cdDUl)
+#endif
+C
+C  H2 self-shielding model
+C
+      cdMHl1 = XMHll*CSSTAR*3.086e18*den*CohLenH2
+      cdMHl2 = XMHll*var(ivarSobL)
+#ifdef RT_OLDSTYLE_H2_SHIELDING
+      sFact2 = max(1.0,cdMHl1/(CSSTAR*1e14))**(-0.75)
+#else  /* RT_OLDSTYLE_H2_SHIELDING */
+      x1 = cdMHl1/(CSSTAR*5e14)
+      x2 = cdMHl2/(CSSTAR*5e14)
+      sFact2 = 0.965/(1+x1)**2 + 
+     .     0.035/(1+x1)**0.5*exp(-8.5e-4*(1+x2)**0.5)
+#endif /* RT_OLDSTYLE_H2_SHIELDING */
+
+#else  /* RT_CHEMISTRY */
+      sFact1 = 1.0
+      sFact2 = 1.0
+      sFactI = 1.0
+#endif /* RT_CHEMISTRY */
+C
+      return
+      end
+C
 C
 C
       subroutine frtRates(var,rf,itab,w,a,avg,pRate,ichf,rchf)
@@ -361,8 +401,10 @@ C
       dimension aRate(irateAtomN)
 #ifdef RT_CHEMISTRY
       dimension cRate(irateChemN)
+      dimension cRate2(irateChemN2)
 #ifdef RT_HIGH_DENSITY
       dimension hRate(irateHighN)
+      dimension hRate2(irateHighN2)
 #endif
 #endif
       double precision BH1, BG1, BG2, AH2, AG2, AG3, dfac
@@ -375,8 +417,8 @@ C
       XG1ll = max(varMin(ivarXG1),min(XG,var(ivarXG1)))
       XG2ll = max(varMin(ivarXG2),min(XG,var(ivarXG2)))
       XG3ll = max(varMin(ivarXG3),min(XG,var(ivarXG3)))
-#ifdef RT_CHEMISTRY
       XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
+#ifdef RT_CHEMISTRY
 #ifdef RT_8SPECIES
       XHpll = max(varMin(ivarXHp),min(0.5*XH,var(ivarXHp)))
       XHmll = max(varMin(ivarXHm),min(0.5*XH,var(ivarXHm)))
@@ -404,42 +446,14 @@ C
       call frtCFCache(den,var(ivarZsol),pRate,ichf,rchf,ierr)
 #endif
 C
-#ifdef RT_CHEMISTRY
-C
 C  H2 dust-shielding model
 C  ------------------------------------------------
 C
 C  It seems that it is better to clump only XMHll, however that
 C  breaks the fast H2 formation paradigm whe H2 fraction is low.
 C
-      Xdust = var(ivarDGas)*(XH1ll+2*XMHll)*ClumpH2
-      cdDUl = var(ivarDGas)*(XH1ll+2*XMHll)*var(ivarSobL)
-      sFact1 = exp(-d_sDUST*cdDUl)
-#ifdef RT_UV
-      sFactI = exp(-d_sDUST*cdDUl)
-#else
-      sFactI = exp(-d_sDUST*cdDUl)
-#endif
-C
-C  H2 self-shielding model
-C
-      cdMHl1 = XMHll*CSSTAR*3.086e18*den*CohLenH2
-      cdMHl2 = XMHll*var(ivarSobL)
-#ifdef RT_OLDSTYLE_H2_SHIELDING
-      sFact2 = max(1.0,cdMHl1/(CSSTAR*1e14))**(-0.75)
-#else  /* RT_OLDSTYLE_H2_SHIELDING */
-      x1 = cdMHl1/(CSSTAR*5e14)
-      x2 = cdMHl2/(CSSTAR*5e14)
-      sFact2 = 0.965/(1+x1)**2 + 
-     .     0.035/(1+x1)**0.5*exp(-8.5e-4*(1+x2)**0.5)
-#endif /* RT_OLDSTYLE_H2_SHIELDING */
-
-#else  /* RT_CHEMISTRY */
-      sFact1 = 1.0
-      sFact2 = 1.0
-      sFactI = 1.0
-#endif /* RT_CHEMISTRY */
-
+      Xdust = max(D2GminH2,var(ivarD2G))*(XH1ll+2*XMHll)
+      call frtGetSFactors(var,Xdust,XMHll,sFactI,sFact1,sFact2)
 C
 #ifdef RT_XLF_BUG_FIX1
 C
@@ -463,7 +477,7 @@ C
          RcG2l = aRate(irateRAcG2)
          RiG3l = aRate(irateRAiG3)
          RcG3l = aRate(irateRAcG3)
-#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) && defined(RT_TRACK_RECOMBINATION_PHOTONS)
          avg(iavgRAH2) = uRate*XH2ll*de*aRate(irateRAiH2)
          avg(iavgRAG2) = uRate*XG2ll*de*aRate(irateRAiG2)
          avg(iavgRAG3) = uRate*XG3ll*de*aRate(irateRAiG3)
@@ -478,7 +492,7 @@ C
          RcG2l = aRate(irateRBcG2)
          RiG3l = aRate(irateRBiG3)
          RcG3l = aRate(irateRBcG3)
-#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) && defined(RT_TRACK_RECOMBINATION_PHOTONS)
          avg(iavgRAH2) = 0.0
          avg(iavgRAG2) = 0.0
          avg(iavgRAG3) = 0.0
@@ -490,7 +504,7 @@ C
          call frtRecCaseH2(XH1ll,var(ivarRecB),wa,wb)
          RiH2l = wa*aRate(irateRAiH2) + wb*aRate(irateRBiH2)
          RcH2l = wa*aRate(irateRAcH2) + wb*aRate(irateRBcH2)
-#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) && defined(RT_TRACK_RECOMBINATION_PHOTONS)
          avg(iavgRAH2) = uRate*XH2ll*de*wa*aRate(irateRAiH2)
          avg(iavgRBH2) = uRate*XH2ll*de*wb*aRate(irateRBiH2)
 #endif
@@ -498,7 +512,7 @@ C
          call frtRecCaseG2(XG1ll,var(ivarRecB),wa,wb)
          RiG2l = wa*aRate(irateRAiG2) + wb*aRate(irateRBiG2)
          RcG2l = wa*aRate(irateRAcG2) + wb*aRate(irateRBcG2)
-#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) && defined(RT_TRACK_RECOMBINATION_PHOTONS)
          avg(iavgRAG2) = uRate*XG2ll*de*wa*aRate(irateRAiG2)
          avg(iavgRBG2) = uRate*XG2ll*de*wb*aRate(irateRBiG2)
 #endif
@@ -506,7 +520,7 @@ C
          call frtRecCaseG3(XG2ll,var(ivarRecB),wa,wb)
          RiG3l = wa*aRate(irateRAiG3) + wb*aRate(irateRBiG3)
          RcG3l = wa*aRate(irateRAcG3) + wb*aRate(irateRBcG3)
-#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
+#if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT) && defined(RT_TRACK_RECOMBINATION_PHOTONS)
          avg(iavgRAG3) = uRate*XG3ll*de*wa*aRate(irateRAiG3)
          avg(iavgRBG3) = uRate*XG3ll*de*wb*aRate(irateRBiG3)
 #endif
@@ -560,7 +574,9 @@ C
       avg(iavgCXH1) = var(ivarCFH1)*XH1ll
       avg(iavgCXG1) = var(ivarCFG1)*XG1ll
       avg(iavgCXG2) = var(ivarCFG2)*XG2ll
+#if defined(RT_TRACK_RECOMBINATION_PHOTONS)
       avg(iavgBrem) = facCool*CF_FFl
+#endif
 #endif
 
       aEinll = facCool*var(ivarRho)*(CF_PPl+CF_FFl) !! Atomic cooling and Bremstrahlung
@@ -585,21 +601,21 @@ C   Molecular hydrogen
 C
 C ***********************************************
 C
-      do j=irateChemC+1,irateChemN
-         cRate(j) = ql*RateChem(j,il) + qu*RateChem(j,iu)
-      enddo
-#ifdef RT_HIGH_DENSITY
-      do j=irateHighC+1,irateHighN
-         hRate(j) = ql*RateHigh(j,il) + qu*RateHigh(j,iu)
-      enddo
-#endif
-
-      do j=1,irateChemC
+      do j=1,irateChemN
          cRate(j) = den*(ql*RateChem(j,il)+qu*RateChem(j,iu))
       enddo
 #ifdef RT_HIGH_DENSITY
-      do j=1,irateHighC
+      do j=1,irateHighN
          hRate(j) = den*(ql*RateHigh(j,il)+qu*RateHigh(j,iu))
+      enddo
+#endif
+
+      do j=1,irateChemN2
+         cRate2(j) = ql*RateChem2(j,il) + qu*RateChem2(j,iu)
+      enddo
+#ifdef RT_HIGH_DENSITY
+      do j=1,irateHighN2
+         hRate2(j) = ql*RateHigh2(j,il) + qu*RateHigh2(j,iu)
       enddo
 #endif
 C
@@ -698,7 +714,7 @@ C  production rate of HI = 2*destruction rate of H2;
 C  production rate of H2 = 0.5*destruction rate of HI;
 C
       aXMHl = pRateH2
-      aXH1l = 2*cRate(irateMHiDU)*Xdust
+      aXH1l = 2*cRate(irateMHiDU)*Xdust*CluFacH2
 
       wXH1l = 2*aXMHl*XMHll
 
@@ -717,7 +733,7 @@ C
       aXH1l = cRate(irateMHi01)*Xfell + cRate(irateMHi02)*XHmll +
      .     cRate(irateMHi03)*XH2ll + cRate(irateMHi04)*XHpll +
      .     cRate(irateMHi26)*XG2ll + 2*cRate3B +
-     .     2*cRate(irateMHiDU)*Xdust
+     .     2*cRate(irateMHiDU)*Xdust*CluFacH2
 
       aXH2l = cRate(irateMHi03)*XH1ll + cRate(irateMHi07)*XMHll + 
      .     (cRate(irateMHi05)+cRate(irateMHi16))*XHmll +
@@ -756,7 +772,7 @@ C
       wXG2l = aXG1l*XG1ll
 
       wXMHl = XH1ll*(cRate(irateMHi02)*XHmll+cRate(irateMHi04)*XHpll+ 
-     .     cRate3B+cRate(irateMHiDU)*Xdust)
+     .     cRate3B+cRate(irateMHiDU)*Xdust*CluFacH2)
 
       a(ivarXH1) = a(ivarXH1) + uTime*aXH1l
       w(ivarXH1) = w(ivarXH1) + uTime*wXH1l
@@ -781,31 +797,31 @@ C
 C
 C  Cooling function - exchange reactions
 C
-      CF_MHl = XMHll*(cRate(irateMHc08)*Xfell+cRate(irateMHc09)*XH1ll+
-     .     cRate(irateMHc10)*XMHll) + XHmll*(cRate(irateMHc14)*Xfell+
-     .     cRate(irateMHc15)*XH1ll)
+      CF_MHl = XMHll*(cRate2(irateMHc08)*Xfell+cRate2(irateMHc09)*XH1ll+
+     .     cRate2(irateMHc10)*XMHll) + XHmll*(cRate2(irateMHc14)*Xfell+
+     .     cRate2(irateMHc15)*XH1ll)
 C
 C  From Shapiro & Kang
 C
 #ifdef RT_HIGH_DENSITY
       CF_MHl = CF_MHl + 
      .     (1.602e-12/CFSTAR)*XH1ll*(3.53*XHmll*cRate(irateMHi02)+
-     .     1.38*XHpll*cRate(irateMHi04))*den/(den+hRate(irateHDc02))
+     .     1.38*XHpll*cRate(irateMHi04))*den/(den+hRate2(irateHDc02))
 #endif
 C
 C  Cooling function - level excitations
 C
-      qo = cRate(irateMHcH1o)*XH1ll + cRate(irateMHcH2o)*XH2ll +
-     .     cRate(irateMHcG1o)*XG1ll + cRate(irateMHcFEo)*Xfell +
-     .     XMHll*(rOP*cRate(irateMHcMOo)+cRate(irateMHcMPo))/(1+rOP)
+      qo = cRate2(irateMHcH1o)*XH1ll + cRate2(irateMHcH2o)*XH2ll +
+     .     cRate2(irateMHcG1o)*XG1ll + cRate2(irateMHcFEo)*Xfell +
+     .     XMHll*(rOP*cRate2(irateMHcMOo)+cRate2(irateMHcMPo))/(1+rOP)
 
-      qp = cRate(irateMHcH1p)*XH1ll + cRate(irateMHcH2p)*XH2ll +
-     .     cRate(irateMHcG1p)*XG1ll + cRate(irateMHcFEp)*Xfell +
-     .     XMHll*(rOP*cRate(irateMHcMOp)+cRate(irateMHcMPp))/(1+rOP)
+      qp = cRate2(irateMHcH1p)*XH1ll + cRate2(irateMHcH2p)*XH2ll +
+     .     cRate2(irateMHcG1p)*XG1ll + cRate2(irateMHcFEp)*Xfell +
+     .     XMHll*(rOP*cRate2(irateMHcMOp)+cRate2(irateMHcMPp))/(1+rOP)
 
       CF_MHl = CF_MHl + XMHll*(rOP*qo+qp)/(1+rOP)
 #ifdef RT_HIGH_DENSITY
-     .     /(1+den/hRate(irateHDcNC))
+     .     /(1+den/hRate2(irateHDcNC))
 #endif
 C ***********************************************
 C
@@ -813,26 +829,26 @@ C  Exotic processes
 C
 C ***********************************************
 C
-C  1. cooling on dust dust
+C  1. cooling on dust
 C
-      aEinll = aEinll + facCool*var(ivarRho)*cRate(irateMHcDU)*
-     .     Xdust*Xfell
+      aEinll = aEinll + facCool*var(ivarRho)*cRate2(irateMHcDU)*
+     .     Xdust*Xfell*CluFacH2
 
 #ifdef RT_PAH_CR
 C
-C  4. PAHs (chi is in comoving units since de is!!!)
+C  2. PAHs (chi is in comoving units since de is!!!)
 C
       chi = sFact1*1.05e10*pRate(iptabCiLW)
       psi = chi*sqrt(tem)/(max(de,1.0e-6*den)*d_pPAH)
       eps = 4.9e-2/(1+4.0e-3*psi**0.73) + 
      .     3.7e-2*(1.0e-4*tem)**0.7/(1+2.0e-4*psi)
       
-      pRatePAHh = var(ivarSDp1)*285*eps*exp(-d_sPAH*cdDUl)*
-     .     pRate(iptabCiLW)
+      pRatePAHh = var(ivarSDp1)*285*eps*exp(-d_sPAH*Xdust*
+     .     var(ivarSobL))*pRate(iptabCiLW)
 C
-C  5. Cosmic rays heating and ionizations
+C  3. Cosmic rays heating and ionizations
 C
-      pRateCRi = 1.0e-17*var(ivarDGas)*den
+      pRateCRi = 1.0e-17*var(ivarZsol)*den
       pRateCRh = pRateCRi*232080  !! 232080 = 20eV in K
 
       a(ivarXH1) = a(ivarXH1) + uTime*pRateCRi
@@ -842,14 +858,24 @@ C
      .     XH1ll*pRateCRh)
 #endif
 
+#ifdef RT_DUST_EVOLUTION
+C
+C  Dust growth in the ISM & destruction by sputtering 
+C  note: var(ivarD2G) & var(ivarZsol) are d2g & Z in solar units
+C  Change it if you change Zsun in the main code
+C  var(ivarZsol) is already the gas-phase metallicity and 
+C  excludes dust
+C
+      a(ivarD2G) = uTime * cRate(irateDuSpu) * den
+      w(ivarD2G) = uTime * cRate(irateDuGro) * XMHll *
+     .     var(ivarD2G)*var(ivarZsol)
+#endif
+
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
-      avg(iavgDust) = var(ivarDGas)*(XH1ll+2*XMHll)
+      avg(iavgDust) = var(ivarD2G)*(XH1ll+2*XMHll)
 #endif
 
 #else  /* RT_CHEMISTRY */
-
-      a(ivarXMH) = 0.0
-      w(ivarXMH) = 0.0
 
 #if defined(RT_EXTERNAL_BACKGROUND) && (RT_EXTERNAL_BACKGROUND==RT_BACKGROUND_SELFCONSISTENT)
       avg(iavgDust) = 0.0

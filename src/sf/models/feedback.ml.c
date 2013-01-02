@@ -59,14 +59,6 @@ void ml_config_verify()
   VERIFY(ml:time-interval, ml.time_interval > 0.0 );
 }
 
-
-struct
-{
-  double dt;             /* used to be called T0_ml_code */
-}
-ml_code;
-
-
 void ml_init()
 {
   int i;
@@ -92,6 +84,9 @@ void ml_init()
 #ifdef ENRICHMENT_SNIa
   star_returned_advected_species[HVAR_METAL_DENSITY_Ia-HVAR_ADVECTED_VARIABLES] = 0.0;
 #endif /* ENRICHMENT_SNIa */
+#ifdef DUST_EVOLUTION
+  star_returned_advected_species[HVAR_DUST_DENSITY-HVAR_ADVECTED_VARIABLES] = 0.0;
+#endif /* DUST_EVOLUTION */
 #endif /* ENRICHMENT */
 
   /* Blaswave time is set separately */
@@ -111,7 +106,6 @@ void ml_init()
 
 void ml_setup(int level)
 {
-  ml_code.dt = ml.time_interval*constants->yr/units->time;
 }
 
 
@@ -120,7 +114,16 @@ void ml_setup(int level)
 void ml_feedback(int level, int cell, int ipart, double t_next )
 {
   double dmloss, rhor, e_old, rhofact;
-  double dt = t_next - particle_t[ipart];
+#ifdef COSMOLOGY
+  double tn = tphys_from_tcode(t_next);
+  double tb = tphys_from_tcode(star_tbirth[ipart]);
+  double t = tphys_from_tcode(particle_t[ipart]);
+#else  /* COSMOLOGY */
+  double tn = t_next;
+  double tb = star_tbirth[ipart];
+  double t = particle_t[ipart];
+#endif /* COSMOLOGY */
+
   float thermal_pressure;
   int i;
 
@@ -128,9 +131,8 @@ void ml_feedback(int level, int cell, int ipart, double t_next )
     {
       /* limit mass loss to 10% of star's current mass */
       dmloss = MIN( 0.1*particle_mass[ipart],
-                    star_initial_mass[ipart]*dt*ml.loss_rate / 
-                    (particle_t[ipart] - (double)star_tbirth[ipart] + ml_code.dt) );
-                                        
+                    star_initial_mass[ipart]*ml.loss_rate * (tn-t) / (t - tb  + ml.time_interval) );
+
       particle_mass[ipart] -= dmloss;
 
       /* convert to density for cell values */
