@@ -92,7 +92,7 @@ void compute_accelerations_hydro( int level ) {
 	start_time( WORK_TIMER );
 
 #ifdef COSMOLOGY
-	a2half = abox_from_tcode( tl[level] + 0.5*dtl[level] );
+	a2half = abox_from_tcode( tl[level] + dtl[level] );
 	a2half = -0.5*dtl[level]*cell_size_inverse[level]*a2half*a2half;
 #else
 	a2half = -0.5*dtl[level]*cell_size_inverse[level];
