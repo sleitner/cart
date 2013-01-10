@@ -1166,6 +1166,10 @@ void gicReadGasData(const char *rootname, char *type)
 #endif  /* HYDRO */
 
 
+#include "times.h"
+#include "../run/step.h"
+
+
 void gic_init()
 {
   int i, level;
@@ -1282,13 +1286,25 @@ void gic_init()
       abox[level] = abox[min_level];
     }
 
-  for(i=0; i<num_particles; i++) if(particle_level[i] != FREE_PARTICLE_LEVEL)
+  cart_debug("choose timestep and set velocity on the half step");
+
+  set_timestepping_scheme();
+
+  for(level=min_level; level<=max_level; level++)
     {
-      particle_t[i] = tl[min_level];
-      /*
-      //  We set the step to 0 so that the first leapfrog step is correct
-      */
-      particle_dt[i] = 0.0;
+      double aexpv = abox_from_tcode( tl[level] - 0.5*dtl[level]  ); //sam
+      double aexp0 = abox[level];
+      double vFac = qPlus(aexpv)/qPlus(aexp0);
+      cart_debug("level=%d vFac(aexpv)/vFac(aexp0)=%lf",level,vFac);
+
+      for(i=0; i<num_particles; i++) if(particle_level[i] == level)
+	{
+	  particle_t[i] = tl[level];
+	  particle_dt[i] = dtl[level];
+	  particle_v[i][0] *= vFac;
+	  particle_v[i][1] *= vFac;
+	  particle_v[i][2] *= vFac;
+	}
     }
 
 #ifdef STARFORM

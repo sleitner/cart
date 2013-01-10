@@ -21,7 +21,10 @@
 
 #include "../tools/fft/fft3.h"
 
+extern int step;
 
+int num_initial_smooth_iterations = 1000;
+int num_initial_smooth_steps = 0; 
 int num_smooth_iterations = 60;   // used to be called MAX_SOR_ITER
 float spectral_radius = 0.95;     // used to be called rhoJ
 
@@ -32,6 +35,10 @@ void root_grid_fft_gravity_worker(const root_grid_fft_t *config, int id, fft_t *
 
 void config_init_gravity()
 {
+  control_parameter_add2(control_parameter_int,&num_initial_smooth_iterations,"gravity:num-initial-iterations","num_initial_smooth_iterations","number of iterations in the gravity relaxation solver for the first num_initial_smooth_steps global timesteps");
+
+  control_parameter_add2(control_parameter_int,&num_initial_smooth_steps,"gravity:num-initial-steps","num_initial_smooth_steps","number of global timesteps to use gravity:num-initial-iterations rather than gravity:num-iterations in the relaxation solver");
+
   control_parameter_add3(control_parameter_int,&num_smooth_iterations,"gravity:num-iterations","num_smooth_iterations","MAX_SOR_ITER","number of iterations in the gravity relation solver (smooth)");
 
   control_parameter_add3(control_parameter_float,&spectral_radius,"gravity:spectral-radius","spectral_radius","rhoJ","Jacobi spectra radius for successful overrelation iterations.");
@@ -39,6 +46,10 @@ void config_init_gravity()
 
 void config_verify_gravity()
 {
+  VERIFY(gravity:num-initial-iterations, num_initial_smooth_iterations > 0);
+
+  VERIFY(gravity:num-initial-steps, num_initial_smooth_steps >= 0);
+
   VERIFY(gravity:num-iterations, num_smooth_iterations > 0 ); 
 
   VERIFY(gravity:spectral-radius, spectral_radius>0.0 && spectral_radius<1.0 );
@@ -101,7 +112,7 @@ void prolongate( int level ) {
 }
 
 void smooth( int level ) {
-	int iter;
+	int niter, iter;
 	int i, j, k;
 	int num_local_blocks;
 	int num_direct_blocks;
@@ -311,10 +322,6 @@ void smooth( int level ) {
 	/* do some sanity checks */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		cart_assert( num_recv_octs[proc] == num_local_buffers[level][proc] );
-	}
-
-	for ( i = 0; i < num_blocks; i++ ) {
-		cart_assert( ind[ oct_list[i] ] != NULL_OCT );
 	}
 
 	/* compute neighbors for cell in blocks */
@@ -585,7 +592,10 @@ void smooth( int level ) {
 	wsor6 = 1.0 / 6.0;
 	trfi2 = units->potential * cell_size_inverse[level];
 
-	for ( iter = 0; iter < num_smooth_iterations; iter++ ) {
+	niter = ( step < num_initial_smooth_steps ) ? 
+				num_initial_smooth_iterations : num_smooth_iterations;
+
+	for ( iter = 0; iter < niter; iter++ ) {
 		if ( iter > 0 ) {
 			start_time( COMMUNICATION_TIMER );
 
