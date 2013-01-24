@@ -58,7 +58,7 @@ int num_artio_particle_files = 1;
 int artio_particle_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 #endif /* PARTICLES */
 
-void artio_restart_load_balance( artio_file handle );
+void artio_restart_load_balance( artio_fileset *handle );
 
 void control_parameter_set_allocation_strategy(const char *value, void *ptr, int ind) {
 	if ( strcmp( value, "ARTIO_ALLOC_EQUAL_SFC" ) == 0 ) {
@@ -108,12 +108,12 @@ void config_verify_io_artio() {
 #endif /* PARTICLES */
 }
 
-void read_artio_grid( artio_file handle, int file_max_level );
-void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices );
+void read_artio_grid( artio_fileset *handle, int file_max_level );
+void write_artio_grid( artio_fileset *handle, int num_file_vars, int *var_indices );
 
 #ifdef PARTICLES
-void read_artio_particles( artio_file handle );
-void write_artio_particles( artio_file handle, int *root_tree_particle_list,
+void read_artio_particles( artio_fileset *handle );
+void write_artio_particles( artio_fileset *handle, int *root_tree_particle_list,
             int *num_particles_per_species_per_root_tree );
 #endif /* PARTICLES */
 
@@ -395,7 +395,7 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	int level;
 	long total;
 	int num_level_cells, *level_cells;
-	artio_file handle;
+	artio_fileset *handle;
 	int num_file_vars;
 	int var_indices[num_vars];
 	char *var_labels[num_vars];
@@ -410,7 +410,7 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	frt_real *data;
 	float *buffer;
 #endif /* RADIATIVE_TRANSFER */
-	struct artio_context_struct con = { mpi.comm.run };
+	artio_context con = { mpi.comm.run };
 
 #ifdef PARTICLES
 	int num_species;
@@ -765,7 +765,7 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	}
 }
 
-void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices ) {
+void write_artio_grid( artio_fileset *handle, int num_file_vars, int *var_indices ) {
 	int i, j;
 	int64_t sfc;
 	int icell, ioct;
@@ -841,7 +841,7 @@ void write_artio_grid( artio_file handle, int num_file_vars, int *var_indices ) 
 }
 
 #ifdef PARTICLES
-void write_artio_particles( artio_file handle, int *root_tree_particle_list, 
+void write_artio_particles( artio_fileset *handle, int *root_tree_particle_list, 
 			int *num_particles_per_species_per_root_tree ) {
 	int i, j, k, m;
 	int sfc;
@@ -920,7 +920,7 @@ void write_artio_particles( artio_file handle, int *root_tree_particle_list,
 }
 #endif /* PARTICLES */
 
-void artio_restart_load_balance( artio_file handle ) {
+void artio_restart_load_balance( artio_fileset *handle ) {
 	int i;
 	int *constrained_quantities;
 	float *cell_work;
@@ -965,7 +965,7 @@ void artio_restart_load_balance( artio_file handle ) {
 			}
 
 			for ( ; sfc <= end_sfc; sfc++ ) {
-				if ( artio_grid_read_root_cell_begin(handle, sfc, variables, 
+				if ( artio_grid_read_root_cell_begin(handle, sfc, NULL, variables, 
 						&num_oct_levels, num_octs_per_level ) != ARTIO_SUCCESS ) {
 					cart_error("Error reading grid root cell %ld", sfc );
 				}
@@ -1027,7 +1027,7 @@ void artio_restart_load_balance( artio_file handle ) {
 
 void read_artio_restart( const char *label ) {
 	int i;
-	artio_file handle;
+	artio_fileset *handle;
 	int sfc_order;
 	int64_t num_file_root_cells;
 	int level;
@@ -1044,7 +1044,7 @@ void read_artio_restart( const char *label ) {
 	frt_real *data;
 	float *buffer;
 #endif /* RADIATIVE_TRANSFER */
-	struct artio_context_struct con = { mpi.comm.run };
+	artio_context con = { mpi.comm.run };
 
 #ifdef COSMOLOGY
 	double OmM0, OmB0, OmL0, h100, DelDC;
@@ -1302,7 +1302,7 @@ void read_artio_restart( const char *label ) {
 
 }
 
-void read_artio_grid( artio_file handle, int file_max_level ) {
+void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 	int i, j;
 	int64_t sfc;
 	int icell, ioct;
@@ -1377,7 +1377,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 	for (sfc = proc_sfc_index[local_proc_id]; 
 			sfc < proc_sfc_index[local_proc_id + 1]; sfc++) {
 
-		if ( artio_grid_read_root_cell_begin(handle, sfc, root_variables,
+		if ( artio_grid_read_root_cell_begin(handle, sfc, NULL, root_variables,
 					&num_tree_levels, num_octs_per_level) != ARTIO_SUCCESS ) {
 			cart_error( "Error reading grid root cell sfc %ld", sfc );
 		}
@@ -1413,7 +1413,8 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 
 			for (i = 0; i < num_octs_per_level[level]; i++) {
 				ioct = oct_order[i];
-				if ( artio_grid_read_oct(handle, oct_variables, oct_refined) != ARTIO_SUCCESS ) {
+				if ( artio_grid_read_oct(handle, NULL,
+						oct_variables, oct_refined) != ARTIO_SUCCESS ) {
 					cart_error("Error reading oct %d on level %d, sfc %ld", ioct, 
 						level+1, sfc );
 				}
@@ -1454,7 +1455,7 @@ void read_artio_grid( artio_file handle, int file_max_level ) {
 }
 
 #ifdef PARTICLES
-void read_artio_particles( artio_file handle ) {
+void read_artio_particles( artio_fileset *handle ) {
 	int i, j;
 	int sfc;
 	int64_t pid;
