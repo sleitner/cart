@@ -142,7 +142,11 @@ index_hash *index_hash_create( int size, int64_t max_key, int *remote_index, int
 	}	
 	
 	/* hash each secondary array */
+#ifdef OPENMP_DECLARE_CONST
 	#pragma omp parallel for default(none) shared(hash,null_entry,size) private(i,j,k,oldj,rekey,tmp_entry,new_entry) schedule(dynamic)
+#else
+	#pragma omp parallel for default(none) shared(hash,size) private(i,j,k,oldj,rekey,tmp_entry,new_entry) schedule(dynamic)
+#endif
 	for ( i = 0; i < size; i++ ) {
 		do {
 			rekey = 0;
