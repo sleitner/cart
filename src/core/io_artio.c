@@ -1304,6 +1304,7 @@ void read_artio_restart( const char *label ) {
 
 void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 	int i, j;
+	int ret;
 	int64_t sfc;
 	int icell, ioct;
 	int *oct_order, *next_level_order;
@@ -1381,8 +1382,9 @@ void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 					&num_tree_levels, num_octs_per_level) != ARTIO_SUCCESS ) {
 			cart_error( "Error reading grid root cell sfc %ld", sfc );
 		}
-	
+
 		icell = root_cell_location(sfc);
+
 		unpack_cell_vars(icell, num_sim_variables, sim_var_indices,
 				file_var_indices, root_variables);
 		
@@ -1441,10 +1443,14 @@ void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 			}
 
 			cart_free(oct_order);
-			artio_grid_read_level_end(handle);
+			if ( artio_grid_read_level_end(handle) != ARTIO_SUCCESS ) {
+				cart_error("Error reading level %d, sfc = %ld", level+1, sfc);
+			}
 		}
 
-		artio_grid_read_root_cell_end(handle);
+		if ( artio_grid_read_root_cell_end(handle) != ARTIO_SUCCESS ) {
+			cart_error( "Error reading grid root cell sfc %ld", sfc );
+		}
 	}
 
 	cart_free( num_octs_per_level );
