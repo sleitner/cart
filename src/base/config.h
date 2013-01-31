@@ -134,7 +134,7 @@
 
 
 /*
-//  Default to 25 levels if the number of levels is not set.
+//  Default to total of 2**30 spatial resolution 
 */
 #ifndef num_refinement_levels 
 #define num_refinement_levels (30-num_root_grid_refinements)
@@ -145,8 +145,16 @@
 //  Default to num_star_particles = num_particles if not set.
 */
 #ifdef STAR_FORMATION
-#if defined(num_particles) && !defined(num_star_particles)
+#if defined(num_particles) 
+#if !defined(num_star_particles)
 #define num_star_particles num_particles
+#elif num_star_particles > num_particles
+#error "num_star_particles must be less than or equal to num_particles"
+#endif
+#endif
+#else
+#if defined(num_star_particles)
+#error "num_star_particles is defined, but not STAR_FORMATION!"
 #endif
 #endif /* STAR_FORMATION */
 
