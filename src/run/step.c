@@ -770,6 +770,10 @@ int timestep( int level, MPI_Comm level_com )
 	update_particle_list( level );
 #endif /* PARTICLES */
 
+#ifdef TURBULENT_ENERGY 
+	hydro_turbulence_sources(level);
+#endif /* TURBULENT_ENERGY */
+
 	/* advance time on level */
 	tl_old[level] = tl[level];
 	tl[level] += dtl[level];
@@ -1248,7 +1252,11 @@ void hydro_cfl_condition( int level, int *courant_cell, double *velocity ) {
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-                as = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
+		gPeff = cell_gas_gamma(icell)*cell_gas_pressure(icell);
+		for ( j = 0; j < num_extra_energy_variables; j++ ) {
+		    gPeff += extra_gamma(j)*cell_extra_pressure_variables(icell,j);
+		}
+                as = sqrt(gPeff/cell_gas_density(icell));
                 vel = cell_gas_density(icell)*min_courant_velocity;
                 for ( j = 0; j < nDim; j++ ) {
                         if ( fabs(cell_momentum(icell,j)) > vel ) {
