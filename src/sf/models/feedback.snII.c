@@ -22,6 +22,10 @@
 
 extern double dUfact;
 extern double feedback_temperature_ceiling;
+#ifdef TURBULENT_ENERGY
+extern double feedback_turbulence_temperature_ceiling;
+extern double fraction_SN_to_turbulence;
+#endif /* TURBULENT_ENERGY */
 
 struct
 {
@@ -127,7 +131,7 @@ void snII_setup(int level)
 
 void snII_thermal_feedback(int level, int cell, int ipart, double t_next )
 {
-  double dteff, phi, dU;
+  double dteff, phi, dU, dU_turb;
   double dt = t_next - particle_t[ipart];
   double tage = particle_t[ipart] - star_tbirth[ipart];
 
@@ -152,6 +156,17 @@ void snII_thermal_feedback(int level, int cell, int ipart, double t_next )
 #endif /* ENRICHMENT */
 
           dU = MIN(phi*snII_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
+#ifdef TURBULENT_ENERGY
+	  dU_turb = fraction_SN_to_turbulence*dU;
+	  if(units->temperature*cell_turbulence_temperature(cell) < feedback_turbulence_temperature_ceiling)
+	      {
+		  cell_turbulent_energy(cell) += dU_turb;
+		  cell_gas_energy(cell) += dU_turb;
+		  cell_gas_pressure(cell) += dU_turb*(turbulence_gamma-1);
+		  
+		  dU = (1-fraction_SN_to_turbulence)*dU;
+	      }
+#endif /* TURBULENT_ENERGY */
 
           /* limit energy release and don't allow to explode in hot bubble */
           if(units->temperature*cell_gas_temperature(cell) < feedback_temperature_ceiling)

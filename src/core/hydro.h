@@ -23,6 +23,7 @@ void hydro_split_update( int level );
 
 float cell_gas_kinetic_energy(int cell);
 float cell_gas_temperature(int cell);
+float cell_turbulence_temperature(int cell);
 
 float cell_sobolev_length2(int cell, int level, float *vel);
 #define cell_sobolev_length(c) cell_sobolev_length2(c,cell_level(c),NULL)

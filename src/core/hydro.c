@@ -30,6 +30,27 @@ double blastwave_time_floor = 1.0e-30;
 double blastwave_time_cut = 1.0e-20;
 #endif /* BLASTWAVE_FEEDBACK */
 
+#ifdef TURBULENT_ENERGY
+double fix_turbulence_dissipation_time = -1;
+double fraction_SN_to_turbulence  = 0.0;
+#endif /* TURBULENT_ENERGY */
+
+#if num_extra_energy_variables > 0
+float extra_gammas[num_extra_energy_variables];
+#else
+float extra_gammas[1]; /* avoids extra flags around pragmas*/
+#endif /* num_extra_energy_variables > 0 */
+
+#if defined(TURBULENT_ENERGY) || defined(COSMIC_RAY_ENERGY) || defined(FIXED_INTERNAL_ENERGY)
+struct gamma_t
+{
+    float turbulence;
+    float cosmic_rays;
+    float fixed_internal_energy;
+};
+extern struct gamma_t gamma_internal = {5.0/3.0, 5.0/3.0, 5.0/3.0};
+#endif
+
 
 void config_init_hydro()
 {
@@ -49,10 +70,39 @@ void config_init_hydro()
 
   control_parameter_add(control_parameter_float,&pressure_floor_factor,"@pressure-floor-factor","the factor to scale the pressure floor with. The default, thoroughly tested value is 10. If you change it, make sure you know what you are doing.");
 
+#ifdef TURBULENT_ENERGY
+  control_parameter_add2(control_parameter_float,&gamma_internal.turbulence,"gamma:turbulence","gamma.turbulence","gamma for turbulent energy");
+  
+  control_parameter_add2(control_parameter_double,&fraction_SN_to_turbulence,"turbulence:fraction-SN-to-turbulence","fraction_SN_to_turbulence","fraction of SN energy that goes to turbulence.");
+
+  control_parameter_add3(control_parameter_time,&fix_turbulence_dissipation_time,"fix-turbulence-dissipation-time","turbulence:fix-dissipation-time","turbulence.fix_dissipation_time", "time scale over which turbulence dissipates, if not set then defaults to cell crossing time.");
+#endif /* TURBULENT_ENERGY */
+  
+#ifdef COSMIC_RAY_ENERGY
+  control_parameter_add2(control_parameter_float,&gamma_internal.cosmic_rays,"gamma:cosmic-rays","gamma.cosmic_rays","gamma for cosmic ray energy");
+#endif /* COSMIC_RAY_ENERGY */
+
+#ifdef FIXED_INTERNAL_ENERGY
+  control_parameter_add2(control_parameter_float,&gamma_internal.fixed_internal_energy,"gamma:fixed-internal-energy","gamma.fixed_internal_energy","gamma for fixed internal energy");
+#endif /* FIXED_INTERNAL_ENERGY */
+
   for(level=min_level; level<=max_level; level++)
     {
       level_sweep_dir[level] = 0;
     }
+
+#ifdef TURBULENT_ENERGY
+  turbulence_gamma = gamma_internal.turbulence;
+#endif /* TURBULENT_ENERGY */
+
+#ifdef COSMIC_RAY_ENERGY
+  cosmic_ray_gamma = gamma_internal.cosmic_rays;
+#endif /* COSMIC_RAY_ENERGY */
+
+#ifdef FIXED_INTERNAL_ENERGY
+  fixed_internal_energy_gamma = gamma_internal.fixed_internal_energy;
+#endif /* FIXED_INTERNAL_ENERGY */
+
 }
 
 
@@ -73,11 +123,28 @@ void config_verify_hydro()
   cart_assert(blastwave_time_cut > 0.0 && blastwave_time_cut > blastwave_time_floor);
 
 #endif /* BLASTWAVE_FEEDBACK */
+
+#ifdef TURBULENT_ENERGY
+  VERIFY(fix-turbulence-dissipation-time, fix_turbulence_dissipation_time > 0.0 || fix_turbulence_dissipation_time == -1.0 );
+
+  VERIFY(turbulence:fraction-SN-to-turbulence, fraction_SN_to_turbulence >= 0.0 && fraction_SN_to_turbulence <= 1.0);
+  
+  VERIFY(gamma:turbulence , gamma_internal.turbulence  > 1.0);
+#endif /* TURBULENT_ENERGY */
+
+#ifdef COSMIC_RAY_ENERGY
+  VERIFY(gamma:cosmic-rays, gamma_internal.cosmic_rays > 1.0);
+#endif /* COSMIC_RAY_ENERGY */
+
+#ifdef FIXED_INTERNAL_ENERGY
+  VERIFY(gamma:fixed-internal-energy, gamma_internal.fixed_internal_energy > 1.0);
+#endif /* FIXED_INTERNAL_ENERGY */
+
 }
 
 
 void hydro_magic_one_cell( int icell ) {
-	int j;
+        int j;
 	float average_density;
 	int neighbors[num_neighbors];
 	static int failed = 0;
@@ -111,6 +178,9 @@ void hydro_magic_one_cell( int icell ) {
 		failed = 1;
 
 		cell_gas_density(icell) = MAX( average_density/(float)num_neighbors, gas_density_floor );
+		for(j=0;j<nDim;j++){ /* NAN check */
+		    cart_assert( cell_momentum(icell,j) == cell_momentum(icell,j) );
+		}
 	}
 
 	kinetic_energy = cell_gas_kinetic_energy(icell);
@@ -122,6 +192,9 @@ void hydro_magic_one_cell( int icell ) {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 	cell_electron_internal_energy(icell) = MAX( cell_electron_internal_energy(icell), thermal_energy*constants->wmu/constants->wmu_e );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+	for ( j = 0; j < num_extra_energy_variables; j++ ) {
+            cell_extra_energy_variables(icell,j) = MAX( 0, cell_extra_energy_variables(icell,j) );
+        }
 
 	for ( j = 0; j < num_chem_species; j++ ) {
 		/* 
@@ -213,6 +286,13 @@ float cell_gas_temperature(int cell) {
 	} else return 0.0;
 }
 
+#ifdef TURBULENT_ENERGY
+float cell_turbulence_temperature(int cell){
+	if(cell_gas_density(cell) > 0.0) {
+	        return (turbulence_gamma-1)*constants->wmu*cell_turbulent_energy(cell)/cell_gas_density(cell);
+	} else return 0.0;
+}
+#endif /* TURBULENT_ENERGY */
 
 /*
 //  Sobolev approximation factors

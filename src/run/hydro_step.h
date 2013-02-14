@@ -18,6 +18,9 @@ void hydro_step_init();
 void hydro_step( int level );
 void hydro_copy_vars( int level, int direction );
 
+#ifdef TURBULENT_ENERGY
+void hydro_turbulence_sources(int level);
+#endif /* TURBULENT_ENERGY */
 void hydro_eos(int level);
 
 #endif /* HYDRO */
