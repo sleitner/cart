@@ -122,12 +122,43 @@ extern int size_cell_array;
   #define num_basic_hydro_vars      (5+nDim)
 
   #ifdef ELECTRON_ION_NONEQUILIBRIUM
-    #define num_extra_hydro_vars   1
+    #define num_electronion_noneq_vars 1
     #define HVAR_ELECTRON_INTERNAL_ENERGY	(num_grav_vars+rt_num_vars+num_basic_hydro_vars)
     #define cell_electron_internal_energy(c)	(cell_var(c,HVAR_ELECTRON_INTERNAL_ENERGY))
   #else
-    #define num_extra_hydro_vars   0
+    #define num_electronion_noneq_vars 0
   #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
+  #define HVAR_EXTRA_ENERGY_VARIABLES           (num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_electronion_noneq_vars)
+  #define cell_extra_energy_variables(c,v)      (cell_var(c,HVAR_EXTRA_ENERGY_VARIABLES+v))
+  #define cell_extra_pressure_variables(c,v)    ((extra_gamma(v)-1.0)*cell_extra_energy_variables(c,v))
+  #ifdef TURBULENT_ENERGY 
+    #define num_turbulent_energy_vars           1
+    #define HVAR_TURBULENT_ENERGY               (HVAR_EXTRA_ENERGY_VARIABLES+0)
+    #define cell_turbulent_energy(c)            (cell_var(c,HVAR_TURBULENT_ENERGY))
+    #define turbulence_gamma                    (extra_gamma(0))
+  #else
+    #define num_turbulent_energy_vars           0
+  #endif /* TURBULENT_ENERGY */
+  #ifdef COSMIC_RAY_ENERGY
+    #define num_cosmic_ray_vars                 1
+    #define HVAR_COSMIC_RAY_ENERGY              (HVAR_EXTRA_ENERGY_VARIABLES+num_turbulent_energy_vars)
+    #define cell_cosmic_ray_energy(c)           (cell_var(c,HVAR_COSMIC_RAY_ENERGY))
+    #define cosmic_ray_gamma                    (extra_gamma(num_turbulent_energy_vars))
+  #else
+    #define num_cosmic_ray_vars                 0
+  #endif /* COSMIC_RAYS */
+  #ifdef FIXED_INTERNAL_ENERGY
+    #define num_fixed_internal_energy_vars      1
+    #define HVAR_FIXED_INTERNAL_ENERGY          (HVAR_EXTRA_ENERGY_VARIABLES+num_turbulent_energy_vars+num_cosmic_ray_vars)
+    #define cell_fixed_internal_energy(c)       (cell_var(c,HVAR_FIXED_INTERNAL_ENERGY))
+    #define fixed_internal_energy_gamma         (extra_gamma(num_turbulent_energy_vars+num_cosmic_ray_vars))
+  #else
+    #define num_fixed_internal_energy_vars      0
+  #endif /* FIXED_INTERNAL_ENERGY */
+  #define num_extra_energy_variables            (num_turbulent_energy_vars+num_cosmic_ray_vars+num_fixed_internal_energy_vars)
+
+  #define num_extra_hydro_vars                  (num_electronion_noneq_vars+num_extra_energy_variables)
 
   #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
   #define cell_advected_variable(c,v)		(cell_var(c,HVAR_ADVECTED_VARIABLES+v))
@@ -209,6 +240,14 @@ extern int size_cell_array;
 extern int all_vars[num_vars];
 #ifdef HYDRO
 extern int all_hydro_vars[num_hydro_vars];
+
+#define extra_gamma(v)	(extra_gammas[v])
+#if num_extra_energy_variables > 0 
+extern float extra_gammas[num_extra_energy_variables];
+#else
+extern float extra_gammas[1]; /* avoids extra flags around pragmas*/
+#endif /* num_extra_energy_variables > 0 */
+
 #endif /* HYDRO */
 
 
