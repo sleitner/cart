@@ -19,7 +19,6 @@ const struct StellarFeedback *sf_feedback = &sf_feedback_internal;
 
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
 double feedback_turbulence_temperature_ceiling = 1.0e7;  
-double feedback_speed_time_ceiling = 1e4;  /* do not accelerate flows so that time-steps drop below~1e4yr (1e3km/s at 10pc) */
 
 #ifdef BLASTWAVE_FEEDBACK
 double blastwave_time = { 50.0e6 };

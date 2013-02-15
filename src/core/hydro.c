@@ -179,7 +179,16 @@ void hydro_magic_one_cell( int icell ) {
 
 		cell_gas_density(icell) = MAX( average_density/(float)num_neighbors, gas_density_floor );
 		for(j=0;j<nDim;j++){ /* NAN check */
-		    cart_assert( cell_momentum(icell,j) == cell_momentum(icell,j) );
+		    if( isnan(cell_momentum(icell,j)) ){
+			cart_debug("density = %e g/cc", cell_gas_density(icell)*units->density/constants->gpercc );
+			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature/constants->K );
+			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density/constants->barye );
+			cart_debug("v  = %e %e %e cm/s",
+					cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity/constants->cms,
+					cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity/constants->cms );
+                        cart_error("cell momentum is NAN at icell %d dim %d",icell,j);
+                    }
 		}
 	}
 
