@@ -41,14 +41,13 @@ float extra_gammas[num_extra_energy_variables];
 float extra_gammas[1]; /* avoids extra flags around pragmas*/
 #endif /* num_extra_energy_variables > 0 */
 
-#if defined(TURBULENT_ENERGY) || defined(COSMIC_RAY_ENERGY) || defined(FIXED_INTERNAL_ENERGY)
+#if defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY)
 struct gamma_t
 {
     float turbulence;
-    float cosmic_rays;
     float fixed_internal_energy;
 };
-extern struct gamma_t gamma_internal = {5.0/3.0, 5.0/3.0, 5.0/3.0};
+extern struct gamma_t gamma_internal = {5.0/3.0, 5.0/3.0};
 #endif
 
 
@@ -75,13 +74,9 @@ void config_init_hydro()
   
   control_parameter_add2(control_parameter_double,&fraction_SN_to_turbulence,"turbulence:fraction-SN-to-turbulence","fraction_SN_to_turbulence","fraction of SN energy that goes to turbulence.");
 
-  control_parameter_add3(control_parameter_time,&fix_turbulence_dissipation_time,"fix-turbulence-dissipation-time","turbulence:fix-dissipation-time","turbulence.fix_dissipation_time", "time scale over which turbulence dissipates, if not set then defaults to cell crossing time.");
+  control_parameter_add3(control_parameter_time,&fix_turbulence_dissipation_time,"turbulence:fix-dissipation-time","fix_turbulence_dissipation_time","turbulence.fix_dissipation_time", "time scale over which turbulence dissipates, if not set then defaults to cell crossing time.");
 #endif /* TURBULENT_ENERGY */
   
-#ifdef COSMIC_RAY_ENERGY
-  control_parameter_add2(control_parameter_float,&gamma_internal.cosmic_rays,"gamma:cosmic-rays","gamma.cosmic_rays","gamma for cosmic ray energy");
-#endif /* COSMIC_RAY_ENERGY */
-
 #ifdef FIXED_INTERNAL_ENERGY
   control_parameter_add2(control_parameter_float,&gamma_internal.fixed_internal_energy,"gamma:fixed-internal-energy","gamma.fixed_internal_energy","gamma for fixed internal energy");
 #endif /* FIXED_INTERNAL_ENERGY */
@@ -94,10 +89,6 @@ void config_init_hydro()
 #ifdef TURBULENT_ENERGY
   turbulence_gamma = gamma_internal.turbulence;
 #endif /* TURBULENT_ENERGY */
-
-#ifdef COSMIC_RAY_ENERGY
-  cosmic_ray_gamma = gamma_internal.cosmic_rays;
-#endif /* COSMIC_RAY_ENERGY */
 
 #ifdef FIXED_INTERNAL_ENERGY
   fixed_internal_energy_gamma = gamma_internal.fixed_internal_energy;
@@ -131,10 +122,6 @@ void config_verify_hydro()
   
   VERIFY(gamma:turbulence , gamma_internal.turbulence  > 1.0);
 #endif /* TURBULENT_ENERGY */
-
-#ifdef COSMIC_RAY_ENERGY
-  VERIFY(gamma:cosmic-rays, gamma_internal.cosmic_rays > 1.0);
-#endif /* COSMIC_RAY_ENERGY */
 
 #ifdef FIXED_INTERNAL_ENERGY
   VERIFY(gamma:fixed-internal-energy, gamma_internal.fixed_internal_energy > 1.0);
@@ -178,18 +165,6 @@ void hydro_magic_one_cell( int icell ) {
 		failed = 1;
 
 		cell_gas_density(icell) = MAX( average_density/(float)num_neighbors, gas_density_floor );
-		for(j=0;j<nDim;j++){ /* NAN check */
-		    if( isnan(cell_momentum(icell,j)) ){
-			cart_debug("density = %e g/cc", cell_gas_density(icell)*units->density/constants->gpercc );
-			cart_debug("T  = %e K", cell_gas_temperature(icell)*units->temperature/constants->K );
-			cart_debug("P  = %e ergs cm^-3", cell_gas_pressure(icell)*units->energy_density/constants->barye );
-			cart_debug("v  = %e %e %e cm/s",
-					cell_momentum(icell,0)/cell_gas_density(icell)*units->velocity/constants->cms,
-					cell_momentum(icell,1)/cell_gas_density(icell)*units->velocity/constants->cms,
-					cell_momentum(icell,2)/cell_gas_density(icell)*units->velocity/constants->cms );
-                        cart_error("cell momentum is NAN at icell %d dim %d",icell,j);
-                    }
-		}
 	}
 
 	kinetic_energy = cell_gas_kinetic_energy(icell);

@@ -13,8 +13,20 @@
 ?#define ENRICHMENT
 ?#define ENRICHMENT_SNIa
 ?#define LOG_STAR_CREATION
+
+/*
+//  An advected field conserving mass*(count down time) 
+//  turns off when count down time = 0.
+*/
 ?#define BLASTWAVE_FEEDBACK
+/*
+//  An advected energy field that decays exponentially. 
+*/
 ?#define TURBULENT_ENERGY
+/*
+//  An energy field that resets to 0 every timestep
+//  and can be used to generate a given momentum flux per dt.
+*/
 ?#define FIXED_INTERNAL_ENERGY
 ?#define STAR_PARTICLE_TYPES
 

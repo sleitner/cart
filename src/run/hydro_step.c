@@ -698,9 +698,6 @@ void hydro_apply_turbulence_dissipation(int level, int num_level_cells, int *lev
 		vas = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
 		crossing_time = cell_size[level]/vas ;
 		cell_turbulent_energy(icell) *= exp(-dtl[level]/crossing_time);
-/* #ifdef DEBUG_SNL */
-/* 		cart_debug("crossing_time = %e",dtl[level]/crossing_time); */
-/* #endif */
 	    }
 	    /* turbulent energy goes into internal energy */
 	    cell_gas_internal_energy(icell) += cell_old - cell_turbulent_energy(icell);
@@ -708,18 +705,6 @@ void hydro_apply_turbulence_dissipation(int level, int num_level_cells, int *lev
     }   
 }
 #endif /* TURBULENT_ENERGY */
-#ifdef COSMIC_RAY_ENERGY
-void hydro_apply_cosmic_ray_dissipation(int level, int num_level_cells, int *level_cells) {
-#ifndef DEBUG_SNL
-    cart_error("haven't implemented cosmic ray dissipation");
-#endif
-}
-void hydro_apply_cosmic_ray_diffusion(int level, int num_level_cells, int *level_cells) {
-#ifndef DEBUG_SNL
-    cart_error("haven't implemented cosmic ray diffusion");
-#endif
-}
-#endif /* COSMIC_RAY_ENERGY */
 
 #ifdef FIXED_INTERNAL_ENERGY
 void hydro_zero_fixed_internal_energy(int level, int num_level_cells, int *level_cells) {
@@ -806,14 +791,6 @@ void hydro_advance_internalenergy( int level ) {
 	/* dissipate turbulence and add to thermal energy */
 	hydro_apply_turbulence_dissipation(level,num_level_cells,level_cells);
 #endif /* TURBULENT_ENERGY */
-#ifdef COSMIC_RAY_ENERGY
-	/* This hasn't been implimented yet */
-	hydro_apply_cosmic_ray_dissipation(level,num_level_cells,level_cells); 
-	hydro_apply_cosmic_ray_diffusion(level,num_level_cells,level_cells); 
-#ifndef DEBUG_SNL
-	cart_debug(" hydro_apply_cosmic_ray_dissipation hasn't been implimented yet. Nor has cosmic ray diffusion ");
-#endif 
-#endif /* COSMIC_RAY_ENERGY */
 #ifdef FIXED_INTERNAL_ENERGY
 	hydro_zero_fixed_internal_energy(level,num_level_cells,level_cells);
 #endif /* FIXED_INTERNAL_ENERGY */
@@ -843,14 +820,17 @@ void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[n
 	}
 }
 
-#if defined(COSMIC_RAY_ENERGY) || defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY)
+#if defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY)
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
         int i,j, irl;
 	double v[num_hydro_vars-1][4]; /* not column-major order. */
 	double c[2];
+
+#ifdef GRAVITY_IN_RIEMANN
 /* 	double g[4]; # The correct thing to do is g[4] with slope limiter in Riemann*/
- 	double g[2]; 
+	double g[2];
+#endif
 
 	int L2 = cell_list[0];
 	int L1 = cell_list[1];
@@ -876,9 +856,6 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 		v[5][i] += extra_gamma(j)*cell_extra_pressure_variables(irl,j);
 	    }
 	    v[5][i] /= v[1][i];
-/* #ifdef DEBUG_SNL	     */
-/*  	    cart_debug("gamma_eff=%e g=%e %e %e",v[5][i], cell_gas_gamma(irl),v[1][i],cell_gas_pressure(irl) );  */
-/* #endif */
 	    
 	    v[1][i] = MAX( pressure_floor * v[0][i]*v[0][i], v[1][i]);
             v[6][i] = constants->gamma;
@@ -888,21 +865,15 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	    for(j=0; j<num_extra_energy_variables ;j++){
 		v[j+7+num_electronion_noneq_vars][i] = cell_extra_energy_variables(irl,j); 
 	    }
-/* 	    cart_error(" %d %d",num_extra_energy_variables-1+7+num_electronion_noneq_vars, num_hydro_vars-1); */
             for ( j = 0; j < num_chem_species; j++ ) {
 		v[num_hydro_vars-num_chem_species-1+j][i] = cell_advected_variable(irl,j)/cell_gas_density(irl);
             }
 
 #ifdef GRAVITY_IN_RIEMANN
-            //Roughly truelove 98 (eq 34,36)
-            //but they want s(n-1/2) for predictor then s(n+1/2) for update.
-	    /* turn off */
-/* 	    g[i] = 0.5*cell_accel( irl, j3 );  */
-/* 	    v[2][i] += g[i];    */
+            /* Roughly truelove 98 (eq 34,36) */
+            /* but they want s(n-1/2) for predictor then s(n+1/2) for update. */
 	    if(irl==1){g[0] = 0.5*cell_accel( irl, j3 ); }
 	    if(irl==2){g[1] = 0.5*cell_accel( irl, j3 ); }
-#else
-            g[i/2] = 0;
 #endif
         }
         
@@ -935,7 +906,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
 
-#else /* defined(COSMIC_RAY_ENERGY) || defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY) */
+#else /* defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY) */
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	int j;
@@ -1053,7 +1024,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
-#endif   /* defined(COSMIC_RAY_ENERGY) || defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY) */ 
+#endif   /* defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY) */ 
 	
 void hydro_copy_vars( int level, int direction ) {
 	int i, j;
