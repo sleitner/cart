@@ -1252,11 +1252,7 @@ void hydro_cfl_condition( int level, int *courant_cell, double *velocity ) {
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
-		gPeff = cell_gas_gamma(icell)*cell_gas_pressure(icell);
-		for ( j = 0; j < num_extra_energy_variables; j++ ) {
-		    gPeff += extra_gamma(j)*cell_extra_pressure_variables(icell,j);
-		}
-                as = sqrt(gPeff/cell_gas_density(icell));
+                as = cell_gas_sound_speed(icell) ;
                 vel = cell_gas_density(icell)*min_courant_velocity;
                 for ( j = 0; j < nDim; j++ ) {
                         if ( fabs(cell_momentum(icell,j)) > vel ) {
