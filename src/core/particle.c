@@ -712,7 +712,7 @@ int particle_alloc( int id ) {
 				}
 
 				if ( i == num_star_particles ) {
-					cart_error("Ran out of star particles, increase num_star_particles!");
+                                        cart_error("Ran out of star particles %d, increase num_star_particles!", i);
 				}
 			}
 		} else {
@@ -734,7 +734,7 @@ int particle_alloc( int id ) {
 					}
 
 					if ( next_free_star_particle >= num_star_particles ) {
-						cart_error("Ran out of particles, increase num_particles!");
+                                                cart_error("Ran out of particles (next=%d), increase num_star_particles!",next_free_star_particle );
 					} else {
 						ipart = next_free_star_particle;
 						next_free_star_particle++;
@@ -756,7 +756,7 @@ int particle_alloc( int id ) {
 	if ( free_particle_list == NULL_PARTICLE ) {
 		if ( num_local_particles >= num_particles ) {
 			/* generate an error, ran out of particles */
-			cart_error("Ran out of particles, increase num_particles!");
+                        cart_error("Ran out of local particles %d, increase num_particles!", num_local_particles);
 		}
 
 		ipart = next_free_particle;
