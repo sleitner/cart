@@ -161,9 +161,6 @@ void define_file_variables(int *num_variables, char *variable_labels[num_vars],
 #ifdef TURBULENT_ENERGY
 	add_variable( "HVAR_TURBULENT_ENERGY", HVAR_TURBULENT_ENERGY );
 #endif
-#ifdef FIXED_INTERNAL_ENERGY
-	add_variable( "HVAR_FIXED_INTERNAL_ENERGY", HVAR_FIXED_INTERNAL_ENERGY );
-#endif
 
 
 #endif /* HYDRO */
