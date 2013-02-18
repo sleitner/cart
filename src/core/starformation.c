@@ -171,7 +171,12 @@ void config_verify_star_formation()
   }
   VERIFY(cluster:age-spread, cluster_age_spread >1.0e6 );
   VERIFY(cluster:min-expected-mass, cluster_min_expected_mass >= 0.0 );
-  
+ 
+  /* 
+  //  IMF 
+  */
+  config_verify_imf();
+
   config_verify_star_formation_recipe();
   config_verify_star_formation_feedback();
 }
