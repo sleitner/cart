@@ -142,7 +142,7 @@ extern int size_cell_array;
   #endif /* TURBULENT_ENERGY */
   #define num_extra_energy_variables            (num_turbulent_energy_vars)
 
-  #define num_extra_hydro_vars                  (num_electronion_noneq_vars+num_extra_energy_variables+num_fixed_vars)
+  #define num_extra_hydro_vars                  (num_electronion_noneq_vars+num_extra_energy_variables)
 
   #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
   #define cell_advected_variable(c,v)		(cell_var(c,HVAR_ADVECTED_VARIABLES+v))
@@ -230,6 +230,8 @@ extern int size_cell_array;
     #define num_fixed_pressure_vars             0
   #endif /* FIXED_PRESSURE */
   #define num_fixed_vars                        (num_fixed_pressure_vars)
+#else 
+  #define num_fixed_vars                        0
 #endif /* HYDRO */
 
 #define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars+num_fixed_vars)
