@@ -16,6 +16,8 @@
 #include "units.h"
 
 
+#include "feedback.snII.h"
+#include "feedback.kinetic.h"
 /*
 //  Type II supernova feedback
 */
@@ -23,16 +25,8 @@
 extern double dUfact;
 extern double feedback_temperature_ceiling;
 
-struct
-{
-  double energy_per_explosion;     /* used to be called E_51 */
-  double time_duration;            /* used to be called t_fb */
-  double time_delay;               
-  double yield_factor;             /* fraction yield relative to the one coded in */
-  double min_mass;                 /* used to be called aM_SNII */
-  double max_mass;                 
-}
-  snII = { 2.0, 1.0e3, 0.0, 1.0, 8.0, 100.0 };
+struct SNII_t snII = { 2.0, 1.0, 1.0e3, 0.0, 1.0, 8.0, 100.0 };
+struct SNII_PROP_t snII_phys, snII_code;
 
 
 void snII_config_init()
@@ -48,6 +42,8 @@ void snII_config_init()
   control_parameter_add4(control_parameter_double,&snII.min_mass,"snII:min-mass","snII.min_max","imf:min-SNII-mass","am_snii","the minimum mass of stars that explode as type II supernovae.");
 
   control_parameter_add2(control_parameter_double,&snII.max_mass,"snII:max-mass","snII.max_max","the maximum mass of stars that explode as type II supernovae.");
+
+  control_parameter_add2(control_parameter_double,&snII.kinetic_energy_per_explosion,"snII:kinetic-energy-per-explosion","snII.kinetic_energy_per_explosion","average kinetic energy per type II supernova explosion, in 1e51 ergs.");
 }
 
 
@@ -67,22 +63,16 @@ void snII_config_verify()
   VERIFY(snII:min-mass, snII.min_mass > 1.0 );
 
   VERIFY(snII:max-mass, snII.max_mass > snII.min_mass );
+  
+  VERIFY(snII:kinetic-energy-per-explosion, !(snII.kinetic_energy_per_explosion < 0.0) );
 }
 
 
-struct
-{
-  double energy;
-  double metals;
-  double teject;
-  double tdelay;
-}
-snII_phys, snII_code;
 
 
 void snII_init()
 {
-  double total_mass;
+  double total_mass, ejecta_mass;
   double number_SNII;
 
   /*
@@ -91,6 +81,7 @@ void snII_init()
   total_mass = integrate( imf->fm, imf->min_mass, imf->max_mass, 1e-6, 1e-9 );
   cart_assert(total_mass > 0.0);
 
+  ejecta_mass = integrate( imf->fm, snII.min_mass, snII.max_mass, 1e-6, 1e-9 );
   number_SNII = integrate( imf->f, snII.min_mass, snII.max_mass, 1e-6, 1e-9 );
   cart_assert(number_SNII > 0.0);
 
@@ -99,6 +90,8 @@ void snII_init()
   snII_phys.energy = 1e51*constants->erg*snII.energy_per_explosion*number_SNII/(constants->Msun*total_mass);
   snII_phys.metals = snII.yield_factor*integrate( imf->fmz, snII.min_mass, snII.max_mass, 1e-6, 1e-9 )/total_mass;
 
+  snII_phys.kinetic_energy = 1e51*constants->erg*snII.kinetic_energy_per_explosion*number_SNII/(constants->Msun*total_mass); 
+  snII_phys.fmass = ejecta_mass/total_mass;  
   /*
   // The rest is for diagnostic only
   */
@@ -120,6 +113,9 @@ void snII_setup(int level)
   snII_code.teject = snII_phys.teject*constants->yr/units->time;
   snII_code.energy = snII_phys.energy*units->mass/units->energy*cell_volume_inverse[level]; 
   snII_code.metals = snII_phys.metals*cell_volume_inverse[level]; 
+
+  snII_code.kinetic_energy = snII_phys.kinetic_energy * units->mass/units->energy*cell_volume_inverse[level]; 
+  snII_code.fmass = snII_phys.fmass; 
 }
 
 
@@ -163,6 +159,35 @@ void snII_thermal_feedback(int level, int cell, int ipart, double t_next )
         }
     }
 }
+
+void snII_kinetic_feedback(int level, int cell, int ipart, double t_next ){
+    double dteff, phi;
+    double dt = t_next - particle_t[ipart];
+    double tage = particle_t[ipart] - star_tbirth[ipart];
+    double dp, dE, dmass;
+    
+#ifdef STAR_PARTICLE_TYPES
+    cart_assert(star_particle_type[ipart] == STAR_TYPE_NORMAL || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH );
+#endif
+    if(snII_code.kinetic_energy >0.0){
+	dteff = tage - snII_code.tdelay;
+	if(dteff<snII_code.teject && dteff+dt>0){
+
+	    if(dteff+dt>0 && dteff<0)   {
+		phi = MIN((dteff+dt)/snII_code.teject,1.0);
+	    }else{
+		phi = MIN(dt,snII_code.teject-dteff)/snII_code.teject;
+	    }
+	    
+	    dE    = phi*star_initial_mass[ipart]* snII_code.kinetic_energy*cell_volume[level];
+	    /* really less mass per SNe with time, but this is fine */
+	    dmass = phi*star_initial_mass[ipart]* snII_code.fmass;
+	    dp = sqrt( 2*dE * 0.9*dmass ); /* 2*0.5m^2v^2  ; 0.9 = remnant fraction*/
+	    distribute_momentum(dp, level, cell, dt);
+	}
+    }
+}
+
 #endif /* HYDRO && PARTICLES */
 
 #endif /* STAR_FORMATION */

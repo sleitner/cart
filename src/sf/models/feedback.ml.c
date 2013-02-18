@@ -14,7 +14,7 @@
 #include "tree.h"
 #include "units.h"
 
-
+#include "feedback.ml.h"
 /*
 //  Stellar Mass Loss
 */
@@ -119,9 +119,8 @@ void ml_setup(int level)
 
 void ml_feedback(int level, int cell, int ipart, double t_next )
 {
-  double dmloss, rhor, e_old, rhofact;
+  double dmloss;
   double dt = t_next - particle_t[ipart];
-  float thermal_pressure;
   int i;
 
   if(ml.loss_rate > 0.0)
@@ -132,6 +131,14 @@ void ml_feedback(int level, int cell, int ipart, double t_next )
                     (particle_t[ipart] - (double)star_tbirth[ipart] + ml_code.dt) );
                                         
       particle_mass[ipart] -= dmloss;
+      
+      putback_stellar_mass(dmloss, level, cell, ipart);
+    }
+}
+void putback_stellar_mass(double dmloss, int level, int cell, int ipart){
+    int i;
+    double rhor, e_old, rhofact;
+    float thermal_pressure;
 
       /* convert to density for cell values */
       dmloss *= cell_volume_inverse[level];
@@ -171,10 +178,9 @@ void ml_feedback(int level, int cell, int ipart, double t_next )
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
       for(i=0; i<num_chem_species; i++)
-        {
-          cell_advected_variable(cell,i) += dmloss*star_returned_advected_species[i];
-        }
-    }
+	 {
+	   cell_advected_variable(cell,i) += dmloss*star_returned_advected_species[i];
+	 }
 }
 #endif /* HYDRO && PARTICLES */
 

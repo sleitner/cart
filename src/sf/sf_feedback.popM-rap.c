@@ -116,7 +116,7 @@ float sfb_radiation_pressure(int cell)
   float cd_gas = len*constants->XH*cell_gas_density(cell);
   float cd_dust = len*constants->XH*rtDmw(cell)*(cell_HI_density(cell)+2*cell_H2_density(cell));
   float tauUV = rt_rp_factor.cd2tauUV*cd_dust;
-
+  float pressure ;
 #if defined(RT_TRANSFER) && (RT_TRANSFER_METHOD==RT_METHOD_OTVET)
   float rfLoc;
 
@@ -131,8 +131,11 @@ float sfb_radiation_pressure(int cell)
 #else /* RT_UV */
   rfLoc = cell_var(cell,RT_VAR_OT_FIELD);
 #endif /* RT_UV */
-  
-  return (1-exp(-tauUV)+rt_rp_amplt*pow(rt_rp_factor.cd2sigma100*cd_gas,rt_rp_slope))*rt_rp_factor.rf2Prad*rfLoc;
+ 
+  pressure = (1-exp(-tauUV)+rt_rp_amplt*pow(rt_rp_factor.cd2sigma100*cd_gas,rt_rp_slope))*rt_rp_factor.rf2Prad*rfLoc;
+  PLUGIN_POINT(RadiationFeedbackEnd)(level,cell,pressure);
+
+  return pressure;
 
 #else /* RT_TRANSFER && RT_TRANSFER_METHOD==RT_METHOD_OTVET */
   cart_error("Radiation pressure without RT_TRANSFER and RT_TRANSFER_METHOD=RT_METHOD_OTVET is not implemented yet.");
@@ -153,6 +156,15 @@ struct StellarFeedback sf_feedback_internal =
     sfb_init,
     sfb_setup
   };
+
+void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt ){}
+
+struct StellarFeedbackCell sf_feedback_cell_internal =
+{
+    sfb_hydro_feedback_cell
+};
+
+
 
 #else  /* RADIATIVE_TRANSFER */
 

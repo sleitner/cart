@@ -11,7 +11,10 @@ void cart_rand_load_state( const char *state_filename, int fail_on_error );
 void cart_rand_save_state( const char *state_filename );
 
 double cart_rand();
+unsigned long int cart_rand_int(int nmax);
 double cart_rand_lognormal(double sigma);
 unsigned int cart_rand_poisson(double mu);
+void cart_rand_unit_vector(double pos[nDim]);
+
 
 #endif

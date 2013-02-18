@@ -15,6 +15,7 @@ void ml_setup(int level);
 
 #if defined(HYDRO) && defined(PARTICLES)
 void ml_feedback(int level, int cell, int ipart, double t_next );
+void putback_stellar_mass(double dmloss, int level, int icell, int ipart);
 #endif /* HYDRO && PARTICLES */
 
 /*

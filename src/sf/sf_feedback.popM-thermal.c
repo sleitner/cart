@@ -67,4 +67,12 @@ struct StellarFeedback sf_feedback_internal =
     sfb_setup
   };
 
+void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt ){}
+
+struct StellarFeedbackCell sf_feedback_cell_internal =
+{
+    sfb_hydro_feedback_cell
+};
+
+
 #endif /* STAR_FORMATION */

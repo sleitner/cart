@@ -30,6 +30,7 @@
 #include "units.h"
 
 #include "agn_step.h"
+#include "cell_feedback_step.h"
 #include "gravity_step.h"
 #include "hydro_step.h"
 #include "hydro_tracer_step.h"
@@ -754,6 +755,7 @@ int timestep( int level, MPI_Comm level_com )
 
 #ifdef STAR_FORMATION
         star_particle_feedback(level);
+        cell_feedback(level);
 
 	/* update cell values changed by starformation and feedback */
 	start_time( STELLAR_FEEDBACK_UPDATE_TIMER );

@@ -14,6 +14,7 @@
 #include "agn_step.h"
 #include "starformation_feedback_step.h"
 #include "step.h"
+#include "starII_step.h"
 
 #ifdef BLASTWAVE_FEEDBACK
 extern double blastwave_time;
@@ -28,7 +29,7 @@ void check_bwtime_precision(int level)
 }
 #endif /* BLASTWAVE_FEEDBACK */
 
-
+extern int starII_indicator ;
 void star_particle_feedback(int level) {
 	int i;
 	int ipart;
@@ -46,7 +47,7 @@ void star_particle_feedback(int level) {
 #ifndef COMPILER_GCC
 		/* Get compiler segfault under GCC */
 #ifdef STAR_PARTICLE_TYPES
-#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next), schedule(dynamic)
+#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next, particle_mass), schedule(dynamic) 
 #else
 #pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,particle_species_indices,num_particle_species,particle_list_next), schedule(dynamic)
 #endif
@@ -58,7 +59,7 @@ void star_particle_feedback(int level) {
 		while ( ipart != NULL_PARTICLE ) {
 			if ( particle_is_star(ipart) && particle_t[ipart] < t_next - 0.5*dtl[max_level] 
 #ifdef STAR_PARTICLE_TYPES
-					&& star_particle_type[ipart] == STAR_TYPE_NORMAL
+			     && (star_particle_type[ipart] == STAR_TYPE_NORMAL || star_particle_type[ipart] == STAR_TYPE_STARII || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH) 
 #endif /* STAR_PARTICLE_TYPES */
 			) {
 				stellar_feedback(level,iter_cell,ipart,t_next);
@@ -73,6 +74,12 @@ void star_particle_feedback(int level) {
 #if defined(STAR_PARTICLE_TYPES) && defined(AGN)
 	agn_feedback( level );
 #endif /* STAR_PARTICLE_TYPES && AGN */
+
+#ifdef STAR_PARTICLE_TYPES 
+        if(starII_indicator == 1){
+            starII_delete_snII( leve );
+        }
+#endif /* STAR_PARTICLE_TYPES */
 
 	end_time( WORK_TIMER );
 }

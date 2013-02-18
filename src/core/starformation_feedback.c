@@ -12,12 +12,18 @@
 #include "tree.h"
 #include "units.h"
 
+#include "onestarfits.h"
 
 extern struct StellarFeedback sf_feedback_internal;
 const struct StellarFeedback *sf_feedback = &sf_feedback_internal;
 
+extern struct StellarFeedbackCell sf_feedback_cell_internal;
+const struct StellarFeedbackCell *sf_feedback_cell = &sf_feedback_cell_internal;
 
+extern double starII_minimum_mass; 
+double tdelay_popM_feedback;
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
+double feedback_speed_time_ceiling = 1e4;  /* do not accelerate flows so that time-steps drop below~1e4yr (1e3km/s at 10pc) */
 
 #ifdef BLASTWAVE_FEEDBACK
 double blastwave_time = { 50.0e6 };
@@ -36,11 +42,6 @@ void config_init_star_formation_feedback()
   ControlParameterOps r = { NULL, control_parameter_list_feedback };
 
   /*
-  //  IMF
-  */
-  config_init_imf();
-
-  /*
   // call config_init for the current feedback model
   */
   if(sf_feedback->config_init != NULL) sf_feedback->config_init();
@@ -52,7 +53,10 @@ void config_init_star_formation_feedback()
   strcpy(ptr,sf_feedback_internal.name);
   control_parameter_add(r,ptr,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
 
+  control_parameter_add2(control_parameter_time,&feedback_speed_time_ceiling,"fb:time-ceiling","feedback_speed_time_ceiling","minimum cell crossing time feedback can contribute to. Kinetic feedback doesn't add to gas speed above this limit.");
+
   control_parameter_add3(control_parameter_double,&feedback_temperature_ceiling,"fb:temperature-ceiling","feedback_temperature_ceiling","T_max_feedback","maximum gas temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
+
 
 #ifdef BLASTWAVE_FEEDBACK 
   control_parameter_add3(control_parameter_time,&blastwave_time,"blastwave-time","bw:blast-time","bw.blast_time","time before cells can cool in blastwave feedback subgrid model.");
@@ -83,11 +87,6 @@ void config_verify_star_formation_feedback()
     }
 
   /*
-  //  IMF
-  */
-  config_verify_imf();
-
-  /*
   // call config_verify for the current feedback model
   */
   if(sf_feedback->config_verify != NULL) sf_feedback->config_verify();
@@ -96,6 +95,7 @@ void config_verify_star_formation_feedback()
   //  other
   */
   VERIFY(fb:temperature-ceiling, feedback_temperature_ceiling > 1.0e6 );
+  VERIFY(fb:time-ceiling, feedback_speed_time_ceiling < 1.0e6 && feedback_speed_time_ceiling >0);
 
 #ifdef BLASTWAVE_FEEDBACK 
   VERIFY(blastwave-time, !(blastwave_time < 0.0) );
@@ -123,20 +123,31 @@ void init_blastwave(int icell)
 
 
 double dUfact;  /* must be here to simplify OpenMP directives */
-
+double dvfact;  
 
 void stellar_feedback(int level, int cell, int ipart, double t_next )
 {
   /*
-  // call thermal_feedback for the current feedback model
+  // call feedback for the current feedback model for each particle
   */
   sf_feedback->hydro_feedback(level,cell,ipart,t_next);
 }
 
+void stellar_feedback_cell(int level, int cell, double t_next, double dt )
+{
+  /*
+  // call feedback for the current feedback model for each cell
+  */
+    sf_feedback_cell->hydro_feedback_cell(level,cell,t_next,dt);
+}
 
 void setup_star_formation_feedback(int level)
 {
   dUfact = feedback_temperature_ceiling/(units->temperature*constants->wmu*(constants->gamma-1));
+  /* speed ceiling -- multiply by density for momentum ceiling */
+  dvfact = cell_size[level] / (feedback_speed_time_ceiling*constants->yr/units->time);
+
+  tdelay_popM_feedback = OneStar_stellar_lifetime(starII_minimum_mass, 1.0);
 
   /*
   // call setup for the current feedback model

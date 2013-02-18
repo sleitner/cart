@@ -65,6 +65,28 @@ double cart_rand() {
 	return ret;
 }
 
+unsigned long int cart_rand_int(int n) {
+        unsigned long int nmax = n;
+	unsigned long int ret;
+
+#ifdef UNIQUE_RAND
+	int proc;
+
+	/* ensure unique random number sequence generated on each proc */
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( proc == local_proc_id ) {
+		    ret = gsl_rng_uniform_int( cart_random_generator, nmax );
+		} else {
+		    gsl_rng_uniform_int( cart_random_generator, nmax );
+		}
+	}
+#else
+	ret = gsl_rng_uniform_int( cart_random_generator, nmax );
+#endif /* UNIQUE_RAND */
+
+	return ret;
+}
+
 double cart_rand_lognormal(double sigma) {
 	double ret;
 	double zeta = -0.5*sigma*sigma;
@@ -105,5 +127,24 @@ unsigned int cart_rand_poisson( double mu ) {
 #endif /* UNIQUE_RAND */
 
 	return ret;
+}
+
+void cart_rand_unit_vector(double pos[nDim]){
+    /* returns a random unit vector*/
+    double phi, r;
+    if(nDim == 3){
+
+	pos[2] = cart_rand()*2-1;
+	r = sqrt(1-pos[2]*pos[2]);
+
+    }else if(nDim == 2){
+
+	r=1;
+
+    }
+
+    phi = cart_rand()*2*M_PI;
+    pos[1] = r * sin(phi);
+    pos[0] = r * cos(phi);
 }
 
