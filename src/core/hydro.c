@@ -41,14 +41,13 @@ float extra_gammas[num_extra_energy_variables];
 float extra_gammas[1]; /* avoids extra flags around pragmas*/
 #endif /* num_extra_energy_variables > 0 */
 
-#if defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY)
+#if defined(TURBULENT_ENERGY) 
 struct gamma_t
 {
     float turbulence;
-    float fixed_internal_energy;
 };
-extern struct gamma_t gamma_internal = {5.0/3.0, 5.0/3.0};
-#endif
+extern struct gamma_t gamma_internal = {5.0/3.0};
+#endif /* TURBULENT_ENERGY */
 
 
 void config_init_hydro()
@@ -77,10 +76,6 @@ void config_init_hydro()
   control_parameter_add3(control_parameter_time,&fix_turbulence_dissipation_time,"turbulence:fix-dissipation-time","fix_turbulence_dissipation_time","turbulence.fix_dissipation_time", "time scale over which turbulence dissipates, if not set then defaults to cell crossing time.");
 #endif /* TURBULENT_ENERGY */
   
-#ifdef FIXED_INTERNAL_ENERGY
-  control_parameter_add2(control_parameter_float,&gamma_internal.fixed_internal_energy,"gamma:fixed-internal-energy","gamma.fixed_internal_energy","gamma for fixed internal energy");
-#endif /* FIXED_INTERNAL_ENERGY */
-
   for(level=min_level; level<=max_level; level++)
     {
       level_sweep_dir[level] = 0;
@@ -89,10 +84,6 @@ void config_init_hydro()
 #ifdef TURBULENT_ENERGY
   turbulence_gamma = gamma_internal.turbulence;
 #endif /* TURBULENT_ENERGY */
-
-#ifdef FIXED_INTERNAL_ENERGY
-  fixed_internal_energy_gamma = gamma_internal.fixed_internal_energy;
-#endif /* FIXED_INTERNAL_ENERGY */
 
 }
 
@@ -122,10 +113,6 @@ void config_verify_hydro()
   
   VERIFY(gamma:turbulence , gamma_internal.turbulence  > 1.0);
 #endif /* TURBULENT_ENERGY */
-
-#ifdef FIXED_INTERNAL_ENERGY
-  VERIFY(gamma:fixed-internal-energy, gamma_internal.fixed_internal_energy > 1.0);
-#endif /* FIXED_INTERNAL_ENERGY */
 
 }
 

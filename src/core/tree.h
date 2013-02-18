@@ -140,17 +140,9 @@ extern int size_cell_array;
   #else
     #define num_turbulent_energy_vars           0
   #endif /* TURBULENT_ENERGY */
-  #ifdef FIXED_INTERNAL_ENERGY
-    #define num_fixed_internal_energy_vars      1
-    #define HVAR_FIXED_INTERNAL_ENERGY          (HVAR_EXTRA_ENERGY_VARIABLES+num_turbulent_energy_vars)
-    #define cell_fixed_internal_energy(c)       (cell_var(c,HVAR_FIXED_INTERNAL_ENERGY))
-    #define fixed_internal_energy_gamma         (extra_gamma(num_turbulent_energy_vars))
-  #else
-    #define num_fixed_internal_energy_vars      0
-  #endif /* FIXED_INTERNAL_ENERGY */
-  #define num_extra_energy_variables            (num_turbulent_energy_vars+num_fixed_internal_energy_vars)
+  #define num_extra_energy_variables            (num_turbulent_energy_vars)
 
-  #define num_extra_hydro_vars                  (num_electronion_noneq_vars+num_extra_energy_variables)
+  #define num_extra_hydro_vars                  (num_electronion_noneq_vars+num_extra_energy_variables+num_fixed_vars)
 
   #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
   #define cell_advected_variable(c,v)		(cell_var(c,HVAR_ADVECTED_VARIABLES+v))
@@ -227,7 +219,20 @@ extern int size_cell_array;
   #define refinement_indicator(c,x)		(cell_var(c,num_grav_vars+rt_num_vars+num_hydro_vars+x))
 #endif /* GRAVITY */
 
-#define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
+#ifdef HYDRO
+  #define VAR_FIXED                             (num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
+  #define cell_fixed_variables(c,v)             (cell_var(c,HVAR_FIXED_VARS+v))
+  #ifdef FIXED_PRESSURE
+    #define num_fixed_pressure_vars             1
+    #define VAR_FIXED_PRESSURE                  (VAR_FIXED_VARS+0)
+    #define cell_fixed_pressure(c)              (cell_var(c,VAR_FIXED_PRESSURE))
+  #else                             
+    #define num_fixed_pressure_vars             0
+  #endif /* FIXED_PRESSURE */
+  #define num_fixed_vars                        (num_fixed_pressure_vars)
+#endif /* HYDRO */
+
+#define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars+num_fixed_vars)
 
 extern int all_vars[num_vars];
 #ifdef HYDRO

@@ -706,20 +706,20 @@ void hydro_apply_turbulence_dissipation(int level, int num_level_cells, int *lev
 }
 #endif /* TURBULENT_ENERGY */
 
-#ifdef FIXED_INTERNAL_ENERGY
-void hydro_zero_fixed_internal_energy(int level, int num_level_cells, int *level_cells) {
-    int i, icell; 
+#ifdef FIXED_PRESSURE
+void hydro_zero_fixed_vars(int level, int num_level_cells, int *level_cells) {
+    int i,j, icell; 
     float cell_old;
-#pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl), private(i,icell)
+#pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl), private(i,j,icell)
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
 	if ( cell_is_leaf(icell) ) {
-	    /* zero internal energy */
-	    cell_fixed_internal_energy(icell) = 0.0;
+            for ( j = 0; j < num_fixed_vars; j++ ) {
+                cell_fixed_vars(icell,j) = 0.0;
 	}
     }   
 }
-#endif /* FIXED_INTERNAL_ENERGY */
+#endif /* FIXED_PRESSURE */
 
 void hydro_advance_internalenergy( int level ) {
     int i,j;
@@ -791,9 +791,9 @@ void hydro_advance_internalenergy( int level ) {
 	/* dissipate turbulence and add to thermal energy */
 	hydro_apply_turbulence_dissipation(level,num_level_cells,level_cells);
 #endif /* TURBULENT_ENERGY */
-#ifdef FIXED_INTERNAL_ENERGY
-	hydro_zero_fixed_internal_energy(level,num_level_cells,level_cells);
-#endif /* FIXED_INTERNAL_ENERGY */
+#ifdef FIXED_PRESSURE
+        hydro_zero_fixed_vars(level,num_level_cells,level_cells);
+#endif /* FIXED_PRESSURE */
 
 	cart_free( level_cells );
 
@@ -820,7 +820,7 @@ void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[n
 	}
 }
 
-#if defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY)
+#if defined(TURBULENT_ENERGY) || defined(FIXED_PRESSURE)
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
         int i,j, irl;
@@ -906,7 +906,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
 
-#else /* defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY) */
+#else /* defined(TURBULENT_ENERGY) || defined(FIXED_PRESSURE) */
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	int j;
@@ -1024,7 +1024,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
-#endif   /* defined(TURBULENT_ENERGY) || defined(FIXED_INTERNAL_ENERGY) */ 
+#endif   /* defined(TURBULENT_ENERGY) || defined(FIXED_PRESSURE) */ 
 	
 void hydro_copy_vars( int level, int direction ) {
 	int i, j;
