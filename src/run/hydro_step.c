@@ -722,12 +722,11 @@ void hydro_zero_fixed_vars(int level, int num_level_cells, int *level_cells) {
 #endif /* FIXED_PRESSURE */
 
 void hydro_advance_internalenergy( int level ) {
-    int i,j;
+        int i,j;
 	int icell;
 	int num_level_cells;
 	int *level_cells;
 	double kinetic_energy;
-	double extra_internal_energy;
 	double energy;
 	double gamma1, div, div_dt;
 
@@ -736,7 +735,7 @@ void hydro_advance_internalenergy( int level ) {
 	div_dt = dtl[level] / 3.0;
 
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(icell,i,j,kinetic_energy,energy,gamma1,div,extra_internal_energy), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,ref,div_dt,extra_gammas)
+#pragma omp parallel for default(none), private(icell,i,j,kinetic_energy,energy,gamma1,div), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,ref,div_dt,extra_gammas)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -748,12 +747,10 @@ void hydro_advance_internalenergy( int level ) {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 		cell_electron_internal_energy(icell) = MAX( 1.0e-30, cell_electron_internal_energy(icell)*div*div*div );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-		extra_internal_energy = 0;
 		for(j=0; j<num_extra_energy_variables ;j++){
 		    gamma1 = extra_gamma(j) - 1.0; 
 		    div = 1.0 + gamma1 * ref[icell] * div_dt;
 		    cell_extra_energy_variables(icell,j) = MAX( 1.0e-30, cell_extra_energy_variables(icell,j)*div*div*div );
-		    extra_internal_energy += cell_extra_energy_variables(icell,j);
 		}
 
 		/* synchronize internal and total energy */
