@@ -854,6 +854,9 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	    }
 	    v[5][i] /= v[1][i];
 	    
+#ifdef FIXED_PRESSURE
+            v[1][i] += cell_fixed_pressure(irl);
+#endif /* FIXED_PRESSURE */
 	    v[1][i] = MAX( pressure_floor * v[0][i]*v[0][i], v[1][i]);
             v[6][i] = constants->gamma;
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
