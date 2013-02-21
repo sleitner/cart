@@ -158,6 +158,9 @@ void define_file_variables(int *num_variables, char *variable_labels[num_vars],
 #ifdef BLASTWAVE_FEEDBACK
 	add_variable( "HVAR_BLASTWAVE_TIME", HVAR_BLASTWAVE_TIME );
 #endif /* BLASTWAVE_FEEDBACK */
+#ifdef INERT_GAS_TRACER
+	add_variable( "HVAR_INERT_GAS_TRACER", HVAR_INERT_GAS_TRACER );
+#endif /* INERT_GAS_TRACER */
 #endif /* HYDRO */
 
 #ifdef GRAVITY

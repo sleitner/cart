@@ -267,6 +267,12 @@ void mark_refinement_indicators( int cell, int level ) {
 		indicator = MAX( gas_1stspec_indicator( cell, level ), indicator );
 	}
 
+#ifdef INERT_GAS_TRACER
+        if ( refinement_indicator[INERT_GAS_TRACER_INDICATOR].use[level] ) {
+		indicator = MAX( inert_gas_tracer_indicator( cell, level ), indicator );
+	}
+#endif /* INERT_GAS_TRACER */
+
 	cell_all_neighbors( cell, neighbors );
 	for ( i = 0; i < nDim; i++ ) {
 		drho[i] = fabs( cell_gas_density( neighbors[2*i] ) 
@@ -337,6 +343,11 @@ float dark_1stspec_indicator( int cell, int level ) {
 #ifdef HYDRO
 
 float spatial_indicator( int cell, int level ) {
+        /*
+        // hack: refine around the central_cell -- initialized here to the center of the grid.
+        // threshold[level] sets the code unit-distances to different levels of refinement 
+        // the selected level gets fully refined (assuming weight==1) if r<distance(level) 
+        */
 	float in_region = 0;
 	const double central_cell[nDim] = {num_grid/2,num_grid/2,num_grid/2};
 	double pos[3];
@@ -354,6 +365,32 @@ float gas_mass_indicator( int cell, int level ) {
 	ave_mass = ( cell_volume[level] * cell_gas_density(cell) ) / refinement_indicator[GAS_MASS_INDICATOR].threshold[level];
 	return MIN( ave_mass, refinement_indicator[GAS_MASS_INDICATOR].weight );
 }
+
+#ifdef /* INERT_GAS_TRACER */
+float inert_gas_tracer_indicator( int cell, int level ) {
+        /* 
+        // hack: cell_inert_gas_tracer is initialized to cell_gas_density (in some region) 
+        // if it is mixed below fraction=refinement_indicator[INERT_GAS_TRACER_INDICATOR].weight 
+        // then ignore this else multiply the gas refinement by threshold[level]
+        */ 
+	float gas_tracer_ratio;
+	float indicator;
+	gas_tracer_ratio = cell_inert_gas_tracer(cell)/cell_gas_density(cell);
+        if( gas_tracer_ratio > refinement_indicator[INERT_GAS_TRACER_INDICATOR].weight) {
+            if ( refinement_indicator[GAS_MASS_INDICATOR].use[level] ) {
+                indicator = (   refinement_indicator[INERT_GAS_TRACER_INDICATOR].threshold[level]
+                                *gas_mass_indicator(cell,level)); 
+            }
+            if ( refinement_indicator[GAS_1STSPEC_INDICATOR].use[level] ) {
+                indicator = MAX(refinement_indicator[INERT_GAS_TRACER_INDICATOR].threshold[level]
+                                *gas_1stspec_indicator(cell,level), indicator); 
+            }
+            return MIN( indicator, 1.0 );
+        }else{
+            return 0;
+        }
+}
+#endif /* INERT_GAS_TRACER */
 
 float gas_1stspec_indicator( int cell, int level ) {
 	float ave_mass;
