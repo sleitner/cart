@@ -87,6 +87,8 @@ struct StellarFeedback sf_feedback_internal =
     sfb_config_verify,
     sfb_init,
     sfb_setup
+    sfb_setup,
+    sfb_destroy_star_particles
   };
 
 void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt ){}

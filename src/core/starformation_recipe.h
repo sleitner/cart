@@ -21,6 +21,7 @@ struct StarFormationRecipe
   void (*config_init)();           /* can be NULL */
   void (*config_verify)();         /* can be NULL */
   void (*setup)(int level);        /* can be NULL */
+  void (*form_star_particles)(int level, int icell, double dt, float sfr); /* NULL */
 };
 
 extern const struct StarFormationRecipe *sf_recipe;

@@ -189,6 +189,7 @@ struct StellarFeedback sf_feedback_internal =
     sfb_config_verify,
     sfb_init,
     sfb_setup,
+    sfb_destroy_star_particles
   };
 
 struct StellarFeedbackCell sf_feedback_cell_internal = 

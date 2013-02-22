@@ -14,7 +14,6 @@
 #include "agn_step.h"
 #include "starformation_feedback_step.h"
 #include "step.h"
-#include "starII_step.h"
 
 #ifdef BLASTWAVE_FEEDBACK
 extern double blastwave_time;
@@ -29,7 +28,6 @@ void check_bwtime_precision(int level)
 }
 #endif /* BLASTWAVE_FEEDBACK */
 
-extern int starII_indicator ;
 void star_particle_feedback(int level) {
 	int i;
 	int ipart;
@@ -59,7 +57,9 @@ void star_particle_feedback(int level) {
 		while ( ipart != NULL_PARTICLE ) {
 			if ( particle_is_star(ipart) && particle_t[ipart] < t_next - 0.5*dtl[max_level] 
 #ifdef STAR_PARTICLE_TYPES
-			     && (star_particle_type[ipart] == STAR_TYPE_NORMAL || star_particle_type[ipart] == STAR_TYPE_STARII || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH) 
+			     && (   star_particle_type[ipart] == STAR_TYPE_NORMAL 
+                                 || star_particle_type[ipart] == STAR_TYPE_STARII 
+                                 || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH) 
 #endif /* STAR_PARTICLE_TYPES */
 			) {
 				stellar_feedback(level,iter_cell,ipart,t_next);
@@ -74,12 +74,6 @@ void star_particle_feedback(int level) {
 #if defined(STAR_PARTICLE_TYPES) && defined(AGN)
 	agn_feedback( level );
 #endif /* STAR_PARTICLE_TYPES && AGN */
-
-#ifdef STAR_PARTICLE_TYPES 
-        if(starII_indicator == 1){
-            starII_delete_snII( leve );
-        }
-#endif /* STAR_PARTICLE_TYPES */
 
 	end_time( WORK_TIMER );
 }

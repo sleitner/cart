@@ -78,6 +78,8 @@ double sfr_rate(int cell)
     }
 }
 
+void sfr_form_star_particles(int level, int icell, double dt, float sfr){
+}
 
 struct StarFormationRecipe sf_recipe_internal =
 {
@@ -85,7 +87,8 @@ struct StarFormationRecipe sf_recipe_internal =
   sfr_rate,
   sfr_config_init,
   sfr_config_verify,
-  sfr_setup
+  sfr_setup,
+  sfr_form_star_particles
 };
 
 #else /* RADIATIVE_TRANSFER */

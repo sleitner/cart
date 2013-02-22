@@ -141,6 +141,13 @@ void stellar_feedback_cell(int level, int cell, double t_next, double dt )
     sf_feedback_cell->hydro_feedback_cell(level,cell,t_next,dt);
 }
 
+void stellar_destruction(int level, int cell,  int ipart, int *icheck ) {
+  /*
+  // call particle destruction for the current feedback model 
+  */
+    sf_feedback->destroy_star_particle(level,cell,ipart,icheck);
+}
+
 void setup_star_formation_feedback(int level)
 {
   dUfact = feedback_temperature_ceiling/(units->temperature*constants->wmu*(constants->gamma-1));

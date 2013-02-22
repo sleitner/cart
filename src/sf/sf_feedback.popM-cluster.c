@@ -134,6 +134,7 @@ struct StellarFeedback sf_feedback_internal =
     sfb_config_verify,
     sfb_init,
     sfb_setup,
+    NULL
   };
 
 struct StellarFeedbackCell sf_feedback_cell_internal = 

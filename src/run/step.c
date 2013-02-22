@@ -39,6 +39,7 @@
 #include "rt_step.h"
 #include "starformation_step.h"
 #include "starformation_feedback_step.h"
+#include "stardestruction_step.h"
 #include "step.h"
 
 
@@ -756,6 +757,11 @@ int timestep( int level, MPI_Comm level_com )
 #ifdef STAR_FORMATION
         star_particle_feedback(level);
         cell_feedback(level);
+
+#ifdef STAR_PARTICLE_TYPES 
+        star_destruction( level );
+#endif /* STAR_PARTICLE_TYPES */
+
 
 	/* update cell values changed by starformation and feedback */
 	start_time( STELLAR_FEEDBACK_UPDATE_TIMER );

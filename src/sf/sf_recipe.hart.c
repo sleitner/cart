@@ -27,6 +27,8 @@ void sfr_config_init()
   control_parameter_add4(control_parameter_double,&sfr.slope,"sf:slope","sfr.slope","sf:recipe=0:slope","alpha_sf","the slope of the star formation law with gas density (see HART documentation for exact definition).");
 
   control_parameter_add4(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=0:efficiency","eps_sf","the relative efficiency of the star formation law (see HART documentation for exact definition).");
+  poissonRF12_config_init();
+  continuous_config_init();
 }
 
 
@@ -34,12 +36,16 @@ void sfr_config_verify()
 {
   VERIFY(sf:slope, sfr.slope > 0.0 );
   VERIFY(sf:efficiency, sfr.efficiency > 0.0 );
+  poissonRF12_verify();
+  continuous_verify();
 }
 
 
 void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time/(4.0e9*constants->yr)*pow(units->density*pow(constants->Mpc,3.0)/(1.0e16*constants->Msun),sfr.slope-1);
+  poissonRF12_setup(level);
+  continuous_setup(level);
 }
 
 
@@ -48,6 +54,10 @@ double sfr_rate(int cell)
   return sfr.factor*pow(cell_gas_density(cell),sfr.slope);
 }
 
+void sfr_form_star_particles(int level, int icell, double dt, float sfr){
+    poissonRF12_star_formation( level, icell, dt, sfr );
+    continuous_star_formation( level, icell, dt, sfr );
+}
 
 struct StarFormationRecipe sf_recipe_internal =
 {
@@ -55,7 +65,8 @@ struct StarFormationRecipe sf_recipe_internal =
   sfr_rate,
   sfr_config_init,
   sfr_config_verify,
-  sfr_setup
+  sfr_setup, 
+  sfr_form_star_particles
 };
 
 
