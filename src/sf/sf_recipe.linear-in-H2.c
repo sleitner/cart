@@ -12,7 +12,7 @@
 #include "tree.h"
 #include "units.h"
 
-
+#include "models/form_star.all.h"
 /*
 //  Recipe based on Eq. (17) of GK10, with tau_{SF} = const = 1.5Gyr (a-la Genzel et al 2010 & Bigiel et al)
 */
@@ -32,6 +32,7 @@ void sfr_config_init()
   control_parameter_add3(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=3:efficiency","the relative efficiency of the star formation law (relative to the constant depletion time-scale of 1.5 Gyr).");
 
   control_parameter_add3(control_parameter_double,&sfr.variability,"sf:variability","sfr.variability","sf:recipe=3:variability","the variability of the efficiency. If <sf:variability> is greater than 0, then it serves as a dispersion of a lognormal distribution with which the actual SF efficiency fluctuates around <sf:efficiency> (i.e. <sf:efficiency> remains the mean of the distribution).");
+  star_form_config_init();
 }
 
 
@@ -39,12 +40,14 @@ void sfr_config_verify()
 {
   VERIFY(sf:efficiency, sfr.efficiency > 0.0 );
   VERIFY(sf:variability, !(sfr.variability < 0.0) );
+  star_form_config_verify();
 }
 
 
 void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time/(1.5*constants->Gyr);
+  star_form_setup(level);
 }
 
 
@@ -83,7 +86,8 @@ double sfr_rate(int cell)
     }
 }
 
-void sfr_form_star_particles(int level, int icell, double dt, float sfr){
+void sfr_form_star_particles(int level, int icell, double dtl, double dt, float sfr){
+    star_form_particles( level, icell, dtl, dt, sfr );
 }
 
 struct StarFormationRecipe sf_recipe_internal =

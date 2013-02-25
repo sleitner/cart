@@ -18,6 +18,8 @@
 /* provides the luminosity used in density calculation*/
 
 extern double tdelay_popM_feedback;
+
+
 /* RT source function for individual stars */
 float rad_luminosity_popM_starII0(int ipart){
     float Lion ; 

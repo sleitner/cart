@@ -25,7 +25,6 @@
 */
 
 /* turbulence option is inactive -- can be added to input SNe-> turbulence */
-/* hybrid and cube options are also inactive */
 double kfb_boost_kicks=2;
 struct kfb_t
 {
@@ -525,12 +524,6 @@ void kfb_kick_cube(double dp, int level, int icell){
 	if( cell_is_local(nb26[j]) ){
 	    if( cell_is_leaf(nb26[j]) ){
 		kfb_kick_cell(nb26[j], -2, CubeDelPos[j], dp/num_local_cells, level);
-/* 		cell_center_position(nb26[j], pos); //snl */
-/* 		cart_debug( "snl %f %f %f ",  */
-/* 			    (pos[0]-8.062500)/0.125 - CubeDelPos[j][0], */
-/* 			    (pos[1]-8.062500)/0.125 - CubeDelPos[j][1], */
-/* 			    (pos[2]-8.062500)/0.125 - CubeDelPos[j][2]  */
-/* 		    ); */
 	    }else{
 		iPar = nb26[j];
 		for(ichild=0; ichild<num_children; ichild++){
@@ -597,7 +590,6 @@ void kfb_kick_cube_constv(double dp, int level, int icell, double *mall_level){
 
 void kfb_kick(double dp, int level, int icell){
     int dum[]={0,0,0};
-/*     double pos[nDim]; //snl */
 
     if(       strcmp(kfb_internal_spread,"cell") == 0){
 	kfb_kick_cell(icell, -1, dum, dp, level); 
@@ -614,11 +606,10 @@ void kfb_kick(double dp, int level, int icell){
     
 }
 void kfb_hybrid_pressurize_kick(double dp, double dPressure, int level, int icell){
-/*     const double frac_kick = 0.5; */
-    double dPi;
-/*  Hybrid approach
-//  pressurize central cell +kick 26 surrounding cells
+/*  
+//  Hybrid approach: pressurize central cell +kick 26 surrounding cells
 */
+    double dPi;
     cart_assert( strcmp(kfb_internal_spread,"cube") == 0 );
 #ifndef FIXED_PRESSURE
     cart_error("kfb_hybrid_pressurize_kick requires FIXED_PRESSURE and cube kicks");
@@ -642,7 +633,7 @@ void distribute_momentum(double dp, int level, int icell, double dt){
 /*     dp = 2e-8*constants->kms*constants->Msun/(units->velocity*units->mass)*units->time*dt; */
 /* #endif */
     dp *= kfb_boost_kicks;
-    PLUGIN_POINT(RecordDistributeMomentum)(dp, icell, level);
+/*   PLUGIN_POINT(RecordDistributeMomentum)(dp, icell, level); */
 /*     cart_debug("kickv %d %e %e",icell, */
 /* 	       dp/cell_gas_density(icell)*units->velocity/constants->kms, */
 /* 	       cell_gas_density(icell)*units->number_density ); */

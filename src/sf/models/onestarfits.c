@@ -9,7 +9,7 @@
 #include "starformation.h"
 #include "units.h"
 #include "onestarfits.h"
-
+#include "form_star.starII.h"
 
 double agetau(double ini_mass_sol, double age_yr, double Zsol);
 /* Raiteri et al. 1996 */

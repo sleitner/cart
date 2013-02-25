@@ -13,6 +13,8 @@
 extern struct StarFormationRecipe sf_recipe_internal;
 const struct StarFormationRecipe *sf_recipe = &sf_recipe_internal;
 
+int poissonRF12_starformation_indicator = 1;
+int continuous_starformation_indicator = 0;
 
 /*
 //  Configuration
@@ -32,6 +34,10 @@ void config_init_star_formation_recipe()
   strcpy(ptr,sf_recipe_internal.name);
   control_parameter_add(r,ptr,"sf:recipe","a recipe for star formation. This parameter is for listing only, and must be set with SF_RECIPE define in defs.h. See /src/sf for available recipes.");
 
+  control_parameter_add2(control_parameter_int,&poissonRF12_starformation_indicator,"sfRF12:indicator","poissonRF12_starformation_indicator","create star particles using a poisson sampling around a mass that is typically formed over sfRF12_timescale for the given star formation rate");
+
+  control_parameter_add2(control_parameter_int,&continuous_starformation_indicator,"sfcontinuous:indicator","continuous_starformation_indicator","create star particles and then grow them using the star formation rate.");
+
   if(sf_recipe_internal.config_init != NULL) sf_recipe_internal.config_init();
 }
 
@@ -47,6 +53,14 @@ void config_verify_star_formation_recipe()
 #else
   const char *recipe_external_name = "";
 #endif
+
+  VERIFY(sfcontinuous:indicator, continuous_starformation_indicator==0 || continuous_starformation_indicator==1 );
+  VERIFY(sfRF12:indicator, poissonRF12_starformation_indicator==0 || poissonRF12_starformation_indicator==1 );
+  if(   !(poissonRF12_starformation_indicator || poissonRF12_starformation_indicator) 
+      || (poissonRF12_starformation_indicator && poissonRF12_starformation_indicator) ) 
+      {
+	  cart_error("One and only one star creation function should be used");
+      }
 
   cart_assert(sf_recipe_internal.name != NULL);
   cart_assert(sf_recipe_internal.rate != NULL);

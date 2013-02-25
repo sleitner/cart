@@ -12,16 +12,12 @@
 #include "tree.h"
 #include "units.h"
 
-#include "onestarfits.h"
-
 extern struct StellarFeedback sf_feedback_internal;
 const struct StellarFeedback *sf_feedback = &sf_feedback_internal;
 
 extern struct StellarFeedbackCell sf_feedback_cell_internal;
 const struct StellarFeedbackCell *sf_feedback_cell = &sf_feedback_cell_internal;
 
-extern double starII_minimum_mass; 
-double tdelay_popM_feedback;
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
 double feedback_speed_time_ceiling = 1e4;  /* do not accelerate flows so that time-steps drop below~1e4yr (1e3km/s at 10pc) */
 
@@ -141,20 +137,18 @@ void stellar_feedback_cell(int level, int cell, double t_next, double dt )
     sf_feedback_cell->hydro_feedback_cell(level,cell,t_next,dt);
 }
 
-void stellar_destruction(int level, int cell,  int ipart, int *icheck ) {
-  /*
-  // call particle destruction for the current feedback model 
-  */
-    sf_feedback->destroy_star_particle(level,cell,ipart,icheck);
-}
+/* void stellar_destruction(int level, int cell,  int ipart, int *icheck ) { */
+/*   /\* */
+/*   // call particle destruction for the current feedback model  */
+/*   *\/ */
+/*     sf_feedback->destroy_star_particle(level,cell,ipart,icheck); */
+/* } */
 
 void setup_star_formation_feedback(int level)
 {
   dUfact = feedback_temperature_ceiling/(units->temperature*constants->wmu*(constants->gamma-1));
   /* speed ceiling -- multiply by density for momentum ceiling */
   dvfact = cell_size[level] / (feedback_speed_time_ceiling*constants->yr/units->time);
-
-  tdelay_popM_feedback = OneStar_stellar_lifetime(starII_minimum_mass, 1.0);
 
   /*
   // call setup for the current feedback model

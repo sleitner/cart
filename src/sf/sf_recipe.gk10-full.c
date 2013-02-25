@@ -9,12 +9,12 @@
 #include "tree.h"
 #include "units.h"
 
+#include "models/form_star.all.h"
 
 /*
 //  Recipe from GK10, with full RT
 */
 #ifdef RADIATIVE_TRANSFER
-
 struct
 {
   double factor;                         /* normalization constant; used to be called fmass */
@@ -38,6 +38,7 @@ void sfr_config_init()
   control_parameter_add3(control_parameter_double,&sfr.max_cloud_density,"sf:max-cloud-density","sfr.max-cloud-density","sf:recipe=1:max-cloud-density","the maximum density for computing the free-fall time. Setting <sf:max-cloud-density> = <sf:min-cloud-density> reduces this recipe to the recipe #1 of Gnedin et al 2009; setting <sf:max-cloud-density> to a very large number effectively removes this limit and reduces this recipe to the recipe #2 of Gnedin et al 2009; a non-trivial value of <sf:max-cloud-density> > <sf:min-cloud-density> makes a recipe not discussed in Gnedin et al 2009.");
 
   control_parameter_add3(control_parameter_double,&sfr.very_high_density,"sf:very-high-density","sfr.very-high-density","sf:recipe=1:very-high-density","the minimum density above which all gas is assumed to participate in star formation, irrespectively of its molecular fraction. This can be used to smoothly switch to primordial mode of star formation, when the molecular fraction never exceeds about 0.001.");
+  star_form_config_init();
 }
 
 
@@ -48,12 +49,14 @@ void sfr_config_verify()
   VERIFY(sf:min-cloud-density, !(sfr.min_cloud_density < 0.0) );
   VERIFY(sf:max-cloud-density, !(sfr.max_cloud_density < sfr.min_cloud_density) );
   VERIFY(sf:very-high-density, sfr.very_high_density > 0.0 );
+  star_form_config_verify();
 }
 
 
 void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time*sqrt(32*constants->G*constants->XH*constants->mp/(3*M_PI)); 
+  star_form_setup( level );
 }
 
 
@@ -78,7 +81,8 @@ double sfr_rate(int cell)
     }
 }
 
-void sfr_form_star_particles(int level, int icell, double dt, float sfr){
+void sfr_form_star_particles(int level, int icell, double dtl, double dt, float sfr){
+    star_form_particles( level, icell, dtl, dt, sfr );
 }
 
 struct StarFormationRecipe sf_recipe_internal =

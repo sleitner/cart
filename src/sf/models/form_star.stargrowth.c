@@ -1,4 +1,21 @@
-#include 'form_star.stargrowth.h'
+#include "config.h"
+#ifdef STAR_FORMATION
+
+#include <math.h>
+#include <string.h>
+
+#include "auxiliary.h"
+#include "control_parameter.h"
+#include "cosmology.h"
+#include "hydro.h"
+#include "imf.h"
+#include "parallel.h"
+#include "particle.h"
+#include "starformation.h"
+#include "tree.h"
+#include "units.h"
+
+#include "form_star.stargrowth.h"
 //snl add includes
 
 
@@ -54,9 +71,6 @@ void grow_star_particle( int ipart, float delta_mass, int icell, int level) {
     star_initial_mass[ipart] += add_mass; /* this is used for feedback */
     
 #ifdef ENRICHMENT
-    if(sf_metallicity_floor>0.0 && cell_gas_metal_density_II(icell)<sf_metallicity_floor*constants->Zsun*cell_gas_density(icell)){
-	cell_gas_metal_density_II(icell) =  sf_metallicity_floor*constants->Zsun*cell_gas_density(icell);
-    }
     star_metallicity_II[ipart] = 
 	( cell_gas_metal_density_II(icell) / cell_gas_density(icell) * add_mass +
 	  star_metallicity_II[ipart] * pmass_orig) / sum_mass ;
@@ -90,3 +104,4 @@ void grow_star_particle( int ipart, float delta_mass, int icell, int level) {
 	cell_advected_variable(icell,i) *= density_fraction;
     }
 }
+#endif /* STAR_FORMATION */

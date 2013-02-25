@@ -9,7 +9,7 @@
 #include "tree.h"
 #include "units.h"
 #include "starformation_feedback.h"
-#include "onestarfits.h"
+#include "models/onestarfits.h"
 
 #include "models/feedback.snII.h"
 #include "models/feedback.snIa.h"
@@ -28,7 +28,9 @@
 #include "times.h"
 #include "starformation.h"
 #include "particle.h"
+
 extern double starII_minimum_mass;
+extern double tdelay_popM_feedback;
 
 extern double rapSR_boost;
 extern double wind_momentum_boost;
@@ -36,8 +38,7 @@ extern double starII_rapSR_boost;
 extern double starII_wind_momentum_boost;
 
 extern double tauIR_boost;
-extern double tdelay_popM_feedback ;
-extern int cluster_buildup_indicator;
+extern int continuous_starformation_indicator;
 
 void sfb_config_init()
 {
@@ -58,7 +59,9 @@ void sfb_config_init()
 
 void sfb_config_verify()
 {
-  cart_assert(cluster_buildup_indicator);
+  if(!continuous_starformation_indicator){
+	cart_error("starII currently requires continuous star formation");
+  }
   snII_config_verify();
   snIa_config_verify();
   ml_snl2012_config_verify();
@@ -167,6 +170,26 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
     
 }
 
+void sfb_destroy_star_particle(int level,int icell,int ipart,int *idelete)
+{
+    double star_age, ini_mass_sol, Zsol;
+    star_age = particle_t[ipart] - star_tbirth[ipart] ;
+    ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
+    Zsol = star_metallicity_II[ipart]/constants->Zsun;
+    if ( star_particle_type[ipart] == STAR_TYPE_STARII &&
+	 star_age > OneStar_stellar_lifetime(ini_mass_sol, Zsol)
+	){
+	delete_particle(icell,ipart);
+	particle_free(ipart);
+	/* deleted current particle so go back one */
+	*idelete = -1;
+    }else{
+	*idelete = 0;
+    }
+    
+}
+
+
 extern double sf_min_gas_number_density;
 void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt )
 {
@@ -180,7 +203,7 @@ void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt )
 #endif /* HYDRO && PARTICLES */
 
 struct StellarFeedback sf_feedback_internal = 
-  {
+{
     "popM-starII",
     sfb_hydro_feedback,
     rad_luminosity_popM_starII0,
@@ -189,8 +212,8 @@ struct StellarFeedback sf_feedback_internal =
     sfb_config_verify,
     sfb_init,
     sfb_setup,
-    sfb_destroy_star_particles
-  };
+    sfb_destroy_star_particle
+};
 
 struct StellarFeedbackCell sf_feedback_cell_internal = 
 {

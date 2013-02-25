@@ -1,5 +1,5 @@
 #include "config.h"
-#ifdef STAR_FORMATION
+#if defined(STAR_FORMATION) && defined(HYDRO)
 
 #include <math.h>
 
@@ -23,8 +23,6 @@
 #include "logging.h"
 #endif
 
-#ifdef HYDRO
-
 /* star formation parameters */
 extern int sf_min_level;
 
@@ -34,6 +32,7 @@ void star_formation(int level, int time_multiplier) {
   int num_level_cells;
   int *level_cells;
   double dt_eff;
+  float *sfr;
 
   if ( level < sf_min_level ) return;
   if(sf_recipe->form_star_particles == 0){
@@ -49,12 +48,12 @@ void star_formation(int level, int time_multiplier) {
 
   select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,level,sf_recipe,dt_eff, sfr), schedule(dynamic)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,level,sf_recipe,dt_eff, sfr, dtl), schedule(dynamic)
   for(i=0;i<num_level_cells; i++)
     {
         if ( sfr[i] <=0 ) continue;
         icell = level_cells[i];
-        sf_recipe->form_star_particles(level,icell,dt_eff,sfr[i]);
+        sf_recipe->form_star_particles(level,icell,dtl[level],dt_eff,sfr[i]);
     }
 
   cart_free(level_cells);
@@ -136,4 +135,4 @@ void remap_star_ids() {
 	end_time( COMMUNICATION_TIMER );
 }
 
-#endif /* STAR_FORMATION */
+#endif /* STAR_FORMATION && HYDRO */

@@ -7,9 +7,5 @@
 #endif
 
 void cell_feedback(int level);
-#ifdef RT_OTVET_SAVE_FLUX
-void RaP_longrange_setup(int level);   
-#endif /* RT_OTVET_SAVE_FLUX */
-
 
 #endif

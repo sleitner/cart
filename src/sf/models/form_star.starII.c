@@ -1,6 +1,22 @@
-//snl add includes
-#include "form_star.runaway-starII.h"
-#include "form_star.continuous.h"
+#include "config.h"
+#ifdef STAR_FORMATION
+
+#include <math.h>
+#include <string.h>
+
+#include "auxiliary.h"
+#include "control_parameter.h"
+#include "cosmology.h"
+#include "hydro.h"
+#include "imf.h"
+#include "parallel.h"
+#include "particle.h"
+#include "starformation.h"
+#include "tree.h"
+#include "units.h"
+#include "rand.h"
+
+#include "form_star.starII.h"
 
 /* STARII related */
 double starII_highmass_slope=-2.35;          /* IMF slope used for sampling starII masses */
@@ -13,7 +29,7 @@ double starII_avg_mass_code;
 double mfrac_starII, starII_avg_mass, m_imf_tot;
 double sIIminpw, imfmaxpw;
 
-
+double tdelay_popM_feedback;
 void starII_config_init()
 {
     if(!(starII_indicator)) return;
@@ -21,7 +37,7 @@ void starII_config_init()
     control_parameter_add2(control_parameter_double,&starII_minimum_mass,"starII:minimum-mass","starII_minimum_mass","the minimum mass of 'virtual' starII particles in Msun.");
     
     control_parameter_add2(control_parameter_bool, &starII_runaway_indicator, "starII:runaway-indicator", "starII_runaway_indicator", "turn on runaway starIIs");
-    runaway_config_init();
+    starII_runaway_config_init();
 }
 
 void starII_config_verify()
@@ -29,11 +45,10 @@ void starII_config_verify()
 #ifndef STAR_PARTICLE_TYPES
     cart_error("STAR_PARTICLE_TYPES must be defined for starII_indicator True");
 #endif /* STAR_PARTICLE_TYPES */
-    VERIFY(cluster:buildup-indicator,cluster_buildup_indicator==1); /* starII requires cluster build up currently */
     VERIFY(starII:runaway-indicator,starII_runaway_indicator==1 || starII_runaway_indicator==0);
     VERIFY(starII:highmass-slope,starII_highmass_slope);
     VERIFY(starII:minimum-mass, starII_minimum_mass >1.0 );
-    starII_runaway_config_verify()
+    starII_runaway_config_verify();
 }   
 
 void starII_init()
@@ -70,12 +85,13 @@ void starII_init()
     
     sIIminpw = pow( starII_minimum_mass, starII_highmass_slope+1 );
     imfmaxpw = pow( imf->max_mass, starII_highmass_slope+1 ) ;
-    starII_runaway_init()
+    tdelay_popM_feedback = OneStar_stellar_lifetime(starII_minimum_mass, 1.0);
+    starII_runaway_init();
 }
 
 void starII_setup(int level){
     starII_avg_mass_code = starII_avg_mass * constants->Msun / units->mass;
-    starII_runaway_setup(level)
+    starII_runaway_setup(level);
 }
 
 double msample_imf_highmass()
@@ -90,9 +106,10 @@ double msample_imf_highmass()
     /* m=CDF^-1(Puni)*/
 }
 
-void starII_creation( double dmstarII, int icell, int level ){
-    int ipart;
+void starII_creation( double dmstarII, int icell, int level, double dtl ){
+    int ipart, i;
     double mstargas_left, starII_mass, Pform_leftover ;
+    double uni[nDim];
     /*  Form particles until alotted mass is used up. */
     mstargas_left = dmstarII ;
     while( mstargas_left > 0.0 ){
@@ -100,10 +117,10 @@ void starII_creation( double dmstarII, int icell, int level ){
 	if( mstargas_left < starII_mass ){ /* last II mass forms stochastically. */
 	    Pform_leftover = mstargas_left / starII_avg_mass_code; /* cannot be mass dependent: P(M*)=P(M*|IMF)*constant_wrt_M* */
 	    if( cart_rand() < Pform_leftover ){ 
-		ipart = create_star_particle( icell, starII_mass, dtl[level], STAR_TYPE_STARII ); 
+		ipart = create_star_particle( icell, starII_mass, dtl, STAR_TYPE_STARII ); 
 	    }
 	} else {
-	    ipart = create_star_particle( icell, starII_mass, dtl[level], STAR_TYPE_STARII ); 
+	    ipart = create_star_particle( icell, starII_mass, dtl, STAR_TYPE_STARII ); 
 	}
         
         if(starII_indicator){
@@ -115,5 +132,5 @@ void starII_creation( double dmstarII, int icell, int level ){
         mstargas_left -= starII_mass;
     }
 }
-#endif /* STAR_PARTICLE_TYPES */
+#endif /* STAR_FORMATION */
 

@@ -22,9 +22,6 @@ int Apply_AVK_tauIR = 0;
 double tauIR_boost = 0;
 double clump_dust_temp = 200;
 double clump_survival_time = 5e6;
-#ifdef STAR_PARTICLE_TYPES
-extern double tdelay_popM_feedback;
-#endif
 
 void trapIR_config_init()
 {

@@ -1,11 +1,27 @@
-#include "math.h"
+#include "config.h"
+#ifdef STAR_FORMATION
+
+#include <math.h>
+#include <string.h>
+
+#include "auxiliary.h"
+#include "control_parameter.h"
+#include "cosmology.h"
+#include "hydro.h"
+#include "imf.h"
+#include "parallel.h"
+#include "particle.h"
+#include "starformation.h"
+#include "tree.h"
+#include "units.h"
+
 #include "form_star.starII.h"
 //snl add includes
 
 extern int starII_runaway_indicator;
 
 double Ostar_frac_runaway = 0.5; /* snl make runaway frac cfgparameters */
-double Bstar_runaway_frac = 0.1;
+double Bstar_frac_runaway = 0.1;
 double Ostar_mass = 20;
 double Bstar_mass = 8;
 
@@ -21,8 +37,8 @@ void starII_runaway_config_init()
 void starII_runaway_config_verify()
 {
     if(!(starII_runaway_indicator)) return;
-    VERIFY(runaway:Ostar_frac, Ostar_runaway_frac >= 0.0 && Ostar_runaway_frac<=1.0 );
-    VERIFY(runaway:Bstar_frac, Bstar_runaway_frac >= 0.0 && Bstar_runaway_frac<=1.0 );
+    VERIFY(runaway:Ostar_frac, Ostar_frac_runaway >= 0.0 && Ostar_frac_runaway<=1.0 );
+    VERIFY(runaway:Bstar_frac, Bstar_frac_runaway >= 0.0 && Bstar_frac_runaway<=1.0 );
     VERIFY(runaway:Ostar_mass, Ostar_mass >  8.0 );
     VERIFY(runaway:Bstar_mass, Bstar_mass >= 8.0 && Bstar_mass < Ostar_mass );
 }
@@ -45,8 +61,9 @@ double starII_runaway_velocity(double mass_code){
 	return  sample_exponential( starII_runaway_mean_kick(mass_msun) );
     }
     if( mass_msun > Bstar_mass && mass_msun <= Ostar_mass &&
-	cart_rand() < Bstar_runaway_frac ){
+	cart_rand() < Bstar_frac_runaway ){
 	return  sample_exponential( starII_runaway_mean_kick(mass_msun) );
     }
     return 0;
 }
+#endif /* STAR_FORMATION */

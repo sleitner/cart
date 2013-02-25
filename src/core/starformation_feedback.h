@@ -24,7 +24,7 @@ struct StellarFeedback
   void (*config_verify)();            /* can be NULL */
   void (*init)();                     /* can be NULL */
   void (*setup)(int level);           /* can be NULL */
-  void (*destroy_star_particles)(int level, int icell, int *ipart); /* can be NULL */
+  void (*destroy_star_particle)(int level, int icell, int ipart, int *idelete); /* can be NULL */
 };
 
 extern const struct StellarFeedback *sf_feedback;
