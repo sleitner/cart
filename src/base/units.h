@@ -34,6 +34,7 @@ struct Constants
   double Msun;
   double Zsun;
   double Dsun;
+  double Lsun;
   double Yp;
   double wmu;
   double wmu_e;

@@ -63,9 +63,9 @@ double sfr_rate(int cell)
 #else 
   double Umw = rtUmwFS(cell);
   double Dmw = rtDmwFL(cell);  /* floor included */
-  double Dstar = 8.0e-3*sqrt(0.01+Umw); 
-  double g = 0.08/(1+Umw*pow(Dmw/Dstar,6.0));
-  double Lambda = log(1+pow(g+pow(Dmw,0.75)*(Umw/15),4.0/7.0));
+  double Ds = 0.1/(1+0.25*Umw); 
+  double g = 0.25/(1+pow(Dmw/0.003,6.0));
+  double Lambda = log(1+g+(1-4*g)*pow(Ds+Dmw,3.0/7.0)*pow(Umw/15,4.0/7.0));
   double SigmaC = 20*pow(Lambda,4.0/7.0)/(Dmw*sqrt(1+Umw*Dmw*Dmw));
 
   //double rhoH = cell_HI_density(cell) + 2*cell_H2_density(cell);

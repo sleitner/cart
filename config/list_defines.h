@@ -138,311 +138,311 @@ d_flag[idNDEBUG] = 1;
 #else
 d_flag[idNDEBUG] = 0;
 #endif
-#define idnum_particle  23
-#ifdef num_particle
-d_flag[idnum_particle] = 1;
-#else
-d_flag[idnum_particle] = 0;
-#endif
-#define idOLDSTYLE_COOLING_EXPLICIT_SOLVER  24
+#define idOLDSTYLE_COOLING_EXPLICIT_SOLVER  23
 #ifdef OLDSTYLE_COOLING_EXPLICIT_SOLVER
 d_flag[idOLDSTYLE_COOLING_EXPLICIT_SOLVER] = 1;
 #else
 d_flag[idOLDSTYLE_COOLING_EXPLICIT_SOLVER] = 0;
 #endif
-#define idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID  25
+#define idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID  24
 #ifdef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
 d_flag[idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID] = 1;
 #else
 d_flag[idOLDSTYLE_PARTICLE_FILE_IGNORE_NGRID] = 0;
 #endif
-#define idOLDSTYLE_SF_ALGORITHM  26
+#define idOLDSTYLE_SF_ALGORITHM  25
 #ifdef OLDSTYLE_SF_ALGORITHM
 d_flag[idOLDSTYLE_SF_ALGORITHM] = 1;
 #else
 d_flag[idOLDSTYLE_SF_ALGORITHM] = 0;
 #endif
-#define idPAPI_PROFILING  27
+#define idPAPI_PROFILING  26
 #ifdef PAPI_PROFILING
 d_flag[idPAPI_PROFILING] = 1;
 #else
 d_flag[idPAPI_PROFILING] = 0;
 #endif
-#define idPARTICLES  28
+#define idPARTICLES  27
 #ifdef PARTICLES
 d_flag[idPARTICLES] = 1;
 #else
 d_flag[idPARTICLES] = 0;
 #endif
-#define idPARTICLE_VDISP  29
+#define idPARTICLE_VDISP  28
 #ifdef PARTICLE_VDISP
 d_flag[idPARTICLE_VDISP] = 1;
 #else
 d_flag[idPARTICLE_VDISP] = 0;
 #endif
-#define idPREFIX_JOBNAME_TO_OUTPUT_FILES  30
+#define idPREFIX_JOBNAME_TO_OUTPUT_FILES  29
 #ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 d_flag[idPREFIX_JOBNAME_TO_OUTPUT_FILES] = 1;
 #else
 d_flag[idPREFIX_JOBNAME_TO_OUTPUT_FILES] = 0;
 #endif
-#define idRADIATIVE_TRANSFER  31
+#define idRADIATIVE_TRANSFER  30
 #ifdef RADIATIVE_TRANSFER
 d_flag[idRADIATIVE_TRANSFER] = 1;
 #else
 d_flag[idRADIATIVE_TRANSFER] = 0;
 #endif
-#define idREFINEMENT  32
+#define idREFINEMENT  31
 #ifdef REFINEMENT
 d_flag[idREFINEMENT] = 1;
 #else
 d_flag[idREFINEMENT] = 0;
 #endif
-#define idRT_ADD_EXTERNAL_LLS  33
+#define idRT_ADD_EXTERNAL_LLS  32
 #ifdef RT_ADD_EXTERNAL_LLS
 d_flag[idRT_ADD_EXTERNAL_LLS] = 1;
 #else
 d_flag[idRT_ADD_EXTERNAL_LLS] = 0;
 #endif
-#define idRT_ADD_EXTERNAL_QSO_BACKGROUND  34
+#define idRT_ADD_EXTERNAL_QSO_BACKGROUND  33
 #ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
 d_flag[idRT_ADD_EXTERNAL_QSO_BACKGROUND] = 1;
 #else
 d_flag[idRT_ADD_EXTERNAL_QSO_BACKGROUND] = 0;
 #endif
-#define idRT_BACKGROUND_HAARDT_MADAU  35
+#define idRT_BACKGROUND_HAARDT_MADAU  34
 #ifdef RT_BACKGROUND_HAARDT_MADAU
 d_flag[idRT_BACKGROUND_HAARDT_MADAU] = 1;
 #else
 d_flag[idRT_BACKGROUND_HAARDT_MADAU] = 0;
 #endif
-#define idRT_BACKGROUND_SELFCONSISTENT  36
+#define idRT_BACKGROUND_SELFCONSISTENT  35
 #ifdef RT_BACKGROUND_SELFCONSISTENT
 d_flag[idRT_BACKGROUND_SELFCONSISTENT] = 1;
 #else
 d_flag[idRT_BACKGROUND_SELFCONSISTENT] = 0;
 #endif
-#define idRT_CFI  37
+#define idRT_CFI  36
 #ifdef RT_CFI
 d_flag[idRT_CFI] = 1;
 #else
 d_flag[idRT_CFI] = 0;
 #endif
-#define idRT_CHEMISTRY  38
+#define idRT_CHEMISTRY  37
 #ifdef RT_CHEMISTRY
 d_flag[idRT_CHEMISTRY] = 1;
 #else
 d_flag[idRT_CHEMISTRY] = 0;
 #endif
-#define idRT_CHEMISTRY_MINIMAL_MODEL  39
+#define idRT_CHEMISTRY_MINIMAL_MODEL  38
 #ifdef RT_CHEMISTRY_MINIMAL_MODEL
 d_flag[idRT_CHEMISTRY_MINIMAL_MODEL] = 1;
 #else
 d_flag[idRT_CHEMISTRY_MINIMAL_MODEL] = 0;
 #endif
-#define idRT_DUST_ABSORBS_BACKGROUND  40
+#define idRT_DUST_ABSORBS_BACKGROUND  39
 #ifdef RT_DUST_ABSORBS_BACKGROUND
 d_flag[idRT_DUST_ABSORBS_BACKGROUND] = 1;
 #else
 d_flag[idRT_DUST_ABSORBS_BACKGROUND] = 0;
 #endif
-#define idRT_DUST_CS  41
+#define idRT_DUST_CS  40
 #ifdef RT_DUST_CS
 d_flag[idRT_DUST_CS] = 1;
 #else
 d_flag[idRT_DUST_CS] = 0;
 #endif
-#define idRT_DUST_EVOLUTION  42
+#define idRT_DUST_EVOLUTION  41
 #ifdef RT_DUST_EVOLUTION
 d_flag[idRT_DUST_EVOLUTION] = 1;
 #else
 d_flag[idRT_DUST_EVOLUTION] = 0;
 #endif
-#define idRT_EXACT_EOS  43
+#define idRT_EXACT_EOS  42
 #ifdef RT_EXACT_EOS
 d_flag[idRT_EXACT_EOS] = 1;
 #else
 d_flag[idRT_EXACT_EOS] = 0;
 #endif
-#define idRT_EXTERNAL_BACKGROUND  44
+#define idRT_EXTERNAL_BACKGROUND  43
 #ifdef RT_EXTERNAL_BACKGROUND
 d_flag[idRT_EXTERNAL_BACKGROUND] = 1;
 #else
 d_flag[idRT_EXTERNAL_BACKGROUND] = 0;
 #endif
-#define idRT_FIXED_ISM  45
+#define idRT_FIXED_ISM  44
 #ifdef RT_FIXED_ISM
 d_flag[idRT_FIXED_ISM] = 1;
 #else
 d_flag[idRT_FIXED_ISM] = 0;
 #endif
-#define idRT_H2_RATE  46
+#define idRT_H2_RATE  45
 #ifdef RT_H2_RATE
 d_flag[idRT_H2_RATE] = 1;
 #else
 d_flag[idRT_H2_RATE] = 0;
 #endif
-#define idRT_HIGH_DENSITY  47
+#define idRT_HIGH_DENSITY  46
 #ifdef RT_HIGH_DENSITY
 d_flag[idRT_HIGH_DENSITY] = 1;
 #else
 d_flag[idRT_HIGH_DENSITY] = 0;
 #endif
-#define idRT_LWBANDS  48
+#define idRT_LWBANDS  47
 #ifdef RT_LWBANDS
 d_flag[idRT_LWBANDS] = 1;
 #else
 d_flag[idRT_LWBANDS] = 0;
 #endif
-#define idRT_LYMAN_ALPHA_HEATING  49
+#define idRT_LYMAN_ALPHA_HEATING  48
 #ifdef RT_LYMAN_ALPHA_HEATING
 d_flag[idRT_LYMAN_ALPHA_HEATING] = 1;
 #else
 d_flag[idRT_LYMAN_ALPHA_HEATING] = 0;
 #endif
-#define idRT_METHOD_OTVET  50
+#define idRT_METHOD_OTVET  49
 #ifdef RT_METHOD_OTVET
 d_flag[idRT_METHOD_OTVET] = 1;
 #else
 d_flag[idRT_METHOD_OTVET] = 0;
 #endif
-#define idRT_NARROW_TABLE  51
+#define idRT_NARROW_TABLE  50
 #ifdef RT_NARROW_TABLE
 d_flag[idRT_NARROW_TABLE] = 1;
 #else
 d_flag[idRT_NARROW_TABLE] = 0;
 #endif
-#define idRT_NO_TABLE  52
+#define idRT_NO_TABLE  51
 #ifdef RT_NO_TABLE
 d_flag[idRT_NO_TABLE] = 1;
 #else
 d_flag[idRT_NO_TABLE] = 0;
 #endif
-#define idRT_OLDSTYLE_H2_SHIELDING  53
+#define idRT_OLDSTYLE_H2_SHIELDING  52
 #ifdef RT_OLDSTYLE_H2_SHIELDING
 d_flag[idRT_OLDSTYLE_H2_SHIELDING] = 1;
 #else
 d_flag[idRT_OLDSTYLE_H2_SHIELDING] = 0;
 #endif
-#define idRT_OTVET_CACHE_ET  54
+#define idRT_OTVET_CACHE_ET  53
 #ifdef RT_OTVET_CACHE_ET
 d_flag[idRT_OTVET_CACHE_ET] = 1;
 #else
 d_flag[idRT_OTVET_CACHE_ET] = 0;
 #endif
-#define idRT_OTVET_CACHE_RF  55
+#define idRT_OTVET_CACHE_RF  54
 #ifdef RT_OTVET_CACHE_RF
 d_flag[idRT_OTVET_CACHE_RF] = 1;
 #else
 d_flag[idRT_OTVET_CACHE_RF] = 0;
 #endif
-#define idRT_OTVET_NO_GLOBAL_ARRAY  56
+#define idRT_OTVET_NO_GLOBAL_ARRAY  55
 #ifdef RT_OTVET_NO_GLOBAL_ARRAY
 d_flag[idRT_OTVET_NO_GLOBAL_ARRAY] = 1;
 #else
 d_flag[idRT_OTVET_NO_GLOBAL_ARRAY] = 0;
 #endif
-#define idRT_OTVET_SAVE_FLUX  57
+#define idRT_OTVET_SAVE_FLUX  56
 #ifdef RT_OTVET_SAVE_FLUX
 d_flag[idRT_OTVET_SAVE_FLUX] = 1;
 #else
 d_flag[idRT_OTVET_SAVE_FLUX] = 0;
 #endif
-#define idRT_OUTPUT  58
+#define idRT_OUTPUT  57
 #ifdef RT_OUTPUT
 d_flag[idRT_OUTPUT] = 1;
 #else
 d_flag[idRT_OUTPUT] = 0;
 #endif
-#define idRT_PAH_CR  59
+#define idRT_PAH_CR  58
 #ifdef RT_PAH_CR
 d_flag[idRT_PAH_CR] = 1;
 #else
 d_flag[idRT_PAH_CR] = 0;
 #endif
-#define idRT_PARALLEL_USE_MPI  60
+#define idRT_PARALLEL_USE_MPI  59
 #ifdef RT_PARALLEL_USE_MPI
 d_flag[idRT_PARALLEL_USE_MPI] = 1;
 #else
 d_flag[idRT_PARALLEL_USE_MPI] = 0;
 #endif
-#define idRT_TRACK_RECOMBINATION_PHOTONS  61
+#define idRT_TRACK_RECOMBINATION_PHOTONS  60
 #ifdef RT_TRACK_RECOMBINATION_PHOTONS
 d_flag[idRT_TRACK_RECOMBINATION_PHOTONS] = 1;
 #else
 d_flag[idRT_TRACK_RECOMBINATION_PHOTONS] = 0;
 #endif
-#define idRT_TRANSFER  62
+#define idRT_TRANSFER  61
 #ifdef RT_TRANSFER
 d_flag[idRT_TRANSFER] = 1;
 #else
 d_flag[idRT_TRANSFER] = 0;
 #endif
-#define idRT_TRANSFER_FLUX_CONSERVING  63
+#define idRT_TRANSFER_FLUX_CONSERVING  62
 #ifdef RT_TRANSFER_FLUX_CONSERVING
 d_flag[idRT_TRANSFER_FLUX_CONSERVING] = 1;
 #else
 d_flag[idRT_TRANSFER_FLUX_CONSERVING] = 0;
 #endif
-#define idRT_TRANSFER_METHOD  64
+#define idRT_TRANSFER_METHOD  63
 #ifdef RT_TRANSFER_METHOD
 d_flag[idRT_TRANSFER_METHOD] = 1;
 #else
 d_flag[idRT_TRANSFER_METHOD] = 0;
 #endif
-#define idRT_UV  65
+#define idRT_UV  64
 #ifdef RT_UV
 d_flag[idRT_UV] = 1;
 #else
 d_flag[idRT_UV] = 0;
 #endif
-#define idRT_UV_OLDSTYLE_3x1  66
+#define idRT_UV_OLDSTYLE_3x1  65
 #ifdef RT_UV_OLDSTYLE_3x1
 d_flag[idRT_UV_OLDSTYLE_3x1] = 1;
 #else
 d_flag[idRT_UV_OLDSTYLE_3x1] = 0;
 #endif
-#define idRT_XRAYS  67
+#define idRT_XRAYS  66
 #ifdef RT_XRAYS
 d_flag[idRT_XRAYS] = 1;
 #else
 d_flag[idRT_XRAYS] = 0;
 #endif
-#define idSAVE_LOAD_BALANCE_PARTITION  68
+#define idSAVE_LOAD_BALANCE_PARTITION  67
 #ifdef SAVE_LOAD_BALANCE_PARTITION
 d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 1;
 #else
 d_flag[idSAVE_LOAD_BALANCE_PARTITION] = 0;
 #endif
-#define idSF_FEEDBACK  69
+#define idSF_FEEDBACK  68
 #ifdef SF_FEEDBACK
 d_flag[idSF_FEEDBACK] = 1;
 #else
 d_flag[idSF_FEEDBACK] = 0;
 #endif
-#define idSF_RECIPE  70
+#define idSF_RECIPE  69
 #ifdef SF_RECIPE
 d_flag[idSF_RECIPE] = 1;
 #else
 d_flag[idSF_RECIPE] = 0;
 #endif
-#define idSTAR_FORMATION  71
+#define idSTAR_FORMATION  70
 #ifdef STAR_FORMATION
 d_flag[idSTAR_FORMATION] = 1;
 #else
 d_flag[idSTAR_FORMATION] = 0;
 #endif
-#define idSTAR_PARTICLE_TYPES  72
+#define idSTAR_PARTICLE_TYPES  71
 #ifdef STAR_PARTICLE_TYPES
 d_flag[idSTAR_PARTICLE_TYPES] = 1;
 #else
 d_flag[idSTAR_PARTICLE_TYPES] = 0;
 #endif
-#define idUNIQUE_RAND  73
+#define idUNIQUE_RAND  72
 #ifdef UNIQUE_RAND
 d_flag[idUNIQUE_RAND] = 1;
 #else
 d_flag[idUNIQUE_RAND] = 0;
+#endif
+#define idnum_particle  73
+#ifdef num_particle
+d_flag[idnum_particle] = 1;
+#else
+d_flag[idnum_particle] = 0;
 #endif
 #define PRINT_ALL \
 PRINT(AGN) \
@@ -468,7 +468,6 @@ PRINT(MOMENTUM_DIFFUSION) \
 PRINT(MPE_LOG) \
 PRINT(MPI_MAX_MESSAGE_SIZE) \
 PRINT(NDEBUG) \
-PRINT(num_particle) \
 PRINT(OLDSTYLE_COOLING_EXPLICIT_SOLVER) \
 PRINT(OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID) \
 PRINT(OLDSTYLE_SF_ALGORITHM) \
@@ -519,4 +518,5 @@ PRINT(SF_RECIPE) \
 PRINT(STAR_FORMATION) \
 PRINT(STAR_PARTICLE_TYPES) \
 PRINT(UNIQUE_RAND) \
+PRINT(num_particle) \
 ;
