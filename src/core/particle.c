@@ -103,7 +103,8 @@ void init_particles() {
 	particle_list_enabled = 0;
 }
 
-void update_particle_list( int level ) {
+
+void update_particle_list( int level ) { 
 	int i, k;
 	int ipart;
 	int iter_cell;
@@ -682,7 +683,8 @@ void build_particle_list() {
 	particle_list_enabled = 1;
 }
 
-int particle_alloc( int id ) {
+
+int particle_alloc( int id ) { 
 	int ipart;
 	int i;
 
@@ -712,7 +714,7 @@ int particle_alloc( int id ) {
 				}
 
 				if ( i == num_star_particles ) {
-					cart_error("Ran out of star particles, increase num_star_particles!");
+                                        cart_error("Ran out of star particles %d, increase num_star_particles!", i);
 				}
 			}
 		} else {
@@ -734,7 +736,7 @@ int particle_alloc( int id ) {
 					}
 
 					if ( next_free_star_particle >= num_star_particles ) {
-						cart_error("Ran out of particles, increase num_particles!");
+                                                cart_error("Ran out of particles (next=%d), increase num_star_particles!",next_free_star_particle );
 					} else {
 						ipart = next_free_star_particle;
 						next_free_star_particle++;
@@ -756,7 +758,7 @@ int particle_alloc( int id ) {
 	if ( free_particle_list == NULL_PARTICLE ) {
 		if ( num_local_particles >= num_particles ) {
 			/* generate an error, ran out of particles */
-			cart_error("Ran out of particles, increase num_particles!");
+                        cart_error("Ran out of local particles %d, increase num_particles!", num_local_particles);
 		}
 
 		ipart = next_free_particle;
@@ -769,6 +771,9 @@ int particle_alloc( int id ) {
 
 	cart_assert( ipart >= 0 && ipart < num_particles );
 	cart_assert( particle_level[ipart] == FREE_PARTICLE_LEVEL );
+	
+	if( particle_id[ipart] != NULL_PARTICLE )
+	    cart_debug("particle_id %d %d",particle_id[ipart], NULL_PARTICLE);
 	cart_assert( particle_id[ipart] == NULL_PARTICLE );
 
 	particle_id[ipart] = id;
@@ -1037,11 +1042,8 @@ int particle_species( int id ) {
 }
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-
-void build_mesh() {
+void get_refinement_region(){
 	int i,j;
-	int level, cell;
-	int total_cells_per_level[max_level-min_level+1];
 	float refmin[nDim];
 	float refmax[nDim];
 
@@ -1081,11 +1083,12 @@ void build_mesh() {
 		}
 	}
 #endif /* REFINEMENT */
-
-	build_cell_buffer();
-	repair_neighbors();
-
+}
 #ifdef REFINEMENT
+void build_refinement_region(int do_load_balance){
+	int j;
+	int level, cell;
+	int total_cells_per_level[max_level-min_level+1];
 	/* do initial refinement */
 	level = min_level;
 	total_cells_per_level[min_level] = num_root_cells;
@@ -1111,15 +1114,34 @@ void build_mesh() {
 					particle_level[j] = cell_level(cell);
 				}
 			}
-		   
-			load_balance();
+			if(do_load_balance == 1){
+	       		        load_balance();
+			}
 		}
 	}
+}
+#endif /* REFINEMENT */
+
+void build_mesh() {
+	/* Doug (11/29/2009): necessary to properly set particle timestep 
+	 * (not certain abox and auni are required here) */
+	/* NG: can NOT be used here, hydro vars may not have been read yet! */
+	//set_timestepping_scheme();
+
+	get_refinement_region();
+	build_cell_buffer();
+	repair_neighbors();
+#ifdef REFINEMENT
+	build_refinement_region(1);
 #else
 	load_balance();
 #endif /* REFINEMENT */
 }
 
+
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 #endif /* PARTICLES */
+
+
+

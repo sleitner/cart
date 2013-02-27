@@ -118,6 +118,11 @@ int drive_run () {
 		restart = 1;
 		restart_label = NULL;
 	      }
+	    else if(strcmp(str, "NULL")==0)
+	      {
+		restart = 0;
+		restart_label = NULL;
+	      }
 	    else
 	      {
 		restart = 2;

@@ -66,7 +66,9 @@ void particle_list_free( int ihead );
 void particle_move( int ipart_old, int ipart_new );
 
 void init_particles();
+void get_refinement_region();
 void build_mesh();
+void build_refinement_region(int do_load_balance);
 
 void update_particle_list( int level );
 void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_to_send[MAX_PROCS], int trade_level, int free_particle_flag );

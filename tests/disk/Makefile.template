@@ -1,0 +1,28 @@
+#TOP_DIR = /lustre/sleitner/svntrunk_temp/#
+TOP_DIR = ../../#
+
+.phony: compile run clean
+
+compile:	art
+
+run: dumps art
+	mpirun -np 1 ./disk disk.cfg
+
+dumps:
+	@mkdir dumps
+
+PLUGIN = /extra 
+#PLUGIN = 
+
+include $(TOP_DIR)/Make.config
+
+VIEWOBJ = .obj/extra/viewdump.o .obj/extra/ifrit.o .obj/extra/utils.o #.obj/extra/output_column.o  
+
+analysis.o: disk.h analysis.c 
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) -I$(SRC_DIR)/base -I$(SRC_DIR)/extra -I$(SRC_DIR)/core $(INCLUDES) $(VIEWOBJ) -c analysis.c 
+
+art:  .obj/.phony $(SIM_OBJS) defs.h disk.h disk.c $(VIEWOBJ) # analysis.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR) -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(SIM_OBJS) disk.c analysis.c -o art  $(LIBS) $(EXTRALIBS) 
+
+CLEAN += disk *.o *.log
+
