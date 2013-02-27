@@ -673,7 +673,7 @@ void turbulent_pressure_floor ( int level ) {
 		}
 	}
 }
-void hydro_turbulence_sources( int level ){
+void hydro_isotropic_turbulence_sources( int level ){
     if(pressure_floor > 0){
 	turbulent_pressure_floor ( level );
     }
@@ -681,7 +681,7 @@ void hydro_turbulence_sources( int level ){
     /* extrapolation of the inertial range? */
 }
 
-void hydro_apply_turbulence_dissipation(int level, int num_level_cells, int *level_cells) {
+void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells, int *level_cells) {
     int i, icell; 
     float cell_old;
     float crossing_time,vas,tcode_diss;
@@ -787,7 +787,7 @@ void hydro_advance_internalenergy( int level ) {
 
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
 	/* dissipate turbulence and add to thermal energy */
-	hydro_apply_turbulence_dissipation(level,num_level_cells,level_cells);
+	hydro_apply_isotropic_turbulence_dissipation(level,num_level_cells,level_cells);
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 #ifdef EXTRA_PRESSURE_SOURCE
         hydro_zero_extra_source_vars(level,num_level_cells,level_cells);
