@@ -770,9 +770,9 @@ int timestep( int level, MPI_Comm level_com )
 	update_particle_list( level );
 #endif /* PARTICLES */
 
-#ifdef TURBULENT_ENERGY 
+#ifdef ISOTROPIC_TURBULENCE_ENERGY 
 	hydro_turbulence_sources(level);
-#endif /* TURBULENT_ENERGY */
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 	/* advance time on level */
 	tl_old[level] = tl[level];

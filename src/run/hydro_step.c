@@ -42,9 +42,9 @@ extern double blastwave_time_floor;
 extern double blastwave_time_cut;
 #endif /* BLASTWAVE_FEEDBACK */
 
-#ifdef TURBULENT_ENERGY
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
 extern double fix_turbulence_dissipation_time;
-#endif /* TURBULENT_ENERGY */
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 
 #define backup_hvar(c,v)	(backup_hvars[c][v])
@@ -649,7 +649,7 @@ void hydro_apply_electron_heating(int level, int num_level_cells, int *level_cel
 	} /* END omp parallel block */
 }
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-#ifdef TURBULENT_ENERGY
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
 /* pressure floor is composed of turbulent internal energy */
 void turbulent_pressure_floor ( int level ) {
         int i,j;
@@ -659,16 +659,16 @@ void turbulent_pressure_floor ( int level ) {
         int *level_cells;
     
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(i,j,icell,dU), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants,extra_gammas,pressure_floor)
+#pragma omp parallel for default(none), private(i,j,icell,dU), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,constants,extra_energy_gammas,pressure_floor)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 		dU = pressure_floor * cell_gas_density(icell)*cell_gas_density(icell)
-		    /(extra_gamma(0)-1.0) - cell_gas_internal_energy(icell);
+		    /(extra_energy_gamma(0)-1.0) - cell_gas_internal_energy(icell);
 		for ( j = 0; j < num_extra_energy_variables; j++ ) {
 		    dU -= cell_extra_energy_variables(icell,j);
 		}
 		if(dU > 0){
-		    cell_turbulent_energy(icell) += dU;
+		    cell_isotropic_turbulence_energy(icell) += dU;
 		    cell_gas_energy(icell) += dU;
 		}
 	}
@@ -690,36 +690,37 @@ void hydro_apply_turbulence_dissipation(int level, int num_level_cells, int *lev
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
 	if ( cell_is_leaf(icell) ) {
-	    cell_old = cell_turbulent_energy(icell);
+	    cell_old = cell_isotropic_turbulence_energy(icell);
 	    /* dissipate tubulent energy */
 	    if(tcode_diss>0){
-		cell_turbulent_energy(icell) *= exp(-dtl[level]/tcode_diss);
+		cell_isotropic_turbulence_energy(icell) *= exp(-dtl[level]/tcode_diss);
 	    }else{
 		vas = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
 		crossing_time = cell_size[level]/vas ;
-		cell_turbulent_energy(icell) *= exp(-dtl[level]/crossing_time);
+		cell_isotropic_turbulence_energy(icell) *= exp(-dtl[level]/crossing_time);
 	    }
 	    /* turbulent energy goes into internal energy */
-	    cell_gas_internal_energy(icell) += cell_old - cell_turbulent_energy(icell);
+	    cell_gas_internal_energy(icell) += cell_old - cell_isotropic_turbulence_energy(icell);
 	}
     }   
 }
-#endif /* TURBULENT_ENERGY */
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
-#ifdef FIXED_PRESSURE
-void hydro_zero_fixed_vars(int level, int num_level_cells, int *level_cells) {
+#ifdef EXTRA_PRESSURE_SOURCE
+void hydro_zero_extra_source_vars(int level, int num_level_cells, int *level_cells) {
     int i,j, icell; 
     float cell_old;
 #pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl), private(i,j,icell)
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
 	if ( cell_is_leaf(icell) ) {
-            for ( j = 0; j < num_fixed_vars; j++ ) {
-                cell_fixed_vars(icell,j) = 0.0;
-	}
-    }   
+            for ( j = 0; j < num_extra_source_vars; j++ ) {
+                cell_extra_source_variables(icell,j) = 0.0;
+            }
+        }   
+    }
 }
-#endif /* FIXED_PRESSURE */
+#endif /* EXTRA_PRESSURE_SOURCE */
 
 void hydro_advance_internalenergy( int level ) {
         int i,j;
@@ -735,7 +736,7 @@ void hydro_advance_internalenergy( int level ) {
 	div_dt = dtl[level] / 3.0;
 
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
-#pragma omp parallel for default(none), private(icell,i,j,kinetic_energy,energy,gamma1,div), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,ref,div_dt,extra_gammas)
+#pragma omp parallel for default(none), private(icell,i,j,kinetic_energy,energy,gamma1,div), shared(num_level_cells,level_cells,cell_child_oct,cell_vars,ref,div_dt,extra_energy_gammas)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		icell = level_cells[i];
 
@@ -748,7 +749,7 @@ void hydro_advance_internalenergy( int level ) {
 		cell_electron_internal_energy(icell) = MAX( 1.0e-30, cell_electron_internal_energy(icell)*div*div*div );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 		for(j=0; j<num_extra_energy_variables ;j++){
-		    gamma1 = extra_gamma(j) - 1.0; 
+		    gamma1 = extra_energy_gamma(j) - 1.0; 
 		    div = 1.0 + gamma1 * ref[icell] * div_dt;
 		    cell_extra_energy_variables(icell,j) = MAX( 1.0e-30, cell_extra_energy_variables(icell,j)*div*div*div );
 		}
@@ -784,13 +785,13 @@ void hydro_advance_internalenergy( int level ) {
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 #endif /* COOLING */
 
-#ifdef TURBULENT_ENERGY
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
 	/* dissipate turbulence and add to thermal energy */
 	hydro_apply_turbulence_dissipation(level,num_level_cells,level_cells);
-#endif /* TURBULENT_ENERGY */
-#ifdef FIXED_PRESSURE
-        hydro_zero_fixed_vars(level,num_level_cells,level_cells);
-#endif /* FIXED_PRESSURE */
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
+#ifdef EXTRA_PRESSURE_SOURCE
+        hydro_zero_extra_source_vars(level,num_level_cells,level_cells);
+#endif /* EXTRA_PRESSURE_SOURCE */
 
 	cart_free( level_cells );
 
@@ -817,7 +818,7 @@ void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[n
 	}
 }
 
-#if defined(TURBULENT_ENERGY) || defined(FIXED_PRESSURE)
+#if defined(ISOTROPIC_TURBULENCE_ENERGY) || defined(EXTRA_PRESSURE_SOURCE)
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
         int i,j, irl;
@@ -842,7 +843,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
             v[0][i] = cell_gas_density(irl);
 	    v[1][i] = MAX(cell_gas_pressure(irl),1e-30); /* Pressure floor is applied *after* gamma_eff calculation */
 	    for ( j = 0; j < num_extra_energy_variables; j++ ) {
-		v[1][i] += cell_extra_pressure_variables(irl,j);
+		v[1][i] += cell_extra_energy_pressure(irl,j);
 	    }
             v[2][i] = cell_momentum(irl,j3)/cell_gas_density(irl);
             v[3][i] = cell_momentum(irl,j4)/cell_gas_density(irl);
@@ -850,13 +851,13 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	    /* gamma_eff = (g1*P1+g2*P2+...)/(P1+P2+...) */
             v[5][i] = cell_gas_gamma(irl)*MAX(cell_gas_pressure(irl),1e-30);
 	    for(j=0; j<num_extra_energy_variables ;j++){
-		v[5][i] += extra_gamma(j)*cell_extra_pressure_variables(irl,j);
+		v[5][i] += extra_energy_gamma(j)*cell_extra_energy_pressure(irl,j);
 	    }
 	    v[5][i] /= v[1][i];
 	    
-#ifdef FIXED_PRESSURE
-            v[1][i] += cell_fixed_pressure(irl);
-#endif /* FIXED_PRESSURE */
+#ifdef EXTRA_PRESSURE_SOURCE
+            v[1][i] += cell_extra_pressure_source(irl);
+#endif /* EXTRA_PRESSURE_SOURCE */
 	    v[1][i] = MAX( pressure_floor * v[0][i]*v[0][i], v[1][i]);
             v[6][i] = constants->gamma;
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
@@ -906,7 +907,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
 
-#else /* defined(TURBULENT_ENERGY) || defined(FIXED_PRESSURE) */
+#else /* defined(ISOTROPIC_TURBULENCE_ENERGY) || defined(EXTRA_PRESSURE_SOURCE) */
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	int j;
@@ -1024,7 +1025,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
 }
-#endif   /* defined(TURBULENT_ENERGY) || defined(FIXED_PRESSURE) */ 
+#endif   /* defined(ISOTROPIC_TURBULENCE_ENERGY) || defined(EXTRA_PRESSURE_SOURCE) */ 
 	
 void hydro_copy_vars( int level, int direction ) {
 	int i, j;

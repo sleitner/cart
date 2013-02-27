@@ -158,8 +158,8 @@ void define_file_variables(int *num_variables, char *variable_labels[num_vars],
 #ifdef BLASTWAVE_FEEDBACK
 	add_variable( "HVAR_BLASTWAVE_TIME", HVAR_BLASTWAVE_TIME );
 #endif /* BLASTWAVE_FEEDBACK */
-#ifdef TURBULENT_ENERGY
-	add_variable( "HVAR_TURBULENT_ENERGY", HVAR_TURBULENT_ENERGY );
+#ifdef TURBULENCE_ENERGY
+	add_variable( "HVAR_TURBULENCE_ENERGY", HVAR_TURBULENCE_ENERGY );
 #endif
 
 

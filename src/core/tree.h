@@ -131,16 +131,16 @@ extern int size_cell_array;
 
   #define HVAR_EXTRA_ENERGY_VARIABLES           (num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_electronion_noneq_vars)
   #define cell_extra_energy_variables(c,v)      (cell_var(c,HVAR_EXTRA_ENERGY_VARIABLES+v))
-  #define cell_extra_pressure_variables(c,v)    ((extra_gamma(v)-1.0)*cell_extra_energy_variables(c,v))
-  #ifdef TURBULENT_ENERGY 
-    #define num_turbulent_energy_vars           1
-    #define HVAR_TURBULENT_ENERGY               (HVAR_EXTRA_ENERGY_VARIABLES+0)
-    #define cell_turbulent_energy(c)            (cell_var(c,HVAR_TURBULENT_ENERGY))
-    #define turbulence_gamma                    (extra_gamma(0))
+  #define cell_extra_energy_pressure(c,v)       ((extra_energy_gamma(v)-1.0)*cell_extra_energy_variables(c,v))
+  #ifdef ISOTROPIC_TURBULENCE_ENERGY 
+    #define num_turbulence_energy_vars           1
+    #define HVAR_ISOTROPIC_TURBULENCE_ENERGY     (HVAR_EXTRA_ENERGY_VARIABLES+0)
+    #define cell_isotropic_turbulence_energy(c)  (cell_var(c,HVAR_ISOTROPIC_TURBULENCE_ENERGY))
+    #define isotropic_turbulence_gamma           (extra_energy_gamma(0))
   #else
-    #define num_turbulent_energy_vars           0
-  #endif /* TURBULENT_ENERGY */
-  #define num_extra_energy_variables            (num_turbulent_energy_vars)
+    #define num_turbulence_energy_vars           0
+  #endif /* ISOTROPIC_TURBULENCE_ENERGY */
+  #define num_extra_energy_variables            (num_turbulence_energy_vars)
 
   #define num_extra_hydro_vars                  (num_electronion_noneq_vars+num_extra_energy_variables)
 
@@ -220,31 +220,31 @@ extern int size_cell_array;
 #endif /* GRAVITY */
 
 #ifdef HYDRO
-  #define VAR_FIXED                             (num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
-  #define cell_fixed_variables(c,v)             (cell_var(c,HVAR_FIXED_VARS+v))
-  #ifdef FIXED_PRESSURE
-    #define num_fixed_pressure_vars             1
-    #define VAR_FIXED_PRESSURE                  (VAR_FIXED_VARS+0)
-    #define cell_fixed_pressure(c)              (cell_var(c,VAR_FIXED_PRESSURE))
+  #define VAR_EXTRA_SOURCE                      (num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
+  #define cell_extra_source_variables(c,v)      (cell_var(c,VAR_EXTRA_SOURCE+v))
+  #ifdef EXTRA_PRESSURE_SOURCE
+    #define num_extra_pressure_source_vars      1
+    #define VAR_EXTRA_PRESSURE_SOURCE           (VAR_EXTRA_SOURCE+0)
+    #define cell_extra_pressure_source(c)       (cell_var(c,VAR_EXTRA_PRESSURE_SOURCE))
   #else                             
-    #define num_fixed_pressure_vars             0
-  #endif /* FIXED_PRESSURE */
-  #define num_fixed_vars                        (num_fixed_pressure_vars)
+    #define num_extra_pressure_source_vars      0
+  #endif /* EXTRA_PRESSURE_SOURCE */
+  #define num_extra_source_vars                 (num_extra_pressure_source_vars)
 #else 
-  #define num_fixed_vars                        0
+  #define num_extra_source_vars                 0
 #endif /* HYDRO */
 
-#define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars+num_fixed_vars)
+#define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars+num_extra_source_vars)
 
 extern int all_vars[num_vars];
 #ifdef HYDRO
 extern int all_hydro_vars[num_hydro_vars];
 
-#define extra_gamma(v)	(extra_gammas[v])
+#define extra_energy_gamma(v)	(extra_energy_gammas[v])
 #if num_extra_energy_variables > 0 
-extern float extra_gammas[num_extra_energy_variables];
+extern float extra_energy_gammas[num_extra_energy_variables];
 #else
-extern float extra_gammas[1]; /* avoids extra flags around pragmas*/
+extern float extra_energy_gammas[1]; /* avoids extra flags around pragmas*/
 #endif /* num_extra_energy_variables > 0 */
 
 #endif /* HYDRO */

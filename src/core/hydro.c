@@ -30,24 +30,24 @@ double blastwave_time_floor = 1.0e-30;
 double blastwave_time_cut = 1.0e-20;
 #endif /* BLASTWAVE_FEEDBACK */
 
-#ifdef TURBULENT_ENERGY
-double fix_turbulence_dissipation_time = -1;
-double fraction_SN_to_turbulence  = 0.0;
-#endif /* TURBULENT_ENERGY */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+double fix_isotropic_turbulence_dissipation_time = -1;
+double fraction_SN_to_isotropic_turbulence  = 0.0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 #if num_extra_energy_variables > 0
-float extra_gammas[num_extra_energy_variables];
+float extra_energy_gammas[num_extra_energy_variables];
 #else
-float extra_gammas[1]; /* avoids extra flags around pragmas*/
+float extra_energy_gammas[1]; /* avoids extra flags around pragmas*/
 #endif /* num_extra_energy_variables > 0 */
 
-#if defined(TURBULENT_ENERGY) 
+#if defined(ISOTROPIC_TURBULENCE_ENERGY) 
 struct gamma_t
 {
-    float turbulence;
+    float isotropic_turbulence;
 };
 extern struct gamma_t gamma_internal = {5.0/3.0};
-#endif /* TURBULENT_ENERGY */
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 
 void config_init_hydro()
@@ -68,22 +68,22 @@ void config_init_hydro()
 
   control_parameter_add(control_parameter_float,&pressure_floor_factor,"@pressure-floor-factor","the factor to scale the pressure floor with. The default, thoroughly tested value is 10. If you change it, make sure you know what you are doing.");
 
-#ifdef TURBULENT_ENERGY
-  control_parameter_add2(control_parameter_float,&gamma_internal.turbulence,"gamma:turbulence","gamma.turbulence","gamma for turbulent energy");
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+  control_parameter_add2(control_parameter_float,&gamma_internal.isotropic_turbulence,"gamma:isotropic_turbulence","gamma.isotropic_turbulence","gamma for turbulent energy");
   
-  control_parameter_add2(control_parameter_double,&fraction_SN_to_turbulence,"turbulence:fraction-SN-to-turbulence","fraction_SN_to_turbulence","fraction of SN energy that goes to turbulence.");
+  control_parameter_add2(control_parameter_double,&fraction_SN_to_isotropic_turbulence,"isotropic_turbulence:fraction-SN-to-isotropic_turbulence","fraction_SN_to_isotropic_turbulence","fraction of SN energy that goes to isotropic_turbulence.");
 
-  control_parameter_add3(control_parameter_time,&fix_turbulence_dissipation_time,"turbulence:fix-dissipation-time","fix_turbulence_dissipation_time","turbulence.fix_dissipation_time", "time scale over which turbulence dissipates, if not set then defaults to cell crossing time.");
-#endif /* TURBULENT_ENERGY */
+  control_parameter_add3(control_parameter_time,&fix_isotropic_turbulence_dissipation_time,"isotropic_turbulence:fix-dissipation-time","fix_isotropic_turbulence_dissipation_time","isotropic_turbulence.fix_dissipation_time", "time scale over which isotropic_turbulence dissipates, if not set then defaults to cell crossing time.");
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
   
   for(level=min_level; level<=max_level; level++)
     {
       level_sweep_dir[level] = 0;
     }
 
-#ifdef TURBULENT_ENERGY
-  turbulence_gamma = gamma_internal.turbulence;
-#endif /* TURBULENT_ENERGY */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+  isotropic_turbulence_gamma = gamma_internal.isotropic_turbulence;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 }
 
@@ -106,13 +106,13 @@ void config_verify_hydro()
 
 #endif /* BLASTWAVE_FEEDBACK */
 
-#ifdef TURBULENT_ENERGY
-  VERIFY(fix-turbulence-dissipation-time, fix_turbulence_dissipation_time > 0.0 || fix_turbulence_dissipation_time == -1.0 );
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+  VERIFY(fix-isotropic_turbulence-dissipation-time, fix_isotropic_turbulence_dissipation_time > 0.0 || fix_isotropic_turbulence_dissipation_time == -1.0 );
 
-  VERIFY(turbulence:fraction-SN-to-turbulence, fraction_SN_to_turbulence >= 0.0 && fraction_SN_to_turbulence <= 1.0);
+  VERIFY(isotropic_turbulence:fraction-SN-to-isotropic_turbulence, fraction_SN_to_isotropic_turbulence >= 0.0 && fraction_SN_to_isotropic_turbulence <= 1.0);
   
-  VERIFY(gamma:turbulence , gamma_internal.turbulence  > 1.0);
-#endif /* TURBULENT_ENERGY */
+  VERIFY(gamma:isotropic_turbulence , gamma_internal.isotropic_turbulence  > 1.0);
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 }
 
@@ -257,13 +257,13 @@ float cell_gas_temperature(int cell) {
 	} else return 0.0;
 }
 
-#ifdef TURBULENT_ENERGY
-float cell_turbulence_temperature(int cell){
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+float cell_isotropic_turbulence_temperature(int cell){
 	if(cell_gas_density(cell) > 0.0) {
-	        return (turbulence_gamma-1)*constants->wmu*cell_turbulent_energy(cell)/cell_gas_density(cell);
+	        return (isotropic_turbulence_gamma-1)*constants->wmu*cell_isotropic_turbulence_energy(cell)/cell_gas_density(cell);
 	} else return 0.0;
 }
-#endif /* TURBULENT_ENERGY */
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 /*
 //  Sobolev approximation factors
@@ -321,9 +321,10 @@ float cell_sobolev_length2(int cell, int level, float *vel)
 
 float cell_gas_sound_speed( int icell ) {
         float gPeff;
+        int j;
         gPeff = cell_gas_gamma(icell)*(cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell);
         for ( j = 0; j < num_extra_energy_variables; j++ ) {
-                gPeff += extra_gamma(j)*cell_extra_pressure_variables(icell,j);
+                gPeff += extra_energy_gamma(j)*cell_extra_energy_pressure(icell,j);
         }
         return sqrt(gPeff/cell_gas_density(icell));
 }
