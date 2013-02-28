@@ -43,6 +43,9 @@ int drive() {
 #ifdef PARTICLES
 	init_particles();
 #endif
+#ifdef HYDRO_TRACERS
+    init_hydro_tracers();
+#endif /* HYDRO_TRACERS */
 
 	read_file();
 	
