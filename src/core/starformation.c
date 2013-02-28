@@ -95,7 +95,7 @@ void config_verify_star_formation()
 
   VERIFY(sf:max-gas-temperature, sf_max_gas_temperature > 10.0 );
 
-  VERIFY(sf:sampling-timescale, sf_sampling_timescale > 0.0 ); 
+  VERIFY(sf:sampling-timescale, sf_sampling_timescale >= 0.0 ); 
 
   VERIFY(sf:metallicity-floor, !(sf_metallicity_floor < 0.0) );
 
