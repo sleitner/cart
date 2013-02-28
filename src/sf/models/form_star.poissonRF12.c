@@ -22,7 +22,7 @@ double dt_SF;
 
 void poissonRF12_config_init()
 {
-    if(!(poissonRF12_starformation_indicator)) return;
+//    if(!(poissonRF12_starformation_indicator)) return;
     control_parameter_add4(control_parameter_time,&sfRF12_timescale,"sfRF12:timescale","sfRF12_timescale","sf_timescale","tau_SF","the timescale for star formation. Star formation in a given cell is assumed to continue with the constant rate for that period of time.");
     
     control_parameter_add4(control_parameter_double,&sfRF12_min_stellar_particle_mass,"sfRF12:min-stellar-particle-mass","sfRF12_min_stellar_particle_mass","sf_min_stellar_particle_mass","dm_star_min","minimum mass for a newly created stellar particle, in solar masses. This value should be small enough to avoid artifically boosting the SFR in the low density gas.");
@@ -30,7 +30,7 @@ void poissonRF12_config_init()
 }
 void poissonRF12_config_verify()
 {
-    if(!(poissonRF12_starformation_indicator)) return;
+//    if(!(poissonRF12_starformation_indicator)) return;
 
     VERIFY(sfRF12:timescale, sfRF12_timescale >= 2*sf_sampling_timescale );
 

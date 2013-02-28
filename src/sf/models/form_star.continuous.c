@@ -30,12 +30,12 @@ int starII_indicator;
 
 void continuous_config_init()
 {
-    if(!(continuous_starformation_indicator)) return;
+//    if(!(continuous_starformation_indicator)) return;
     control_parameter_add3(control_parameter_time, &cluster_age_spread,"cluster:age-spread","cluster_age_spread","cluster_age_spread","timescale over which star particles representing clusters are allowed to grow.");
     control_parameter_add2(control_parameter_double, &cluster_min_expected_mass,"cluster:min-expected-mass","cluster_min_expected_mass","the minimum mass expected from sfr*cluster_age_spread allowed to seed a cluster.");
     
-    control_parameter_add2(control_parameter_double, &fast_growth_probability, "cluster:fast_growth_probability", "fast_growth_probability", "probability of a fast growth particle");
-    control_parameter_add2(control_parameter_double, &fast_growth_multiplier, "cluster:fast_growth_multiplier", "fast_growth_multiplier", "multiplier for fast growth particle star formation rates");
+    control_parameter_add2(control_parameter_double, &fast_growth_multiplier, "cluster:fast-growth-multiplier", "fast_growth_multiplier", "multiplier for fast growth particle star formation rates");
+    control_parameter_add2(control_parameter_double, &fast_growth_probability, "cluster:fast-growth-probability", "fast_growth_probability", "probability of a fast growth particle");
 
     control_parameter_add2(control_parameter_bool, &starII_indicator, "starII:indicator", "starII_indicator", "turn on starII star-formation");
     starII_config_init();
@@ -44,14 +44,15 @@ void continuous_config_init()
 extern double sf_sampling_timescale ;        /* in yrs; used to be called dtmin_SF, also in HART */
 void continuous_config_verify()
 {
-    if(!(continuous_starformation_indicator)) return;
-    VERIFY(cluster:fast_growth_multiplier, fast_growth_multiplier >= 0);
-    VERIFY(cluster:fast_growth_probability, fast_growth_probability >= 0 && fast_growth_probability <=1 );
+//   if(!(continuous_starformation_indicator)) return;
+
+    VERIFY(cluster:fast-growth-multiplier, fast_growth_multiplier >= 0);//cluster:fast-growth-multiplier
+    VERIFY(cluster:fast-growth-probability, fast_growth_probability >= 0 && fast_growth_probability <=1 );
     
     VERIFY(sf:sampling-timescale, sf_sampling_timescale == 0 );
 
     VERIFY(cluster:age-spread, cluster_age_spread >1.0e6 );
-    VERIFY(cluster:min-expected-mass, cluster_min_expected_mass >= 0.0 );
+    VERIFY(cluster:min-expected-mass, cluster_min_expected_mass > 0.0 );
 
     VERIFY(starII:indicator,starII_indicator==1 || starII_indicator==0);
     starII_config_verify();
@@ -100,7 +101,7 @@ void continuous_star_formation( int level, int icell, double dtl, double dt_eff,
     int i, ipart;
     int num_level_cells;
     int *level_cells;
-    double dmstar;
+    float dmstar;
     int star_type = STAR_TYPE_NORMAL;
     
     if(!(continuous_starformation_indicator)) return;
@@ -113,7 +114,8 @@ void continuous_star_formation( int level, int icell, double dtl, double dt_eff,
         /* SEED -- there are no young clusters  -----------------*/ 
         
         /* seed clusters that you expect to grow to some mass -- amounts to a density threshold */
-        if ( sfr*cluster_age_spread_code > cluster_min_expected_mass_code )  return; 
+        if ( sfr*cluster_age_spread_code < cluster_min_expected_mass_code )  return; 
+	
 #ifdef STAR_PARTICLE_TYPES
         if(fast_growth_probability != 0 ){
             if(cart_rand()<fast_growth_probability){ 

@@ -8,7 +8,7 @@
 #include "tree.h"
 #include "units.h"
 #include "starformation_feedback.h"
-#include "onestarfits.h"
+#include "models/onestarfits.h"
 
 #include "models/feedback.snII.h"
 #include "models/feedback.snIa.h"

@@ -32,7 +32,7 @@ double sIIminpw, imfmaxpw;
 double tdelay_popM_feedback;
 void starII_config_init()
 {
-    if(!(starII_indicator)) return;
+//    if(!(starII_indicator)) return;
     control_parameter_add2(control_parameter_double,&starII_highmass_slope,"starII:highmass-slope","starII_highmass_slope","IMF slope used for sampling starII masses.");
     control_parameter_add2(control_parameter_double,&starII_minimum_mass,"starII:minimum-mass","starII_minimum_mass","the minimum mass of 'virtual' starII particles in Msun.");
     

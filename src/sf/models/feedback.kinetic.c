@@ -510,6 +510,7 @@ void kfb_kick_cube(double dp, int level, int icell){
 	    if( cell_is_leaf(nb26[j]) ){
 		num_local_cells++;
 	    }else{
+		/* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
 		iPar = nb26[j];
                 for(ichild=0; ichild<num_children; ichild++){
                     icell_child = cell_child(iPar,ichild);
@@ -525,11 +526,13 @@ void kfb_kick_cube(double dp, int level, int icell){
 	    if( cell_is_leaf(nb26[j]) ){
 		kfb_kick_cell(nb26[j], -2, CubeDelPos[j], dp/num_local_cells, level);
 	    }else{
+		/* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
 		iPar = nb26[j];
 		for(ichild=0; ichild<num_children; ichild++){
 		    icell_child = cell_child(iPar,ichild);
-		    kfb_kick_cell(icell_child, -2, CubeDelPos[j], dp/num_local_cells, level);
-		    cart_assert(cell_is_leaf(icell_child));
+		    if(cell_is_leaf(icell_child)){
+			kfb_kick_cell(icell_child, -2, CubeDelPos[j], dp/num_local_cells, level);
+		    }
 		}
 	    }
 	}
@@ -547,10 +550,11 @@ void kfb_kick_cube_constv(double dp, int level, int icell, double *mall_level){
 	    if( cell_is_leaf(nb26[j]) ){
 		*mall_level += cell_gas_density(nb26[j]); /* for hybrid*/
 	    }else{
+		/* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
 		iPar = nb26[j];
 		for(ichild=0; ichild<num_children; ichild++){
 		    icell_child = cell_child(iPar,ichild);
-		    if(cell_is_leaf(icell_child)){ /* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
+		    if(cell_is_leaf(icell_child)){ 
 			*mall_level += cell_gas_density(nb26[j])/num_children;
 		    }
 		}
@@ -565,6 +569,7 @@ void kfb_kick_cube_constv(double dp, int level, int icell, double *mall_level){
 		dpi=dv*cell_gas_density( nb26[j] );
 		kfb_kick_cell(nb26[j], -2, CubeDelPos[j], dpi, level);
 	    }else{
+		/* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
 		iPar = nb26[j];
 		for(ichild=0; ichild<num_children; ichild++){
 		    icell_child = cell_child(iPar,ichild);
@@ -633,7 +638,7 @@ void distribute_momentum(double dp, int level, int icell, double dt){
 /*     dp = 2e-8*constants->kms*constants->Msun/(units->velocity*units->mass)*units->time*dt; */
 /* #endif */
     dp *= kfb_boost_kicks;
-/*   PLUGIN_POINT(RecordDistributeMomentum)(dp, icell, level); */
+    PLUGIN_POINT(RecordDistributeMomentum)(dp, icell, level); 
 /*     cart_debug("kickv %d %e %e",icell, */
 /* 	       dp/cell_gas_density(icell)*units->velocity/constants->kms, */
 /* 	       cell_gas_density(icell)*units->number_density ); */

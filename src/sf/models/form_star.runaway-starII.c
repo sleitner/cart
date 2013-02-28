@@ -42,8 +42,8 @@ void starII_runaway_config_verify()
     VERIFY(runaway:Ostar_mass, Ostar_mass >  8.0 );
     VERIFY(runaway:Bstar_mass, Bstar_mass >= 8.0 && Bstar_mass < Ostar_mass );
 }
-void starII_runaway_init(){if(!(starII_runaway_indicator)) return;}
-void starII_runaway_setup(int level){if(!(starII_runaway_indicator)) return;}
+void starII_runaway_init(){if(!(starII_runaway_indicator));}
+void starII_runaway_setup(int level){if(!(starII_runaway_indicator));}
 
 double sample_exponential(double tau){
     return -tau*log(cart_rand());
@@ -54,7 +54,7 @@ double starII_runaway_mean_kick(double mass_msun){
 }
 double starII_runaway_velocity(double mass_code){
     double mass_msun = mass_code * units->mass/constants->Msun;
-    if(!(starII_runaway_indicator)) return;
+    if(!(starII_runaway_indicator)) return 0.0;
 
     if( mass_msun > Ostar_mass &&
 	cart_rand() < Ostar_frac_runaway){
