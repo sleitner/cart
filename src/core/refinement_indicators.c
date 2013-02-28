@@ -366,7 +366,7 @@ float gas_mass_indicator( int cell, int level ) {
 	return MIN( ave_mass, refinement_indicator[GAS_MASS_INDICATOR].weight );
 }
 
-#ifdef /* INERT_GAS_TRACER */
+#ifdef INERT_GAS_TRACER 
 float inert_gas_tracer_indicator( int cell, int level ) {
         /* 
         // hack: cell_inert_gas_tracer is initialized to cell_gas_density (in some region) 

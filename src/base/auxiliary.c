@@ -1,6 +1,7 @@
 #include "config.h"
-
+#if !defined(__APPLE__)
 #include <malloc.h>
+#endif
 #include <mpi.h>
 #include <stdarg.h>
 #include <stdio.h>

@@ -1,3 +1,4 @@
+#ifdef RADIATIVE_TRANSFER
       subroutine frtInitCF(m,fname)
       include 'frt_cf3.inc'
       character*(*) fname
@@ -302,3 +303,4 @@ C
 
       return
       end
+#endif
