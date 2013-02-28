@@ -30,12 +30,11 @@ struct
 
 void sfr_config_init()
 {
-  control_parameter_add3(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=3:efficiency","the relative efficiency of the star formation law (relative to the constant depletion time-scale of 1.5 Gyr).");
+  control_parameter_add2(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","the relative efficiency of the star formation law (relative to the constant depletion time-scale of 1.5 Gyr).");
 
-  control_parameter_add3(control_parameter_double,&sfr.variability,"sf:variability","sfr.variability","sf:recipe=3:variability","the variability of the efficiency. If <sf:variability> is greater than 0, then it serves as a dispersion of a lognormal distribution with which the actual SF efficiency fluctuates around <sf:efficiency> (i.e. <sf:efficiency> remains the mean of the distribution).");
+  control_parameter_add2(control_parameter_double,&sfr.variability,"sf:variability","sfr.variability","the variability of the efficiency. If <sf:variability> is greater than 0, then it serves as a dispersion of a lognormal distribution with which the actual SF efficiency fluctuates around <sf:efficiency> (i.e. <sf:efficiency> remains the mean of the distribution).");
 
-  control_parameter_add2(control_parameter_double,&sfr.min_molecular_fraction,"sf:min-molecular-fraction","sfr.min-molecular-fraction","the minimum molecular (H2) fraction for star formation.");
-
+  control_parameter_add2(control_parameter_double,&sfr.min_molecular_fraction,"sf:min-molecular-fraction","sfr.min_molecular_fraction","the minimum molecular (H2) fraction for star formation.");
 }
 
 
