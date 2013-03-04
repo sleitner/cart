@@ -1049,7 +1049,6 @@ void read_artio_restart( const char *label ) {
 	int num_grid_files, num_particle_files;
 	int num_file_procs, num_file_octs, num_file_particles, num_file_star_particles;
 	FILE *restart;
-	int type;
 	char str[CONTROL_PARAMETER_STRING_LENGTH];
 #ifdef RADIATIVE_TRANSFER
 	frt_intg n;
@@ -1097,14 +1096,9 @@ void read_artio_restart( const char *label ) {
 #endif /* HYDRO_TRACERS */
 	}	
 
-	type = ARTIO_OPEN_GRID;
-#ifdef PARTICLES
-	type |= ARTIO_OPEN_PARTICLES;
-#endif
-
-	handle = artio_fileset_open(filename, type, &con);
+	handle = artio_fileset_open(filename, ARTIO_OPEN_HEADER, &con);
 	if( handle == NULL ) {
-		cart_error("Unable to open ARTIO fileset %s of type %d",filename,type);
+		cart_error("Unable to open ARTIO fileset %s",filename);
 	}
 
 	if ( artio_parameter_get_long(handle, "num_root_cells", &num_file_root_cells) != ARTIO_SUCCESS ) {
@@ -1115,6 +1109,18 @@ void read_artio_restart( const char *label ) {
 		cart_error( "Number of root cells in file %s header does not match compiled value: %d vs %d",
 				filename, num_file_root_cells, num_root_cells);
 	}
+
+    if ( artio_parameter_get_int( handle, "num_grid_files", &num_grid_files ) != ARTIO_SUCCESS ||
+			artio_fileset_open_grid(handle) != ARTIO_SUCCESS ) {
+        cart_debug("Warning: the fileset does not contain grid data, the code cannot be restarted from a complete snapshot");
+    }
+
+#ifdef PARTICLES
+    if ( artio_parameter_get_int( handle, "num_particle_files", &num_particle_files ) != ARTIO_SUCCESS ||
+			artio_fileset_open_particles(handle) != ARTIO_SUCCESS ) {
+        cart_debug("Warning: fileset does not contain particles, the code cannot be restarted from a complete snapshot");
+    }
+#endif /* PARTICLES */
 
 	/* try to load balance */
 	if ( artio_parameter_get_array_length( handle, "mpi_task_sfc_index", &num_file_procs ) != ARTIO_SUCCESS
@@ -1296,8 +1302,6 @@ void read_artio_restart( const char *label ) {
 	if ( artio_parameter_get_int( handle, "num_grid_files", &num_grid_files ) == ARTIO_SUCCESS ) {
 		read_artio_grid(handle, file_max_level);
 		cart_debug("done reading grid");
-	} else {
-		cart_debug("Warning: the fileset does not contain grid data, the code cannot be restarted from a complete snapshot");
 	}
 
 #ifdef PARTICLES
@@ -1305,8 +1309,6 @@ void read_artio_restart( const char *label ) {
 		read_artio_particles(handle);
 		cart_debug("num_local_particles = %u", num_local_particles );
 		build_particle_list();
-	} else {
-		cart_debug("Warning: fileset does not contain particles, the code cannot be restarted from a complete snapshot");
 	}
 #endif /* PARTICLES */
 
