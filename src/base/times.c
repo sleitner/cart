@@ -241,7 +241,7 @@ void config_verify_times()
 
   VERIFY(tolerance-for-timestep-increase, !(tol_dt_grow < 1.0) );
 
-  VERIFY(max-dt, max_dt > 0.0 ); /* used in the first cfl*/
+  VERIFY(max-dt, max_dt >= 0.0 );
 
   VERIFY(reduce-timestep-factor:shallow-decrement, reduce_dt_factor_shallow_dec>=0.0 && reduce_dt_factor_shallow_dec<=1.0 );
   VERIFY(reduce-timestep-factor:deep-decrement, reduce_dt_factor_deep_dec>=0.0 && reduce_dt_factor_deep_dec<=1.0 );

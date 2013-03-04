@@ -1,3 +1,4 @@
+#include "frt_config.h"
 #ifdef RADIATIVE_TRANSFER
       subroutine frtInitCF(m,fname)
       include 'frt_cf3.inc'
