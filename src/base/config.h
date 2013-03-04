@@ -127,9 +127,24 @@
 
 /*
 //  Maximum number of processors
+//  Note: changing MAX_PROCS mid-simulation will cause problems. Just don't.
 */
 #ifndef MAX_PROCS
 #define MAX_PROCS    512
+#endif
+
+#if MAX_PROCS >= 1000000 /* you never know */
+#define ART_PROC_FORMAT   "%07u"
+#elif MAX_PROCS >= 100000
+#define ART_PROC_FORMAT   "%06u"
+#elif MAX_PROCS >= 10000
+#define ART_PROC_FORMAT   "%05u"
+#elif MAX_PROCS >= 1000
+#define ART_PROC_FORMAT   "%04u"
+#elif MAX_PROCS >= 100
+#define ART_PROC_FORMAT   "%03u"
+#else
+#define ART_PROC_FORMAT   "%u"
 #endif
 
 
