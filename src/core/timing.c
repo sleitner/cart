@@ -411,7 +411,7 @@ void debug_breakpoint(int timerid, int start, const char *file, int line)
   char filename[256];
   FILE *f = 0;
   
-  sprintf(filename,"%s/debug.%05u.log",logfile_directory,local_proc_id);
+  sprintf(filename,"%s/debug."ART_PROC_FORMAT".log",logfile_directory,local_proc_id);
   if(timerid < 0)
     {
       offset = MPI_Wtime();

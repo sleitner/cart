@@ -86,7 +86,7 @@ void hart_init() {
 #endif /* PARTICLES */
 
 #ifdef HYDRO_TRACERS
-//	set_hydro_tracers_to_particles();
+	set_hydro_tracers_to_particles();
 #endif /* HYDRO_TRACERS */
 
 	if ( !buffer_enabled ) {

@@ -519,7 +519,7 @@ void restart_load_balance_cart( char *grid_filename, char *particle_header_filen
 				if ( num_cart_input_files == 1 ) {
 					sprintf( filename, "%s", grid_filename );
 				} else {
-					sprintf( filename, "%s.%03u", grid_filename, i );
+					sprintf( filename, "%s."ART_PROC_FORMAT, grid_filename, i );
 				}
 
 				input = fopen( filename, "r" );
@@ -3447,7 +3447,7 @@ void write_cart_grid_binary( char *filename ) {
 		if ( num_cart_output_files == 1 ) {
 			output = fopen(filename,"w");
 		} else {
-			sprintf( parallel_filename, "%s.%03u", filename, file_index );
+			sprintf( parallel_filename, "%s."ART_PROC_FORMAT, filename, file_index );
 			output = fopen(parallel_filename, "w");
 		}
 
@@ -4085,7 +4085,7 @@ void read_cart_grid_binary( char *filename ) {
 		if ( num_cart_input_files == 1 ) {
 			input = fopen(filename,"r");
 		} else {
-			sprintf( parallel_filename, "%s.%03u", filename, file_index );
+			sprintf( parallel_filename, "%s."ART_PROC_FORMAT, filename, file_index );
 			input = fopen(parallel_filename, "r");
 		}
 

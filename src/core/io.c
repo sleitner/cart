@@ -271,7 +271,7 @@ void read_restart( const char *label ) {
 	}
 
 	/* load random number generator state */
-	sprintf( filename, "%s/rng_state_%05u.dat", logfile_directory, local_proc_id );
+	sprintf( filename, "%s/rng_state_"ART_PROC_FORMAT".dat", logfile_directory, local_proc_id );
 	cart_rand_load_state( filename, 0 );
 
 	units_init();
