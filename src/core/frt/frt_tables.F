@@ -45,7 +45,7 @@ C
 C  Effective dust cross-section for the MW in the LW band
 C  (for H2 formation)
 C
-      d_sDUST = 4.0e-21/CSSTAR
+      d_sDUST = 2.0e-21/CSSTAR
 C
 C  Radiation tables
 C
