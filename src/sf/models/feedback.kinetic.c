@@ -103,7 +103,7 @@ void kfb_config_init(){
     /* Default values */
     kfb_internal_method = kfb_opts[1].method; /* kicks */
     kfb_internal_spread = kfb_opts[1].spread; /* oct */
-#ifdef TURBULENT_ENERGY
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
     kfb_internal_turbulence = kfb_opts[0].turbulence; 
 #else
     kfb_internal_turbulence = kfb_opts[0].turbulence; 
@@ -122,7 +122,7 @@ void kfb_config_init(){
 void kfb_config_verify()
 {
     VERIFY(kfb:turbulence, 1 );
-#ifndef TURBULENT_ENERGY
+#ifndef ISOTROPIC_TURBULENCE_ENERGY
     if(      strcmp(kfb_internal_turbulence,"cancel") == 0 ||
 	     strcmp(kfb_internal_turbulence,"both")   == 0 ){
 	cart_error("turbulence is off cannot use kfb for pressure");
@@ -134,14 +134,14 @@ void kfb_config_verify()
     }else{
 	cart_error("bad kfb_internal_turbulence option");
     }
-#endif /* TURBULENT_ENERGY */
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
     VERIFY(kfb:method, 1 );
-#ifndef FIXED_PRESSURE
+#ifndef EXTRA_PRESSURE_SOURCE
     if(       strcmp(kfb_internal_method,"pressurize") == 0){ 
-	cart_error("FIXED_PRESSURE undefined ... needed to pressurize cell");
+	cart_error("EXTRA_PRESSURE_SOURCE undefined ... needed to pressurize cell");
     }
-#endif /* FIXED_PRESSURE */
+#endif /* EXTRA_PRESSURE_SOURCE */
 
     VERIFY(kfb:spread, 1 );
     VERIFY(kfb:boost_kicks, kfb_boost_kicks>=0);
@@ -367,11 +367,11 @@ void cart_rand_unit_vector_oct(double uni[nDim], int ichild){
 
 /* ------- act on the cells ----------------------------------- */
 void kfb_pressurize_cell(int icell, double dPressure){
-/* enforce a fixed pressure to generate momentum */
+/* add a fixed pressure source to generate momentum */
     double dU;
-#ifdef FIXED_PRESSURE
-	cell_fixed_pressure(icell) += dPressure;
-#endif /* FIXED_PRESSURE */
+#ifdef EXTRA_PRESSURE_SOURCE
+	cell_extra_pressure_source(icell) += dPressure;
+#endif /* EXTRA_PRESSURE_SOURCE */
 }
 void kfb_pressurize(double dPressure, int level, int icell){
     int iPar, ichild;
@@ -422,16 +422,16 @@ void kinetic_to_internal(int icell, double p0, double p1, int toturbulence){
 /* #endif /\* DEBUG_SNL *\/ */
 
     if( toturbulence == 1){
-#ifdef TURBULENT_ENERGY
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
 	if(units->temperature*cell_turbulence_temperature(icell) < feedback_turbulence_temperature_ceiling)
 	    {
-		cell_turbulent_energy(icell) += dU;
+		cell_isotropic_turbulence_energy(icell) += dU;
 		cell_gas_energy(icell) += dU/2.;  /* half was already kinetic */
 		cell_gas_pressure(icell) += dU*(turbulence_gamma-1);
 	    }
 #else
-	cart_error("TURBULENT_ENERGY must be defined");
-#endif /* TURBULENT_ENERGY */
+	cart_error("ISOTROPIC_TURBULENCE_ENERGY must be defined");
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
     }else{
 #ifdef STAR_FORMATION
 	if(units->temperature*cell_gas_temperature(icell) < feedback_temperature_ceiling)
@@ -616,8 +616,8 @@ void kfb_hybrid_pressurize_kick(double dp, double dPressure, int level, int icel
 */
     double dPi;
     cart_assert( strcmp(kfb_internal_spread,"cube") == 0 );
-#ifndef FIXED_PRESSURE
-    cart_error("kfb_hybrid_pressurize_kick requires FIXED_PRESSURE and cube kicks");
+#ifndef EXTRA_PRESSURE_SOURCE
+    cart_error("kfb_hybrid_pressurize_kick requires EXTRA_PRESSURE_SOURCE and cube kicks");
 #endif
     double mall;
     kfb_kick_cube_constv( dp, level, icell, &mall ); 

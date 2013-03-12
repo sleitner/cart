@@ -37,10 +37,9 @@
 #include "io_step.h"
 #include "particle_step.h"
 #include "rt_step.h"
+#include "stardestruction_step.h"
 #include "starformation_step.h"
 #include "starformation_feedback_step.h"
-#include "cell_feedback_step.h"
-#include "stardestruction_step.h"
 #include "step.h"
 
 extern int poissonRF12_starformation_indicator;

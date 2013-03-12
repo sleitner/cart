@@ -1,7 +1,5 @@
 #include "config.h"
 #if defined(PARTICLES) && defined(STAR_FORMATION)
-#include <math.h>
-#include <stdio.h>
 
 #include "agn.h"
 #include "auxiliary.h"
@@ -17,7 +15,6 @@
 #include "units.h"
 
 #include "imf.h"
-#include "rand.h"
 
 int num_local_star_particles = 0;
 int last_star_id = -1;
@@ -66,7 +63,6 @@ void config_init_star_formation()
   control_parameter_add3(control_parameter_double,&sf_min_gas_number_density,"sf:min-gas-number-density","sf_min_gas_number_density","rho_sf","the gas total hydrogen number density threshold for star formation, in cm^{-3}. No star formation is done for gas at lower densities.");
 
   control_parameter_add3(control_parameter_double,&sf_max_gas_temperature,"sf:max-gas-temperature","sf_max_gas_temperature","t_sf","the maximum gas temperature (in K) for star formation. No star formation is done in hotter gas.");
-
 
   control_parameter_add3(control_parameter_time,&sf_sampling_timescale,"sf:sampling-timescale","sf_sampling_timescale","dtmin_sf","the timescale on which the conditions for star formation are checked. This is a numerical parameter only, no physical results should depend on it; its value should be sufficiently smaller than the <sf:timescale> parameter.  This parameter used to be called 'dtmin_SF' in HART.");
 
@@ -126,7 +122,6 @@ void init_star_formation()
       star_formation_volume_min[j] = 0.0;
       star_formation_volume_max[j] = num_grid;
     }
-
 }
 
 
@@ -175,13 +170,11 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
     }
 }
 
-
 int create_star_particle( int icell, float mass, double pdt, int type ) {
 	int i;
 	int ipart;
 	int id;
 	int level;
-	double uni[nDim];
 	double pos[nDim];
 	float new_density;
 	float density_fraction, thermal_pressure;
