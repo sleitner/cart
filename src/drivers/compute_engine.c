@@ -111,16 +111,12 @@ int drive_run () {
 	//  labels restart files.
 	*/
 	str = extract_option1("restart","r","last");
+        restart_label = NULL;
 	if(str != NULL)
 	  {
 	    if(strcmp(str,"last") == 0)
 	      {
 		restart = 1;
-		restart_label = NULL;
-	      }
-	    else if(strcmp(str, "NULL")==0)
-	      {
-		restart = 0;
 		restart_label = NULL;
 	      }
 	    else
@@ -139,8 +135,8 @@ int drive_run () {
 		  }
 #endif
 	      }
-	  }
-
+	  } 
+           
         /*
         //  Allow to read old-style IO
         */
