@@ -258,6 +258,10 @@ void mark_refinement_indicators( int cell, int level ) {
 		indicator = MAX( dark_1stspec_indicator(cell, level), indicator );
 	}
 
+        if ( refinement_indicator[PLUGIN_INDICATOR].use[level] ) {
+		indicator = MAX( plugin_indicator( cell, level ), indicator );
+	}
+
 #ifdef HYDRO
 	if ( refinement_indicator[GAS_MASS_INDICATOR].use[level] ) {
 		indicator = MAX( gas_mass_indicator( cell, level ), indicator );
@@ -266,12 +270,6 @@ void mark_refinement_indicators( int cell, int level ) {
 	if ( refinement_indicator[GAS_1STSPEC_INDICATOR].use[level] ) {
 		indicator = MAX( gas_1stspec_indicator( cell, level ), indicator );
 	}
-
-#ifdef INERT_GAS_TRACER
-        if ( refinement_indicator[INERT_GAS_TRACER_INDICATOR].use[level] ) {
-		indicator = MAX( inert_gas_tracer_indicator( cell, level ), indicator );
-	}
-#endif /* INERT_GAS_TRACER */
 
 	cell_all_neighbors( cell, neighbors );
 	for ( i = 0; i < nDim; i++ ) {
