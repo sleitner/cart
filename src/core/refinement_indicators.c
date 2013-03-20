@@ -340,6 +340,10 @@ float dark_1stspec_indicator( int cell, int level ) {
 	return MIN( ave_mass, refinement_indicator[DARK_1STSPEC_INDICATOR].weight );
 }
 
+float plugin_indicator( int cell, int level ) {
+    PLUGIN_POINT(RefinementIndicator)(cell, level);
+}
+
 #ifdef HYDRO
 
 float spatial_indicator( int cell, int level ) {
@@ -365,32 +369,6 @@ float gas_mass_indicator( int cell, int level ) {
 	ave_mass = ( cell_volume[level] * cell_gas_density(cell) ) / refinement_indicator[GAS_MASS_INDICATOR].threshold[level];
 	return MIN( ave_mass, refinement_indicator[GAS_MASS_INDICATOR].weight );
 }
-
-#ifdef INERT_GAS_TRACER 
-float inert_gas_tracer_indicator( int cell, int level ) {
-        /* 
-        // hack: cell_inert_gas_tracer is initialized to cell_gas_density (in some region) 
-        // if it is mixed below fraction=refinement_indicator[INERT_GAS_TRACER_INDICATOR].weight 
-        // then ignore this else multiply the gas refinement by threshold[level]
-        */ 
-	float gas_tracer_ratio;
-	float indicator;
-	gas_tracer_ratio = cell_inert_gas_tracer(cell)/cell_gas_density(cell);
-        if( gas_tracer_ratio > refinement_indicator[INERT_GAS_TRACER_INDICATOR].weight) {
-            if ( refinement_indicator[GAS_MASS_INDICATOR].use[level] ) {
-                indicator = (   refinement_indicator[INERT_GAS_TRACER_INDICATOR].threshold[level]
-                                *gas_mass_indicator(cell,level)); 
-            }
-            if ( refinement_indicator[GAS_1STSPEC_INDICATOR].use[level] ) {
-                indicator = MAX(refinement_indicator[INERT_GAS_TRACER_INDICATOR].threshold[level]
-                                *gas_1stspec_indicator(cell,level), indicator); 
-            }
-            return MIN( indicator, 1.0 );
-        }else{
-            return 0;
-        }
-}
-#endif /* INERT_GAS_TRACER */
 
 float gas_1stspec_indicator( int cell, int level ) {
 	float ave_mass;
