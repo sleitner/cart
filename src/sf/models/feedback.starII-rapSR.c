@@ -51,10 +51,6 @@ void starII_rapSR_kick(int level, int icell, int ipart, double ini_mass_sol, dou
 	    * ( 1 - exp(-tau) ) 
 	    / (units->mass * units->velocity);  
 	distribute_momentum(dp, level, icell, dt);
-
-/* #ifdef DEBUG_SNL */
-/* 	cart_debug("dp %e LUV %e 1-etau=%e=1",dp, dp*units->mass*units->velocity, L_UV, (1-exp(-tau)) ); */
-/* #endif /\*  DEBUG_SNL *\/ */
     }
 }
     
