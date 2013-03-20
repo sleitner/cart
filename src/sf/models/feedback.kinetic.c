@@ -536,6 +536,7 @@ void distribute_momentum(double dp, int level, int icell, double dt){
     double dPressure;
     /* dp is in momentum code units -- NOT per volume (mass*velocity * dt/time )*/
     dp *= kfb_boost_kicks;
+    PLUGIN_POINT(RecordDistributeMomentum)(dp, icell, level);
     
     if(       strcmp(kfb_internal_method,"pressurize") == 0){ 
 	dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */

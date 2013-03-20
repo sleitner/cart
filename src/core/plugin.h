@@ -32,8 +32,7 @@ typedef struct Plugin
   void (*LevelStepBegin)(int level, MPI_Comm level_com);
   void (*LevelStepEnd)(int level, MPI_Comm level_com);
   void (*LevelStepFail)(int level, MPI_Comm level_com);
-  /* void (**AfterCFLRestart)(); -- not used? */
-  /* void (**StarformationFeedbackEnd)(int level, int cell); -- not used? */
+  void (*RecordDistributeMomentum)(double dp, int icell, int level);
 }
 plugin_t;
 
