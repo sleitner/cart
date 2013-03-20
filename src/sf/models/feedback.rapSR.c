@@ -74,7 +74,9 @@ void rapSR_kick(int level, int icell, int ipart, double t_next){
     double dt = t_next - particle_t[ipart];
     double tage = particle_t[ipart] - star_tbirth[ipart];
 #ifdef STAR_PARTICLE_TYPES
-    cart_assert(star_particle_type[ipart] == STAR_TYPE_NORMAL || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH );
+    if(!(star_particle_type[ipart] == STAR_TYPE_NORMAL || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH )){
+        cart_error("bad particle type for rapSR");
+    }
 #endif
     if(rapSR_boost > 0){
 	tau = tau_UV(icell);
@@ -82,25 +84,6 @@ void rapSR_kick(int level, int icell, int ipart, double t_next){
 	if(tage > rapSR_timescale_code ){
 	    dp *= pow((tage/rapSR_timescale_code),-1.2); /* fit to sb99 */
 	}
-#ifdef DEBUG_SNL
-	double L_UV = rapSR_luminosity_phys * particle_mass[ipart]*units->mass; //ergs/s
-	double L_UVRT = sf_feedback->rt_source(ipart) * particle_mass[ipart] 
-	    *units->mass*constants->c*constants->c/units->time ; // ergs/s 
-	double dp2   =  L_UV/constants->c * dt*units->time * ( 1 - exp(-tau) ) 
-	    /(units->mass*units->velocity) ;
-	double dpRT  =  L_UVRT / constants->c * dt*units->time * ( 1 - exp(-tau) )
-	    /(units->mass*units->velocity) ;
-	double fact = 1.0/cell_gas_density(icell)*units->velocity/constants->kms*cell_volume_inverse[level];
-	cart_debug("L_UV %e, RT L_UVRT %e ||dp %e dp2 %e  dpRT %e || mass=%e dp_code %e",
-		   L_UV, L_UVRT, 
-		   dp*fact,  
-		   dp2*fact,
-		   dpRT*fact, 
-		   cell_gas_density(icell)*cell_volume[level]*units->mass/constants->Msun,
-		   dp
-	    );
- 	cart_debug("snl: starII_popM_UV_momentum");   
-#endif 
 	distribute_momentum(dp, level, icell, dt); 
     }
 }
