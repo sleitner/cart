@@ -11,6 +11,7 @@
 #include "cosmology.h"
 #include "refinement_indicators.h"
 #include "tree.h"
+#include "plugin.h"
 
 #ifdef PARTICLES
 #include "particle.h"
@@ -339,7 +340,7 @@ float dark_1stspec_indicator( int cell, int level ) {
 }
 
 float plugin_indicator( int cell, int level ) {
-    PLUGIN_POINT(RefinementIndicator)(cell, level);
+        PLUGIN_POINT(RefinementIndicator)(cell, level);
 }
 
 #ifdef HYDRO
