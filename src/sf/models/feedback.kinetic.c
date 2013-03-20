@@ -171,65 +171,31 @@ const int CubeDir3a[]    = {  0,  1,  0,  1,  0,  1,  0,  1 };
 const int CubeOrigin3a[] = { 12, 12, 13, 13, 16, 16, 17, 17 };
 const int CubeDir3b[]    = {  2,  3,  2,  3,  2,  3,  2,  3 };
 const int CubeOrigin3b[] = { 10, 10, 11, 11, 14, 14, 15, 15 };
-int CubeDelPos[][nDim] = {
-    {-1, 0, 0},
-    { 1, 0, 0},
-    { 0,-1, 0},
-    { 0, 1, 0},
-    { 0, 0,-1},
-    { 0, 0, 1},
-
-    {-1,-1, 0},
-    { 1,-1, 0},
-    {-1, 1, 0},
-    { 1, 1, 0},
-    
-    {-1, 0,-1}, //10
-    { 1, 0,-1},
-    { 0,-1,-1},
-    { 0, 1,-1},
-
-    {-1, 0, 1},
-    { 1, 0, 1},
-    { 0,-1, 1},
-    { 0, 1, 1},
-    
-    {-1,-1,-1},
-    { 1,-1,-1},
-    {-1, 1,-1},
-    { 1, 1,-1},
-    {-1,-1, 1},
-    { 1,-1, 1},
-    {-1, 1, 1},
-    { 1, 1, 1}
-}; /* first 6 get static direction kick, next 12 get 2D randomness (one direction fixed), last 8 corners get 3D randomness like an oct (randomness of same order as non-zero entries)*/
+/* first 6 get static direction kick, next 12 get 2D randomness (one direction fixed), last 8 corners get 3D randomness like an oct (randomness of same order as non-zero entries)*/
 /*
-// This routine returns 26 neighbors as if the whole mesh was uniform.
+// This array returns 26 neighbors as if the whole mesh was uniform.
 // In particular, one neighbor of higher level will appear more than once. 
 // The first 6 neighbors are exactly as returned by cell_all_neighbors.
 // The other 20 neighbors are packed as above:
-//  6:  --0
-//  7:  +-0
-//  8:  -+0
-//  9:  ++0
-// 10:  -0-
-// 11:  +0-
-// 12:  -0+
-// 13:  +0+
-// 14:  0--
-// 15:  0+-
-// 16:  0-+
-// 17:  0++
-
-// 18:  ---
-// 19:  +--
-// 20:  -+-
-// 21:  ++-
-// 22:  --+
-// 23:  +-+
-// 24:  -++
-// 25:  +++
 */
+int CubeDelPos[][nDim] = {
+    {-1, 0, 0},    { 1, 0, 0},
+    { 0,-1, 0},    { 0, 1, 0},
+    { 0, 0,-1},    { 0, 0, 1},
+    //6-9
+    {-1,-1, 0},    { 1,-1, 0},
+    {-1, 1, 0},    { 1, 1, 0},
+     //10-13
+    {-1, 0,-1},    { 1, 0,-1},
+    { 0,-1,-1},    { 0, 1,-1},
+     //14-17
+    {-1, 0, 1},    { 1, 0, 1},
+    { 0,-1, 1},    { 0, 1, 1},
+     //18-25
+    {-1,-1,-1},    { 1,-1,-1},    {-1, 1,-1},    { 1, 1,-1},
+    {-1,-1, 1},    { 1,-1, 1},    {-1, 1, 1},    { 1, 1, 1}
+
+}; 
 #define CubeStencilSize 26
 #define num_corners 8
 
@@ -271,46 +237,9 @@ void GetCubeStencil(int level, int cell, int nb[])
 	  // the local cell/oct...
 	  */
 	  nb[num_neighbors+j] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
-#ifdef DEBUG
-	  cart_assert(nb[num_neighbors+j] == cell_neighbor(nb[CubeDir2[j]],CubeDir1[j]));
-#endif      
-	}
-    }
-  /*
-  //  Third level neighbors
-  */
-  for(j=0; j<num_corners; j++){
-      if(        cell_level( nb[CubeOrigin3a[j]] ) == level ){
-	  nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]);
-      } else if( cell_level( nb[CubeOrigin3b[j]] ) == level ){
-	  nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]);
-      } else{
-	  nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]);
-#ifdef DEBUG
-	  cart_assert( nb[CubeStencilSize-num_corners+j] == cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]) );
-#endif
-      }
+#ifdef       }
   }
       
-
-#ifdef DEBUG
-  double p0[nDim], p[nDim];
-  int k;
- 
-  cell_center_position(cell,p0);
-
-  for(j=0; j<CubeStencilSize; j++)
-    {
-      for(k=0; k<nDim; k++)
-	{
-	  p[k] = p0[k] + cell_size[level]*CubeDelPos[j][k];
-	  if(p[k] < 0.0) p[k] += num_grid;
-	  if(p[k] > num_grid) p[k] -= num_grid;
-	}
-
-      cart_assert(cell_contains_position(nb[j],p));
-    }
-#endif
 
 }
 
@@ -410,16 +339,6 @@ void kinetic_to_internal(int icell, double p0, double p1, int toturbulence){
     }
 
     dU = p2_cancel / cell_gas_density(icell) ; /* \Delta_ie = 2*(dp)^2/2m (per volume) */
-/* #ifdef DEBUG_SNL */
-/*     if(p2_cancel > 0 ){ */
-/* 	cart_debug("ie=%e dU=%e KE %e ; T=%e +dT=%e; P=%e +dP=%e", */
-/* 		   cell_gas_internal_energy(icell), dU, cell_gas_kinetic_energy(icell),  */
-/* 		   cell_gas_temperature(icell)*units->temperature, */
-/* 		   (cell_gas_gamma(icell)-1)*constants->wmu*dU/cell_gas_density(icell)*units->temperature, */
-/* 		   cell_gas_pressure(icell), (cell_gas_gamma(icell)-1)*dU */
-/* 	    );  */
-/*     } */
-/* #endif /\* DEBUG_SNL *\/ */
 
     if( toturbulence == 1){
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
@@ -458,17 +377,8 @@ void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
     }else{
 	cart_error("bad child argument %d",ichild);
     }
-/* #ifdef DEBUG_SNL */
-/*     cart_debug("kick %d %d %d  %e %e %e", idir[0],idir[1],idir[2],uni[0],uni[1],uni[2]); */
-/* #endif */
 
     dp_cell = copysign(1.0,dp)*MIN( fabs(dp*cell_volume_inverse[level]), dvfact*cell_gas_density(icell) );
-/* #ifdef DEBUG_SNL */
-/* #warning kicks in +x only
-/*     uni[0]=1.0; uni[1]=0; uni[2]=0;   */
-/*     cart_debug("dp %e",dp*cell_volume_inverse[level]); */
-/*     cart_debug("dp_cell %e %e %e",dp_cell, dvfact, dvfact*cell_gas_density(icell)); */
-/* #endif */
     for(i=0; i<nDim; i++){
 	dp_dir = dp_cell * uni[i]; 
 	p1 = cell_momentum(icell,i);
@@ -498,6 +408,7 @@ void kfb_kick_oct(double dp, int level, int icell){
 }
 
 void kfb_kick_cube(double dp, int level, int icell){
+    /* kick all cells with same momentum */
     int iPar, ichild,icell_child;
     int nb26[CubeStencilSize], j;
     double num_local_cells=0; 
@@ -539,16 +450,17 @@ void kfb_kick_cube(double dp, int level, int icell){
     }
 }
 void kfb_kick_cube_constv(double dp, int level, int icell, double *mall_level){
+/* kick with a constant velocity corresponding to dp/mall */
     int iPar, ichild,icell_child;
     int nb26[CubeStencilSize], num_local_cells=0, j;
     double dpi, dv;
     GetCubeStencil(level, icell, nb26);
     
-    *mall_level=cell_gas_density(icell) ;  /* for hybrid */
+    *mall_level=cell_gas_density(icell) ; 
     for(j=0; j<CubeStencilSize; j++){
 	if( cell_is_local(nb26[j]) ){
 	    if( cell_is_leaf(nb26[j]) ){
-		*mall_level += cell_gas_density(nb26[j]); /* for hybrid*/
+		*mall_level += cell_gas_density(nb26[j]); 
 	    }else{
 		/* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
 		iPar = nb26[j];
@@ -577,16 +489,6 @@ void kfb_kick_cube_constv(double dp, int level, int icell, double *mall_level){
 			dpi = dv*cell_gas_density( icell_child );
 			kfb_kick_cell(icell_child, -2, CubeDelPos[j], dpi, level);
 		    }
-/* 			for(int k=0; k<CubeStencilSize; k++){ */
-/* 			    cell_center_position(nb26[k], pos); //snl */
-/* 			    double pos0[nDim]; */
-/* 			    cell_center_position(icell, pos0); //snl */
-/* 			    cart_debug( "snl %d %d ; %f %d   %f %d  %f %d ",level, cell_level(nb26[k]), */
-/* 					(pos[0]-pos0[0])/cell_size[level] , CubeDelPos[k][0], */
-/* 					(pos[1]-pos0[1])/cell_size[level] , CubeDelPos[k][1], */
-/* 					(pos[2]-pos0[2])/cell_size[level] , CubeDelPos[k][2] */
-/* 				); */
-/* 			} */
 		}
 	    }
 	}
@@ -633,15 +535,7 @@ void kfb_hybrid_pressurize_kick(double dp, double dPressure, int level, int icel
 void distribute_momentum(double dp, int level, int icell, double dt){
     double dPressure;
     /* dp is in momentum code units -- NOT per volume (mass*velocity * dt/time )*/
-/* #ifdef DEBUG_SNL */
-/* #warning constant dp in distribute momentum for debugging */
-/*     dp = 2e-8*constants->kms*constants->Msun/(units->velocity*units->mass)*units->time*dt; */
-/* #endif */
     dp *= kfb_boost_kicks;
-    PLUGIN_POINT(RecordDistributeMomentum)(dp, icell, level); 
-/*     cart_debug("kickv %d %e %e",icell, */
-/* 	       dp/cell_gas_density(icell)*units->velocity/constants->kms, */
-/* 	       cell_gas_density(icell)*units->number_density ); */
     
     if(       strcmp(kfb_internal_method,"pressurize") == 0){ 
 	dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
