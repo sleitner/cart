@@ -144,18 +144,15 @@ void cell_trapIR(int level, int icell, double t_next, double dt){
 #ifdef ENRICHMENT
 	Zsol = cell_gas_metal_density(icell)/(cell_gas_density(icell)*constants->Zsun);
 #else
-	Zsol = 1.0;
+	cart_error("ENRICHMENT is required for tauIR model to function");
 #endif
 	masslum_from_star0(level, icell, &Mcell_sun, &LUV_ergis);
 	Lbol_ergis = LUV_ergis*6; /* similar to rapSR_luminosity_code*/
 	if(LUV_ergis>0){
-/* #ifdef DEBUG_SNL */
-/* 	    cart_debug("mass,lum from star0 %e %e",Mcell_sun, LUV_ergis);  */
-/* #endif */
 	    
-	    tauIR = tauIR_boost *  Kappa_IR(Zsol) * constants->XH
+	    tauIR = tauIR_boost *  Kappa_IR(Zsol) 
 #ifdef RADIATIVE_TRANSFER
-		* (cell_HI_density(icell)+2.0*cell_H2_density(icell))
+		* (cell_HI_density(icell)+2.0*cell_H2_density(icell))/constants->XH
 #else
 		* cell_gas_density(icell)
 #endif /* RADIATIVE_TRANSFER */
@@ -164,21 +161,9 @@ void cell_trapIR(int level, int icell, double t_next, double dt){
 	    if(Apply_AVK_tauIR)
 		{
 		    tauIR += tauIR_boost * AVK_tauIR(Mcell_sun, Zsol) ;
-/* #ifdef DEBUG_SNL */
-/* 		double tauIR2; */
-/* 		tauIR2 = tauIR_boost *  Kappa_IR(Zsol) * constants->XH  */
-/* #ifdef RADIATIVE_TRANSFER */
-/* 		  * (cell_HI_density(icell)+2.0*cell_H2_density(icell))  */
-/* #else */
-/* 		  * cell_gas_density(icell) */
-/* #endif */
-/* 		  * Zsol * cell_sobolev_length(icell); */
-/* 		cart_debug("AVK trapped tauIR=%e cell tauIR=%e",tauIR, tauIR2); */
-/* #endif /\* DEBUG_SNL *\/ */
 		}
 	    dp = LUV_ergis * tauIR / constants->c * (dt*units->time) 
 		/ (units->velocity * units->mass);
-/*  	    cart_debug("LIR %e dpIR %e %e",LUV_ergis, dp/tauIR, dp);  */
 	    distribute_momentum(dp, level, icell, dt);
 	}
     }
