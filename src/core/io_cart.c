@@ -4520,7 +4520,6 @@ void read_cart_grid_binary( char *filename ) {
 	cart_assert( next_level_count <= num_cells_per_level[min_level] );
 
 	cart_free( cellrefined[local_proc_id] );
-	//snl1
 	read_cart_grid_binary_top_level_vars(num_in_hydro_vars,skip_hvar,num_hydro_vars,hydro_vars,input,endian,file_parent,file_index,
 			local_file_root_cells,page_size,proc_num_cells,proc_cell_index,file_sfc_index);
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
