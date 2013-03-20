@@ -44,7 +44,6 @@ void sfb_config_init()
 
 void sfb_config_verify()
 {
-//  cart_assert(cluster_buildup_indicator); //snl
   snII_config_verify();
   snIa_config_verify();
   ml_snl2012_config_verify();
@@ -100,16 +99,6 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 
     snIa_thermal_feedback(level,cell,ipart,t_next); 
 
-#ifdef DEBUG_SNL
-/* #pragma omp critical */
-/*     for(int i=0; i<14; i++){ */
-/*         double im; */
-/*         im = pow( 10, i/2.+2); */
-/*         cart_debug("mass %e tau %e", im , AVK_tauIR(im, 1.0) ); */
-/*     } */
-/*     cart_error("exit"); */
-#endif
-
 }
 
 extern double sf_min_gas_number_density;
@@ -124,7 +113,7 @@ void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt )
 }
 #endif /* HYDRO && PARTICLES */
 
-struct StellarFeedback sf_feedback_internal = 
+struct StellarFeedbackParticle sf_feedback_particle_internal =
   {
     "popM-cluster",
     sfb_hydro_feedback,

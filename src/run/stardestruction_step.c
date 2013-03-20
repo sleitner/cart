@@ -43,9 +43,13 @@ void star_destruction(int level) {
 		ipart_prev = particle_list_prev[ipart] ;
 		if ( particle_is_star(ipart) ){
 		    //stellar_destruction(level,cell,ipart,&idelete );
-                    sf_feedback->destroy_star_particle(level,icell,ipart,&idelete);
-                    if(idelete == -1) /* deleted current particle so go back one */
-                        ipart = ipart_prev; 
+                    idelete = sf_feedback->destroy_star_particle(level,icell,ipart);
+                    if(idelete == -1){ 
+                        delete_particle(icell,ipart);
+                        particle_free(ipart);
+                        /* deleted current particle so go back one */
+                        ipart = ipart_prev;
+                    } 
 		}
 
 		/* go to next particle in list */

@@ -62,8 +62,6 @@ void stellar_wind_kick(int level,int icell,int ipart,double t_next){
 		* star_metallicity_II[ipart]/constants->Zsun 
 #endif /* ENRICHMENT */
 		* dteff * star_initial_mass[ipart]  ;
-#ifdef DEBUG_SNL
-	    cart_debug("snl: popM_cluster_winds %e %e",dp/cell_gas_density(icell)*units->velocity/constants->kms,dp);   
 #endif
 	
 	    distribute_momentum(dp, level,  icell, dt); 

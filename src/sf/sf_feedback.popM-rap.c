@@ -145,7 +145,7 @@ float sfb_radiation_pressure(int cell)
 
 
 
-struct StellarFeedback sf_feedback_internal = 
+struct StellarFeedbackParticle sf_feedback_particle_internal =
   {
     "popM-rap",
     sfb_hydro_feedback,

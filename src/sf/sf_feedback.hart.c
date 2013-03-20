@@ -77,7 +77,7 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 #endif /* HYDRO && PARTICLES */
 
 
-struct StellarFeedback sf_feedback_internal = 
+struct StellarFeedbackParticle sf_feedback_particle_internal = 
   {
     "hart\0",
     sfb_hydro_feedback,
@@ -87,7 +87,7 @@ struct StellarFeedback sf_feedback_internal =
     sfb_config_verify,
     sfb_init,
     sfb_setup,
-    sfb_destroy_star_particles
+    NULL
   };
 
 void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt ){}

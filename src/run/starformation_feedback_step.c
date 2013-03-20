@@ -62,7 +62,7 @@ void star_particle_feedback(int level) {
                                  || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH) 
 #endif /* STAR_PARTICLE_TYPES */
 			) {
-				stellar_feedback(level,iter_cell,ipart,t_next);
+				stellar_feedback_particle(level,iter_cell,ipart,t_next);
 			}
 
 			ipart = particle_list_next[ipart];

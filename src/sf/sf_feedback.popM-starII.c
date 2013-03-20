@@ -145,7 +145,6 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 	    starII_explosion_mass(level, cell, ipart);
  	    starII_explosion_kicks(level, cell, ipart); 
 	    starII_explosion_thermal(level, cell, ipart);  
-	    /* starII particles are deleted at the END of step.c (starII_delete_snII) to prevent OMP/link list issues */
 	}else{
 	    
 	    if(cell_gas_density(cell) != cell_gas_density(cell)){
@@ -159,18 +158,12 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 		starII_stellar_wind_kick(level, cell, ipart,ini_mass_sol,age_yr,Zsol, t_next); 
 	    }
 	    /* RaP longrange is cell-by-cell */
-	    /* starII_HII_feedback(level, cell, ipart); */
 	} 
     }
 
-#ifdef DEBUG_SNL
-#pragma omp critical
-    testonestar();
-#endif
-    
 }
 
-void sfb_destroy_star_particle(int level,int icell,int ipart,int *idelete)
+int sfb_destroy_star_particle(int level,int icell,int ipart)
 {
     double star_age, ini_mass_sol, Zsol;
     star_age = particle_t[ipart] - star_tbirth[ipart] ;
@@ -179,12 +172,9 @@ void sfb_destroy_star_particle(int level,int icell,int ipart,int *idelete)
     if ( star_particle_type[ipart] == STAR_TYPE_STARII &&
 	 star_age > OneStar_stellar_lifetime(ini_mass_sol, Zsol)
 	){
-	delete_particle(icell,ipart);
-	particle_free(ipart);
-	/* deleted current particle so go back one */
-	*idelete = -1;
+	return -1;
     }else{
-	*idelete = 0;
+	return 1;
     }
     
 }
@@ -202,7 +192,7 @@ void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt )
 }
 #endif /* HYDRO && PARTICLES */
 
-struct StellarFeedback sf_feedback_internal = 
+struct StellarFeedbackParticle sf_feedback_particle_internal =
 {
     "popM-starII",
     sfb_hydro_feedback,

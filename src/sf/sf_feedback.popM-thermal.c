@@ -55,7 +55,7 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 #endif /* HYDRO && PARTICLES */
 
 
-struct StellarFeedback sf_feedback_internal = 
+struct StellarFeedbackParticle sf_feedback_particle_internal = 
   {
     "popM-thermal",
     sfb_hydro_feedback,

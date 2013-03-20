@@ -12,8 +12,8 @@
 #include "tree.h"
 #include "units.h"
 
-extern struct StellarFeedback sf_feedback_internal;
-const struct StellarFeedback *sf_feedback = &sf_feedback_internal;
+extern struct StellarFeedbackParticle sf_feedback_particle_internal;
+const struct StellarFeedbackParticle *sf_feedback_particle = &sf_feedback_particle_internal;
 
 extern struct StellarFeedbackCell sf_feedback_cell_internal;
 const struct StellarFeedbackCell *sf_feedback_cell = &sf_feedback_cell_internal;
@@ -28,7 +28,7 @@ double blastwave_time = { 50.0e6 };
 
 void control_parameter_list_feedback(FILE *stream, const void *ptr)
 {
-  fprintf(stream,"<%s>",sf_feedback->name);
+  fprintf(stream,"<%s>",sf_feedback_particle->name);
 }
 
 
@@ -40,13 +40,13 @@ void config_init_star_formation_feedback()
   /*
   // call config_init for the current feedback model
   */
-  if(sf_feedback->config_init != NULL) sf_feedback->config_init();
+  if(sf_feedback_particle->config_init != NULL) sf_feedback_particle->config_init();
 
   /*
   //  other
   */
-  ptr = cart_alloc(char,strlen(sf_feedback_internal.name)+1);
-  strcpy(ptr,sf_feedback_internal.name);
+  ptr = cart_alloc(char,strlen(sf_feedback_particle_internal.name)+1);
+  strcpy(ptr,sf_feedback_particle_internal.name);
   control_parameter_add(r,ptr,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
 
   control_parameter_add2(control_parameter_time,&feedback_speed_time_ceiling,"fb:time-ceiling","feedback_speed_time_ceiling","minimum cell crossing time feedback can contribute to. Kinetic feedback doesn't add to gas speed above this limit.");
@@ -72,11 +72,11 @@ void config_verify_star_formation_feedback()
   const char *feedback_external_name = "";
 #endif
 
-  cart_assert(sf_feedback_internal.name != NULL);
-  cart_assert(sf_feedback_internal.rt_source != NULL);
-  cart_assert(sf_feedback_internal.hydro_feedback != NULL);
+  cart_assert(sf_feedback_particle_internal.name != NULL);
+  cart_assert(sf_feedback_particle_internal.rt_source != NULL);
+  cart_assert(sf_feedback_particle_internal.hydro_feedback != NULL);
 
-  sprintf(feedback_internal_name,"<%s>",sf_feedback_internal.name);
+  sprintf(feedback_internal_name,"<%s>",sf_feedback_particle_internal.name);
   if(strcmp("<custom>",feedback_external_name)!=0 && strcmp(feedback_internal_name,feedback_external_name)!=0)
     {
       cart_error("Misconfiguration: the internal SF feedback name (%s) does not match the name set in defs.h (%s)",feedback_internal_name,feedback_external_name);
@@ -85,7 +85,7 @@ void config_verify_star_formation_feedback()
   /*
   // call config_verify for the current feedback model
   */
-  if(sf_feedback->config_verify != NULL) sf_feedback->config_verify();
+  if(sf_feedback_particle->config_verify != NULL) sf_feedback_particle->config_verify();
 
   /*
   //  other
@@ -104,7 +104,7 @@ void init_star_formation_feedback()
   /*
   // call init for the current feedback model
   */
-  if(sf_feedback->init != NULL) sf_feedback->init();
+  if(sf_feedback_particle->init != NULL) sf_feedback_particle->init();
 }
 
 
@@ -121,12 +121,12 @@ void init_blastwave(int icell)
 double dUfact;  /* must be here to simplify OpenMP directives */
 double dvfact;  
 
-void stellar_feedback(int level, int cell, int ipart, double t_next )
+void stellar_feedback_particle(int level, int cell, int ipart, double t_next )
 {
   /*
   // call feedback for the current feedback model for each particle
   */
-  sf_feedback->hydro_feedback(level,cell,ipart,t_next);
+  sf_feedback_particle->hydro_feedback(level,cell,ipart,t_next);
 }
 
 void stellar_feedback_cell(int level, int cell, double t_next, double dt )
@@ -141,7 +141,7 @@ void stellar_feedback_cell(int level, int cell, double t_next, double dt )
 /*   /\* */
 /*   // call particle destruction for the current feedback model  */
 /*   *\/ */
-/*     sf_feedback->destroy_star_particle(level,cell,ipart,icheck); */
+/*     sf_feedback_particle->destroy_star_particle(level,cell,ipart,icheck); */
 /* } */
 
 void setup_star_formation_feedback(int level)
@@ -153,7 +153,7 @@ void setup_star_formation_feedback(int level)
   /*
   // call setup for the current feedback model
   */
-  if(sf_feedback->setup != NULL) sf_feedback->setup(level);
+  if(sf_feedback_particle->setup != NULL) sf_feedback_particle->setup(level);
 }
 
 #endif /* HYDRO && PARTICLES */
