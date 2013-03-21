@@ -36,9 +36,6 @@ void destroy_cell_buffer();
 
 void update_buffer_level( int level, const int *var_indices, int num_update_vars );
 
-#ifdef HYDRO
-void merge_buffer_cell_gas_density_momentum( int level );
-#endif
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 void merge_buffer_cell_densities( int level );
 #endif

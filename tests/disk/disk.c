@@ -1085,6 +1085,9 @@ int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], d
 }
 
 #ifdef HYDRO
+void merge_buffer_cell_gas_density_momentum( int level );
+#endif
+#ifdef HYDRO
 void merge_buffer_cell_gas_density_momentum( int level ) {
 	int i;
 	int index, child;
