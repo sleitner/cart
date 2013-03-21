@@ -86,18 +86,13 @@ double sfr_rate(int cell)
     }
 }
 
-void sfr_form_star_particles(int level, int icell, double dtl, double dt, float sfr){
-    star_form_particles( level, icell, dtl, dt, sfr );
-}
-
 struct StarFormationRecipe sf_recipe_internal =
 {
   "linear-in-H2",
   sfr_rate,
   sfr_config_init,
   sfr_config_verify,
-  sfr_setup,
-  sfr_form_star_particles
+  sfr_setup
 };
 
 #else

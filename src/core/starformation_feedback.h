@@ -42,10 +42,6 @@ void config_verify_star_formation_feedback();
 
 void init_star_formation_feedback();
 
-void stellar_feedback_particle(int level, int iter_cell, int ipart, double t_next );
-void stellar_feedback_cell(int level, int iter_cell, double t_next, double dt );
-void stellar_destruction(int level, int cell,  int ipart, int *icheck );
-
 void setup_star_formation_feedback(int level);
 
 #ifdef BLASTWAVE_FEEDBACK

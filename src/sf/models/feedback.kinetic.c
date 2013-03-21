@@ -377,17 +377,19 @@ void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
     }else{
 	cart_error("bad child argument %d",ichild);
     }
-
-    dp_cell = copysign(1.0,dp)*MIN( fabs(dp*cell_volume_inverse[level]), dvfact*cell_gas_density(icell) );
+    
+    /* max momentum that can be added to cell corresponding to feedback_speed_time_ceiling */
+    dp_cell = copysign(1.0,dp)*MIN( fabs(dp*cell_volume_inverse[level]), 
+                                    dvfact*cell_gas_density(icell) ); 
     for(i=0; i<nDim; i++){
 	dp_dir = dp_cell * uni[i]; 
 	p1 = cell_momentum(icell,i);
  	kinetic_to_internal(icell, dp_dir, p1, cancel_to_turbulence);  
 
-	if(cell_momentum(icell,i) < dvfact*cell_gas_density(icell) ){
-	    cell_momentum(icell,i) += dp_dir;
-	    cart_assert(cell_momentum(icell,i) == cell_momentum(icell,i));
-	}
+        cell_momentum(icell,i) += dp_dir;
+        if( isnan(cell_momentum(icell,i)) ){
+            cart_error("cell momentum is nan after kick in feedback.kinetic.c");
+        }
 
     }
 }
@@ -536,7 +538,7 @@ void distribute_momentum(double dp, int level, int icell, double dt){
     double dPressure;
     /* dp is in momentum code units -- NOT per volume (mass*velocity * dt/time )*/
     dp *= kfb_boost_kicks;
-    PLUGIN_POINT(RecordDistributeMomentum)(dp, icell, level);
+    PLUGIN_POINT(RecordDistributedMomentum)(dp, icell, level);
     
     if(       strcmp(kfb_internal_method,"pressurize") == 0){ 
 	dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */

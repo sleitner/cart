@@ -30,7 +30,6 @@ int starII_indicator;
 
 void continuous_config_init()
 {
-//    if(!(continuous_starformation_indicator)) return;
     control_parameter_add3(control_parameter_time, &cluster_age_spread,"cluster:age-spread","cluster_age_spread","cluster_age_spread","timescale over which star particles representing clusters are allowed to grow.");
     control_parameter_add2(control_parameter_double, &cluster_min_expected_mass,"cluster:min-expected-mass","cluster_min_expected_mass","the minimum mass expected from sfr*cluster_age_spread allowed to seed a cluster.");
     
@@ -44,7 +43,6 @@ void continuous_config_init()
 extern double sf_sampling_timescale ;        /* in yrs; used to be called dtmin_SF, also in HART */
 void continuous_config_verify()
 {
-//   if(!(continuous_starformation_indicator)) return;
 
     VERIFY(cluster:fast-growth-multiplier, fast_growth_multiplier >= 0);//cluster:fast-growth-multiplier
     VERIFY(cluster:fast-growth-probability, fast_growth_probability >= 0 && fast_growth_probability <=1 );
@@ -58,11 +56,9 @@ void continuous_config_verify()
     starII_config_verify();
 }
 void continuous_init(){
-    if(!(continuous_starformation_indicator)) return;
     starII_init();
 }
 void continuous_setup(int level){
-    if(!(continuous_starformation_indicator)) return;
     cluster_age_spread_code = cluster_age_spread * constants->yr/units->time ; 
     cluster_min_expected_mass_code = cluster_min_expected_mass * constants->Msun/units->mass ; 
     starII_setup(level);
@@ -70,7 +66,7 @@ void continuous_setup(int level){
 int find_lowv_cluster(int icell){
     int ipart, ipart_store;
     double min_dv, dv, sage; 
-    ipart = cell_particle_list[icell]; /* opt: could do oct instead of cell */
+    ipart = cell_particle_list[icell]; 
     min_dv=1e30;
     ipart_store=-1;
     while ( particle_is_star(ipart) 
@@ -104,7 +100,6 @@ void continuous_star_formation( int level, int icell, double dtl, double dt_eff,
     float dmstar;
     int star_type = STAR_TYPE_NORMAL;
     
-    if(!(continuous_starformation_indicator)) return;
     if ( sfr <= 0 ) return;
     
     dmstar = sfr * dt_eff * cell_volume[level];

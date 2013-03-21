@@ -65,20 +65,20 @@ double Kappa_IR(double Zsol){
 
 double AVK_tauIR(double Msol, double Zsol ){
     /* Andrey's scheme for distributing trapped IR radiation to clumps of different Sigma*/
-    const double eta2 = 1; /* clumping factor? */
-    const double eps_clump = 0.2; /* star efficiency in clumps varies with \Sigma (see fall 2010). ; old 0.3 */
-    const double mu_max = 1.0; /*  0.1 up to 1.0 ; old .1 */  
-    const double Mclump_min = 100; 
-    double Mclump_max;
+    const float eta2 = 1; /* clumping factor? */
+    const float eps_clump = 0.2; /* star efficiency in clumps varies with \Sigma (see fall 2010). ; old 0.3 */
+    const float mu_max = 1.0; /*  0.1 up to 1.0 ; old .1 */  
+    const float Mclump_min = 100; 
+    float Mclump_max;
     /* Sigma_cl - M_cl relation*/
-    const double alpha0 = 0.4;
-    const double Mflat1 = 3e4; /* for M>3e4 (Fig1) */
-    const double alpha1 = 0.0; 
-    double alpha ;
-    const double beta = 1.7; /* slope of the clump mass function */
-    double ab,b2;
-    double C_R;
-    double tauIR;
+    const float alpha0 = 0.4;
+    const float Mflat1 = 3e4; /* for M>3e4 (Fig1) */
+    const float alpha1 = 0.0; 
+    float alpha ;
+    const float beta = 1.7; /* slope of the clump mass function */
+    float ab,b2;
+    float C_R;
+    float tauIR;
 
      alpha = alpha1; 
      Mclump_max = mu_max * Msol / eps_clump ; 
@@ -133,11 +133,11 @@ void masslum_from_star0(int level, int icell, double *Msol, double *LUV_ergis){
 
 
 void cell_trapIR(int level, int icell, double t_next, double dt){
-    double Zsol;
-    double Lbol_ergis, LUV_ergis;
-    double Mcell_sun;
-    double tauIR;
-    double dp;
+    float Zsol;
+    float Lbol_ergis, LUV_ergis;
+    float Mcell_sun;
+    float tauIR;
+    float dp;
     
     if( tauIR_boost > 0 ){
 

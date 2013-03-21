@@ -33,9 +33,7 @@ void cell_feedback(int level) {
 #pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next), schedule(dynamic)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		iter_cell = level_cells[i];
-
-		stellar_feedback_cell(level,iter_cell,t_next, dtl[level]);  
-
+                sf_feedback_cell->hydro_feedback_cell(level,iter_cell,t_next, dtl[level]);  
 	}
 #endif /* STAR_FORMATION*/
 

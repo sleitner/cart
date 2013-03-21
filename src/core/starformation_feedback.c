@@ -19,7 +19,7 @@ extern struct StellarFeedbackCell sf_feedback_cell_internal;
 const struct StellarFeedbackCell *sf_feedback_cell = &sf_feedback_cell_internal;
 
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
-double feedback_speed_time_ceiling = 1e4;  /* do not accelerate flows so that time-steps drop below~1e4yr (1e3km/s at 10pc) */
+double feedback_speed_time_ceiling = 1e4;  /* do not accelerate flows so that time-steps drop below~1e4yr (1e3km/s at 10pc) for a flow that is has v=0 wrt the grid*/
 
 #ifdef BLASTWAVE_FEEDBACK
 double blastwave_time = { 50.0e6 };
@@ -120,30 +120,6 @@ void init_blastwave(int icell)
 
 double dUfact;  /* must be here to simplify OpenMP directives */
 double dvfact;  
-
-void stellar_feedback_particle(int level, int cell, int ipart, double t_next )
-{
-  /*
-  // call feedback for the current feedback model for each particle
-  */
-  sf_feedback_particle->hydro_feedback(level,cell,ipart,t_next);
-}
-
-void stellar_feedback_cell(int level, int cell, double t_next, double dt )
-{
-  /*
-  // call feedback for the current feedback model for each cell
-  */
-    sf_feedback_cell->hydro_feedback_cell(level,cell,t_next,dt);
-}
-
-/* void stellar_destruction(int level, int cell,  int ipart, int *icheck ) { */
-/*   /\* */
-/*   // call particle destruction for the current feedback model  */
-/*   *\/ */
-/*     sf_feedback_particle->destroy_star_particle(level,cell,ipart,icheck); */
-/* } */
-
 void setup_star_formation_feedback(int level)
 {
   dUfact = feedback_temperature_ceiling/(units->temperature*constants->wmu*(constants->gamma-1));

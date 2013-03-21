@@ -26,7 +26,7 @@ int starII_runaway_indicator=0;              /* are we letting individual massiv
 
 double starII_avg_mass_code;
 
-double mfrac_starII, starII_avg_mass, m_imf_tot;
+double mfrac_starII=0, starII_avg_mass, m_imf_tot;
 double sIIminpw, imfmaxpw;
 
 double tdelay_popM_feedback;
