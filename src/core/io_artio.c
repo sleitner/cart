@@ -1143,7 +1143,7 @@ void read_artio_restart( const char *label ) {
     }
 
 #ifdef PARTICLES
-    if ( artio_fileset_has_particles(handle) ||
+    if ( !artio_fileset_has_particles(handle) ||
 			artio_fileset_open_particles(handle) != ARTIO_SUCCESS ) {
         cart_debug("Warning: fileset does not contain particles, the code cannot be restarted from a complete snapshot");
     }
