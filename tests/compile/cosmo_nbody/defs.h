@@ -8,5 +8,4 @@
 #define num_refinement_levels		9
 #define num_octs			1000000
 #define num_particles		        1000000
-#define num_star_particles              1000000
 

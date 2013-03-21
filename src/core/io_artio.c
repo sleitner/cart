@@ -50,6 +50,7 @@ DECLARE_LEVEL_ARRAY(double,abox_old);
 
 extern double auni_init;
 
+int artio_buffer_size = -1;
 int num_artio_grid_files = 1;
 int artio_grid_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
 
@@ -88,6 +89,8 @@ void config_init_io_artio() {
 		control_parameter_set_allocation_strategy, 
 		control_parameter_list_allocation_strategy };
 
+	control_parameter_add2(control_parameter_int,&artio_buffer_size,"io:artio-buffer-size","artio_buffer_size","Size of internal buffer used by artio to batch read/write requests.");
+
 	num_artio_grid_files = num_procs;
 	control_parameter_add2(control_parameter_int,&num_artio_grid_files,"io:num-grid-files","num_grid_files","Number of output grid files. Defaults to the number of MPI tasks.");
 	control_parameter_add2(control_parameter_allocation_strategy,&artio_grid_allocation_strategy,"io:grid-file-allocation-strategy","grid_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: ARTIO_ALLOC_EQUAL_SFC, ARTIO_ALLOC_EQUAL_PROC");
@@ -100,6 +103,8 @@ void config_init_io_artio() {
 }
 
 void config_verify_io_artio() {
+	VERIFY(io:artio-buffer-size, artio_buffer_size == -1 || artio_buffer_size > 0 );
+
 	VERIFY(io:num-grid-files, num_artio_grid_files > 0 && num_artio_grid_files < max_sfc_index );
 	VERIFY(io:grid-file-allocation-strategy, artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
 #ifdef PARTICLES 
@@ -917,7 +922,7 @@ void write_artio_particles( artio_fileset *handle, int *root_tree_particle_list,
 			}
 
 			if ( artio_particle_write_species_end(handle) != ARTIO_SUCCESS ) {
-				cart_error("Error completing writing species %d in sfc %ld", species, sfc );
+				cart_error("Error completing writing species %d in sfc %ld", j, sfc );
 			}
 		}
 
@@ -977,7 +982,7 @@ void artio_restart_load_balance( artio_fileset *handle ) {
 				}
 
 				for ( ; sfc <= end_sfc; sfc++ ) {
-					if ( artio_grid_read_root_cell_begin(handle, sfc, variables, 
+					if ( artio_grid_read_root_cell_begin(handle, sfc, NULL, variables, 
 								&num_oct_levels, num_octs_per_level ) != ARTIO_SUCCESS ) {
 						cart_error("Error reading grid root cell %ld", sfc );
 					}
@@ -999,6 +1004,8 @@ void artio_restart_load_balance( artio_fileset *handle ) {
 
 			cart_free( num_octs_per_level );
 			cart_free( variables );
+
+			artio_grid_clear_sfc_cache(handle);
 		}
 
 #ifdef PARTICLES
@@ -1029,6 +1036,8 @@ void artio_restart_load_balance( artio_fileset *handle ) {
 					}
 				}   
 			}
+
+			artio_particle_clear_sfc_cache(handle);
 
 			cart_free( num_particles_per_species );
 		}
@@ -1063,7 +1072,7 @@ void read_artio_restart( const char *label ) {
 	int num_grid_files, num_particle_files;
 	int num_file_procs, num_file_octs, num_file_particles, num_file_star_particles;
 	FILE *restart;
-	char str[CONTROL_PARAMETER_STRING_LENGTH];
+	char str[ARTIO_MAX_STRING_LENGTH];
 #ifdef RADIATIVE_TRANSFER
 	frt_intg n;
 	frt_real *data;
@@ -1124,6 +1133,10 @@ void read_artio_restart( const char *label ) {
 				filename, num_file_root_cells, num_root_cells);
 	}
 
+	if ( artio_buffer_size != -1 ) {
+		artio_fileset_set_buffer_size(artio_buffer_size);
+	}
+
 	if ( !artio_fileset_has_grid(handle) ||
 			artio_fileset_open_grid(handle) != ARTIO_SUCCESS ) {
         cart_debug("Warning: the fileset does not contain grid data, the code cannot be restarted from a complete snapshot");
@@ -1160,7 +1173,7 @@ void read_artio_restart( const char *label ) {
 	}
 
 	/* load all simulation parameters here */
-	artio_parameter_get_string( handle, "jobname", str, CONTROL_PARAMETER_STRING_LENGTH);
+	artio_parameter_get_string( handle, "jobname", str );
 	set_jobname( str );
 	cart_debug("jobname: %s", jobname );
 
@@ -1188,8 +1201,7 @@ void read_artio_restart( const char *label ) {
 	}
 
 #ifdef COSMOLOGY 
-	if ( artio_parameter_get_double( handle, "auni_init", &auni_init ) != ARTIO_SUCCESS ||
-			artio_parameter_get_double( handle, "OmegaM", &OmM0 ) != ARTIO_SUCCESS ||
+	if ( artio_parameter_get_double( handle, "OmegaM", &OmM0 ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "OmegaL", &OmL0 ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "OmegaB", &OmB0 ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "hubble", &h100 ) != ARTIO_SUCCESS ||
@@ -1399,10 +1411,10 @@ void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 	root_variables = cart_alloc(float, num_file_variables);
 	oct_variables = cart_alloc(float, 8 * num_file_variables);
 	file_variables = cart_alloc(char *, num_file_variables);
-	for(i=0; i<num_file_variables; i++) file_variables[i] = cart_alloc(char, 256);
+	for(i=0; i<num_file_variables; i++) file_variables[i] = cart_alloc(char, ARTIO_MAX_STRING_LENGTH);
 
 	if ( artio_parameter_get_string_array(handle, "grid_variable_labels", 
-			num_file_variables, file_variables, 256 ) != ARTIO_SUCCESS ) {
+			num_file_variables, file_variables ) != ARTIO_SUCCESS ) {
 		cart_error("Unable to read grid variable labels from artio header file, which may be corrupt.");
 	}
 
@@ -1513,6 +1525,8 @@ void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 			cart_error( "Error reading grid root cell sfc %ld", sfc );
 		}
 	}
+
+	artio_grid_clear_sfc_cache(handle);
 
 	cart_free( num_octs_per_level );
 	cart_free(root_variables);
@@ -1647,6 +1661,8 @@ void read_artio_particles( artio_fileset *handle ) {
 			cart_error("Error completing reading sfc %ld", sfc );
 		}
 	}
+
+	artio_particle_clear_sfc_cache(handle);
 
 /*  DHR - due to deleted particles, this code is incorrect, i.e. the sum of the local active particles
     does not equal num_particles_total
