@@ -143,7 +143,7 @@ void log_star_creation( int icell, double mass, int fileop_temp ){
     {
     case FILE_OPEN:
       {
-	sprintf(filename,"%s/star_temp.%03u.log",output_directory,local_proc_id);
+	sprintf(filename,"%s/star_temp."ART_PROC_FORMAT".log",output_directory,local_proc_id);
 	temp_file = fopen(filename,"w");
 	cart_debug("opening %s",filename);
 	if ( temp_file == NULL ){cart_error("Unable to open %s!", filename );}
@@ -291,7 +291,7 @@ void combine_star_creation_log(){
 
   sprintf(filename_screst,"%s/restart_star_creation.log",output_directory);
   for ( proc = 0; proc < num_procs; proc++ ) {
-    sprintf(filename_local,"%s/star_temp.%03d.log",output_directory,proc);
+    sprintf(filename_local,"%s/star_temp."ART_PROC_FORMAT".log",output_directory,proc);
     fp = fopen(filename_local,"r");
     if( fp != NULL ) {fclose(fp); 
       cart_debug("combine_star_creation_log %s to %s",filename_local,filename_screst);
@@ -473,7 +473,7 @@ void init_logging( int restart ) {
 #endif /* STAR_FORMATION */
 	}
 
-	sprintf(filename, "%s/timing.%03u.log", logfile_directory, local_proc_id );
+	sprintf(filename, "%s/timing."ART_PROC_FORMAT".log", logfile_directory, local_proc_id );
 	timing = fopen(filename,mode);
 
 	if ( timing == NULL ) {
@@ -496,7 +496,7 @@ void init_logging( int restart ) {
 	}
 
 #ifdef PAPI_PROFILING                                                                                                                                                                 
-	sprintf( filename, "%s/papi_profile_%s.%03u.log", logfile_directory, papi_eventset_description, local_proc_id );
+	sprintf( filename, "%s/papi_profile_%s."ART_PROC_FORMAT".log", logfile_directory, papi_eventset_description, local_proc_id );
 	papi_profile = fopen(filename, mode );
 
 	if ( papi_profile == NULL ) {
@@ -520,7 +520,7 @@ void init_logging( int restart ) {
 	}
 #endif /* PAPI_PROFILING */
 
-	sprintf(filename, "%s/workload.%03u.dat", logfile_directory, local_proc_id );
+	sprintf(filename, "%s/workload."ART_PROC_FORMAT".dat", logfile_directory, local_proc_id );
 	workload = fopen(filename, mode);
 
 	if ( workload == NULL ) {
@@ -545,7 +545,7 @@ void init_logging( int restart ) {
 		fflush(workload);
 	}
 
-	sprintf(filename, "%s/dependency.%03u.dat", logfile_directory, local_proc_id );
+	sprintf(filename, "%s/dependency."ART_PROC_FORMAT".dat", logfile_directory, local_proc_id );
 	dependency = fopen( filename, "a" );
 
 	if ( dependency == NULL ) {
