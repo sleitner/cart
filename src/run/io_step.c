@@ -93,7 +93,7 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 #endif /* STAR_FORMATION */
 
 	if ( grid_filename_flag != NO_WRITE ) {
-		sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
+		sprintf( filename, "%s/rng_state_"ART_PROC_FORMAT".dat", logfile_directory, local_proc_id );
 		cart_rand_save_state( filename );
 
 		last_restart_step = step;

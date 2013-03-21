@@ -832,11 +832,15 @@ void write_artio_grid( artio_fileset *handle, int num_file_vars, int *var_indice
 			}
 
 			cart_free( level_octs );
-			artio_grid_write_level_end(handle);
+			if ( artio_grid_write_level_end(handle) != ARTIO_SUCCESS ) {
+				cart_error("Error completing writing level %u in sfc %ld", level, sfc );
+			}
 			level++;
 		}
 
-		artio_grid_write_root_cell_end(handle);
+		if ( artio_grid_write_root_cell_end(handle) != ARTIO_SUCCESS ) {
+			cart_error("Error completing writing grid root tree at sfc %ld", sfc );
+		}
 	}
 }
 
@@ -912,10 +916,14 @@ void write_artio_particles( artio_fileset *handle, int *root_tree_particle_list,
 				ipart = particle_list_prev[ipart];
 			}
 
-			artio_particle_write_species_end(handle);
+			if ( artio_particle_write_species_end(handle) != ARTIO_SUCCESS ) {
+				cart_error("Error completing writing species %d in sfc %ld", species, sfc );
+			}
 		}
 
-		artio_particle_write_root_cell_end(handle);
+		if ( artio_particle_write_root_cell_end(handle) != ARTIO_SUCCESS ) {
+			cart_error("Error completing writing particles in sfc %ld", sfc );
+		}
 	}
 }
 #endif /* PARTICLES */
@@ -931,6 +939,8 @@ void artio_restart_load_balance( artio_fileset *handle ) {
 	int num_file_variables;
 	int num_file_species;
 	int *num_particles_per_species;
+	int grid_flag = 0;
+	int particle_flag = 0;
 	
 	if ( num_procs == 1 ) {
 		proc_sfc_index[0] = 0;
@@ -953,66 +963,81 @@ void artio_restart_load_balance( artio_fileset *handle ) {
 		}
 
 		/* load grid information */
-		artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
-		artio_parameter_get_int( handle, "max_refinement_level", &file_max_level );
-		variables = cart_alloc(float, num_file_variables);
-		num_octs_per_level = cart_alloc( int, file_max_level );
+		if ( artio_fileset_has_grid(handle) ) {
+			grid_flag = 1;
+			artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
+			artio_parameter_get_int(handle, "max_refinement_level", &file_max_level);
+			variables = cart_alloc(float, num_file_variables);
+			num_octs_per_level = cart_alloc( int, file_max_level );
 
-		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
-			end_sfc = MIN( sfc + num_grid*num_grid, num_root_cells ) - 1;
-			if ( artio_grid_cache_sfc_range(handle, sfc, end_sfc ) != ARTIO_SUCCESS ) {
-				cart_error("Error caching grid sfc range %ld to %ld", sfc, end_sfc );
+			for ( page = 0, sfc = 0; page < num_grid; page++ ) {
+				end_sfc = MIN( sfc + num_grid*num_grid, num_root_cells ) - 1;
+				if ( artio_grid_cache_sfc_range(handle, sfc, end_sfc ) != ARTIO_SUCCESS ) {
+					cart_error("Error caching grid sfc range %ld to %ld", sfc, end_sfc );
+				}
+
+				for ( ; sfc <= end_sfc; sfc++ ) {
+					if ( artio_grid_read_root_cell_begin(handle, sfc, variables, 
+								&num_oct_levels, num_octs_per_level ) != ARTIO_SUCCESS ) {
+						cart_error("Error reading grid root cell %ld", sfc );
+					}
+
+					/* contribution from root cell */
+					constrained_quantities[num_constraints*sfc]++;
+					cell_work[sfc] += cost_per_cell;
+
+					for ( i = 0; i < num_oct_levels; i++ ) {
+						constrained_quantities[num_constraints*sfc] += num_children*num_octs_per_level[i];
+						cell_work[sfc] += cost_per_cell*(float)(2<<i)*num_children*num_octs_per_level[i];
+					}
+
+					if ( artio_grid_read_root_cell_end(handle) != ARTIO_SUCCESS ) {
+						cart_error("Error completing reading grid root cell %ld", sfc );
+					}
+				}	
 			}
 
-			for ( ; sfc <= end_sfc; sfc++ ) {
-				if ( artio_grid_read_root_cell_begin(handle, sfc, NULL, variables, 
-						&num_oct_levels, num_octs_per_level ) != ARTIO_SUCCESS ) {
-					cart_error("Error reading grid root cell %ld", sfc );
-				}
-
-				/* contribution from root cell */
-				constrained_quantities[num_constraints*sfc]++;
-				cell_work[sfc] += cost_per_cell;
-
-				for ( i = 0; i < num_oct_levels; i++ ) {
-					constrained_quantities[num_constraints*sfc] += num_children*num_octs_per_level[i];
-					cell_work[sfc] += cost_per_cell*(float)(2<<i)*num_children*num_octs_per_level[i];
-				}
-
-				artio_grid_read_root_cell_end(handle);
-			}	
+			cart_free( num_octs_per_level );
+			cart_free( variables );
 		}
-
-		cart_free( num_octs_per_level );
-		cart_free( variables );
 
 #ifdef PARTICLES
-		artio_parameter_get_int( handle, "num_particle_species", &num_file_species);
-		num_particles_per_species = cart_alloc(int, num_file_species);
+		if ( artio_fileset_has_particles(handle) ) {
+			particle_flag = 1;
+			artio_parameter_get_int( handle, "num_particle_species", &num_file_species);
+			num_particles_per_species = cart_alloc(int, num_file_species);
 
-		for ( page = 0, sfc = 0; page < num_grid; page++ ) {
-			end_sfc = MIN( sfc + num_grid*num_grid, num_root_cells ) - 1;
-			if ( artio_particle_cache_sfc_range(handle, sfc, end_sfc ) != ARTIO_SUCCESS ) {
-				cart_error("Error caching particle sfc range %ld to %ld", sfc, end_sfc );
+			for ( page = 0, sfc = 0; page < num_grid; page++ ) {
+				end_sfc = MIN( sfc + num_grid*num_grid, num_root_cells ) - 1;
+				if ( artio_particle_cache_sfc_range(handle, sfc, end_sfc ) != ARTIO_SUCCESS ) {
+					cart_error("Error caching particle sfc range %ld to %ld", sfc, end_sfc );
+				}
+
+				for ( ; sfc <= end_sfc; sfc++ ) {
+					if ( artio_particle_read_root_cell_begin( handle, sfc, 
+								num_particles_per_species ) != ARTIO_SUCCESS ) {
+						cart_error("Error reading particle root cell %ld", sfc );
+					}
+
+					for ( i = 0; i < num_file_species; i++ ) {
+						constrained_quantities[num_constraints*sfc+1] += num_particles_per_species[i];
+						cell_work[sfc] += cost_per_particle*num_particles_per_species[i];
+					}
+
+					if ( artio_particle_read_root_cell_end(handle) != ARTIO_SUCCESS ) {
+						cart_error("Error completing reading particles in root cell %ld", sfc );
+					}
+				}   
 			}
 
-			for ( ; sfc <= end_sfc; sfc++ ) {
-				if ( artio_particle_read_root_cell_begin( handle, sfc, 
-						num_particles_per_species ) != ARTIO_SUCCESS ) {
-					cart_error("Error reading particle root cell %ld", sfc );
-				}
-
-				for ( i = 0; i < num_file_species; i++ ) {
-					constrained_quantities[num_constraints*sfc+1] += num_particles_per_species[i];
-					cell_work[sfc] += cost_per_particle*num_particles_per_species[i];
-				}
-
-				artio_particle_read_root_cell_end(handle);
-			}   
+			cart_free( num_particles_per_species );
 		}
-
-		cart_free( num_particles_per_species );
 #endif /* PARTICLES */
+
+		/* ensure that some work has been estiamated */
+		if ( !grid_flag && !particle_flag ) {
+			cart_error("Unable to load balance based on an artio file without either grid or particle data!");
+		}
 
 		load_balance_entire_volume( cell_work, constrained_quantities, proc_sfc_index );
 
@@ -1035,9 +1060,9 @@ void read_artio_restart( const char *label ) {
 	int num_levels;
 	char filename[256];
 	int64_t mpi_task_sfc_index[MAX_PROCS+1];
+	int num_grid_files, num_particle_files;
 	int num_file_procs, num_file_octs, num_file_particles, num_file_star_particles;
 	FILE *restart;
-	int type;
 	char str[CONTROL_PARAMETER_STRING_LENGTH];
 #ifdef RADIATIVE_TRANSFER
 	frt_intg n;
@@ -1085,40 +1110,42 @@ void read_artio_restart( const char *label ) {
 #endif /* HYDRO_TRACERS */
 	}	
 
-	type = ARTIO_OPEN_GRID;
-#ifdef PARTICLES
-	type |= ARTIO_OPEN_PARTICLES;
-#endif
-
-	handle = artio_fileset_open(filename, type, &con);
+	handle = artio_fileset_open(filename, ARTIO_OPEN_HEADER, &con);
 	if( handle == NULL ) {
-		cart_error("Unable to open ARTIO fileset %s of type %d",filename,type);
+		cart_error("Unable to open ARTIO fileset %s",filename);
 	}
 
-	artio_parameter_get_long(handle, "num_root_cells", &num_file_root_cells);
+	if ( artio_parameter_get_long(handle, "num_root_cells", &num_file_root_cells) != ARTIO_SUCCESS ) {
+		cart_error("Unable to load number of root cells from artio header file!");
+	}
 
 	if (num_file_root_cells != num_root_cells) {
 		cart_error( "Number of root cells in file %s header does not match compiled value: %d vs %d",
 				filename, num_file_root_cells, num_root_cells);
 	}
 
-	/* try to load balance */
-	artio_parameter_get_array_length( handle, "mpi_task_sfc_index", &num_file_procs );
-	num_file_procs -= 1;
+	if ( !artio_fileset_has_grid(handle) ||
+			artio_fileset_open_grid(handle) != ARTIO_SUCCESS ) {
+        cart_debug("Warning: the fileset does not contain grid data, the code cannot be restarted from a complete snapshot");
+    }
 
-	artio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs );
 #ifdef PARTICLES
-	artio_parameter_get_int( handle, "num_particles_per_mpi_task", &num_file_particles );
-#ifdef STAR_FORMATION
-	artio_parameter_get_int( handle, "num_star_particles_per_mpi_task", &num_file_star_particles );
-#endif /* STAR_FORMATION */
+    if ( artio_fileset_has_particles(handle) ||
+			artio_fileset_open_particles(handle) != ARTIO_SUCCESS ) {
+        cart_debug("Warning: fileset does not contain particles, the code cannot be restarted from a complete snapshot");
+    }
 #endif /* PARTICLES */
 
-	if ( num_file_procs != num_procs ||
-			num_file_octs > num_octs 
+	/* try to load balance */
+	if ( artio_parameter_get_array_length( handle, "mpi_task_sfc_index", &num_file_procs ) != ARTIO_SUCCESS
+			|| num_file_procs != num_procs+1 
+			|| artio_parameter_get_int( handle, "num_octs_per_mpi_task", &num_file_octs ) != ARTIO_SUCCESS 
+			|| num_file_octs > num_octs 
 #ifdef PARTICLES
+			|| artio_parameter_get_int( handle, "num_particles_per_mpi_task", &num_file_particles ) != ARTIO_SUCCESS 
 			|| num_file_particles > num_particles
 #ifdef STAR_FORMATION
+			|| artio_parameter_get_int( handle, "num_star_particles_per_mpi_task", &num_file_star_particles ) != ARTIO_SUCCESS 
 			|| num_file_star_particles > num_star_particles 
 #endif /* STAR_FORMATION */
 #endif /* PARTICLES */
@@ -1137,19 +1164,15 @@ void read_artio_restart( const char *label ) {
 	set_jobname( str );
 	cart_debug("jobname: %s", jobname );
 
-	artio_parameter_get_int( handle, "sfc", &sfc_order );
-
-	if ( sfc_order != SFC ) {
-		cart_error("Grid fileset has different sfc indexing than compiled code!");
+	if ( artio_parameter_get_int( handle, "sfc", &sfc_order ) != ARTIO_SUCCESS || sfc_order != SFC ) {
+		cart_error("Grid fileset has undefined or different sfc indexing than compiled code!");
 	}
 
 	/* check maximum level */
-	artio_parameter_get_int( handle, "max_refinement_level", &file_max_level );
-
-	if ( file_max_level > max_level ) {
-		cart_error("Grid fileset contains more levels than compiled code!");
+	if ( artio_parameter_get_int( handle, "max_refinement_level", &file_max_level ) != ARTIO_SUCCESS ||
+			file_max_level > max_level ) {
+		cart_error("Grid fileset has undefined refinement levels or contains more levels than compiled code!");
 	}
-
 	num_levels = file_max_level+1;
     
 #ifdef HYDRO    
@@ -1160,14 +1183,19 @@ void read_artio_restart( const char *label ) {
 #endif
     
 	/* unit parameters */
-	artio_parameter_get_double( handle, "box_size", &box_size );
+	if ( artio_parameter_get_double( handle, "box_size", &box_size ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read box size from artio header file!");
+	}
+
 #ifdef COSMOLOGY 
-	artio_parameter_get_double( handle, "auni_init", &auni_init );
-	artio_parameter_get_double( handle, "OmegaM", &OmM0 );
-	artio_parameter_get_double( handle, "OmegaL", &OmL0 );
-	artio_parameter_get_double( handle, "OmegaB", &OmB0 );
-	artio_parameter_get_double( handle, "hubble", &h100 );
-	artio_parameter_get_double( handle, "DeltaDC", &DelDC );
+	if ( artio_parameter_get_double( handle, "auni_init", &auni_init ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "OmegaM", &OmM0 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "OmegaL", &OmL0 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "OmegaB", &OmB0 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "hubble", &h100 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "DeltaDC", &DelDC ) ) {
+		cart_error("Unable to read cosmology information from artio header file!");
+	}
 
 	cosmology_set(OmegaM,OmM0);
 	cosmology_set(OmegaL,OmL0);
@@ -1176,27 +1204,34 @@ void read_artio_restart( const char *label ) {
 	cosmology_set(DeltaDC,DelDC);
 		
 #else 
-	artio_parameter_get_double( handle, "mass_unit", &mass_unit );
-	artio_parameter_get_double( handle, "time_unit", &time_unit );
-	artio_parameter_get_double( handle, "length_unit", &length_unit );
+	if ( artio_parameter_get_double( handle, "mass_unit", &mass_unit ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "time_unit", &time_unit ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "length_unit", &length_unit ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read unit information from artio header file!");
+	}
 
 	units_set( mass_unit, time_unit, length_unit );
 #endif /* COSMOLOGY */
 
 	/* timestepping variables */
-	artio_parameter_get_int( handle, "step", &step );
-	artio_parameter_get_double_array( handle, "tl", num_levels, tl );
-	artio_parameter_get_double_array( handle, "tl_old", num_levels, tl_old );
-	artio_parameter_get_double_array( handle, "dtl", num_levels, dtl );
-	artio_parameter_get_double_array( handle, "dtl_old", num_levels, dtl_old );
-
-	artio_parameter_get_int_array( handle, "time_refinement_factor", num_levels, time_refinement_factor );
-	artio_parameter_get_int_array( handle, "time_refinement_factor_old", num_levels, time_refinement_factor_old );                                              
+	if ( artio_parameter_get_int( handle, "step", &step ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double_array( handle, "tl", num_levels, tl ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double_array( handle, "tl_old", num_levels, tl_old ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double_array( handle, "dtl", num_levels, dtl ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double_array( handle, "dtl_old", num_levels, dtl_old ) || 
+			artio_parameter_get_int_array( handle, "time_refinement_factor",
+					num_levels, time_refinement_factor ) != ARTIO_SUCCESS ||
+			artio_parameter_get_int_array( handle, "time_refinement_factor_old", 
+					num_levels, time_refinement_factor_old ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read timestep information from artio header file!");
+	}
 
 #ifdef COSMOLOGY
-	artio_parameter_get_double( handle, "auni_init", &auni_init );
-	artio_parameter_get_double_array( handle, "abox", num_levels, abox );
-	artio_parameter_get_double_array( handle, "auni", num_levels, auni );
+	if ( artio_parameter_get_double( handle, "auni_init", &auni_init ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double_array( handle, "abox", num_levels, abox ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double_array( handle, "auni", num_levels, auni ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read expansion factors from artio header file!");
+	}
 
 	for ( level = min_level; level <= file_max_level; level++ ) {
 		abox_old[level] = abox_from_tcode(tl_old[level]);
@@ -1218,29 +1253,39 @@ void read_artio_restart( const char *label ) {
 
 #ifdef PARTICLES
 	/* energy conservation variables */ 
-	artio_parameter_get_double( handle, "energy:tintg", &tintg );
-	artio_parameter_get_double( handle, "energy:ekin", &ekin );
-	artio_parameter_get_double( handle, "energy:ekin1", &ekin1 );
-	artio_parameter_get_double( handle, "energy:ekin2", &ekin2 );
-	artio_parameter_get_double( handle, "energy:au0", &au0 );
-	artio_parameter_get_double( handle, "energy:aeu0", &aeu0 );
-	artio_parameter_get_double( handle, "energy:ap0", &ap0 );
+	if ( artio_parameter_get_double( handle, "energy:tintg", &tintg ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "energy:ekin", &ekin ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "energy:ekin1", &ekin1 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "energy:ekin2", &ekin2 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "energy:au0", &au0 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "energy:aeu0", &aeu0 ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "energy:ap0", &ap0 ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read energy conservation variables from artio header file!");
+	}
 #endif /* PARTICLES */
 
     /* refinement boundaries */
-	artio_parameter_get_float_array( handle, "refinement_volume_min", 
-			nDim, refinement_volume_min );
-	artio_parameter_get_float_array( handle, "refinement_volume_max", 
-			nDim, refinement_volume_max );
+	if ( artio_parameter_get_float_array( handle, "refinement_volume_min", 
+				nDim, refinement_volume_min ) != ARTIO_SUCCESS ||
+			artio_parameter_get_float_array( handle, "refinement_volume_max", 
+				nDim, refinement_volume_max ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read refinement volume from artio header file!");
+	}
 
 #ifdef STAR_FORMATION
-	artio_parameter_get_float_array( handle, "star_formation_volume_min", 
-			nDim, star_formation_volume_min );
-	artio_parameter_get_float_array( handle, "star_formation_volume_max", 
-			nDim, star_formation_volume_max );
+	if ( artio_parameter_get_float_array( handle, "star_formation_volume_min", 
+				nDim, star_formation_volume_min ) != ARTIO_SUCCESS ||
+			artio_parameter_get_float_array( handle, "star_formation_volume_max", 
+				nDim, star_formation_volume_max ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read star formation volume from artio header file!");
+	}
 
-	artio_parameter_get_double( handle, "total_stellar_mass", &total_stellar_mass );
-	artio_parameter_get_double( handle, "total_stellar_initial_mass", &total_stellar_initial_mass );
+	if ( artio_parameter_get_double( handle, "total_stellar_mass", 
+				&total_stellar_mass ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double( handle, "total_stellar_initial_mass", 
+				&total_stellar_initial_mass ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read stellar mass variables from artio header file!");
+	}
 #endif /* STAR_FORMATION */
 
 #ifdef RADIATIVE_TRANSFER
@@ -1262,7 +1307,9 @@ void read_artio_restart( const char *label ) {
 	    buffer = cart_alloc(float,n);
 	  }
 
-	artio_parameter_get_float_array( handle, "radiation_background", n, buffer );
+	if ( artio_parameter_get_float_array( handle, "radiation_background", n, buffer ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read radiation background from artio header!");
+	}
 
 	if(sizeof(float) == sizeof(frt_real))
 	  {
@@ -1277,19 +1324,28 @@ void read_artio_restart( const char *label ) {
 	cart_free(data);
 
 #ifdef RT_SINGLE_SOURCE
-	artio_parameter_get_int( handle, "rt:single_source:level", &rtSingleSourceLevel );
-	artio_parameter_get_float( handle, "rt:single_source:value", &rtSingleSourceValue );
-	artio_parameter_get_double_array( handle, "rt:single_source:pos", nDim, rtSingleSourcePos );
+	if ( artio_parameter_get_int( handle, "rt:single_source:level", 
+				&rtSingleSourceLevel ) != ARTIO_SUCCESS ||
+			artio_parameter_get_float( handle, "rt:single_source:value", 
+				&rtSingleSourceValue ) != ARTIO_SUCCESS ||
+			artio_parameter_get_double_array( handle, "rt:single_source:pos", 
+				nDim, rtSingleSourcePos ) != ARTIO_SUCCESS ) {
+		cart_error("Error reading rt source variables from artio header!");
+	}
 #endif
 #endif /* RADIATIVE_TRANSFER */
 
-	read_artio_grid(handle, file_max_level);
-	cart_debug("done reading grid");
+	if ( artio_fileset_has_grid(handle) ) {
+		read_artio_grid(handle, file_max_level);
+		cart_debug("done reading grid");
+	}
 
 #ifdef PARTICLES
-	read_artio_particles(handle);
-	cart_debug("num_local_particles = %u", num_local_particles );
-	build_particle_list();
+	if ( artio_fileset_has_particles(handle) ) {
+		read_artio_particles(handle);
+		cart_debug("done reading particles, num_local_particles = %u", num_local_particles );
+		build_particle_list();
+	}
 #endif /* PARTICLES */
 
 	artio_fileset_close(handle);
@@ -1325,10 +1381,12 @@ void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 
 	start_time( GAS_READ_IO_TIMER );
 
+	if ( artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables) != ARTIO_SUCCESS ) {
+		cart_error("Unable to locate grid data in artio fileset");
+	}
+
 	/* load list of variables the code expects */
 	define_file_variables(&num_sim_variables, sim_var_labels, sim_var_indices);
-
-	artio_parameter_get_int(handle, "num_grid_variables", &num_file_variables);
 
 	if (num_file_variables < num_sim_variables) {
 		cart_error("Not enough variables in file header!" );
@@ -1343,7 +1401,10 @@ void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 	file_variables = cart_alloc(char *, num_file_variables);
 	for(i=0; i<num_file_variables; i++) file_variables[i] = cart_alloc(char, 256);
 
-	artio_parameter_get_string_array(handle, "grid_variable_labels", num_file_variables, file_variables, 256 );
+	if ( artio_parameter_get_string_array(handle, "grid_variable_labels", 
+			num_file_variables, file_variables, 256 ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to read grid variable labels from artio header file, which may be corrupt.");
+	}
 
 	/* match expected variables with variables in file */
 	for (i = 0; i < num_sim_variables; i++) {
@@ -1486,11 +1547,16 @@ void read_artio_particles( artio_fileset *handle ) {
 
 	num_particle_species = num_species;
 
-	artio_parameter_get_int_array( handle, "particle_species_num", num_species, particle_species_num );
-	artio_parameter_get_float_array( handle, "particle_species_mass", num_species, particle_species_mass );
+	if ( artio_parameter_get_int_array( handle, "particle_species_num", 
+				num_species, particle_species_num ) != ARTIO_SUCCESS ||
+			artio_parameter_get_float_array( handle, "particle_species_mass", 
+				num_species, particle_species_mass ) != ARTIO_SUCCESS ) {
+		cart_error("Unable to load particle species data from artio header file!");
+	}
 
 	for ( i = 0; i < num_species; i++ ) {
-		cart_debug("particle species %d: %u particles, %e mass", i, particle_species_num[i], particle_species_mass[i] );
+		cart_debug("particle species %d: %u particles, %e mass", i, 
+			particle_species_num[i], particle_species_mass[i] );
 	}
 
 	particle_species_indices[0] = 0;                                                                                     
@@ -1517,7 +1583,7 @@ void read_artio_particles( artio_fileset *handle ) {
 
 		for ( species = 0; species < num_species; species++ ) {
 			if ( artio_particle_read_species_begin(handle, species) != ARTIO_SUCCESS ) {
-				cart_error("Error reading particle specie %d, sfc = %ld", species, sfc );
+				cart_error("Error beginning reading particle species %d, sfc = %ld", species, sfc );
 			}
 
 			num_particles_local += num_particles_per_species[species];
@@ -1571,10 +1637,15 @@ void read_artio_particles( artio_fileset *handle ) {
 #endif /* STAR_FORMATION */
 			}
 
-			artio_particle_read_species_end(handle);
+			if ( artio_particle_read_species_end(handle) != ARTIO_SUCCESS ) {
+				cart_error("Error completing reading particle species %d, sfc = %ld", 
+					species, sfc );
+			}
 		}
 
-		artio_particle_read_root_cell_end(handle);
+		if ( artio_particle_read_root_cell_end(handle) != ARTIO_SUCCESS ) {
+			cart_error("Error completing reading sfc %ld", sfc );
+		}
 	}
 
 /*  DHR - due to deleted particles, this code is incorrect, i.e. the sum of the local active particles
