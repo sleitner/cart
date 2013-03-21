@@ -46,7 +46,7 @@ void config_verify_formstar()
 #endif
 
   cart_assert(sf_formstar_internal.name != NULL);
-  cart_assert(sf_formstar_internal.rate != NULL);
+  cart_assert(sf_formstar_internal.form_star_particles != NULL);
 
   sprintf(formstar_internal_name,"<%s>",sf_formstar_internal.name);
   if(strcmp("<custom>",formstar_external_name)!=0 && strcmp(formstar_internal_name,formstar_external_name)!=0)

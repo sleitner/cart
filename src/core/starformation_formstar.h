@@ -1,5 +1,5 @@
-#ifndef __STAR_FORMATION_FORM_H__
-#define __STAR_FORMATION_FORM_H__
+#ifndef __STAR_FORMATION_FORMSTAR_H__
+#define __STAR_FORMATION_FORMSTAR_H__
 
 
 #ifndef CONFIGURED

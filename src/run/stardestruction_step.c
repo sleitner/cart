@@ -30,7 +30,7 @@ void star_destruction(int level) {
   int *level_cells;
   double dt_eff;
 
-  if(sf_feedback->destroy_star_particle == NULL) return;
+  if(sf_feedback_particles->destroy_star_particle == NULL) return;
 
   start_time( WORK_TIMER );
 

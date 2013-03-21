@@ -10,6 +10,7 @@
 #include "rand.h"
 #include "starformation.h"
 #include "starformation_recipe.h"
+#include "starformation_formstar.h"
 #include "starformation_feedback.h"
 #include "times.h"
 #include "timing.h"
@@ -35,9 +36,6 @@ void star_formation(int level, int time_multiplier) {
   float *sfr;
 
   if ( level < sf_min_level ) return;
-  if(sf_recipe->form_star_particles == 0){
-      cart_error("All star formation recipes must have a form_star_particles routine");
-  } 
 
   start_time( WORK_TIMER );
 
@@ -53,7 +51,7 @@ void star_formation(int level, int time_multiplier) {
     {
         if ( sfr[i] <=0 ) continue;
         icell = level_cells[i];
-        sf_recipe->form_star_particles(level,icell,dtl[level],dt_eff,sfr[i]);
+        sf_formstar->form_star_particles(level,icell,dtl[level],dt_eff,sfr[i]);
     }
 
   cart_free(level_cells);

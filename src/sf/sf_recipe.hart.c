@@ -9,7 +9,6 @@
 #include "tree.h"
 #include "units.h"
 
-#include "models/form_star.all.h"
 /*
 //  Oldstyle HART recipe
 */

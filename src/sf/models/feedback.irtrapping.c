@@ -116,7 +116,7 @@ void masslum_from_star0(int level, int icell, double *Msol, double *LUV_ergis){
 		< constants->yr*clump_survival_time ){
 		mstar += particle_mass[ipart];
 #ifndef RADIATIVE_TRANSFER
-		lstar += sf_feedback->rt_source(ipart)*particle_mass[ipart]; 
+		lstar += sf_feedback_particle->rt_source(ipart)*particle_mass[ipart]; 
 #endif
 	    }
 	}

@@ -62,7 +62,6 @@ void stellar_wind_kick(int level,int icell,int ipart,double t_next){
 		* star_metallicity_II[ipart]/constants->Zsun 
 #endif /* ENRICHMENT */
 		* dteff * star_initial_mass[ipart]  ;
-#endif
 	
 	    distribute_momentum(dp, level,  icell, dt); 
 	}

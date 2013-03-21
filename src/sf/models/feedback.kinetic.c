@@ -237,7 +237,7 @@ void GetCubeStencil(int level, int cell, int nb[])
 	  // the local cell/oct...
 	  */
 	  nb[num_neighbors+j] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
-#ifdef       }
+       }
   }
       
 
