@@ -1,6 +1,5 @@
 #include "config.h"
 
-#include <malloc.h>
 #include <mpi.h>
 #include <stdarg.h>
 #include <stdio.h>
