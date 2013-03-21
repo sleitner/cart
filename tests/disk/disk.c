@@ -38,6 +38,7 @@
 #include "rt_debug.h"
 
 #include "disk.h"
+void merge_buffer_cell_gas_density_momentum( int level ) ;
 int create_star_particle( int icell, float mass, double dt, int type );
 int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], double vel[nDim], double pdt, double age, int type );
 
@@ -1082,4 +1083,186 @@ int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], d
 
 	return ipart;
 }
+
+#ifdef HYDRO
+void merge_buffer_cell_gas_density_momentum( int level ) {
+	int i;
+	int index, child;
+	int icell, proc;
+
+	const int vars_per_cell = 4; /* total vars to send */
+	const int updatedbuffer_vars_size = 4; /* vars where buffer is updated after the merge */
+	const int updatedbuffer_vars[4] = { 
+	    HVAR_GAS_DENSITY, HVAR_MOMENTUM+0,HVAR_MOMENTUM+1, HVAR_MOMENTUM+2 };
+
+	MPI_Request sends[MAX_PROCS];
+	MPI_Request receives[MAX_PROCS];
+	MPI_Status status;
+	MPI_Status statuses[MAX_PROCS];
+
+	float *send_buffer;
+	float *recv_buffer;
+	int recv_offset[MAX_PROCS];
+	int num_send_vars[MAX_PROCS];
+	int num_recv_vars[MAX_PROCS];
+	int total_send_vars, total_recv_vars;
+	int send_offset;
+	int send_count, recv_count;
+
+	start_time( COMMUNICATION_TIMER );
+
+	cart_assert( buffer_enabled );
+
+	total_send_vars = total_recv_vars = 0;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		cart_assert( num_remote_buffers[level][proc] >= 0 );
+		cart_assert( num_local_buffers[level][proc] >= 0 );
+
+		if ( level == min_level ) {
+			num_recv_vars[proc] = vars_per_cell*num_remote_buffers[min_level][proc];
+			num_send_vars[proc] = vars_per_cell*num_local_buffers[min_level][proc];
+		} else {
+			num_recv_vars[proc] = vars_per_cell*num_children*num_remote_buffers[level][proc];
+			num_send_vars[proc] = vars_per_cell*num_children*num_local_buffers[level][proc];
+		}
+
+		cart_assert( num_send_vars[proc] >= 0 && num_recv_vars[proc] >= 0 );
+
+		total_send_vars += num_send_vars[proc];
+		total_recv_vars += num_recv_vars[proc];
+	}
+
+	/* set up receives */
+	recv_buffer = cart_alloc(float, total_recv_vars );
+
+	recv_count = 0;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_recv_vars[proc] > 0 ) {
+			recv_offset[proc] = recv_count;
+			MPI_Irecv( &recv_buffer[recv_count], num_recv_vars[proc], MPI_FLOAT,
+				proc, 0, mpi.comm.run, &receives[proc] );
+			recv_count += num_recv_vars[proc];
+		} else {
+			receives[proc] = MPI_REQUEST_NULL;
+		}
+	}	
+
+	/* pack cell ids and densities */
+	send_buffer = cart_alloc(float, total_send_vars );
+
+	send_offset = send_count = 0;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_send_vars[proc] > 0 ) {
+			if ( level == min_level ) {
+				cart_assert( num_send_vars[proc] == vars_per_cell*num_local_buffers[level][proc] );
+				for ( i = 0; i < num_local_buffers[min_level][proc]; i++ ) {
+					icell = local_buffers[min_level][proc][i];
+
+					send_buffer[send_count++] = cell_gas_density(icell);
+					send_buffer[send_count++] = cell_momentum(icell,0);
+					send_buffer[send_count++] = cell_momentum(icell,1);
+					send_buffer[send_count++] = cell_momentum(icell,2);
+				}
+			} else {
+				cart_assert( num_send_vars[proc] == vars_per_cell*num_children*num_local_buffers[level][proc] );
+
+				for ( i = 0; i < num_local_buffers[level][proc]; i++ ) {
+					index = local_buffers[level][proc][i];
+					cart_assert( index >= 0 && index < num_octs );
+					cart_assert( oct_level[index] == level );
+
+					for ( child = 0; child < num_children; child++ ) {
+						icell = oct_child( index, child );
+
+						cart_assert( icell >= 0 && icell < num_cells );
+						cart_assert( cell_level(icell) == level );
+
+						send_buffer[send_count++] = cell_gas_density(icell);
+						send_buffer[send_count++] = cell_momentum(icell,0);
+						send_buffer[send_count++] = cell_momentum(icell,1);
+						send_buffer[send_count++] = cell_momentum(icell,2);
+
+					}
+				}
+			}
+
+#ifdef DEBUG
+			if ( send_offset + num_send_vars[proc] != send_count ) {
+				for ( proc = 0; proc < num_procs; proc++ ) {
+					cart_debug("proc = %d, num_send = %d, num_local = %d", 
+						proc, num_send_vars[proc], num_local_buffers[level][proc] );
+				}
+				cart_debug("level = %d", level );
+				cart_debug("total_send_vars = %d", total_send_vars );
+				cart_debug("i = %d", i );
+				cart_debug("send_offset = %d", send_offset );
+				cart_debug("num_send_vars[%u] = %d", proc, num_send_vars[proc] );
+				cart_debug("num_local_buffers[%d][%d] = %d", level, proc );
+				cart_debug("send_count = %d", send_count );
+			}
+#endif
+
+			cart_assert( send_count <= total_send_vars );
+			cart_assert( send_offset + num_send_vars[proc] == send_count );
+
+			MPI_Isend( &send_buffer[send_offset], num_send_vars[proc], MPI_FLOAT,
+				proc, 0, mpi.comm.run, &sends[proc] );
+
+			send_offset = send_count;
+		} else {
+			sends[proc] = MPI_REQUEST_NULL;
+		}
+	}
+
+	/* process receives as they come in */
+	do {
+		MPI_Waitany( num_procs, receives, &proc, &status );
+
+		if ( proc != MPI_UNDEFINED ) {
+			recv_count = recv_offset[proc];
+
+			if ( level == min_level ) {
+				for ( i = 0; i < num_remote_buffers[min_level][proc]; i++ ) {
+					icell = root_cell_location( remote_buffers[min_level][proc][i] );
+
+					cell_gas_density(icell) += recv_buffer[recv_count++];
+					cell_momentum(icell,0)  += recv_buffer[recv_count++];
+					cell_momentum(icell,1)  += recv_buffer[recv_count++];
+					cell_momentum(icell,2)  += recv_buffer[recv_count++];
+				}
+			} else {
+				for ( i = 0; i < num_remote_buffers[level][proc]; i++ ) {
+					index = remote_buffers[level][proc][i];
+
+					for ( child = 0; child < num_children; child++ ) {
+						icell = oct_child( index, child );
+
+						cell_gas_density(icell) += recv_buffer[recv_count++];
+						cell_momentum(icell,0)  += recv_buffer[recv_count++];
+						cell_momentum(icell,1)  += recv_buffer[recv_count++];
+						cell_momentum(icell,2)  += recv_buffer[recv_count++];
+					}
+				}
+			}
+
+			cart_assert( recv_offset[proc] + num_recv_vars[proc] == recv_count );
+		}
+	} while ( proc != MPI_UNDEFINED );
+
+	cart_free( recv_buffer );
+
+	end_time(COMMUNICATION_TIMER );
+
+	/* now update density variables */
+	update_buffer_level( level, updatedbuffer_vars, updatedbuffer_vars_size );
+
+	/* wait for sends */
+	start_time( COMMUNICATION_TIMER );
+	MPI_Waitall( num_procs, sends, statuses );
+	end_time( COMMUNICATION_TIMER );
+
+	cart_free( send_buffer );
+
+}
+#endif /* HYDRO */
 
