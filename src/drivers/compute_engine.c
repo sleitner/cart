@@ -67,7 +67,8 @@ int drive() {
 int drive_run () {
 	int i;
 	int mode, restart = 0;
-	char c, *restart_label;
+	char c;
+	char *restart_label;
 	double aexp;
 	const char *str;
 
