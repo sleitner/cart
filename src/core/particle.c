@@ -103,7 +103,6 @@ void init_particles() {
 	particle_list_enabled = 0;
 }
 
-
 void update_particle_list( int level ) { 
 	int i, k;
 	int ipart;
@@ -683,7 +682,6 @@ void build_particle_list() {
 	particle_list_enabled = 1;
 }
 
-
 int particle_alloc( int id ) { 
 	int ipart;
 	int i;
@@ -771,9 +769,6 @@ int particle_alloc( int id ) {
 
 	cart_assert( ipart >= 0 && ipart < num_particles );
 	cart_assert( particle_level[ipart] == FREE_PARTICLE_LEVEL );
-	
-	if( particle_id[ipart] != NULL_PARTICLE )
-	    cart_debug("particle_id %d %d",particle_id[ipart], NULL_PARTICLE);
 	cart_assert( particle_id[ipart] == NULL_PARTICLE );
 
 	particle_id[ipart] = id;
