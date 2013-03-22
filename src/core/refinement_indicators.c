@@ -340,7 +340,9 @@ float dark_1stspec_indicator( int cell, int level ) {
 }
 
 float plugin_indicator( int cell, int level ) {
-        PLUGIN_POINT(RefinementIndicator)(cell, level);
+        float indicator;
+        PLUGIN_POINT(RefinementIndicator)(cell, level, &indicator);
+        return indicator;
 }
 
 #ifdef HYDRO

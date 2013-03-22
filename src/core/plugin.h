@@ -34,7 +34,7 @@ typedef struct Plugin
   void (*LevelStepFail)(int level, MPI_Comm level_com);
   /* void (**AfterCFLRestart)(); -- not used? */
   /* void (**StarformationFeedbackEnd)(int level, int cell); -- not used? */
-  float (*RefinementIndicator)(int cell, int level);
+  void (*RefinementIndicator)(int cell, int level, float *value);
 }
 plugin_t;
 
