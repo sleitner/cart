@@ -1037,6 +1037,7 @@ int particle_species( int id ) {
 }
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
+#ifdef REFINEMENT
 void get_refinement_region(){
 	int i,j;
 	float refmin[nDim];
@@ -1046,16 +1047,17 @@ void get_refinement_region(){
 	 * (not certain abox and auni are required here) */
 	/* NG: can NOT be used here, hydro vars may not have been read yet! */
 	//set_timestepping_scheme();
-
-#ifdef REFINEMENT
+	
 	if ( spatially_limited_refinement ) {
 		for ( i = 0; i < nDim; i++ ) {
-			refmin[i] = num_grid+1.0;
-			refmax[i] = -1.0;
+			refmin[i] = refinement_volume_min[i];
+			refmax[i] = refinement_volume_max[i];
+		}
 
-			for ( j = 0; j < num_particles; j++ ) {
-				if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
+		for ( j = 0; j < num_particles; j++ ) {
+			if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
 						particle_id[j] < particle_species_indices[1] ) {
+				for ( i = 0; i < nDim; i++ ) {
 					if ( particle_x[j][i] < refmin[i] ) {
 						refmin[i] = particle_x[j][i];
 					}
@@ -1065,7 +1067,9 @@ void get_refinement_region(){
 					}
 				}
 			}
+		}
 
+		for ( i = 0; i < nDim; i++ ) {
 			refmin[i] = floor(refmin[i]);
 			refmax[i] = ceil(refmax[i]);
 		}
@@ -1077,13 +1081,13 @@ void get_refinement_region(){
 			cart_debug("refinement_volume[%u] = %e %e", i, refinement_volume_min[i], refinement_volume_max[i] );
 		}
 	}
-#endif /* REFINEMENT */
 }
-#ifdef REFINEMENT
+
 void build_refinement_region(int do_load_balance){
 	int j;
 	int level, cell;
 	int total_cells_per_level[max_level-min_level+1];
+
 	/* do initial refinement */
 	level = min_level;
 	total_cells_per_level[min_level] = num_root_cells;
@@ -1105,12 +1109,11 @@ void build_refinement_region(int do_load_balance){
 			for(j=0; j<num_particles; j++) { 
 				if ( particle_level[j] != FREE_PARTICLE_LEVEL) {
 					cell = cell_find_position_above_level(level,particle_x[j]);
-					cart_assert(cell > -1);
 					particle_level[j] = cell_level(cell);
 				}
 			}
-			if(do_load_balance == 1){
-	       		        load_balance();
+			if(do_load_balance){
+				load_balance();
 			}
 		}
 	}
@@ -1123,16 +1126,17 @@ void build_mesh() {
 	/* NG: can NOT be used here, hydro vars may not have been read yet! */
 	//set_timestepping_scheme();
 
-	get_refinement_region();
-	build_cell_buffer();
-	repair_neighbors();
 #ifdef REFINEMENT
+	get_refinement_region();
+    build_cell_buffer();
+    repair_neighbors();
 	build_refinement_region(1);
 #else
+	build_cell_buffer();
+	repair_neighbors();
 	load_balance();
 #endif /* REFINEMENT */
 }
-
 
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
