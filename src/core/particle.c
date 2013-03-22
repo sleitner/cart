@@ -103,7 +103,7 @@ void init_particles() {
 	particle_list_enabled = 0;
 }
 
-void update_particle_list( int level ) {
+void update_particle_list( int level ) { 
 	int i, k;
 	int ipart;
 	int iter_cell;
@@ -682,7 +682,7 @@ void build_particle_list() {
 	particle_list_enabled = 1;
 }
 
-int particle_alloc( int id ) {
+int particle_alloc( int id ) { 
 	int ipart;
 	int i;
 
@@ -1037,11 +1037,9 @@ int particle_species( int id ) {
 }
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
-
-void build_mesh() {
+#ifdef REFINEMENT
+void get_refinement_region(){
 	int i,j;
-	int level, cell;
-	int total_cells_per_level[max_level-min_level+1];
 	float refmin[nDim];
 	float refmax[nDim];
 
@@ -1049,16 +1047,17 @@ void build_mesh() {
 	 * (not certain abox and auni are required here) */
 	/* NG: can NOT be used here, hydro vars may not have been read yet! */
 	//set_timestepping_scheme();
-
-#ifdef REFINEMENT
+	
 	if ( spatially_limited_refinement ) {
 		for ( i = 0; i < nDim; i++ ) {
-			refmin[i] = num_grid+1.0;
-			refmax[i] = -1.0;
+			refmin[i] = refinement_volume_min[i];
+			refmax[i] = refinement_volume_max[i];
+		}
 
-			for ( j = 0; j < num_particles; j++ ) {
-				if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
+		for ( j = 0; j < num_particles; j++ ) {
+			if ( particle_level[j] != FREE_PARTICLE_LEVEL &&
 						particle_id[j] < particle_species_indices[1] ) {
+				for ( i = 0; i < nDim; i++ ) {
 					if ( particle_x[j][i] < refmin[i] ) {
 						refmin[i] = particle_x[j][i];
 					}
@@ -1068,7 +1067,9 @@ void build_mesh() {
 					}
 				}
 			}
+		}
 
+		for ( i = 0; i < nDim; i++ ) {
 			refmin[i] = floor(refmin[i]);
 			refmax[i] = ceil(refmax[i]);
 		}
@@ -1080,12 +1081,13 @@ void build_mesh() {
 			cart_debug("refinement_volume[%u] = %e %e", i, refinement_volume_min[i], refinement_volume_max[i] );
 		}
 	}
-#endif /* REFINEMENT */
+}
 
-	build_cell_buffer();
-	repair_neighbors();
+void build_refinement_region(int do_load_balance){
+	int j;
+	int level, cell;
+	int total_cells_per_level[max_level-min_level+1];
 
-#ifdef REFINEMENT
 	/* do initial refinement */
 	level = min_level;
 	total_cells_per_level[min_level] = num_root_cells;
@@ -1107,15 +1109,31 @@ void build_mesh() {
 			for(j=0; j<num_particles; j++) { 
 				if ( particle_level[j] != FREE_PARTICLE_LEVEL) {
 					cell = cell_find_position_above_level(level,particle_x[j]);
-					cart_assert(cell > -1);
 					particle_level[j] = cell_level(cell);
 				}
 			}
-		   
-			load_balance();
+			if(do_load_balance){
+				load_balance();
+			}
 		}
 	}
+}
+#endif /* REFINEMENT */
+
+void build_mesh() {
+	/* Doug (11/29/2009): necessary to properly set particle timestep 
+	 * (not certain abox and auni are required here) */
+	/* NG: can NOT be used here, hydro vars may not have been read yet! */
+	//set_timestepping_scheme();
+
+#ifdef REFINEMENT
+	get_refinement_region();
+    build_cell_buffer();
+    repair_neighbors();
+	build_refinement_region(1);
 #else
+	build_cell_buffer();
+	repair_neighbors();
 	load_balance();
 #endif /* REFINEMENT */
 }
@@ -1123,3 +1141,6 @@ void build_mesh() {
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 
 #endif /* PARTICLES */
+
+
+

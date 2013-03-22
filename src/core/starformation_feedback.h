@@ -9,6 +9,8 @@
 
 #ifdef STAR_FORMATION
 
+DECLARE_LEVEL_ARRAY(int,star_feedback_frequency);
+
 /*
 //  ATTENTION DEVELOPERS:
 //  ONLY add new members at the end of the structure!!!
@@ -36,6 +38,7 @@ struct StellarFeedbackCell
 
 extern const struct StellarFeedbackCell *sf_feedback_cell;
 
+extern double feedback_sampling_timescale;
 
 void config_init_star_formation_feedback();
 void config_verify_star_formation_feedback();

@@ -54,10 +54,33 @@ double get_xCO(double AV, double Lcm,  double Z, double UMW);
 double get_xH2(double AV, double Lcm,  double Z, double UMW);
 double get_escape_fraction(double tau10);
 
+/* compute H2 column density of all leaf cells on given level */
 void NH2_level(int level, int num_level_cells, int *level_cells, float *var_level);
+/* compute H2 column density of all cells on given level (including non-leaves) */
+void NH2_upto_level(int top_level, float *var);
+/* compute H2 column density of all cells up to given top_level */
+void NH2_upto_level_hierarchy(int top_level, float *var);
+
+/* compute X-factor of all leaf cells on given level */
 void xfactor_level( int level, int num_level_cells, int *level_cells, float *var_level);
-void xfactor_upto_level(int top_level, float *xf);
+/* compute X-factor of all cells on given level (including non-leaves) */
+void xfactor_upto_level(int top_level, float *var);
+/* compute X-factor of all cells up to given top_level */
 void xfactor_upto_level_hierarchy(int top_level, float *var);
+
+/* compute WCO of all leaf cells on given level */
+void WCO_level( int level, int num_level_cells, int *level_cells, float *var_level);
+/* compute WCO of all cells on given level (including non-leaves) */
+void WCO_upto_level(int top_level, float *var);
+/* compute WCO of all cells up to given top_level */
+void WCO_upto_level_hierarchy(int top_level, float *var);
+
+/* generic function that computes property of all cells on given level (including non-leaves) */
+void compute_upto_level( void (*flevel)(int level, int num_level_cells, int *level_cells, float *var_level), 
+                         float (*favg)(int cell, float *var_level), int top_level, float *var);
+/* generic function that computes property of all cells up to given level */
+void compute_upto_level_hierarchy( void (*flevel)(int level, int num_level_cells, int *level_cells, float *var_level), 
+                                   float (*favg)(int cell, float *var_level), int top_level, float *var);
 
 double get_NH2(int cell, float UMW, int level);
 double xfactor_cell_0(int cell, float UMW, int level);

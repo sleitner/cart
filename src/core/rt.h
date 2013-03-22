@@ -50,22 +50,27 @@ void rtGlobalUpdate(int top_level, MPI_Comm level_com);
 */
 float rtTem(int cell);
 float rtDmw(int cell);
-float rtDmw2(int cell);  /* this version includes the floor */
-float rtUmw(int cell);
+float rtDmwFL(int cell);  /* this version includes the floor */
+float rtUmw(int cell);    /* return the inside-the-cloud field */
+float rtUmwFS(int cell);  /* return the free-space field */
 /*
 //  Returns cooling and heating rates per baryon [erg/s].
 */
 void rtGetCoolingRate(int cell, float *cooling_rate, float *heating_rate);
 /*
 //  Returns the rates for photo-processes in physical units [1/s].
+//  The second form returns the "free-space" rates.
 */
 void rtGetPhotoRates(int cell, float *rate);
+void rtGetPhotoRatesFS(int cell, float *rate);
 /*
 //  Returns the radiation field as \nu n_\nu at a given set of wavelength,
 //  in physical (not comoving! as before) units [cm^{-3}]. If cell is -1,
 //  returns the cosmic background.
+//  The second form returns the "free-space" field.
 */
 void rtGetRadiationField(int cell, int n, const float *wlen, float *ngxi);
+void rtGetRadiationFieldFS(int cell, int n, const float *wlen, float *ngxi);
 
 void rtModifyTimeStep(double *dt);
 

@@ -1,7 +1,7 @@
 # COMPILE OPTIONS
 
 # fulla (PG compilers)
-PATH = /usr/local/mvapich2-1.7-r5140-pgi-117/bin:/opt/pgi/linux86-64/11.7/bin:/usr/bin:/bin
+PATH = /usr/local/mvapich2-1.6-r4751-pgi-12.10/bin:/opt/pgi/linux86-64/2012/bin:/usr/bin:/bin:/home/gnedin/A/bin
 
 CFLAGS  = -fast -mp -mcmodel=medium
 CC      = mpicc
@@ -9,5 +9,5 @@ FFLAGS  = -fast -mp -mcmodel=medium
 F77     = mpif77
 CXX     = mpicxx
 INCLUDES = -I/usr/local/gsl-1.14/include
-EXTRALIBS = -pgf77libs -L/usr/local/gsl-1.14/lib
+EXTRALIBS = -pgf77libs -pgf90libs -L/usr/local/gsl-1.14/lib
 

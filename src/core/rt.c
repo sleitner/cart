@@ -142,8 +142,8 @@ void rtInitRun()
   frt_real Yp = constants->Yp;
 #endif
   frt_real Tmin = gas_temperature_floor;
-  frt_real D2Gmin = rt_dust_to_gas_floor;
-  frt_real ClumpH2 = rt_clumping_factor;
+  frt_real D2GminH2 = rt_dust_to_gas_floor*(constants->Dsun/constants->Zsun);
+  frt_real CluFacH2 = rt_clumping_factor;
   frt_real CohLenH2 = rt_coherence_length;
   frt_real fGal = rt_uv_emissivity_stars;
   frt_real fQSO = rt_uv_emissivity_quasars;
@@ -153,23 +153,7 @@ void rtInitRun()
 
   start_time(WORK_TIMER);
 
-#ifdef RT_TEST
-  frtCall(setrun).Yp = 1.0e-10;
-#else
-  frtCall(setrun).Yp = constants->Yp;
-#endif
-  frtCall(setrun).Tmin = gas_temperature_floor;
-  frtCall(setrun).D2Gmin = rt_dust_to_gas_floor;
-  frtCall(setrun).ClumpH2 = rt_clumping_factor;
-  frtCall(setrun).CohLenH2 = rt_coherence_length;
-  frtCall(setrun).fGal = rt_uv_emissivity_stars;
-  frtCall(setrun).fQSO = rt_uv_emissivity_quasars;
-  frtCall(setrun).IPOP = rt_stellar_pop;
-  frtCall(setrun).IREC = 0;
-  frtCall(setrun).IOUNIT = 81;
-  
-  //frtCall(initrun)();
-  frtCall(initrun2)(&Yp,&Tmin,&D2Gmin,&ClumpH2,&CohLenH2,&fGal,&fQSO,&IPOP,&IREC,&IOUNIT);
+  frtCall(initrun2)(&Yp,&Tmin,&D2GminH2,&CluFacH2,&CohLenH2,&fGal,&fQSO,&IPOP,&IREC,&IOUNIT);
 
   end_time(WORK_TIMER);
 
@@ -208,6 +192,7 @@ void rtInitStep(double dt)
   frt_real uDen = units->number_density;
   frt_real uLen = units->length;
   frt_real uTime = units->time;
+  frt_real dtCode = dt;
 
 #ifdef COSMOLOGY
   frt_real aExp = abox[min_level];
@@ -221,7 +206,7 @@ void rtInitStep(double dt)
 
   start_time(WORK_TIMER);
 
-  frtCall(stepbegin)(&uDen,&uLen,&uTime,&aExp,&HExp,&daExp);
+  frtCall(stepbegin)(&uDen,&uLen,&uTime,&aExp,&HExp,&daExp,&dtCode);
 
   end_time(WORK_TIMER);
 
@@ -336,7 +321,7 @@ void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf)
   var[FRT_XHeIII] = cell_HeIII_density(cell)/cell_gas_density(cell);
   var[FRT_XH2] = cell_H2_density(cell)/cell_gas_density(cell);
 #ifdef RT_8SPECIES
-  var[FRT_XH2p] = var[FRT_XHm] = 0.0;
+#error "The 8-species model is not currently implemented."
 #endif
 
   /*
@@ -352,6 +337,15 @@ void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf)
   var[FRT_Metallicity] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
   var[FRT_Metallicity] = 0.0;
+#endif
+
+  /*
+  //  Dust-to-gas ratio
+  */
+#ifdef DUST_EVOLUTION
+  var[FRT_DustToGas] = cell_dust_density(cell)/(constants->Zsun*cell_gas_density(cell));
+#else
+  var[FRT_DustToGas] = constants->Dsun/constants->Zsun*var[FRT_Metallicity];
 #endif
 
   /*
@@ -455,6 +449,18 @@ void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf)
   cell_HeII_density(cell) = var[FRT_XHeII]*cell_gas_density(cell);
   cell_HeIII_density(cell) = var[FRT_XHeIII]*cell_gas_density(cell);
   cell_H2_density(cell) = var[FRT_XH2]*cell_gas_density(cell);
+#ifdef RT_8SPECIES
+#error "The 8-species model is not currently implemented."
+#endif
+
+  /*
+  //  Dust-to-gas ratio (only changes inside the FRT block if
+  //  RT_DUST_EVOLUTION is set)
+  */
+#if defined(DUST_EVOLUTION) && defined(RT_DUST_EVOLUTION)
+  cell_dust_density(cell) = var[FRT_DustToGas]*constants->Zsun*cell_gas_density(cell);
+#endif
+
   cell_gas_gamma(cell) = var[FRT_Gamma];
 }
 
@@ -473,22 +479,19 @@ float rtTem(int cell)
 
 float rtDmw(int cell)
 {
-#ifdef RT_CUSTOM_DUST_TO_GAS
-  frt_real var[FRT_DIM];
-
-  rtPackCellData(cell_level(cell),cell,var,NULL);
-  return frtCall(dusttogas)(var);
-#else  /* RT_CUSTOM_DUST_TO_GAS */
+#ifdef DUST_EVOLUTION
+  return cell_dust_density(cell)/(constants->Dsun*cell_gas_density(cell));
+#else  /* DUST_EVOLUTION */
 #ifdef ENRICHMENT
   return cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
 #else
   return 0.0;
 #endif
-#endif /* RT_CUSTOM_DUST_TO_GAS */
+#endif /* DUST_EVOLUTION */
 }
 
 
-float rtDmw2(int cell)
+float rtDmwFL(int cell)
 {
 #ifdef RT_FIXED_ISM
   return rt_dust_to_gas_floor;
@@ -507,6 +510,15 @@ float rtUmw(int cell)
 {
   float rate[FRT_RATE_DIM];
   rtGetPhotoRates(cell,rate);
+  return rate[FRT_RATE_DissociationLW]*1.05e10;
+}
+
+
+void rtGetPhotoRatesFS(int cell, float *rate);
+float rtUmwFS(int cell)
+{
+  float rate[FRT_RATE_DIM];
+  rtGetPhotoRatesFS(cell,rate);
   return rate[FRT_RATE_DissociationLW]*1.05e10;
 }
 
@@ -532,7 +544,7 @@ void rtGetCoolingRate(int cell, float *cooling_rate, float *heating_rate)
 }
 
 
-void rtGetPhotoRates(int cell, float *rate)
+void rtGetPhotoRatesWorker(int cell, float *rate, int free_space)
 {
   int i;
   DEFINE_FRT_INTEFACE(var,rawrf);
@@ -559,19 +571,37 @@ void rtGetPhotoRates(int cell, float *rate)
       if(sizeof(frt_real) == sizeof(float))
 	{
 	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = 0.0;
-	  frtCall(getphotorates)(var,rawrf,(frt_real *)rate);
+	  if(free_space)
+	    frtCall(getphotoratesfs)(var,rawrf,(frt_real *)rate);
+	  else
+	    frtCall(getphotorates)(var,rawrf,(frt_real *)rate);
 	}
       else
 	{
 	  for(i=0; i<FRT_RATE_DIM; i++) frate[i] = 0.0;
-	  frtCall(getphotorates)(var,rawrf,frate);
+	  if(free_space)
+	    frtCall(getphotoratesfs)(var,rawrf,frate);
+	  else
+	    frtCall(getphotorates)(var,rawrf,frate);
 	  for(i=0; i<FRT_RATE_DIM; i++) rate[i] = frate[i];
 	}
     }
 }
 
 
-void rtGetRadiationField(int cell, int n, const float *wlen, float *ngxi)
+void rtGetPhotoRates(int cell, float *rate)
+{
+  rtGetPhotoRatesWorker(cell,rate,0);
+}
+
+
+void rtGetPhotoRatesFS(int cell, float *rate)
+{
+  rtGetPhotoRatesWorker(cell,rate,1);
+}
+
+
+void rtGetRadiationFieldWorker(int cell, int n, const float *wlen, float *ngxi, int free_space)
 {
   int i;
   DEFINE_FRT_INTEFACE(var,rawrf);
@@ -603,19 +633,37 @@ void rtGetRadiationField(int cell, int n, const float *wlen, float *ngxi)
 
       if(sizeof(frt_real) == sizeof(float))
 	{
-	  frtCall(getradiationfield)(var,rawrf,&nout,(frt_real *)wlen,(frt_real*)ngxi);
+	  if(free_space)
+	    frtCall(getradiationfieldfs)(var,rawrf,&nout,(frt_real *)wlen,(frt_real*)ngxi);
+	  else
+	    frtCall(getradiationfield)(var,rawrf,&nout,(frt_real *)wlen,(frt_real*)ngxi);
 	}
       else
 	{
 	  fwlen = cart_alloc(frt_real,n);
 	  fngxi = cart_alloc(frt_real,n);
 	  for(i=0; i<n; i++) fwlen[i] = wlen[i];
-	  frtCall(getradiationfield)(var,rawrf,&nout,fwlen,fngxi);
+	  if(free_space)
+	    frtCall(getradiationfieldfs)(var,rawrf,&nout,fwlen,fngxi);
+	  else
+	    frtCall(getradiationfield)(var,rawrf,&nout,fwlen,fngxi);
 	  for(i=0; i<n; i++) ngxi[i] = fngxi[i];
 	  cart_free(fwlen);
 	  cart_free(fngxi);
 	}
     }
+}
+
+
+void rtGetRadiationField(int cell, int n, const float *wlen, float *ngxi)
+{
+  rtGetRadiationFieldWorker(cell,n,wlen,ngxi,0);
+}
+
+
+void rtGetRadiationFieldFS(int cell, int n, const float *wlen, float *ngxi)
+{
+  rtGetRadiationFieldWorker(cell,n,wlen,ngxi,1);
 }
 
 #endif /* RADIATIVE_TRANSFER */

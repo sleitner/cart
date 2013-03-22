@@ -38,6 +38,10 @@ void init()
   int n, mode;
   float v;
 
+  if ( num_options == 0 ) {
+	cart_error("At least one conversion specification is required.");
+  }
+
   if(strcmp(options[0],"hart-to-cart")==0 || strcmp(options[0],"h2c")==0)
     {
       ufc_mode = +H2C;
@@ -76,10 +80,10 @@ void init()
   options++;
   num_options--;
 
-  if(ufc_mode==0 || (!is_option_present("job-name","j",1) && !is_option_present("input","i",1)))
+  if(ufc_mode==0 || (!is_option_present("job-name","j",1) && !is_option_present("input","i",1)) || (is_option_present("job-name","j",1) && !is_option_present("label","l",1)))
     {
       cart_error("Usage: %s <conversion-spec> -i/--input=<filename> [options].\n"
-		 "   or: %s <conversion-spec> -j/--job-name=<name> [options].\n"
+		 "   or: %s <conversion-spec> -j/--job-name=<name> -l/--file-label=<label> [options].\n"
 		 "Valid conversion specifications:\n"
 		 "  hart-to-cart or cart-to-hart (shorthand h2c/c2h)\n"
 		 "  hart-to-artio or artio-to-hart (shorthand h2a/a2h)\n"
@@ -88,8 +92,8 @@ void init()
 		 "  -j, --job-name=<name>              set the job name for the fileset\n" 
 		 "  -d, --data-directory=<dir>         set the input data directory where files are\n" 
 		 "                                     located (default is the current directory)\n"
-         "  -o, --output-directory=<dir>       set the data directory where converted output\n"
-         "                                     files are written (default is data-directory).\n"
+		 "  -o, --output-directory=<dir>       set the data directory where converted output\n"
+		 "                                     files are written (default is data-directory).\n"
 		 "  -l, --file-label=<label>           set the label for the fileset\n"
 		 "  -i, --input=<filename>             set the input grid filename; this option\n"
 		 "                                     combines -j, -d, and -l in one option, i.e.\n"

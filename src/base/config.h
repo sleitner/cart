@@ -127,14 +127,29 @@
 
 /*
 //  Maximum number of processors
+//  Note: changing MAX_PROCS mid-simulation will cause problems. Just don't.
 */
 #ifndef MAX_PROCS
 #define MAX_PROCS    512
 #endif
 
+#if MAX_PROCS >= 1000000 /* you never know */
+#define ART_PROC_FORMAT   "%07u"
+#elif MAX_PROCS >= 100000
+#define ART_PROC_FORMAT   "%06u"
+#elif MAX_PROCS >= 10000
+#define ART_PROC_FORMAT   "%05u"
+#elif MAX_PROCS >= 1000
+#define ART_PROC_FORMAT   "%04u"
+#elif MAX_PROCS >= 100
+#define ART_PROC_FORMAT   "%03u"
+#else
+#define ART_PROC_FORMAT   "%u"
+#endif
+
 
 /*
-//  Default to 25 levels if the number of levels is not set.
+//  Default to total of 2**30 spatial resolution 
 */
 #ifndef num_refinement_levels 
 #define num_refinement_levels (30-num_root_grid_refinements)
@@ -145,8 +160,16 @@
 //  Default to num_star_particles = num_particles if not set.
 */
 #ifdef STAR_FORMATION
-#if defined(num_particles) && !defined(num_star_particles)
+#if defined(num_particles) 
+#if !defined(num_star_particles)
 #define num_star_particles num_particles
+#elif num_star_particles > num_particles
+#error "num_star_particles must be less than or equal to num_particles"
+#endif
+#endif
+#else
+#if defined(num_star_particles)
+#error "num_star_particles is defined, but not STAR_FORMATION!"
 #endif
 #endif /* STAR_FORMATION */
 
@@ -181,12 +204,25 @@
 #define max_level		(num_refinement_levels)
 
 
+#ifdef __cplusplus
+
+#define DEFINE_LEVEL_ARRAY(type,name) \
+type name##_buffer[max_level-min_level+1]; \
+type * name = name##_buffer - min_level
+
+#define DECLARE_LEVEL_ARRAY(type,name) \
+extern type * name
+
+#else  /* __cplusplus */
+
 #define DEFINE_LEVEL_ARRAY(type,name) \
 type name##_buffer[max_level-min_level+1]; \
 type *const name = name##_buffer - min_level
 
 #define DECLARE_LEVEL_ARRAY(type,name) \
 extern type *const name
+
+#endif /* __cplusplus */
 
 
 #ifdef RADIATIVE_TRANSFER

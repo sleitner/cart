@@ -516,6 +516,21 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 			    break;
 			  }
 #endif /* COSMOLOGY */
+#ifdef VAR_TOTAL_MASS
+			case I_TOTAL_OVERDENSITY:
+			  {
+			    int j, nb[num_neighbors];
+			    float v;
+
+			    cell_all_neighbors(cell,nb);
+
+			    v = 0;
+			    for(j=0; j<num_neighbors; j++) v += cell_total_mass(nb[j]);
+ 
+			    buf[var][l] = (2*cell_total_mass(cell)+v)/(2+num_neighbors);
+			    break;
+			  }
+#endif /* COSMOLOGY */
 			case I_GAS_TEMPERATURE:
 			  {
 			    buf[var][l] = units->temperature*cell_gas_temperature(cell);
@@ -524,6 +539,11 @@ void ifritUniformGrid_FillData(int level, int nbin[3], double pcen[3], int nvars
 			case I_GAS_TOVERMU:
 			  {
 			    buf[var][l] = units->temperature*(cell_gas_gamma(cell)-1)*cell_gas_internal_energy(cell)/cell_gas_density(cell);
+			    break;
+			  }
+			case I_GAS_ENTROPY:
+			  {
+			    buf[var][l] = units->temperature*cell_gas_temperature(cell)/pow(units->number_density*cell_gas_density(cell),0.6666667);
 			    break;
 			  }
 #endif /* HYDRO */

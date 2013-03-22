@@ -20,6 +20,7 @@
 #include "../extra/healpix.h"
 #include "../extra/ifrit.h"
 #include "../run/step.h"
+#include "../run/logging.h"
 
 #include "../et/oldstyle_units.h"
 

@@ -26,6 +26,13 @@ int rt_debug = 0;
 #endif
 
 
+#ifdef RT_TRANSFER
+extern frt_real frtAbcLoc[];
+extern frt_real frtAbcUni[];
+extern frt_real frtAbcAvg[];
+#endif
+
+
 void rtPackCellData(int level, int cell, frt_real *var, frt_real **p_rawrf);
 void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf);
 
@@ -121,7 +128,6 @@ void rtStepBegin()
 
 void rtStepEnd()
 {
-  frt_real dt = dtl[min_level];
   frt_real vol = num_root_cells;
   frt_real par[3];
   int i;
@@ -189,7 +195,11 @@ void rtStepEnd()
 #endif /* RT_TRANSFER */
 
   start_time(WORK_TIMER);
-  frtCall(stepend)(&dt,&vol,par);
+#ifdef RT_TRANSFER
+  frtCall(stepend)(&vol,par,frtAbcLoc,frtAbcUni);
+#else
+  frtCall(stepend)(&vol,par,NULL,NULL);
+#endif /* RT_TRANSFER */
   end_time(WORK_TIMER);
 
 #ifdef RT_DEBUG

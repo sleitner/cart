@@ -93,7 +93,7 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 #endif /* STAR_FORMATION */
 
 	if ( grid_filename_flag != NO_WRITE ) {
-		sprintf( filename, "%s/rng_state_%03u.dat", logfile_directory, local_proc_id );
+		sprintf( filename, "%s/rng_state_"ART_PROC_FORMAT".dat", logfile_directory, local_proc_id );
 		cart_rand_save_state( filename );
 
 		last_restart_step = step;
@@ -109,17 +109,18 @@ void save_check() {
 
 	grid_save_flag = particle_save_flag = tracer_save_flag = NO_WRITE;
 
+#ifdef COSMOLOGY
+	if ( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) {
+		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_SAVE;
+		current_output++;
+	} else
+#endif /* COSMOLOGY */
 	if ( restart_frequency != 0 && step % restart_frequency == 0 ) {
 		if ( step % (2*restart_frequency) == 0 ) {
 			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
 		} else {
 			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
 		}
-#ifdef COSMOLOGY
-	} else if ( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) {
-		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_SAVE;
-		current_output++;
-#endif /* COSMOLOGY */
 	} 
 
 	
