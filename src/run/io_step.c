@@ -75,13 +75,6 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 	      }
 	    case WRITE_BACKUP:
 	      {
-		//sprintf( filename_sclog, "%s/%s_2.dsc", output_directory, jobname );
-		combine_star_creation_log(); 
-		break;
-	      }
-	    case WRITE_GENERIC:
-	      {
-		//sprintf( filename_sclog, "%s/%s.dsc", output_directory, jobname );
 		combine_star_creation_log(); 
 		break;
 	      }
@@ -92,7 +85,7 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 #endif /* LOG_STAR_CREATION */
 #endif /* STAR_FORMATION */
 
-	if ( grid_filename_flag != NO_WRITE ) {
+	if ( grid_filename_flag != NO_WRITE && particle_filename_flag != NO_WRITE && tracer_filename_flag != NO_WRITE ) {
 		sprintf( filename, "%s/rng_state_"ART_PROC_FORMAT".dat", logfile_directory, local_proc_id );
 		cart_rand_save_state( filename );
 
@@ -116,14 +109,9 @@ void save_check() {
 	} else
 #endif /* COSMOLOGY */
 	if ( restart_frequency != 0 && step % restart_frequency == 0 ) {
-		if ( step % (2*restart_frequency) == 0 ) {
-			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
-		} else {
-			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
-		}
+		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
 	} 
 
-	
 	if ( grid_output_frequency != 0 && step % grid_output_frequency == 0 ) {
 		grid_save_flag = WRITE_SAVE;		
     }

@@ -35,6 +35,9 @@ DECLARE_LEVEL_ARRAY(double,abox_old);
 #endif /* COSMOLOGY */
 extern double auni_init;
 extern int step;
+extern int restart_frequency;
+extern int current_restart_backup;
+extern int num_backup_restarts;
 
 #ifndef PARTICLE_HEADER_MAGIC
 #define PARTICLE_HEADER_MAGIC           (0.1234f)
@@ -117,12 +120,7 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		    }
 		  case WRITE_BACKUP:
 		    {
-			sprintf( filename_gas, "%s/%s_2.d", output_directory, jobname );
-			break;
-		    }
-		  case WRITE_GENERIC:
-		    {
-			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
+			sprintf( filename_gas, "%s/%s_%d.d", output_directory, jobname, current_restart_backup );
 			break;
 		    }
 		  default:
@@ -154,7 +152,6 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		end_time( GAS_WRITE_IO_TIMER );
 	}
 
-#ifdef HYDRO
 #ifdef HYDRO_TRACERS
 	if ( tracer_filename_flag != NO_WRITE ) {
 		cart_debug("Writing hydro tracer restart...");
@@ -168,12 +165,7 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		    }
 		  case WRITE_BACKUP:
 		    {
-			sprintf( filename_tracers, "%s/%s_2.dtr", output_directory, jobname );
-			break;
-		    }
-		  case WRITE_GENERIC:
-		    {
-			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
+			sprintf( filename_tracers, "%s/%s_%d.dtr", output_directory, jobname, current_restart_backup );
 			break;
 		    }
 #else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
@@ -184,12 +176,7 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		    }
 		  case WRITE_BACKUP:
 		    {
-			sprintf( filename_tracers, "%s/tracers_2.dat", output_directory );
-			break;
-		    }
-		  case WRITE_GENERIC:
-		    {
-			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
+			sprintf( filename_tracers, "%s/tracers_%d.dat", output_directory, current_restart_backup );
 			break;
 		    }
 #endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
@@ -204,7 +191,6 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		end_time( PARTICLE_WRITE_IO_TIMER );
 	}
 #endif /* HYDRO_TRACERS */
-#endif /* HYDRO */
 
 #ifdef PARTICLES
 	if ( particle_filename_flag != NO_WRITE ) {
@@ -222,18 +208,10 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		    }
 		  case WRITE_BACKUP:
 		    {
-			sprintf( filename1, "%s/%s_2.dph", output_directory, jobname);
-			sprintf( filename2, "%s/%s_2.dxv", output_directory, jobname);
-			sprintf( filename3, "%s/%s_2.dpt", output_directory, jobname);
-			sprintf( filename4, "%s/%s_2.dst", output_directory, jobname);
-			break;
-		    }
-		  case WRITE_GENERIC:
-		    {
-			sprintf( filename1, "%s/%s.dph", output_directory, jobname);
-			sprintf( filename2, "%s/%s.dxv", output_directory, jobname);
-			sprintf( filename3, "%s/%s.dpt", output_directory, jobname);
-			sprintf( filename4, "%s/%s.dst", output_directory, jobname);
+			sprintf( filename1, "%s/%s_%d.dph", output_directory, jobname, current_restart_backup );
+			sprintf( filename2, "%s/%s_%d.dxv", output_directory, jobname, current_restart_backup );
+			sprintf( filename3, "%s/%s_%d.dpt", output_directory, jobname, current_restart_backup );
+			sprintf( filename4, "%s/%s_%d.dst", output_directory, jobname, current_restart_backup );
 			break;
 		    }
 #else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
@@ -247,18 +225,10 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		    }
 		  case WRITE_BACKUP:
 		    {
-			sprintf( filename1, "%s/PMcrd_2.DAT", output_directory );
-			sprintf( filename2, "%s/PMcrs_2.DAT", output_directory );
-			sprintf( filename3, "%s/pt_2.dat", output_directory );
-			sprintf( filename4, "%s/stars_2.dat", output_directory );
-			break;
-		    }
-		  case WRITE_GENERIC:
-		    {
-			sprintf( filename1, "%s/PMcrd.DAT", output_directory );
-			sprintf( filename2, "%s/PMcrs.DAT", output_directory );
-			sprintf( filename3, "%s/pt.dat", output_directory );
-			sprintf( filename4, "%s/stars.dat", output_directory );
+			sprintf( filename1, "%s/PMcrd_%d.DAT", output_directory, current_restart_backup );
+			sprintf( filename2, "%s/PMcrs_%d.DAT", output_directory, current_restart_backup );
+			sprintf( filename3, "%s/pt_%d.dat", output_directory, current_restart_backup );
+			sprintf( filename4, "%s/stars_%d.dat", output_directory, current_restart_backup );
 			break;
 		    }
 #endif  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
@@ -279,7 +249,14 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 #endif /* PARTICLES */
 
 	if ( local_proc_id == MASTER_NODE && 
-			(grid_filename_flag != NO_WRITE && particle_filename_flag != NO_WRITE) ) {
+			(grid_filename_flag != NO_WRITE 
+#ifdef PARTICLES
+				&& particle_filename_flag != NO_WRITE 
+#endif /* PARTICLES */
+#ifdef HYDRO_TRACERS
+				&& tracer_filename_flag != NO_WRITE 
+#endif /* HYDRO_TRACERS */
+			) ) {
 		/* write out restart file */
 		sprintf( filename, "%s/restart.dat", output_directory );
 		restart = fopen( filename, "w" );
@@ -445,6 +422,9 @@ void read_cart_restart( const char *label ) {
 #endif /* STAR_FORMATION */
 	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* PARTICLES */
+
+	/* cart files don't save current_restart_backup */
+	current_restart_backup = step % (num_restart_backups * ((restart_frequency>0) ? restart_frequency : 1) );
 }
 
 void set_cart_grid_file_mode(int mode)
