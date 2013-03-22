@@ -30,7 +30,7 @@ struct StellarFeedback
 
 
 extern const struct StellarFeedback *sf_feedback;
-extern double fb_sampling_timescale;
+extern double feedback_sampling_timescale;
 
 void config_init_star_formation_feedback();
 void config_verify_star_formation_feedback();

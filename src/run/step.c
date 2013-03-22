@@ -1230,7 +1230,7 @@ void finalize_timestepping_scheme()
     {
       work *= time_refinement_factor[level];
       star_formation_frequency[level] = MAX(1,nearest_int(MIN(work,sf_sampling_timescale*constants->yr/(units->time*dtl[level]))));
-      star_feedback_frequency[level] = MAX(1,nearest_int(MIN(work,fb_sampling_timescale*constants->yr/(units->time*dtl[level]))));
+      star_feedback_frequency[level] = MAX(1,nearest_int(MIN(work,feedback_sampling_timescale*constants->yr/(units->time*dtl[level]))));
     }
   end_time( WORK_TIMER );
 #endif /* STAR_FORMATION */
