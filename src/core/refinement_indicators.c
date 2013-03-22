@@ -11,6 +11,7 @@
 #include "cosmology.h"
 #include "refinement_indicators.h"
 #include "tree.h"
+#include "plugin.h"
 
 #ifdef PARTICLES
 #include "particle.h"
@@ -258,6 +259,10 @@ void mark_refinement_indicators( int cell, int level ) {
 		indicator = MAX( dark_1stspec_indicator(cell, level), indicator );
 	}
 
+        if ( refinement_indicator[PLUGIN_INDICATOR].use[level] ) {
+		indicator = MAX( plugin_indicator( cell, level ), indicator );
+	}
+
 #ifdef HYDRO
 	if ( refinement_indicator[GAS_MASS_INDICATOR].use[level] ) {
 		indicator = MAX( gas_mass_indicator( cell, level ), indicator );
@@ -334,9 +339,20 @@ float dark_1stspec_indicator( int cell, int level ) {
 	return MIN( ave_mass, refinement_indicator[DARK_1STSPEC_INDICATOR].weight );
 }
 
+float plugin_indicator( int cell, int level ) {
+        float indicator;
+        PLUGIN_POINT(RefinementIndicator)(cell, level, &indicator);
+        return indicator;
+}
+
 #ifdef HYDRO
 
 float spatial_indicator( int cell, int level ) {
+        /*
+        // hack: refine around the central_cell -- initialized here to the center of the grid.
+        // threshold[level] sets the code unit-distances to different levels of refinement 
+        // the selected level gets fully refined (assuming weight==1) if r<distance(level) 
+        */
 	float in_region = 0;
 	const double central_cell[nDim] = {num_grid/2,num_grid/2,num_grid/2};
 	double pos[3];

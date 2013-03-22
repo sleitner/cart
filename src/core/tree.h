@@ -212,7 +212,15 @@ extern int size_cell_array;
     #define num_feedback_species		0
   #endif /* BLASTWAVE_FEEDBACK*/
 
-  #define num_chem_species		 	(rt_num_chem_species+num_enrichment_species+num_feedback_species) 
+  #ifdef INERT_GAS_TRACER
+    #define HVAR_INERT_GAS_TRACER		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+num_enrichment_species+num_feedback_species)
+    #define cell_inert_gas_tracer(c)		(cell_var(c,HVAR_INERT_GAS_TRACER))
+    #define num_inert_gas_tracers	        1
+  #else
+    #define num_inert_gas_tracers		0
+  #endif /* INERT_GAS_TRACER */ 
+
+  #define num_chem_species		 	(rt_num_chem_species+num_enrichment_species+num_feedback_species+num_inert_gas_tracers) 
   #define num_hydro_vars			(num_basic_hydro_vars+num_extra_hydro_vars+num_chem_species)
 
 #else

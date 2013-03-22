@@ -21,6 +21,10 @@
 */
 ?#define BLASTWAVE_FEEDBACK
 /*
+// an inert field that advects with the gas, must be set in the initial conditions or on restart.
+*/
+?#define INERT_GAS_TRACER
+/*
 //  An advected energy field that decays exponentially. 
 */
 ?#define ISOTROPIC_TURBULENCE_ENERGY

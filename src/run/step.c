@@ -93,7 +93,6 @@ extern int current_step_level;
 
 double min_courant_velocity = 1.0e-6;
 
-
 void config_read_file(const char *filename);
 void config_append_units_to_file(const char *filename);
 void config_print_to_file(const char *filename, int append);
@@ -897,9 +896,12 @@ void set_timestepping_scheme()
   //  set as a time-step on each level
   */
   for(level=min_level; level<=max_level; level++)
-    {
-      dtl_local[level] = max_dt;
-    }
+      {
+          if(max_dt > 0)
+              dtl_local[level] = max_dt;
+          else
+              dtl_local[level] = 1e30;
+      }
 
 #ifdef HYDRO 
   for(level=min_level; level<=lowest_level; level++)
