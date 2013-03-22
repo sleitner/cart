@@ -47,6 +47,9 @@ int num_cart_input_files = 1;
 int cart_grid_file_mode = 0;
 int cart_particle_file_mode = 0;
 
+#ifdef HYDRO_TRACERS
+int cart_tracer_num_row = num_grid;
+#endif /* HYDRO_TRACERS */
 
 #ifdef RADIATIVE_TRANSFER
 /*
@@ -65,6 +68,10 @@ void config_init_io_cart() {
 
 	control_parameter_add2(control_parameter_int,&cart_particle_file_mode,"io:cart-particle-file-mode","particle_file_mode","Precision for old style ART particle format. 0 = double-precision positions, double-precision times (default), 1 = double-precision positions, single-precision times, 2 = single-precision positions, single-precision times");
 	control_parameter_add2(control_parameter_int,&cart_grid_file_mode,"io:cart-grid-file-mode","grid_file_mode","Grid file mode (ask Nick)");
+
+#ifdef HYDRO_TRACERS
+	control_paramter_add2(control_parameter_int,&cart_tracer_num_row,"io:cart-tracer-num-row","tracer_num_row","Page size for old style ART tracer particle format (also used for ARTIO).");
+#endif /* HYDRO_TRACERS */
 }
 
 void config_verify_io_cart() {
@@ -73,6 +80,9 @@ void config_verify_io_cart() {
 	VERIFY(io:cart-particle-num-row, cart_particle_num_row > 0 );
 	VERIFY(io:cart-particle-file-mode, cart_particle_file_mode >= 0 && cart_particle_file_mode <= 2 );
 	VERIFY(io:cart-grid-file-mode, cart_grid_file_mode >= 0 && cart_grid_file_mode <= 4 );
+#ifdef HYRO_TRACERS
+	VERIFY(io:cart-tracer-num-row, cart_tracer_num_row > 0 );
+#endif /* HYDRO_TRACERS */
 }
 
 void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag ) {
@@ -2584,14 +2594,14 @@ void read_cart_header_to_units( char *header_filename) {
 #endif /* COSMOLOGY */
 
 	    step                  = header.istep;
-	    cart_particle_num_row  = header.Nrow;
+	    cart_particle_num_row = header.Nrow;
 	
 	    /* only root node needs to keep energy conservation variables */
 	    tintg		= header.tintg;
 	    ekin		= header.ekin;
 	    ekin1		= header.ekin1;
 	    ekin2		= header.ekin2;
-	    au0		        = header.au0;
+	    au0         = header.au0;
 	    aeu0		= header.aeu0;
 
 #ifdef COSMOLOGY
@@ -2704,7 +2714,7 @@ void write_cart_hydro_tracers( char *filename ) {
 
 	cart_debug("writing hydro tracers");
 
-	num_tracers_per_page = num_tracer_row*num_tracer_row;
+	num_tracers_per_page = cart_tracer_num_row*cart_tracer_num_row;
 	num_tracers_per_proc_page = num_tracers_per_page/num_procs;
 	num_pages = (num_tracers_total>0) ? (num_tracers_total-1) / num_tracers_per_page + 1 : 0;
 
@@ -2782,7 +2792,7 @@ void write_cart_hydro_tracers( char *filename ) {
 		size = 2*sizeof(int);
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &num_tracers_total, sizeof(int), 1, output );
-		fwrite( &num_tracer_row, sizeof(int), 1, output );
+		fwrite( &cart_tracer_num_row, sizeof(int), 1, output );
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* hydro variables traced */
@@ -3143,12 +3153,12 @@ void read_cart_hydro_tracers( char *filename ) {
 		/* number of tracers & page_size */
 		fread( &size, sizeof(int), 1, input );
 		fread( &num_tracers_total, sizeof(int), 1, input );
-		fread( &num_tracer_row, sizeof(int), 1, input );
+		fread( &cart_tracer_num_row, sizeof(int), 1, input );
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
 			reorder( (char *)&num_tracers_total, sizeof(int) );
-			reorder( (char *)&num_tracer_row, sizeof(int) );
+			reorder( (char *)&cart_tracer_num_row, sizeof(int) );
 		}
 
 		/* hydro variables traced */
@@ -3169,10 +3179,10 @@ void read_cart_hydro_tracers( char *filename ) {
 		fread( &size, sizeof(int), 1, input );
 	}
 
-	MPI_Bcast( &num_tracer_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &cart_tracer_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 	MPI_Bcast( &num_tracers_total, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 
-	num_tracers_per_page = num_tracer_row*num_tracer_row;
+	num_tracers_per_page = cart_tracer_num_row*cart_tracer_num_row;
 	num_tracers_per_proc_page = num_tracers_per_page/num_procs;
 	num_pages = (num_tracers_total>0) ? (num_tracers_total-1) / num_tracers_per_page + 1 : 0;
 
