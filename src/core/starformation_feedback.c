@@ -20,6 +20,8 @@ double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedbac
 double fb_sampling_timescale = 0;           /* in yrs */
 
 DEFINE_LEVEL_ARRAY(int,star_feedback_frequency);
+double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
+double feedback_turbulence_temperature_ceiling = 1.0e7;  
 
 #ifdef BLASTWAVE_FEEDBACK
 double blastwave_time = { 50.0e6 };
@@ -55,6 +57,8 @@ void config_init_star_formation_feedback()
   control_parameter_add(r,ptr,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
   control_parameter_add3(control_parameter_double,&feedback_temperature_ceiling,"fb:temperature-ceiling","feedback_temperature_ceiling","T_max_feedback","maximum gas temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
   control_parameter_add2(control_parameter_time,&fb_sampling_timescale,"fb:sampling-timescale","fb_sampling_timescale","the intervals at which feedback routines are called.");
+
+  control_parameter_add3(control_parameter_double,&feedback_turbulence_temperature_ceiling,"fb:turbulence-temperature-ceiling","feedback_turbulence_temperature_ceiling","T_max_feedback","maximum turbulence temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
 
 #ifdef BLASTWAVE_FEEDBACK 
   control_parameter_add3(control_parameter_time,&blastwave_time,"blastwave-time","bw:blast-time","bw.blast_time","time before cells can cool in blastwave feedback subgrid model.");
@@ -98,6 +102,7 @@ void config_verify_star_formation_feedback()
   //  other
   */
   VERIFY(fb:temperature-ceiling, feedback_temperature_ceiling > 1.0e6 );
+  VERIFY(fb:turbulence-temperature-ceiling, feedback_turbulence_temperature_ceiling >= 1.0e6 );
 
   VERIFY(fb:sampling-timescale, fb_sampling_timescale >= 0 && fb_sampling_timescale < 1e10)
 
