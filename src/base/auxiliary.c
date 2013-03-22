@@ -1,8 +1,5 @@
 #include "config.h"
-<<<<<<< local
-=======
 
->>>>>>> other
 #include <mpi.h>
 #include <stdarg.h>
 #include <stdio.h>
