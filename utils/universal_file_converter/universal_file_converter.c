@@ -38,6 +38,10 @@ void init()
   int n, mode;
   float v;
 
+  if ( num_options == 0 ) {
+	cart_error("At least one conversion specification is required.");
+  }
+
   if(strcmp(options[0],"hart-to-cart")==0 || strcmp(options[0],"h2c")==0)
     {
       ufc_mode = +H2C;

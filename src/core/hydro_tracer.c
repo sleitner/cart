@@ -27,7 +27,6 @@ int tracer_list_prev[num_tracers];
 
 int cell_tracer_list[num_cells];
 
-int num_tracer_row    = 256;
 int num_local_tracers = 0;
 int num_tracers_total = 0;
 
@@ -257,7 +256,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 	MPI_Request recv_tracer_requests[MAX_PROCS];
 	MPI_Status status;
 
-	page_size = (num_tracer_row*num_tracer_row)/num_procs;
+	page_size = MIN(65536/num_procs, 1024);
 	tracers_page_size = nDim*page_size;
 
 	/* set up receives */
