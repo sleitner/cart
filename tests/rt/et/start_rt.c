@@ -17,12 +17,14 @@
 #include "parallel.h"
 #include "particle.h"
 #include "refinement.h"
+#include "rt_otvet.h"
 #include "starformation.h"
 #include "times.h"
 #include "tree.h"
 #include "units.h"
 
 #include "../run/step.h"
+#include "../run/logging.h"
 
 #include "../extra/healpix.h"
 #include "../extra/ifrit.h"
@@ -177,8 +179,8 @@ void SaveProfile(char *filename)
 }
 
 
-void rtOtvetTreeEmulatorEddingtonTensor(int level);
-void rtOtvetSingleSourceEddingtonTensor(int level, float srcVal, double *srcPos);
+void rtOtvetTreeEmulatorEddingtonTensor(int level, int num_level_cells, int *level_cells);
+void rtOtvetSingleSourceEddingtonTensor(int level);
 
 
 void run_output()
@@ -186,6 +188,8 @@ void run_output()
   const int nvars = 8;
   int i, level, varid[nvars], nbin[3];
   double bb[6];
+  int num_level_cells;
+  int *level_cells;
 
   for(i=0; i<6; i++) varid[i] = rt_et_offset + i;
   varid[6] = RT_VAR_OT_FIELD;
@@ -209,7 +213,7 @@ void run_output()
   for(level=min_level; level<=BottomLevel; level++)
     {
       cart_debug("computing Single Source ET on level %u", level );
-      rtOtvetSingleSourceEddingtonTensor(level,rtSingleSourceValue,rtSingleSourcePos);
+      rtOtvetSingleSourceEddingtonTensor(level);
     }
 
 //  rtuWriteIfritFile(max_level,nbin,bb,nvars,varid,"OUT/out_ss.bin");
@@ -221,7 +225,9 @@ void run_output()
   for(level=min_level; level<=BottomLevel; level++)
     {
       cart_debug("computing TreeEmulator ET on level %u", level );
-      rtOtvetTreeEmulatorEddingtonTensor(level);
+      select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+      rtOtvetTreeEmulatorEddingtonTensor(level,num_level_cells,level_cells);
+      cart_free( level_cells );
     }
 
   ifrit.OutputMesh("OUT/out_te.bin",max_level,nbin,bb,nvars,varid);

@@ -3,13 +3,13 @@
 C
 C
 C
-      subroutine frtInitRun2(y,tm,d2g,ch2,cl,fg,fq,ip,ir,io)
+      subroutine frtInitRun2(y,tm,d2g,cf,cl,fg,fq,ip,ir,io)
       include 'frt_f77.inc'
 C
       Yp = y
       Tmin = tm
-      D2Gin = d2g
-      ClumpH2 = ch2
+      D2GminH2 = d2g
+      CluFacH2 = cf
       CohLenH2 = cl
       fGal = fg
       fQSO = fq
@@ -35,8 +35,8 @@ C
 #endif
       include 'frt_files.inc'
 C
-      data Yp/0.24/, Tmin/10.0/, D2Gmin/1.0e-3/
-      data ClumpH2/30.0/, CohLenH2/0.3/
+      data Yp/0.24/, Tmin/10.0/, D2GminH2/1.0e-3/
+      data CluFacH2/30.0/, CohLenH2/0.3/
       data fGal /1.0/, fQSO/1.0/
       data IPOP /2/, IREC/0/, IOUNIT/81/
 C
@@ -55,15 +55,14 @@ C
          write(IOUNIT,*) 'Run:'
          write(IOUNIT,*) 'Yp:       ', Yp
          write(IOUNIT,*) 'Tmin:     ', Tmin
-         write(IOUNIT,*) 'D2Gmin:   ', D2Gmin
-         write(IOUNIT,*) 'ClumpH2:  ', ClumpH2
+         write(IOUNIT,*) 'D2GminH2: ', D2GminH2
+         write(IOUNIT,*) 'CluFacH2: ', CluFacH2
          write(IOUNIT,*) 'CohLenH2: ', CohLenH2
          write(IOUNIT,*) 'fGal:     ', fGal
          write(IOUNIT,*) 'fQSO:     ', fQSO
          write(IOUNIT,*) 'IPOP:     ', IPOP
          write(IOUNIT,*) 'IREC:     ', IREC
          write(IOUNIT,*) 'IOUNIT:   ', IOUNIT
-         write(IOUNIT,*) 'DataPath: ', DataPath
          close(IOUNIT)
       endif
 #endif /* RT_OUTPUT */
@@ -113,7 +112,7 @@ C
 C
 C
 C
-      subroutine frtStepBegin(ud,ul,ut,a,h,da)
+      subroutine frtStepBegin(ud,ul,ut,a,h,da,dt)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
@@ -129,6 +128,7 @@ C
       aExp = a
       Hubble = h
       daExp = da
+      dtCode = dt
 C
 C  Additional units (and conversions)
 C
@@ -316,6 +316,7 @@ C
       include 'frt_inline.inc'
 C
 #ifdef RT_TRANSFER
+      call frtSetGlobalRadiationSources
       call frtSetGlobalRadiationFieldsTransfer(rfAvg)
 #endif
 
@@ -346,6 +347,65 @@ C$OMP+SHARED(angUni,angLoc,angAvg,angEff,tauLoc)
 C
 C
 C
+      subroutine frtSetGlobalRadiationSources
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
+      include 'frt_spectrum.inc'
+C
+C  Background from external (outside of the box) QSOs
+C
+      z = 1/(aExp+0.5*daExp) - 1
+C
+C  My fit to Hopkins et all 2007 (ApJ, 654, 731) comoving 
+C  bolometric luminosity density from QSOs (in Lsun/Mpc^3)
+C
+      aLumDen = 10.0**7.7/((exp(1.2*(z-4)))**0.33+
+     .     (3*exp(-2.7*z))**0.33)**3
+      aKion = 3.9
+C
+C  Change units:
+C    j = \int_0^\infty E_\nu (dn_\xi/dt) d\xi
+C    j = A \int_0^\infty E_\nu g_\xi d\xi
+C      = A * Kion * m_pc^2
+C  where Kion = 3.9 is the bolometric correction from the ionizing to
+C  the bolometric luminosity. Hence
+C    (dn_\xi/dt) = (j/(Kion*m_pc^2)) g_\xi
+C  or
+C    (dn_\xi/dt)_{code} = uTime*(j/(Kion*m_pc^2)) g_\xi
+C    q = uTime*(j/(Kion*m_pc^2)) = (uTime/1e18s)*
+C        1e18s*cm^3*(1Mpc/3.086e24cm)^3*(j)*3.9e33 erg/s/Mpc^3/
+C        (Kion*1.674e-24*9e20 erg)
+C
+C  Transform to code units, being careful with not overfilling 
+C  a single precision number.
+C
+      q = (uTime/1.0e18)*aLumDen*8.81e-20/aKion
+
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(q,guv_Q,sxiUni)
+      do lr=1,NRAD
+         sxiUni(lr) = q*guv_Q(lr)
+      enddo
+
+#else
+
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(sxiUni)
+      do lr=1,NRAD
+         sxiUni(lr) = 0
+      enddo
+
+#endif /* RT_ADD_EXTERNAL_QSO_BACKGROUND */
+
+
+      return
+      end
+C
+C
+C
       subroutine frtUpdateTables(rfAvg)
       include 'frt_base.inc'
       include 'frt_tables.inc'
@@ -359,22 +419,20 @@ C
 C
 C
 C
-      subroutine frtStepEnd(dt,vol,par)
+      subroutine frtStepEnd(vol,par,abcLoc,abcUni)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_LWBANDS
       include 'frt_tablesLW.inc'
 #endif
-#ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
-      include 'frt_spectrum.inc'
-#endif
       include 'frt_global.inc'
       dimension par(*)
 C
-      dimension axi(NRAD), sxi(NRAD), xib(NRAD)
+      dimension axi(NRAD), axi0(NRAD), sxi(NRAD), xib(NRAD)
 #if defined(RT_CHEMISTRY) && defined(RT_LWBANDS)
       dimension axiLW(NRLW), sxiLW(NRLW), xibLW(NRLW), anbLW(NRLW)
 #endif
+      dimension abcLoc(*), abcUni(*)
 C
       common/RT_RT_UV/ duvin, axiH1tr, angH1tr
 C
@@ -415,8 +473,6 @@ C
 
       endif
 #endif
-
-      axiH1tr = 0.0
 C
 C  Coefficient for absorption:
 C    c*CSSTAR*n_b/uTime = uColumn/facLX
@@ -437,20 +493,15 @@ C  This must be so for photon number conservation
 C
       duvin = par(1)
 
-      call frtFinalizeGlobalFields(vol,dt)
-C
-C  Coefficient for Bremstrahlung: 
-C     d\tilde{n}_xi/dt = 1/V e^{-h\nu/kT} 1/kT dE_tot/dt
-C     gBrem(xi) = Sum dV rho dT/dt 1/T e^{-T_xi/T} / V
-C     CRAD1 = \tilde{n}_b = comoving n_b
-C
-      CRAD1 = uDen*aExp**3
+      call frtFinalizeGlobalFields(vol,dtCode)
 C
 C  Advance the average radiation field:
-C  Absorption
+C  ----------------------------------------------------------------
+C
+C  Absorption common to both field components (angLoc, angUni)
 C
       do lr=1,NRAD
-         axi(lr) = 0.0
+         axi0(lr) = 0.0
       enddo
 C
 C Optically thin absortion from dust
@@ -460,13 +511,13 @@ C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
 C$OMP+SHARED(axi,CRAD2,csDust,lrmax,gData)
       do lr=1,lrmax
-         axi(lr) = axi(lr) + CRAD2*csDust(lr)*gData(iavgDust)
+         axi0(lr) = axi0(lr) + CRAD2*csDust(lr)*gData(iavgDust)
       enddo
 #endif
 
 #ifdef RT_TRANSFER
      
-      call frtTransferComputeAverageAbs(axi)
+      call frtTransferLogAverageABC(abcLoc,abcUni)
 
 #else
 
@@ -477,7 +528,7 @@ C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
 C$OMP+SHARED(axi,CRAD2,lrH1tr,lrmax,csH1,csG1,csG2,gData)
       do lr=lrH1tr,lrmax
-         axi(lr) = axi(lr) + CRAD2*(csH1(lr)*gData(iavgCXH1)+
+         axi0(lr) = axi0(lr) + CRAD2*(csH1(lr)*gData(iavgCXH1)+
      .        csG1(lr)*gData(iavgCXG1)+csG2(lr)*gData(iavgCXG2))
       enddo
 
@@ -489,14 +540,44 @@ C  Absorption of Lyman-Wienner band photons (only included in the volume
 C  averaged equation to fix Olber's paradox).
 C
       do lr=lrLWtr,lrH1tr-1
-         axi(lr) = axi(lr) + csMHLW(lr)*XMH_va*CRAD2
+         axi0(lr) = axi0(lr) + csMHLW(lr)*XMH_va*CRAD2
       enddo
 #endif
-      axiH1tr = axi(lrH1tr)
+
+C
+C  Explicitly adding Lyman Limit systems
+C
+C    axiLLS*dtCode = k*c*dtPhys
+C    axiLLS = c*uTime/lLLS*(XH*s^{HI}_nu+XG*s^{HeI}_nu)/XH
+C  and
+C    lLLS = 50*(1+z/4.5)^{-4.44}  (Songaila & Cowie 2010)
+C         =  7*(1+z/7)^{-4.44}
+C
+#ifdef RT_ADD_EXTERNAL_LLS
+      z1 = 1/(aExp+0.5*daExp)
+      ellLLS = 7*(z1/7)**(-4.5)
+      axiLLS = (uTime/1.029e14)/ellLLS/XH
+
+#ifdef RT_OUTPUT
+      if(ioNode) then
+         open(unit=IOUNIT, file='rt-run.log', access='append')
+         write(IOUNIT,*) '  External LSS:', axi0(lrH1tr), axiLLS
+         close(IOUNIT)
+      endif
+#endif /* RT_OUTPUT */
+
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(axi0,axiLLS,lrH1tr,lrmax,csH1n,csG1n,XH,XG)
+      do lr=lrH1tr,lrmax
+         axi0(lr) = axi0(lr) + axiLLS*(XH*csH1n(lr)+XG*csG1n(lr))
+      enddo
+#endif /* RT_ADD_EXTERNAL_LLS */
+
 C
 C  Frequency shift
 C
-      shift = Hubble*dt
+      shift = Hubble*dtCode
       lshift = int(shift/XISTEP)
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
@@ -504,8 +585,17 @@ C$OMP+SHARED(xib,xig,shift)
       do lr=1,NRAD
          xib(lr) = xig(lr) + shift
       enddo
+
 C
 C  Step 1: background due to uniform components
+C  ----------------------------------------------------------------
+C
+C  Coefficient for Bremstrahlung: 
+C     d\tilde{n}_xi/dt = 1/V e^{-h\nu/kT} 1/kT dE_tot/dt
+C     gBrem(xi) = Sum dV rho dT/dt 1/T e^{-T_xi/T} / V
+C     CRAD1 = \tilde{n}_b = comoving n_b
+C
+      CRAD1 = aExp**3
 C
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
@@ -529,46 +619,36 @@ C
 C
 C  Background from external (outside of the box) QSOs
 C
-#ifdef RT_ADD_EXTERNAL_QSO_BACKGROUND
-
-      z = 1/(aExp+0.5*daExp) - 1
+      call frtSetGlobalRadiationSources
 C
-C  My fit to Hopkins et all 2007 (ApJ, 654, 731) comoving 
-C  bolometric luminosity density from QSOs (in Lsun/Mpc^3)
-C
-      aLumDen = 10.0**7.7/((exp(1.2*(z-4)))**0.33+
-     .     (3*exp(-2.7*z))**0.33)**3
-      aKion = 3.9
-C
-C  Change units:
-C    j = \int_0^\infty E_\nu (dn_\xi/dt) d\xi
-C    j = A \int_0^\infty E_\nu g_\xi d\xi
-C      = A * Kion * m_pc^2
-C  where Kion = 3.9 is the bolometric correction from the ionizing to
-C  the bolometric luminosity. Hence
-C    (dn_\xi/dt) = (j/(Kion*m_pc^2)) g_\xi
-C  or
-C    (dn_\xi/dt)_{code} = uTime/uDen*(j/(Kion*m_pc^2)) g_\xi
-C    q = uTime/uDen*(j/(Kion*m_pc^2)) = (uTime/1e18s)*(1cm^{-3}/uDen)*
-C        1e18s*cm^3*(1Mpc/3.086e24cm)^3*(j)*3.9e33 erg/s/Mpc^3/
-C        (Kion*1.674e-24*9e20 erg)
-C
-C  Transform to code units, being careful with not overfilling 
-C  a single precision number.
-C
-      q = (uTime/1.0e18)*(1.0/uDen)*aLumDen*8.81e-20/aKion
-
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(q,guv_Q,sxi)
+C$OMP+SHARED(q,sxi,sxiUni)
       do lr=1,NRAD
-         sxi(lr) = sxi(lr) + q*guv_Q(lr)
+         sxi(lr) = sxi(lr) + sxiUni(lr)
       enddo
-#endif /* RT_ADD_EXTERNAL_QSO_BACKGROUND */
 
-      call frtAdvanceBackground(dt,lshift,xib,axi,sxi,angUni)
+C
+C  Absorption
+C
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(axi,axi0)
+      do lr=1,NRAD
+         axi(lr) = axi0(lr)
+      enddo
+
+#ifdef RT_TRANSFER
+      call frtTransferComputeAverageAbs(abcUni,abcUni,axi)
+#endif
+
+      axiH1tr = axi(lrH1tr)
+
+      call frtAdvanceBackground(lshift,xib,axi,sxi,angUni)
+
 C
 C  Step 2: background due to local sources
+C  ----------------------------------------------------------------
 C
 #ifdef RT_TRANSFER
 C$OMP PARALLEL DO DEFAULT(NONE),
@@ -577,9 +657,24 @@ C$OMP+SHARED(duvin,guvEff,sxi)
       do lr=1,NRAD
          sxi(lr) = duvin*guvEff(lr)
       enddo
+
 C
-      call frtAdvanceBackground(dt,lshift,xib,axi,sxi,angLoc)
+C  Absorption
+C
+C$OMP PARALLEL DO DEFAULT(NONE),
+C$OMP+PRIVATE(lr),
+C$OMP+SHARED(axi,axi0)
+      do lr=1,NRAD
+         axi(lr) = axi0(lr)
+      enddo
+
+#ifdef RT_TRANSFER
+      call frtTransferComputeAverageAbs(abcLoc,abcUni,axi)
 #endif
+
+      call frtAdvanceBackground(lshift,xib,axi,sxi,angLoc)
+
+#endif /* RT_TRANSFER */
 C
 C  Do Lyman-Werner bands separately
 C
@@ -588,14 +683,14 @@ C
       fMH = XMH_va*CRAD2/CSSTAR
       fH1 = XH1_va*CRAD2/CSSTAR
       call frtLW_ComputeLineShifts(Hubble,fMH)
-      call frtLW_ComputeAbs(Hubble,fH1,dt,0.0,axiLW)
-      call frtLW_ComputeSource(Hubble,fH1,dt,guvLWe,sxiLW)
+      call frtLW_ComputeAbs(Hubble,fH1,dtCode,0.0,axiLW)
+      call frtLW_ComputeSource(Hubble,fH1,dtCode,guvLWe,sxiLW)
 
 C$OMP PARALLEL DO DEFAULT(NONE),
 C$OMP+PRIVATE(lr),
-C$OMP+SHARED(anbLW,angLW,axiLW,duvin,sxiLW,dt)
+C$OMP+SHARED(anbLW,angLW,axiLW,duvin,sxiLW,dtCode)
       do lr=1,NRLW
-         anbLW(lr) = angLW(lr)*axiLW(lr) + duvin*sxiLW(lr)*dt
+         anbLW(lr) = angLW(lr)*axiLW(lr) + duvin*sxiLW(lr)*dtCode
       enddo
 C
       shift = 0  !!  already included 
@@ -669,7 +764,7 @@ C$OMP+SHARED(angUni,angLoc,angAvg)
 C
 C
 C
-      subroutine frtAdvanceBackground(dt,lshift,xib,axi,sxi,ang)
+      subroutine frtAdvanceBackground(lshift,xib,axi,sxi,ang)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension xib(NRAD), axi(NRAD), sxi(NRAD), ang(NRAD)
@@ -678,16 +773,16 @@ C
 C
 C$OMP PARALLEL DO DEFAULT(NONE), 
 C$OMP+PRIVATE(lr,t12,p12,q12),
-C$OMP+SHARED(axi,dt,anb,ang,sxi)
+C$OMP+SHARED(axi,dtCode,anb,ang,sxi)
       do lr=1,NRAD
 
-         t12 = axi(lr)*dt
+         t12 = axi(lr)*dtCode
          if(t12 .gt. 20.0) then
             p12 = 0.0
             q12 = 1.0/axi(lr)
          else if(t12 .lt. 0.001) then
             p12 = 1.0-t12
-            q12 = dt
+            q12 = dtCode
          else
             p12 = exp(-t12)
             q12 = (1.0-p12)/axi(lr)
@@ -722,7 +817,7 @@ C$OMP+SHARED(lshift,ang,anb,xib,xig)
       if(ioNode) then
          lr = lrH1tr
          write(6,*) 'RT::Advance Background:', lr, ang(lr), axi(lr),
-     .        axi(lr)*dt, sxi(lr)
+     .        axi(lr)*dtCode, sxi(lr)
       endif
 #endif
 
@@ -753,9 +848,9 @@ C
       return
       end
 C
-C
+C  Free-space rates
 C     
-      subroutine frtGetPhotoRates(var,rawrf,pRate)
+      subroutine frtGetPhotoRatesFS(var,rawrf,pRate)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension var(*), rawrf(*)
@@ -788,6 +883,38 @@ C
       return
       end
 C
+C  Actual inside-the-cloud rates
+C     
+      subroutine frtGetPhotoRates(var,rawrf,pRate)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      dimension var(*), rawrf(*)
+      dimension pRate(*)
+
+      call frtGetPhotoRatesFS(var,rawrf,pRate)
+
+      XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
+      XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
+      Xdust = max(D2GminH2,var(ivarD2G))*(XH1ll+2*XMHll)
+      call frtGetSFactors(var,Xdust,XMHll,sFactI,sFact1,sFact2)
+
+      do i=1,iptabIon
+         pRate(i) = pRate(i)*sFactI
+      enddo
+
+#ifdef RT_CHEMISTRY
+      pRate(iptabCi27) = pRate(iptabCi27)*sFact1
+      pRate(iptabCi28) = pRate(iptabCi28)*sFact1
+      pRate(iptabCi29) = pRate(iptabCi29)*sFact1*sFact2
+      pRate(iptabCi30) = pRate(iptabCi30)*sFact1
+      pRate(iptabCi31) = pRate(iptabCi31)*sFact1*sFact2
+      pRate(iptabCi32) = pRate(iptabCi32)*sFact1*sFact2
+      pRate(iptabCiLW) = pRate(iptabCiLW)*sFact1*sFact2
+#endif /* RT_CHEMISTRY */
+
+      return
+      end
+C
 C
 C     
       subroutine frtGetBackgroundPhotoRates(pRate)
@@ -802,9 +929,9 @@ C
       return
       end
 C
-C
+C  Free-space field
 C     
-      subroutine frtGetRadiationField(var,rawrf,nout,wlen,anxi)
+      subroutine frtGetRadiationFieldFS(var,rawrf,nout,wlen,anxi)
       include 'frt_base.inc'
       include 'frt_tables.inc'
       dimension var(*), rawrf(*)
@@ -849,6 +976,34 @@ C
 
          endif
  
+      enddo
+
+      return
+      end
+C
+C  Actual inside-the-cloud field
+C     
+      subroutine frtGetRadiationField(var,rawrf,nout,wlen,anxi)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+      dimension var(*), rawrf(*)
+      dimension wlen(nout), anxi(nout)
+
+      call frtGetRadiationFieldFS(var,rawrf,nout,wlen,anxi)
+
+      XH1ll = max(varMin(ivarXH1),min(XH,var(ivarXH1)))
+      XMHll = max(varMin(ivarXMH),min(0.5*XH,var(ivarXMH)))
+      Xdust = max(D2GminH2,var(ivarD2G))*(XH1ll+2*XMHll)
+      call frtGetSFactors(var,Xdust,XMHll,sFactI,sFact1,sFact2)
+
+      do i=1,nout
+         if(wlen(i) .lt. 912.0) then
+            anxi(i) = anxi(i)*sFactI
+         else if(wlen(i) .gt. 1100.0) then
+            anxi(i) = anxi(i)*sFact1
+         else
+            anxi(i) = anxi(i)*sFact1*sFact2
+         endif
       enddo
 
       return
@@ -1053,6 +1208,7 @@ C
       CHECK(ivarXG2,FRT_XHeII)
       CHECK(ivarXG3,FRT_XHeIII)
       CHECK(ivarXMH,FRT_XH2)
+      CHECK(ivarD2G,FRT_DustToGas)
       CHECK(ivarXHp,FRT_XH2p)
       CHECK(ivarXHm,FRT_XHm)
       CHECK(ivarRho,FRT_Density)
@@ -1069,7 +1225,6 @@ C
       CHECK(ivarLTE,FRT_LTEFlag)
       CHECK(ivarDeb,FRT_Debug)
       CHECK(ivarGam,FRT_Gamma)
-      CHECK(ivarDGas,FRT_DustToGasRatio)
       CHECK(ivarDim,FRT_DIM)
 
       if(ierr .ne. 0) then
@@ -1093,7 +1248,7 @@ C
       write(0,*) '    All fortran data files must be in the'
       write(0,*) '    subdirectory drt of the run-time directory.'
       write(0,*) '    That subdirectory can be directly checked out'
-      write(0,*) '    from the SNM repository /data/drt.'
+      write(0,*) '    from the SVN repository /data/drt.'
       call frtAbort
 
       return

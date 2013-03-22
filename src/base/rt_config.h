@@ -68,6 +68,14 @@
 #undef RT_LWBANDS
 #endif
 
+/*
+//  There is no sense in using dust evolution
+//  if chemistry is not included
+*/
+#ifdef RT_DUST_EVOLUTION
+#undef RT_DUST_EVOLUTION
+#endif
+
 #endif
 
 
@@ -131,13 +139,6 @@
 #endif
 
 /*
-//  A convenient combination switch
-*/
-#if (defined(RT_UV) && defined(RT_CUSTOM_DUST_TO_GAS)) || (RT_CFI > 0)
-#define RT_ABSORPTION_CALLBACK_FULL
-#endif
-
-/*
 //  We need at least 1 global buffer
 */
 #if (!defined(RT_PARALLEL_NUM_OPENMP_BUFFERS) || RT_PARALLEL_NUM_OPENMP_BUFFERS<1)
@@ -165,6 +166,14 @@
 */
 #ifndef COOLING
 #define COOLING
+#endif
+
+/*
+//  There is no sense in using dust evolution
+//  if the main code not using it
+*/
+#if !defined(DUST_EVOLUTION) && defined(RT_DUST_EVOLUTION)
+#undef RT_DUST_EVOLUTION
 #endif
 
 #endif /* __RT_CONFIG_H__ */

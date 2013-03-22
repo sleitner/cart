@@ -452,7 +452,7 @@ C$OMP+PRIVATE(lc,tem,altem,q,p,alt10,altev,srt,alH1,alG1,alG2,s,
 C$OMP+ tev,x,itl,itu,so,sp,rC1a,rC2e,rC2a,rN1e,
 C$OMP+ rO1a,rMg2e,rSi2e,rSi2a,rS2e,rFe2e,rFe2a,rO1e)
 C$OMP+SHARED(acLTmin,acLTstp,acLT,acTEM,acSQT,RateAtom,RateChem,
-C$OMP+ dsd93,nsd93,sd93lt,sd93c0,sd93c1,RateHigh)
+C$OMP+ dsd93,nsd93,sd93lt,sd93c0,sd93c1,RateHigh,RateChem2,RateHigh2)
       do lc = 1,NTEM
 
          altem = acLTmin + acLTstp*real(lc-1)
@@ -939,13 +939,32 @@ C
 *     .        0.08*(tem/100)**2)
 C
 C  H2 formation on dust: empirical rate from Wolfire et al (arXiv:0803.0138)
+C  Factor of 2 is to convert from the rate per unit dust mass to 
+C  the rate per unit metal mass (the quantity used here), 
+C  assuming Zsun=0.02, Dsun=0.01.
 C
-         RateChem(irateMHiDU,lc) = 3.5e-17
+         RateChem(irateMHiDU,lc) = 2*3.5e-17
+#ifdef RT_DUST_EVOLUTION
 C
-C  Dust: from Draine, ApJ, 245, 880
+C  RF 2012:
+C  Dust growth in the ISM (eq 15 in Inoue 2012) 
+C  assumptions: 
+C  dust size a = 0.1 mu, dust density = 3 g cm^-3, 
+C  avg. mass of accreting dust grains macc = 16 mH, sticking coefficient s = 1
+C  (modify, if wanted, by (0.1 mu/a) * s * sqrt(16 mH / macc))
+C  The factor 0.0199 is the (reference) metallicity of the MW
 C
-         RateChem(irateMHcDU,lc) = (2.0e-22/CFSTAR)*(tem/1.0e6)**1.5/
-     .        (1+(tem/1.36e7)**1.5)
+
+         RateChem(irateDuGro,lc) = 1.51e-16*0.0199*srt 
+
+C  dust destruction by sputtering 
+C  (taken from Draine "Phyics of the interstellar and intergalactic medium", eq 25.13)
+C  assumption:
+C  dust size = 0.1 mu
+C  (modify, if wanted, by (0.1 mu/a))
+
+         RateChem(irateDuSpu,lc) = 9.5e-13/(1+((tem/1.0e6)**(-3)))
+#endif
 C
 C  H2 cooling
 C
@@ -997,8 +1016,8 @@ C
      .           log10(CFSTAR))*q
          endif
 #endif
-         RateChem(irateMHcH1o,lc) = so
-         RateChem(irateMHcH1p,lc) = sp
+         RateChem2(irateMHcH1o,lc) = so
+         RateChem2(irateMHcH1p,lc) = sp
 C
 C  2. collisions with ortho-H2
 C
@@ -1014,8 +1033,8 @@ C
          sp = 10.0**(-24.126+2.325*x-1.008*x**2+0.548*x**3-0.337*x**4+
      .        0.207*x**5-log10(CFSTAR))*q
 #endif
-         RateChem(irateMHcMOo,lc) = so
-         RateChem(irateMHcMOp,lc) = sp
+         RateChem2(irateMHcMOo,lc) = so
+         RateChem2(irateMHcMOp,lc) = sp
 C
 C  3. collisions with para-H2
 C
@@ -1031,8 +1050,8 @@ C
          sp = 10.0**(-23.890+1.855*x-0.556*x**2+0.284*x**3-0.205*x**4+
      .        0.131*x**5-log10(CFSTAR))*q
 #endif
-         RateChem(irateMHcMPo,lc) = so
-         RateChem(irateMHcMPp,lc) = sp
+         RateChem2(irateMHcMPo,lc) = so
+         RateChem2(irateMHcMPp,lc) = sp
 C
 C  4. collisions with He
 C
@@ -1048,8 +1067,8 @@ C
          sp = 10.0**(-23.489+1.821*x-0.591*x**2+0.423*x**3-0.302*x**4+
      .        0.129*x**5-log10(CFSTAR))*q
 #endif
-         RateChem(irateMHcG1o,lc) = so
-         RateChem(irateMHcG1p,lc) = sp
+         RateChem2(irateMHcG1o,lc) = so
+         RateChem2(irateMHcG1p,lc) = sp
 C
 C  5. collisions with Hp
 C
@@ -1065,8 +1084,8 @@ C
          sp = 10.0**(-21.757+1.400*x-0.372*x**2+0.062*x**3-0.372*x**4+
      .        0.233*x**5-log10(CFSTAR))*q
 #endif
-         RateChem(irateMHcH2o,lc) = so
-         RateChem(irateMHcH2p,lc) = sp
+         RateChem2(irateMHcH2o,lc) = so
+         RateChem2(irateMHcH2p,lc) = sp
 C
 C  6. collisions with e
 C
@@ -1087,25 +1106,33 @@ C
      .           7.047*x**4-1.647*x**5-log10(CFSTAR))*exp(-510/tem)
          endif
 #endif
-         RateChem(irateMHcFEo,lc) = so
-         RateChem(irateMHcFEp,lc) = sp
+         RateChem2(irateMHcFEo,lc) = so
+         RateChem2(irateMHcFEp,lc) = sp
 C
 C  Other H2 rates
 C
-         RateChem(irateMHc08,lc) = 4.476*(1.602e-12/CFSTAR)*
+         RateChem2(irateMHc08,lc) = 4.476*(1.602e-12/CFSTAR)*
      .        (RateChem(irateMHi08,lc)+RateChem(irateMHi23,lc))
       
-         RateChem(irateMHc09,lc) = 4.476*(1.602e-12/CFSTAR)*
+         RateChem2(irateMHc09,lc) = 4.476*(1.602e-12/CFSTAR)*
      .        RateChem(irateMHi09,lc)
 
-         RateChem(irateMHc10,lc) = 4.476*(1.602e-12/CFSTAR)*
+         RateChem2(irateMHc10,lc) = 4.476*(1.602e-12/CFSTAR)*
      .        RateChem(irateMHi10,lc)
 
-         RateChem(irateMHc14,lc) = 0.75*(1.602e-12/CFSTAR)*
+         RateChem2(irateMHc14,lc) = 0.75*(1.602e-12/CFSTAR)*
      .        RateChem(irateMHi14,lc)
 
-         RateChem(irateMHc15,lc) = 0.75*(1.602e-12/CFSTAR)*
+         RateChem2(irateMHc15,lc) = 0.75*(1.602e-12/CFSTAR)*
      .        RateChem(irateMHi15,lc)
+C
+C  Dust: from Draine, ApJ, 245, 880
+C  Factor of 2 is to convert from the rate per unit dust mass to 
+C  the rate per unit metal mass (the quantity used here), 
+C  assuming Zsun=0.02, Dsun=0.01.
+C
+         RateChem2(irateMHcDU,lc) = 2*(2.0e-22/CFSTAR)*
+     .        (tem/1.0e6)**1.5/(1+(tem/1.36e7)**1.5)
 C
 C  High density regime
 C
@@ -1142,12 +1169,12 @@ C
          RateHigh(irateHDi31,lc) = s/8.0
          RateHigh(irateHDi32,lc) = 6.9e-32/tem**0.4
 
-         RateHigh(irateHDc02,lc) = 1.0e6/srt*(1.4+
+         RateHigh2(irateHDc02,lc) = 1.0e6/srt*(1.4+
      .        1.6*exp(-(400/tem)**2))/CFSTAR
 C
 C  Critical density (Hollenbach & McKee, 1979, ApJS, 41, 555)
 C
-         RateHigh(irateHDcNC,lc) = 0.7e6/srt*exp(1.2e3/(tem+1.2e3))
+         RateHigh2(irateHDcNC,lc) = 0.7e6/srt*exp(1.2e3/(tem+1.2e3))
 
 #endif /* RT_HIGH_DENSITY */
 #endif /* RT_CHEMISTRY */

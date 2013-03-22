@@ -22,6 +22,10 @@
 
 extern double dUfact;
 extern double feedback_temperature_ceiling;
+extern double feedback_turbulence_temperature_ceiling;
+#ifdef TURBULENT_ENERGY
+extern double fraction_SN_to_turbulence;
+#endif /* TURBULENT_ENERGY */
 
 struct
 {
@@ -144,22 +148,44 @@ void snIa_setup(int level)
 
 void snIa_thermal_feedback(int level, int cell, int ipart, double t_next )
 {
-  double dteff, phi, dU;
-  double dt = t_next - particle_t[ipart];
+  double dteff, phi, dU, dU_turb;
+
+#ifdef COSMOLOGY
+  double tn = tphys_from_tcode(t_next);
+  double tb = tphys_from_tcode(star_tbirth[ipart]);
+  double t = tphys_from_tcode(particle_t[ipart]);
+#else  /* COSMOLOGY */
+  double tn = t_next;
+  double tb = star_tbirth[ipart];
+  double t = particle_t[ipart];
+#endif /* COSMOLOGY */
+
+  double dt = tn - t;
 
   if(snIa_phys.energy>0.0 || snIa_phys.metals>0.0)
     {
       /* snIa starts at 0.1*snIa_code.dt peaks at snIa_code.dt*/
-      dteff = t_next - star_tbirth[ipart];
-      if(dteff > 0.1*snIa_code.teject) 
+      dteff = tn - tb;
+      if(dteff > 0.1*snIa_phys.teject) 
         {
-          phi = f_SNIa(snIa_code.teject/dteff)*(dt/snIa_code.teject);
+          phi = f_SNIa(snIa_phys.teject/dteff)*(dt/snIa_phys.teject);
 
 #ifdef ENRICHMENT_SNIa
           cell_gas_metal_density_Ia(cell) += phi*snIa_code.metals*star_initial_mass[ipart];
 #endif /* ENRICHMENT_SNIa */
 
           dU = MIN(phi*snIa_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
+#ifdef TURBULENT_ENERGY
+	  dU_turb = fraction_SN_to_turbulence*dU;
+	  if(units->temperature*cell_turbulence_temperature(cell) < feedback_turbulence_temperature_ceiling)
+	      {
+		  cell_turbulent_energy(cell) += dU_turb;
+		  cell_gas_energy(cell) += dU_turb;
+		  cell_gas_pressure(cell) += dU_turb*(turbulence_gamma-1);
+		  
+		  dU = (1-fraction_SN_to_turbulence)*dU;
+	      }
+#endif /* TURBULENT_ENERGY */
 
           /* limit energy release and don't allow to explode in hot bubble */
           if(units->temperature*cell_gas_temperature(cell) < feedback_temperature_ceiling)

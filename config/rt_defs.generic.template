@@ -31,6 +31,12 @@
 
 
 /*
+//  Also include non-equilibrium evolution of dust abundance.
+*/
+?#define RT_DUST_EVOLUTION
+
+
+/*
 //  Assume that gas is not monoatomic and compute c_V, c_P_, gamma, etc
 //  exactly using quantum mechanical sums. This is expensive, and is
 //  not clear if ever applicable.
@@ -91,9 +97,20 @@
 
 
 /*
-//  Enable custom dust-to-gas ratio as a function of gas metallicity
+//  When RT_EXTERNAL_BACKGROUND is set to RT_BACKGROUND_SELFCONSISTENT,
+//  this switch adds additional absorption due to LLS from
+//  Songaila & Cowie 2012
 */
-?#define RT_CUSTOM_DUST_TO_GAS
+?#define RT_ADD_EXTERNAL_LLS
+
+
+/*
+//  It is not clear to me (NG) how to properly account for ionizations
+//  from recombination photons, hence they are disabled by default.
+//  This switch will activate ionization-by-recombination accounting,
+//  but the results are likely to be grossly incorrect.
+*/
+?#define RT_TRACK_RECOMBINATION_PHOTONS
 
 
 /*
@@ -188,6 +205,11 @@
 ?#define RT_OTVET_CACHE_ET
 ?#define RT_OTVET_CACHE_RF
 
+/*
+// If set, this switch will save some memory (int*num_cells) at the
+// expense of re-allocating that array at every step.
+*/
+?#define RT_OTVET_NO_GLOBAL_ARRAY
 
 /*
 //  Adds saving of the radiation flux in the OTVET method (without

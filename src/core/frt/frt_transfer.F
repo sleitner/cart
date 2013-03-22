@@ -62,6 +62,8 @@ C
       include 'frt_transfer3.inc'
 #endif
       dimension rfAvg(2*NSETS)
+      dimension w(NSETS)
+      common /FRT_INTERNAL_1/ w
       include 'frt_inline.inc'
 C
       do L=1,NSETS
@@ -72,26 +74,32 @@ C
          ajbar = angLoc(lr)
 
          if(ajbar .gt. 0.0) then
-            q = 1.0 - aqbar*rfAvg(L)/ajbar
+            q = aqbar*rfAvg(L)/ajbar
+*            w(L) = 1/(1+q+q**2+q**3+q**4+q**5+q**6+q**7+q**8+q**9)
+            w(L) = max(0.0,1.0-q)
          else
-            q = 0.0
+            w(L) = 0.0
          endif
 
-         WSETS(L) = max(0.0,q)
+         if(angUni(lr) .gt. 0.0) then
+            QTERMS(L) = facLX*sxiUni(lr)/angUni(lr)
+         else
+            QTERMS(L) = 0.0
+         endif
 
       enddo
 
-      tauH1 = QIuni(WSETS(1))
+      tauH1 = QIuni(w(1))
       do lr=1,NRAD
          tauLoc(lr) = tauH1*csH1n(lr)
       enddo
 
-      tauG1 = max(0.0,QIuni(WSETS(2))-tauH1*csH1n(lrG1tr))
+      tauG1 = max(0.0,QIuni(w(2))-tauH1*csH1n(lrG1tr))
       do lr=lrG1tr,NRAD
          tauLoc(lr) = tauLoc(lr) + tauG1*csG1n(lr)
       enddo
 
-      tauG2 = max(0.0,QIuni(WSETS(3))-tauG1*csG1n(lrG2tr)- 
+      tauG2 = max(0.0,QIuni(w(3))-tauG1*csG1n(lrG2tr)- 
      .     tauH1*csH1n(lrG2tr))
       do lr=lrG2tr,NRAD
          tauLoc(lr) = tauLoc(lr) + tauG2*csG2n(lr)
@@ -103,14 +111,13 @@ C
          write(IOUNIT,*) '  Photon balance:'
          do L=1,NSETS
             lr = LRSETS(L)
-            aqbar = facLX*guvEff(lr)
-            ajbar = angLoc(lr)
-            write(IOUNIT,901) L, WSETS(L), rfAvg(L), 
-     .           aqbar*rfAvg(L), ajbar, tauLoc(lr)
+            angBox = facLX*guvEff(lr)*rfAvg(L)
+            write(IOUNIT,901) L, w(L), QTERMS(L), angBox, angLoc(lr),
+     .           angUni(lr)
          enddo
          close(IOUNIT)
       endif
- 901  format('  L=',I1,1X,F5.3,4(1X,E11.3))
+ 901  format('  L=',I1,1X,F5.3,1P,4(1X,E11.3))
 #endif /* RT_OUTPUT */
 
 #ifdef RT_UV
@@ -124,7 +131,7 @@ C
 C
 C
 C
-      subroutine frtStepEndTransfer(abc)
+      subroutine frtTransferLogAverageABC(abcLoc,abcUni)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_UV
@@ -132,28 +139,42 @@ C
 #else
       include 'frt_transfer3.inc'
 #endif
-      dimension abc(*)
-C
-      common /RT_Transfer_Save/ abcAvg(NSETS)
-C
-      do i=1,NSETS
-         abcAvg(i) = abc(i)
-      enddo
+      dimension abcLoc(NSETS), abcUni(NSETS)
 
-      do i=1,NSETS
-         if(abcAvg(i) .lt. 0.0) then
-            write(0,*) 'RT::StepEndTransfer: fatal error, ',
-     .           'negative global absoprtion: ', i, abcAvg(i)
-            call frtAbort
-         endif
-      enddo
+#ifdef RT_OUTPUT
+      if(ioNode) then
+         open(unit=IOUNIT, file='rt-run.log', access='append')
+         write(IOUNIT,*) '  Average absorption:'
+         do L=1,NSETS
+            write(IOUNIT,901) L, abcLoc(L), abcUni(L)
+         enddo
+         close(IOUNIT)
+      endif
+ 901  format('  L=',I1,1P,3(1X,E11.3))
+#endif /* RT_OUTPUT */
+
+      return
+      end
+C
+C
+C
+      function frtTransferGlobalQTerm(L)
+      include 'frt_base.inc'
+      include 'frt_tables.inc'
+#ifdef RT_UV
+      include 'frt_transfer4.inc'
+#else
+      include 'frt_transfer3.inc'
+#endif
+
+      frtTransferGlobalQTerm = QTERMS(L)
 
       return
       end
 C
 C  This is hard-coded for NSETS=3 or 4 case
 C
-      function frtTransferGlobalAC(L,abc)
+      subroutine frtTransferComputeAverageAbs(abcLoc,abcUni,axi)
       include 'frt_base.inc'
       include 'frt_tables.inc'
 #ifdef RT_UV
@@ -161,39 +182,25 @@ C
 #else
       include 'frt_transfer3.inc'
 #endif
-      dimension abc(*)
-
-      frtTransferGlobalAC = abc(1)*(1.0-WSETS(L)) + WSETS(L)*abc(2)
-*      frtTransferGlobalAC = abc(2)
-
-      return
-      end
+      dimension abcLoc(NSETS), abcUni(NSETS), axi(*)
+      dimension abc(NSETS), w(NSETS)
+      common /FRT_INTERNAL_1/ w
 C
-C  This is hard-coded for NSETS=3 or 4 case
+      do L=1,NSETS
+         abc(L) = abcUni(L) + (1-w(L))*max(0.0,abcLoc(L)-abcUni(L))
+      enddo
 C
-      subroutine frtTransferComputeAverageAbs(axi)
-      include 'frt_base.inc'
-      include 'frt_tables.inc'
-#ifdef RT_UV
-      include 'frt_transfer4.inc'
-#else
-      include 'frt_transfer3.inc'
-#endif
-      dimension axi(*)
-C
-      common /RT_Transfer_Save/ abcAvg(NSETS)
-
-      axiH1 = max(0.0,abcAvg(1)/facLX)
+      axiH1 = max(0.0,abc(1)/facLX)
       do lr=lrH1tr,lrmax
          axi(lr) = axi(lr) + axiH1*csH1n(lr)
       enddo
 
-      axiG1 = max(0.0,abcAvg(2)/facLX-axiH1*csH1n(lrG1tr))
+      axiG1 = max(0.0,abc(2)/facLX-axiH1*csH1n(lrG1tr))
       do lr=lrG1tr,lrmax
          axi(lr) = axi(lr) + axiG1*csG1n(lr)
       enddo
 
-      axiG2 = max(0.0,abcAvg(3)/facLX-axiG1*csG1n(lrG2tr)
+      axiG2 = max(0.0,abc(3)/facLX-axiG1*csG1n(lrG2tr)
      .     -axiH1*csH1n(lrG2tr))
       do lr=lrG2tr,lrmax
          axi(lr) = axi(lr) + axiG2*csG2n(lr)
@@ -245,11 +252,7 @@ C
       tau(2) = csG1tr*var(ivarDelN)
       tau(3) = csG2tr*var(ivarDelN)
 #ifdef RT_UV
-#ifdef RT_CUSTOM_DUST_TO_GAS
-      tau(4) = frtDustToGas(var)*csUVtr*var(ivarDelN)
-#else
-      tau(4) = var(ivarZsol)*csUVtr*var(ivarDelN)
-#endif
+      tau(4) = var(ivarD2G)*csUVtr*var(ivarDelN)
 #endif
 
       x(1) = max(varLow(ivarXH1),var(ivarXH1))
@@ -523,12 +526,12 @@ C
 C
 C  Absorption coefficient for 1 cell at frequency bin lr.
 C
-#ifdef RT_ABSORPTION_CALLBACK_FULL
-      subroutine frtTransferComputeCellAbs(L,denB,denH1,denG1,
-     .     denG2,denMH,dx,abc,var)
+#if (RT_CFI > 0)
+      subroutine frtTransferComputeCellAbs(L,denH1,denG1,denG2,denMH,
+     .     denDU,dx,abc,var)
 #else
-      subroutine frtTransferComputeCellAbs(L,denB,denH1,denG1,
-     .     denG2,denMH,dx,abc,Zsol)
+      subroutine frtTransferComputeCellAbs(L,denH1,denG1,denG2,denMH,
+     .     denDU,dx,abc)
 #endif
       include 'frt_base.inc'
       include 'frt_tables.inc'
@@ -538,7 +541,7 @@ C
       include 'frt_transfer3.inc'
 #endif
       dimension abc(*)
-#ifdef RT_ABSORPTION_CALLBACK_FULL
+#if (RT_CFI > 0)
       dimension var(*)
 #endif
 C
@@ -551,19 +554,14 @@ C
 #ifdef RT_UV
 #ifdef RT_UV_OLDSTYLE_3x1
 C
-C  This is differnt from HI,HeI,HeII cases - we only include dust
+C  This is different from HI,HeI,HeII cases - we only include dust
 C  absoprtion in 1 frequency in the RT solver, and add it later
 C  approximately, because the RT solver seem to be unable to handle
 C  it directly (loss of precision?).
 C
       if(lr .eq. lrUVtr) then
 #endif /* RT_UV_OLDSTYLE_3x1 */
-         denHd = denH1 + 2*denMH/ClumpH2
-#ifdef RT_CUSTOM_DUST_TO_GAS
-         abc(1) = uColumn*frtDustToGas(var)*csUV(lr)*denHd
-#else
-         abc(1) = uColumn*Zsol*csUV(lr)*denHd
-#endif
+         abc(1) = uColumn*csUV(lr)*denDU
          abc(1) = (1.0-exp(-abc(1)*dx))/dx
 #ifdef RT_UV_OLDSTYLE_3x1
       else
@@ -585,7 +583,7 @@ C
 #endif
 
 #if (RT_CFI==1 || RT_CFI==2)
-      abc(1) = abc(1) + uColumn*(csH1(lr)*denH1*CIonH1(var)+
+      abc(1) = abc(1) + uColumn*(csH1(lr)*denHn*CIonH1(var)+
      .     csG1(lr)*denG1*CIonG1(var)+csG2(lr)*denG2*CIonG2(var))
 #endif
 

@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "auxiliary.h"
+#include "cell_buffer.h"
 #include "hydro.h"
 #include "iterators.h"
 #include "particle.h"
@@ -17,6 +18,7 @@
 #include "cosmology.h"
 
 #include "../run/step.h"
+void units_set_art(double OmegaM, double h, double Lbox);
 
 
 #define BottomLevel     1

@@ -174,7 +174,7 @@ void run_output()
 /*
 //  Analysis engine
 */
-int main_analysis(int argc, const char *argv[]);
+int main_analysis(int argc, const char **argv);
 
 void run(int restart, const char *restart_label)
 {

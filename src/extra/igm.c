@@ -39,7 +39,7 @@ void extDumpRadiationBackground(const char *filename)
 {
   int i, n;
   FILE *f;
-  float *wlen, *ngxi, uJnu = 1.5808e-17/pow(auni[min_level],3.0);
+  float *wlen, *ngxi, uJnu = 1.5808e-17;
 
   if(local_proc_id == MASTER_NODE)
     {
@@ -72,7 +72,7 @@ void extExtractRadiationField(int n, const float *wlen, float *mean_rf)
   int vars[rt_num_vars];
   float ngxi[rt_num_vars];
   MESH_RUN_DECLARE(level,cell);
-  float uJnu = 1.5808e-17/pow(auni[min_level],3.0);
+  float uJnu = 1.5808e-17;
 
   cart_assert(n>0 && n<=rt_num_vars);
   
@@ -233,7 +233,7 @@ int extProximityZone_Worker(int id, int cell, double r1, double r2, losBuffer da
 }
 
 
-void extProximityZone_Collector(losBuffer *result, int num_segments, const losSegment *segments)
+void extProximityZone_Collector(const losBuffer *result, int num_segments, const losSegment *segments)
 {
   int i, j;
   extProximityZone_Data *dr = (extProximityZone_Data *)result->Data;

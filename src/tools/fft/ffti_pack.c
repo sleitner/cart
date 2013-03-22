@@ -53,9 +53,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define cfftb1 zfftb1
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void f77_call(cffti1)(int *n, fft_t *work, int *facs);
 void f77_call(cfftf1)(int *n, fft_t *data, fft_t *temp, fft_t *work, int *facs);
 void f77_call(cfftb1)(int *n, fft_t *data, fft_t *temp, fft_t *work, int *facs);
+#ifdef __cplusplus
+}
+#endif
+
 
 
 int ffti_get_work_size(int n)

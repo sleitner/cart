@@ -6,6 +6,7 @@
 #define PARTICLES
 #define REFINEMENT
 #define STAR_FORMATION
+#define DUST_EVOLUTION
 #define RADIATIVE_TRANSFER
 
 #define ENRICHMENT

@@ -16,6 +16,8 @@
 #include "tree.h"
 #include "units.h"
 
+#include "frt/frt_c.h"
+
 #include "step.h"
 
 
@@ -40,6 +42,7 @@ extern struct rtGlobalValue rtAvgACxRF[];
 
 const float rtConvFac = 1.0;
 const float rtFMaxFac = 3.0;
+const float rtFMinFac = 0.0e-6;
 
 float rtBarF[rt_num_freqs];
 float rtBarK[rt_num_freqs];
@@ -141,9 +144,6 @@ void rtLevelUpdateTransferOtvet(int level)
   int nit, freq, ivarL, ivarG, nit0;
   float xiUnit;
   int nvars, vars[rt_num_fields];
-#ifdef RT_EXTERNAL_BACKGROUND
-  float QFac;
-#endif
 
   start_time(WORK_TIMER);
 
@@ -179,10 +179,10 @@ void rtLevelUpdateTransferOtvet(int level)
       // Find the minimum size of the hash table
       */
       if(num_level_cells > 0)
-	{
-	  linear_array_max_int(num_level_cells,indL2G,&num_hashed);
-	  num_hashed++;
-	}
+        {
+          linear_array_max_int(num_level_cells,indL2G,&num_hashed);
+          num_hashed++;
+        }
       else num_hashed = 0;
 
       /*
@@ -457,21 +457,28 @@ void rtLevelUpdateTransferOtvet(int level)
 	  */
 	  if(work)
 	    {
+	      frt_intg idx;
+	      float QTerm, CFac;
+
 	      start_time(WORK_TIMER);
 
 	      if(rtBarF[freq] > 0.0)
 		{
-		  QFac = rtBarK[freq]/pow(rtBarF[freq],rtConvFac);
+		  CFac = rtBarK[freq]/pow(rtBarF[freq],rtConvFac);
 		}
 	      else
 		{
-		  QFac = rtBarK[freq];
+		  CFac = rtBarK[freq];
 		}
 
-#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rhs,abc,QFac,freq)
+	      idx = freq + 1;
+              QTerm = frtCall(transferglobalqterm)(&idx);
+
+#pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarL,ivarG,level,rhs,abc,QTerm,CFac,freq)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
-		  rhs[iL] = varG(iL)*QFac;
+		  rhs[iL] = varG(iL)*CFac + QTerm;
+		  abc[1][iL] += QTerm;
 		}
 
 #ifdef RT_OTVET_CACHE_RF
@@ -502,7 +509,7 @@ void rtLevelUpdateTransferOtvet(int level)
 #pragma omp parallel for default(none), private(iL), shared(num_level_cells,cell_vars,indL2G,ivarG)
 	      for(iL=0; iL<num_level_cells; iL++)
 		{
-		  if(varG(iL) < 0.0) varG(iL) = 0.0;
+		  if(varG(iL) < rtFMinFac*otfG(iL)) varG(iL) = rtFMinFac*otfG(iL);
 		  if(varG(iL) > rtFMaxFac*otfG(iL)) varG(iL) = rtFMaxFac*otfG(iL);
 		}
 #endif /* RT_OTVET_CACHE_RF */
@@ -599,7 +606,7 @@ void rtOtvetIterate3(int it, int nit, int ivar, int level, int num_level_cells, 
 
 void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num_total_cells, int *indL2G, int *neib, int *info, float *abc, float *rhs, float *jac, float *dd2, float *dfx, int nit, int work, rt_laplacian_t lap)
 {
-  int it, iL;
+  int it;
   
   for(it=1; it<=nit; it++)
     {
@@ -618,6 +625,8 @@ void rtOtvetSolveFieldEquation(int ivar, int level, int num_level_cells, int num
       if(it < nit)
 	{
 #ifdef RT_OTVET_CACHE_RF
+	  int iL;
+
 	  /*
 	  //  Update level cells from the cache for the buffer update
 	  */
@@ -1193,8 +1202,15 @@ rt_laplacian_t rt_generic = { rtOtvet_GenericTensorDiag, rtOtvet_GenericTensorFu
 #ifdef RT_OTVET_SAVE_FLUX
 #include "frt/frt_c.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void frtCall(getrfunits)(frt_intg *freq, frt_real *uNear, frt_real *uFar);
 void frtCall(getrfunits2)(frt_real *var, frt_real *rawrf, frt_intg *freq, frt_real *uNear, frt_real *uFar);
+#ifdef __cplusplus
+}
+#endif
+
 
 void rtGetRadiationFlux(int cell, float flux[num_neighbors])
 {

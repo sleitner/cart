@@ -33,6 +33,8 @@ struct Constants
   double mHe;
   double Msun;
   double Zsun;
+  double Dsun;
+  double Lsun;
   double Yp;
   double wmu;
   double wmu_e;
