@@ -708,7 +708,6 @@ void update_buffer_level( int level, const int *var_indices, int num_update_vars
 	end_time( COMMUNICATION_TIMER );
 }
 
-
 #ifdef PARTICLES
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 
