@@ -7,13 +7,28 @@
 ?#define PARTICLES
 ?#define REFINEMENT
 ?#define STAR_FORMATION
+?#define DUST_EVOLUTION
 ?#define RADIATIVE_TRANSFER
 ?#define ELECTRON_ION_NONEQUILIBRIUM
 
 ?#define ENRICHMENT
 ?#define ENRICHMENT_SNIa
 ?#define LOG_STAR_CREATION
+
+/*
+//  An advected field conserving mass*(count down time) 
+//  turns off when count down time = 0.
+*/
 ?#define BLASTWAVE_FEEDBACK
+/*
+//  An advected energy field that decays exponentially. 
+*/
+?#define ISOTROPIC_TURBULENCE_ENERGY
+/*
+//  Enable a non-advected pressure field that
+//  can be used to generate a given momentum flux per dt.
+*/
+?#define EXTRA_PRESSURE_SOURCE
 ?#define STAR_PARTICLE_TYPES
 
 ?#define SF_RECIPE			<value>
@@ -34,6 +49,7 @@
 ?#define DEBUG_MEMORY_USE_VERBOSE
 ?#define NDEBUG
 ?#define MPE_LOG
+?#define PAPI_PROFILING
 
 ?#define DISABLE_PLUGINS
 

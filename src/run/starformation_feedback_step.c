@@ -29,7 +29,7 @@ void check_bwtime_precision(int level)
 #endif /* BLASTWAVE_FEEDBACK */
 
 
-void star_particle_feedback(int level) {
+void star_particle_feedback(int level, int time_multiplier) {
 	int i;
 	int ipart;
 	int iter_cell;
@@ -40,7 +40,7 @@ void star_particle_feedback(int level) {
 	start_time( WORK_TIMER );
 
 	setup_star_formation_feedback(level);
-	t_next = tl[level] + dtl[level];
+	t_next = tl[level] + time_multiplier*dtl[level];
 
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 #ifndef COMPILER_GCC

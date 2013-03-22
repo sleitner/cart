@@ -83,28 +83,34 @@ C
 	parameter(irateMHi28 = 22)
 	parameter(irateMHi29 = 23)
 	parameter(irateMHiDU = 24)
-	parameter(irateChemC = 24)
-	parameter(irateMHcH1o = 25)
-	parameter(irateMHcH1p = 26)
-	parameter(irateMHcMOo = 27)
-	parameter(irateMHcMOp = 28)
-	parameter(irateMHcMPo = 29)
-	parameter(irateMHcMPp = 30)
-	parameter(irateMHcG1o = 31)
-	parameter(irateMHcG1p = 32)
-	parameter(irateMHcH2o = 33)
-	parameter(irateMHcH2p = 34)
-	parameter(irateMHcFEo = 35)
-	parameter(irateMHcFEp = 36)
-	parameter(irateMHc08 = 37)
-	parameter(irateMHc09 = 38)
-	parameter(irateMHc10 = 39)
-	parameter(irateMHc14 = 40)
-	parameter(irateMHc15 = 41)
-	parameter(irateMHcDU = 42)
-	parameter(irateChemN = 42)
+	parameter(irateDuGro = 25)
+	parameter(irateDuSpu = 26)
+	parameter(irateChemN = 26)
+C
+C  Temperature tables: chemical cooling rates
+C
+	parameter(irateMHcH1o =  1)
+	parameter(irateMHcH1p =  2)
+	parameter(irateMHcMOo =  3)
+	parameter(irateMHcMOp =  4)
+	parameter(irateMHcMPo =  5)
+	parameter(irateMHcMPp =  6)
+	parameter(irateMHcG1o =  7)
+	parameter(irateMHcG1p =  8)
+	parameter(irateMHcH2o =  9)
+	parameter(irateMHcH2p = 10)
+	parameter(irateMHcFEo = 11)
+	parameter(irateMHcFEp = 12)
+	parameter(irateMHc08  = 13)
+	parameter(irateMHc09  = 14)
+	parameter(irateMHc10  = 15)
+	parameter(irateMHc14  = 16)
+	parameter(irateMHc15  = 17)
+	parameter(irateMHcDU  = 18)
+	parameter(irateChemN2 = 18)
 
-	common/RT_TAB_C/ RateChem(irateChemN,NTEM)
+	common/RT_TAB_C/ RateChem(irateChemN,NTEM), 
+     .			 RateChem2(irateChemN2,NTEM)
 	common/RT_TAB_D/ temZLT, d_pPAH, d_sPAH, d_sDUST
 C
 C  Temperature tables: high density rates
@@ -114,12 +120,13 @@ C
 	parameter(irateHDi30 =  3)
 	parameter(irateHDi31 =  4)
 	parameter(irateHDi32 =  5)
-	parameter(irateHighC =  5)
-	parameter(irateHDc02 =  6)
-	parameter(irateHDcNC =  7)
-	parameter(irateHighN =  7)
+	parameter(irateHighN =  5)
+	parameter(irateHDc02  =  1)
+	parameter(irateHDcNC  =  2)
+	parameter(irateHighN2 =  2)
 
-	common/RT_TAB_E/ RateHigh(irateHighN,NTEM)
+	common/RT_TAB_E/ RateHigh(irateHighN,NTEM), 
+     .			 RateHigh2(irateHighN2,NTEM)
 C
 C  Radiation field tables: base (order DOES matter here)
 C
@@ -173,7 +180,8 @@ C
 	common/RT_TAB_M/ xig(NRAD), Txi(NRAD), guvEff(NRAD),
      .                   tauLoc(NRAD)
 	common/RT_TAB_N/ angUni(NRAD), angLoc(NRAD),
-     .	                 angAvg(NRAD), angEff(NRAD)
+     .	                 angAvg(NRAD), angEff(NRAD),
+     .	                 sxiUni(NRAD)
 C
 C  Cross sections: atomic & dust
 C

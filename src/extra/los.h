@@ -30,7 +30,7 @@ typedef struct
 losSegment;
 
 typedef int (*losWorkerCallback)(int id, int cell, double r1, double r2, losBuffer data);
-typedef void (*losCollectorCallback)(losBuffer *result, int num_segments, const losSegment *segments);
+typedef void (*losCollectorCallback)(const losBuffer *result, int num_segments, const losSegment *segments);
 
 
 /*
@@ -60,8 +60,9 @@ void losTraverseSegment(int id, double pos0[3], double theta, double phi, double
 //  Keep in mind that separate segments are not necessarily continues, as a
 //  single line-of-sight can cross a given domain more than once.
 //  This function calls MPI inside and is manifestly thread-unsafe.
+//  The buffer for result needs to be pre-allocated, this function does not allocate memory.
 */
-void losCollectSegments(losBuffer *result, losSegment *segment, losCollectorCallback collector);
+void losCollectSegments(const losBuffer *result, const losSegment *segment, losCollectorCallback collector);
 
 
 /*

@@ -172,8 +172,6 @@ void config_init_io()
 {
   ControlParameterOps control_parameter_outputs = { control_parameter_set_outputs, control_parameter_list_outputs };
 
-  logfile_directory = logfile_directory_d;
-  
   outputs_size = 100;
   outputs = cart_alloc(float,outputs_size);
 

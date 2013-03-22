@@ -15,7 +15,6 @@
 extern int num_procs;
 extern int local_proc_id;
 
-extern const char* logfile_directory;
 extern const char* executable_name;
 
 

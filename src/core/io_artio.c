@@ -163,6 +163,11 @@ void define_file_variables(int *num_variables, char *variable_labels[num_vars],
 #ifdef BLASTWAVE_FEEDBACK
 	add_variable( "HVAR_BLASTWAVE_TIME", HVAR_BLASTWAVE_TIME );
 #endif /* BLASTWAVE_FEEDBACK */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+	add_variable( "HVAR_ISOTROPIC_TURBULENCE_ENERGY", HVAR_ISOTROPIC_TURBULENCE_ENERGY );
+#endif
+
+
 #endif /* HYDRO */
 
 #ifdef GRAVITY
@@ -1404,7 +1409,7 @@ void read_artio_grid( artio_fileset *handle, int file_max_level ) {
 		cart_error("Not enough variables in file header!" );
 	} else if (num_file_variables > num_sim_variables) {
 		cart_debug(
-				"WARNING: file %s contains more variables than code expects (%d vs %d), hope you know what you're doing...",
+				"WARNING: input file contains more variables than code expects (%d vs %d), hope you know what you're doing...",
 				num_file_variables, num_sim_variables);
 	}
 

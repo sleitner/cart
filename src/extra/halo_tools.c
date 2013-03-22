@@ -125,10 +125,158 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
 //  Set halos->map with the halo id for each halo, or 0 if belongs to 
 //  none; a cell belongs to a halo if it is inside its size_factor*Rtrunc, 
 //  and satellites are accounted for properly.
-//
-//  MG: needs to be rewritten, very inefficient.
 */
+void map_one_halo_helper_map_cell(int ih, int cell, double posCell[], double r2new, int *map, halo_list *halos)
+{
+  int iold = map[cell];
+
+  if(iold == 0)
+    {
+      /*
+      //  Unmapped - just map
+      */
+      map[cell] = ih + 1;
+    }
+  else
+    {
+      int k;
+      double r2old, dx;
+      /*
+      //  Need to determine which halo is closer - the new or old old one
+      */
+      cart_assert(iold>=1 && iold<=halos->num_halos);
+      iold--;
+      for(k=0, r2old=0.0; k<nDim; k++)
+	{
+	  dx = posCell[k] - halos->list[iold].pos[k];
+	  if(dx < -0.5*num_grid) dx += num_grid;
+	  if(dx >  0.5*num_grid) dx -= num_grid;
+	  r2old += dx*dx;
+	}
+      if(r2old > r2new)
+	{
+	  /*
+	  //  This cells belongs to a satellite
+	  */
+	  map[cell] = ih + 1;
+	}
+    }
+}
+
+
+void map_one_halo_helper_check_cell(int ih, int cell, double posHalo[], int *map, halo_list *halos, int level, double r2cut)
+{
+  int j, k;
+  double r2, dx, posCell[nDim];
+  double h = cell_size[level];
+
+  cell_center_position(cell,posCell);
+
+  /*
+  //  Does the cell intersect the sphere?
+  //  (Jim Arvo has an algorithm for this in Graphics Gems 2)
+  */
+  for(k=0, r2=0.0; k<nDim; k++)
+    {
+      dx = posCell[k] - posHalo[k];
+      if(dx < -0.5*num_grid) dx += num_grid;
+      if(dx >  0.5*num_grid) dx -= num_grid;
+      if(0.0 < dx-0.5*h)
+	{
+	  r2 += (dx-0.5*h)*(dx-0.5*h);
+	}
+      else if(0.0 > dx+0.5*h)
+	{
+	  r2 += (dx+0.5*h)*(dx+0.5*h);
+	}
+    }
+
+  if(r2 >= r2cut)
+    {
+      /*
+      //  There is no intersection, skip this cell and all its children
+      */
+      return;
+    }
+
+  /*
+  //  Do we mark the cell itself?
+  */
+  for(k=0, r2=0.0; k<nDim; k++)
+    {
+      dx = posCell[k] - posHalo[k];
+      if(dx < -0.5*num_grid) dx += num_grid;
+      if(dx >  0.5*num_grid) dx -= num_grid;
+      r2 += dx*dx;
+    }
+  if(r2 < r2cut)
+    {
+      map_one_halo_helper_map_cell(ih,cell,posCell,r2,map,halos);
+    }
+  
+  if(cell_is_refined(cell))
+    {
+      int children[num_children];
+
+      cell_all_children(cell,children);
+
+      for(j=0; j<num_children; j++)
+	{
+	  map_one_halo_helper_check_cell(ih,children[j],posHalo,map,halos,level+1,r2cut);
+	}
+    }
+}
+
+
 void map_halos(int resolution_level, halo_list *halos, float size_factor)
+{
+  int ih, *map;
+  int num_rcells, *rcells;
+
+  cart_assert(halos != NULL);
+  if(halos->map != NULL) return; /* Already mapped */
+
+  cart_debug("Mapping halos...");
+
+  map = cart_alloc(int,num_cells);
+
+  /*
+  //  Zero map array
+  */
+  memset(map,0,num_cells*sizeof(int));
+
+  /*
+  //  Select root cells
+  */
+  select_level(min_level,CELL_TYPE_LOCAL,&num_rcells,&rcells);
+
+  /*
+  //  Loop over all halos
+  */
+  for(ih=0; ih<halos->num_halos; ih++) if(halo_level(&halos->list[ih],mpi.comm.run) >= resolution_level)
+    {
+      int i;
+      double r2cut = pow(size_factor*halos->list[ih].rhalo,2.0);
+
+#pragma omp parallel for default(none), private(i), shared(num_rcells,rcells,r2cut,halos,ih,map)
+      for(i=0; i<num_rcells; i++)
+	{
+	  map_one_halo_helper_check_cell(ih,rcells[i],halos->list[ih].pos,map,halos,min_level,r2cut);
+	}
+    }
+
+  cart_free(rcells);
+
+  halos->map = map;
+
+  cart_debug("... done.");
+}
+
+
+/*
+//  Old, very inefficient form
+*/
+void map_halos2(int resolution_level, halo_list *halos, float size_factor)
 {
   int j, ih, iold, *halo_levels, *map;
   MESH_RUN_DECLARE(level,cell);
@@ -162,7 +310,6 @@ void map_halos(int resolution_level, halo_list *halos, float size_factor)
 #pragma omp parallel for default(none), private(_Index,cell,j,dx,r2,iold,r2old,pos), shared(_Num_level_cells,_Level_cells,level,cell_child_oct,cell_vars,r2Cut,halos,ih,map)
       MESH_RUN_OVER_CELLS_OF_LEVEL_BEGIN(cell);
   
-      if(cell_is_leaf(cell))
 	{
 	  cell_center_position(cell,pos);
 	  for(j=0, r2=0.0; j<nDim; j++)
@@ -172,7 +319,7 @@ void map_halos(int resolution_level, halo_list *halos, float size_factor)
 	      if(dx >  0.5*num_grid) dx -= num_grid;
 	      r2 += dx*dx;
 	    }
-	  
+
 	  if(r2 < r2Cut)
 	    {
 	      iold = map[cell];

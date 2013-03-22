@@ -26,6 +26,8 @@ struct HALO;
 #define I_H2_FRACTION         2009
 #define I_DMW                 2010
 #define I_UMW                 2011
+#define I_TOTAL_OVERDENSITY   2012
+#define I_GAS_ENTROPY         2013
 
 #define I_FLAG_STARS          1
 #define I_FLAG_SPLIT_STARS    2

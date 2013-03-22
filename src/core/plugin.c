@@ -92,3 +92,7 @@ void config_verify_plugins()
 {
   PLUGIN_POINT(ConfigVerify)();
 }
+
+#ifdef __cplusplus
+PluginList::PluginList() : active(plugin_t()), next(0), head(0){}
+#endif

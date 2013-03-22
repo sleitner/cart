@@ -23,6 +23,6 @@ void run_output()
 
 void init_run()
 {
-  hart_init("../IC");
+  hart_init();
 }
 
