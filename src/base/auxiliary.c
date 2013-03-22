@@ -1,6 +1,5 @@
 #include "config.h"
 
-#include <malloc.h>
 #include <mpi.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -32,14 +31,14 @@ const char **options = NULL;
 
 
 double gsl_function_wrapper( double x, void *params ) {
-        double (*f)(double) = (double (*)(double))params;
-        return  f(x);
+	double (*f)(double) = (double (*)(double))params;
+	return  f(x);
 }
 
 double integrate( double (*f)(double), double a, double b, double epsrel, double epsabs ) {
-        double result, error;
-        gsl_function F;
-        gsl_integration_workspace *w;
+	double result, error;
+	gsl_function F;
+	gsl_integration_workspace *w;
 
 	if ( a == b ) {
 		return 0.0;
@@ -51,7 +50,7 @@ double integrate( double (*f)(double), double a, double b, double epsrel, double
 	F.params = (void *)f;  /* NG: BAD!!! Unsafe type cast */
 
 	gsl_integration_qag(&F, a, b, epsrel, epsabs, 1000, 6,
-                w, &result, &error);
+			w, &result, &error);
 
 	gsl_integration_workspace_free(w);
 
@@ -143,7 +142,7 @@ void cart_error( const char *fmt, ... ) {
 
 	if(logfile_directory != NULL)
 	  {
-	    sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+	    sprintf(filename,"%s/stdout."ART_PROC_FORMAT".log",logfile_directory,local_proc_id);
 	    f = fopen(filename,"a");
 	    if (f != NULL) {
 	      fprintf(f,"ERROR: %s\n",message);
@@ -182,7 +181,7 @@ void cart_debug( const char *fmt, ... ) {
 	va_end(args);
 
 	if ( f==NULL && logfile_directory!=NULL ) {
-		sprintf(filename,"%s/stdout.%03u.log",logfile_directory,local_proc_id);
+		sprintf(filename,"%s/stdout."ART_PROC_FORMAT".log",logfile_directory,local_proc_id);
 		f = fopen(filename,"w");
 	}
 
