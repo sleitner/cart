@@ -261,7 +261,13 @@ float rf1(int level, int cell, double *ref_pos, double *ref_vel)
 }
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 frt_real frtCall(getrfunits)(frt_intg *freq, frt_real *uNear, frt_real *uFar);
+#ifdef __cplusplus
+}
+#endif
 
 float rf0(int level, int cell, double *ref_pos, double *ref_vel)
 {

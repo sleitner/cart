@@ -195,7 +195,9 @@ C
       do j=1,infoDim
          gInfo(j) = dInfoBufGlob(j)
       enddo
-
+C
+C  Check that we integrated the whole volume
+C
       if(vol .gt. 0.0) then
          w = vol*dt*weight
          if(abs(w-1.0) .gt. 1.0e-3) then

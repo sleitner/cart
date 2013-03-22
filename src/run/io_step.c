@@ -109,17 +109,18 @@ void save_check() {
 
 	grid_save_flag = particle_save_flag = tracer_save_flag = NO_WRITE;
 
+#ifdef COSMOLOGY
+	if ( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) {
+		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_SAVE;
+		current_output++;
+	} else
+#endif /* COSMOLOGY */
 	if ( restart_frequency != 0 && step % restart_frequency == 0 ) {
 		if ( step % (2*restart_frequency) == 0 ) {
 			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
 		} else {
 			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
 		}
-#ifdef COSMOLOGY
-	} else if ( current_output < num_outputs && auni[min_level] >= outputs[current_output] ) {
-		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_SAVE;
-		current_output++;
-#endif /* COSMOLOGY */
 	} 
 
 	

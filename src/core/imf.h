@@ -32,6 +32,11 @@ struct IMF_t
 void config_init_imf();
 void config_verify_imf();
 
+double tlf( double logM, double logZ ); /* log_10(lifetime/yr) of a star of mass log_10(M/Msun) */
+                                             /*  and log_10(Z) (absolute ox. abundance) */
+double mlf( double logt, double logZ ); /* log_10(mass/Msun) of a star with lifetime log_10(t/yr) */
+                                             /*  and log_10(Z) (absolute ox. abundance) */
+
 #endif /* STAR_FORMATION */
 
 #endif

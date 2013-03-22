@@ -122,12 +122,27 @@ extern int size_cell_array;
   #define num_basic_hydro_vars      (5+nDim)
 
   #ifdef ELECTRON_ION_NONEQUILIBRIUM
-    #define num_extra_hydro_vars   1
+    #define num_electronion_noneq_vars 1
     #define HVAR_ELECTRON_INTERNAL_ENERGY	(num_grav_vars+rt_num_vars+num_basic_hydro_vars)
     #define cell_electron_internal_energy(c)	(cell_var(c,HVAR_ELECTRON_INTERNAL_ENERGY))
   #else
-    #define num_extra_hydro_vars   0
+    #define num_electronion_noneq_vars 0
   #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
+  #define HVAR_EXTRA_ENERGY_VARIABLES           (num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_electronion_noneq_vars)
+  #define cell_extra_energy_variables(c,v)      (cell_var(c,HVAR_EXTRA_ENERGY_VARIABLES+v))
+  #define cell_extra_energy_pressure(c,v)       ((extra_energy_gamma(v)-1.0)*cell_extra_energy_variables(c,v))
+  #ifdef ISOTROPIC_TURBULENCE_ENERGY 
+    #define num_turbulence_energy_vars           1
+    #define HVAR_ISOTROPIC_TURBULENCE_ENERGY     (HVAR_EXTRA_ENERGY_VARIABLES+0)
+    #define cell_isotropic_turbulence_energy(c)  (cell_var(c,HVAR_ISOTROPIC_TURBULENCE_ENERGY))
+    #define isotropic_turbulence_gamma           (extra_energy_gamma(0))
+  #else
+    #define num_turbulence_energy_vars           0
+  #endif /* ISOTROPIC_TURBULENCE_ENERGY */
+  #define num_extra_energy_variables            (num_turbulence_energy_vars)
+
+  #define num_extra_hydro_vars                  (num_electronion_noneq_vars+num_extra_energy_variables)
 
   #define HVAR_ADVECTED_VARIABLES		(num_grav_vars+rt_num_vars+num_basic_hydro_vars+num_extra_hydro_vars)
   #define cell_advected_variable(c,v)		(cell_var(c,HVAR_ADVECTED_VARIABLES+v))
@@ -162,14 +177,29 @@ extern int size_cell_array;
     #define cell_gas_metal_density_II(c)	(cell_var(c,HVAR_METAL_DENSITY_II))
 
     #ifdef ENRICHMENT_SNIa
-      #define num_enrichment_species		2
+      #ifdef DUST_EVOLUTION
+        #define num_enrichment_species          3
+        #define HVAR_DUST_DENSITY               (HVAR_ADVECTED_VARIABLES+rt_num_chem_species+2)
+      #else
+        #define num_enrichment_species          2
+      #endif
       #define HVAR_METAL_DENSITY_Ia		(HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
       #define cell_gas_metal_density_Ia(c)	(cell_var(c,HVAR_METAL_DENSITY_Ia))
       #define cell_gas_metal_density(c)		(cell_gas_metal_density_II(c)+cell_gas_metal_density_Ia(c))
     #else
-      #define num_enrichment_species		1
+      #ifdef DUST_EVOLUTION
+        #define num_enrichment_species          2
+        #define HVAR_DUST_DENSITY               (HVAR_ADVECTED_VARIABLES+rt_num_chem_species+1)
+      #else
+        #define num_enrichment_species          1
+      #endif
       #define cell_gas_metal_density(c)		cell_gas_metal_density_II(c)
     #endif /* ENRICHMENT_SNIa */
+
+    #ifdef DUST_EVOLUTION
+      #define cell_dust_density(c)              (cell_var(c,HVAR_DUST_DENSITY))
+    #endif
+
   #else
     #define num_enrichment_species		0
   #endif /* ENRICHMENT */
@@ -212,11 +242,34 @@ extern int size_cell_array;
   #define refinement_indicator(c,x)		(cell_var(c,num_grav_vars+rt_num_vars+num_hydro_vars+x))
 #endif /* GRAVITY */
 
-#define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
+#ifdef HYDRO
+  #define VAR_EXTRA_SOURCE                      (num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars)
+  #define cell_extra_source_variables(c,v)      (cell_var(c,VAR_EXTRA_SOURCE+v))
+  #ifdef EXTRA_PRESSURE_SOURCE
+    #define num_extra_pressure_source_vars      1
+    #define VAR_EXTRA_PRESSURE_SOURCE           (VAR_EXTRA_SOURCE+0)
+    #define cell_extra_pressure_source(c)       (cell_var(c,VAR_EXTRA_PRESSURE_SOURCE))
+  #else                             
+    #define num_extra_pressure_source_vars      0
+  #endif /* EXTRA_PRESSURE_SOURCE */
+  #define num_extra_source_vars                 (num_extra_pressure_source_vars)
+#else 
+  #define num_extra_source_vars                 0
+#endif /* HYDRO */
+
+#define num_vars				(num_grav_vars+rt_num_vars+num_hydro_vars+num_refinement_vars+num_extra_source_vars)
 
 extern int all_vars[num_vars];
 #ifdef HYDRO
 extern int all_hydro_vars[num_hydro_vars];
+
+#define extra_energy_gamma(v)	(extra_energy_gammas[v])
+#if num_extra_energy_variables > 0 
+extern float extra_energy_gammas[num_extra_energy_variables];
+#else
+extern float extra_energy_gammas[1]; /* avoids extra flags around pragmas*/
+#endif /* num_extra_energy_variables > 0 */
+
 #endif /* HYDRO */
 
 

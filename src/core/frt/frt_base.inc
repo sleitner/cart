@@ -28,41 +28,40 @@ C
         parameter(ivarXG2  =  5)
         parameter(ivarXG3  =  6)
         parameter(ivarXMH  =  7)
-        parameter(ivarXHp  =  8)
-        parameter(ivarXHm  =  9)
-        parameter(ivarRho  = 10)
-        parameter(ivarZsol = 11)
-        parameter(ivarSobL = 12)
-        parameter(ivarNumF = 13)
-        parameter(ivarRF0l = 14)
-        parameter(ivarRF0g = 15)
-        parameter(ivarDelV = 16)
-        parameter(ivarDelX = 17)
-        parameter(ivarBias = 18)
-        parameter(ivarCSup = 19)
-        parameter(ivarDTex = 20)
-        parameter(ivarLTE  = 21)
-        parameter(ivarDeb  = 22)
+        parameter(ivarD2G  =  8)
+        parameter(ivarXHp  =  9)
+        parameter(ivarXHm  = 10)
+        parameter(ivarRho  = 11)
+        parameter(ivarZsol = 12)
+        parameter(ivarSobL = 13)
+        parameter(ivarNumF = 14)
+        parameter(ivarRF0l = 15)
+        parameter(ivarRF0g = 16)
+        parameter(ivarDelV = 17)
+        parameter(ivarDelX = 18)
+        parameter(ivarBias = 19)
+        parameter(ivarCSup = 20)
+        parameter(ivarDTex = 21)
+        parameter(ivarLTE  = 22)
+        parameter(ivarDeb  = 23)
 C
 C  Diagnostic variables
 C  (returned on exit, overwrite internals)
 C
         parameter(ivarOut  = ivarDeb+1)
-        parameter(ivarDGas = ivarOut+0)
-        parameter(ivarGam  = ivarOut+1)
-        parameter(ivarCool = ivarOut+2)
-        parameter(ivarHeat = ivarOut+3)
+        parameter(ivarGam  = ivarOut+0)
+        parameter(ivarCool = ivarOut+1)
+        parameter(ivarHeat = ivarOut+2)
 C
 C  Internal variables
 C
         parameter(ivarInt  = ivarDeb+1)
-*       parameter(ivarDGas = ivarInt+0)  !! already defined
-        parameter(ivarRecB = ivarInt+1)
-        parameter(ivarCFH1 = ivarInt+2)
-        parameter(ivarCFG1 = ivarInt+3)
-        parameter(ivarCFG2 = ivarInt+4)
-        parameter(ivarDelN = ivarInt+5)
-        parameter(ivarDim  = ivarInt+5)
+        parameter(ivarRecB = ivarInt+0)
+        parameter(ivarCFH1 = ivarInt+1)
+        parameter(ivarCFG1 = ivarInt+2)
+        parameter(ivarCFG2 = ivarInt+3)
+        parameter(ivarDelN = ivarInt+4)
+        parameter(ivarDim  = ivarInt+4)
 C
 C  Globally-averaged quantities
 C
@@ -99,7 +98,8 @@ C
         common/RT_BASE_C/ facPhot, facCC, facH2CMB, facCool,
      .                    facLX, facLya, facRecB
         common/RT_BASE_D/ varMin(ivarDim), varLow(ivarDim)
-	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, daExp, qExp3
+	common/RT_BASE_E/ uDen, uLen, uTime, aExp, Hubble, daExp, 
+     .			  dtCode, qExp3
 C
 	logical ioNode
 	common/RT_BASE_F/ ioNode

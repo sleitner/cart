@@ -34,6 +34,8 @@
 
 extern int step;
 
+extern char logfile_directory_d[];
+extern const char* logfile_directory;
 
 void config_verify();
 
@@ -136,6 +138,8 @@ void config_read_file(const char *filename) {
 	cart_error("There were errors parsing parameter file %s", filename );
   }
 
+  logfile_directory = logfile_directory_d;
+  
   config_verify();
 }
 

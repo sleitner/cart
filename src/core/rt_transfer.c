@@ -26,7 +26,9 @@ struct rtGlobalValue rtAvgACxRF[rt_num_fields];
 struct rtGlobalValue rtMaxAC[rt_num_freqs];
 struct rtGlobalValue rtAvgAC[rt_num_freqs];
 
-float rtGlobalAC[rt_num_freqs];
+frt_real frtAbcLoc[rt_num_freqs];
+frt_real frtAbcUni[rt_num_freqs];
+frt_real frtAbcAvg[rt_num_freqs];
 
 
 #ifndef RT_VAR_SOURCE
@@ -148,8 +150,6 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 #endif
   double s[nomp][rt_num_fields];
   double s1, sw[nomp][rt_num_fields_per_freq];
-  frt_intg idx;
-  frt_real fabc[rt_num_fields_per_freq];
 
   start_time(WORK_TIMER);
 
@@ -232,9 +232,14 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 	      for(field=0; field<rt_num_fields_per_freq; field++) sw[i][field] = 0.0;
 	    }
 
-#pragma omp parallel for default(none), private(cell,i,iomp,field), shared(num_level_cells,level_cells,abc,level,cell_vars,freq,nomp,sw), reduction(+:s1)
+#pragma omp parallel for default(none), private(cell,i,iomp,field), shared(num_level_cells,level_cells,abc,level,cell_vars,freq,nomp,sw,units,constants), reduction(+:s1)
 	  for(i=0; i<num_level_cells; i++)
 	    {
+	      float facLLS;
+#ifdef RT_ADD_EXTERNAL_LLS
+	      float tauLLS;
+#endif /* RT_ADD_EXTERNAL_LLS */
+
 	      cell = level_cells[i]; // No need to check for leaves, we selected only them!
 
 #ifdef _OPENMP
@@ -244,11 +249,24 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 	      iomp = 0;
 #endif
 
-	      for(field=0; field<rt_num_fields_per_freq; field++)
-		{
-		  sw[iomp][field] += cell_var(cell,rt_field_offset+rt_num_freqs*field+freq)*abc[1][i]*cell_volume[level]/num_root_cells;
-		}
-	      s1 += 1*abc[1][i]*cell_volume[level]/num_root_cells;
+#ifdef RT_ADD_EXTERNAL_LLS
+              tauLLS = 6.3e-18*units->number_density*units->length*cell_HI_density(cell)*cell_sobolev_length2(cell,level,NULL);
+	      facLLS = exp(-tauLLS);
+#else
+	      facLLS = 1.0;
+#endif /* RT_ADD_EXTERNAL_LLS */
+
+              for(field=0; field<rt_num_near_fields_per_freq; field++)
+                {
+                  sw[iomp][field] += facLLS*cell_var(cell,rt_field_offset+rt_num_freqs*field+freq)*abc[1][i]*cell_volume[level]/num_root_cells;
+                }
+
+              for(field=rt_num_near_fields_per_freq; field<rt_num_fields_per_freq; field++)
+                {
+                  sw[iomp][field] += cell_var(cell,rt_field_offset+rt_num_freqs*field+freq)*abc[1][i]*cell_volume[level]/num_root_cells;
+                }
+
+              s1 += abc[1][i]*cell_volume[level]/num_root_cells;
 	    }
 
 #ifdef _OPENMP
@@ -260,6 +278,7 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 		}
 	    }
 #endif
+
 	  rtGlobalValueUpdate(&rtAvgAC[freq],level,s1);
 	  for(field=0; field<rt_num_fields_per_freq; field++) rtGlobalValueUpdate(&rtAvgACxRF[rt_num_freqs*field+freq],level,sw[0][field]);
 	}
@@ -293,21 +312,36 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
   */
   for(freq=0; freq<rt_num_freqs; freq++)
     {
-      idx = freq + 1;
 
-      for(field=0; field<rt_num_fields_per_freq; field++)
+      float wACxRF = 0.0;
+      float wRF = 0.0;
+      for(field=0; field<rt_num_fields_per_freq-1; field++)
 	{
-	  if(rtAvgRF[rt_num_freqs*field+freq].Value > 1.0e-35)
-	    {
-	      fabc[field] = rtAvgACxRF[rt_num_freqs*field+freq].Value/rtAvgRF[rt_num_freqs*field+freq].Value;
-	    }
-	  else
-	    {
-	      fabc[field] = rtAvgAC[freq].Value;
-	    }
+	  wACxRF += rtAvgACxRF[rt_num_freqs*field+freq].Value;
+	  wRF += rtAvgRF[rt_num_freqs*field+freq].Value;
+	}
+
+      if(wRF > 1.0e-35)
+	{
+	  frtAbcLoc[freq] = wACxRF/wRF;
+	}
+      else
+	{
+	  frtAbcLoc[freq] = rtAvgAC[freq].Value;
 	}
       
-      rtGlobalAC[freq] = frtCall(transferglobalac)(&idx,fabc);
+      cart_assert(field == rt_num_fields_per_freq-1);
+
+      if(rtAvgRF[rt_num_freqs*field+freq].Value > 1.0e-35)
+	{
+	  frtAbcUni[freq] = rtAvgACxRF[rt_num_freqs*field+freq].Value/rtAvgRF[rt_num_freqs*field+freq].Value;
+	}
+      else
+	{
+	  frtAbcUni[freq] = rtAvgAC[freq].Value;
+	}
+
+      frtAbcAvg[freq] = rtAvgAC[freq].Value;
     }
 
   end_time(WORK_TIMER);
@@ -316,7 +350,7 @@ void rtGlobalUpdateTransfer(int top_level, MPI_Comm level_com)
 #ifdef RT_OUTPUT
   for(freq=0; freq<rt_num_freqs; freq++)
     {
-      cart_debug("RT: Global abs[%d] = %10.3le, avg = %10.3le, max = %10.3le",freq,rtGlobalAC[freq],rtAvgAC[freq].Value,rtMaxAC[freq].Value);
+      cart_debug("RT: Abc[%d] loc=%10.3e, uni=%10.3e, avg=%10.3le, max=%10.3le",freq,frtAbcLoc[freq],frtAbcUni[freq],rtAvgAC[freq].Value,rtMaxAC[freq].Value);
     }
   for(field=0; field<rt_num_fields; field++)
     {
@@ -428,17 +462,12 @@ void rtComputeAbsLevel(int level, int num_level_cells, int *level_cells, int fre
 {
   int i, cell;
   frt_real dx, buffer[5], out[2];
-#ifdef RT_ABSORPTION_CALLBACK_FULL
-  frt_real var[FRT_DIM];
-#else
-  frt_real var[1];
-#endif
   frt_intg idx;
 
   /* turn ifreq into a fortran index */
   idx = freq + 1;
 
-#pragma omp parallel for default(none), private(cell,i,var,buffer,out,dx), shared(num_level_cells,level_cells,idx,abc,cell_vars,constants,level)
+#pragma omp parallel for default(none), private(cell,i,buffer,out,dx), shared(num_level_cells,level_cells,idx,abc,cell_vars,constants,level)
   for(i=0; i<num_level_cells; i++)
     {
       cell = level_cells[i];
@@ -446,42 +475,41 @@ void rtComputeAbsLevel(int level, int num_level_cells, int *level_cells, int fre
       /*
       //  Not sure what to do here
       */
-      //dx = 2*cell_size[level];
       dx = cell_sobolev_length2(cell,level,NULL);
 
-#ifdef RT_ABSORPTION_CALLBACK_FULL
-      rtPackCellData(level,cell,var,NULL);
-#else  /* RT_ABSORPTION_CALLBACK_FULL */
 #ifdef ENRICHMENT
-      var[0] = cell_gas_metal_density(cell)/(constants->Zsun*cell_gas_density(cell));
-#else
-      var[0] = 0.0;
-#endif
-#endif /* RT_ABSORPTION_CALLBACK_FULL */
+#ifdef DUST_EVOLUTION
+      buffer[4] = cell_dust_density(cell);
+#else  /* DUST_EVOLUTION */
+      buffer[4] = cell_gas_metal_density(cell);
+#endif /* DUST_EVOLUTION */
+#else  /* ENRICHMENT */
+      buffer[4] = 0.0;
+#endif /* ENRICHMENT */
 
       if(sizeof(frt_real) == sizeof(float))  /* Optimization */
 	{
 #if (RT_CFI == 1)
-	  frtCall(transfercomputecellabs)(&idx,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),&dx,out,var);
+	  frtCall(transfercomputecellabs)(&idx,&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),buffer+4,&dx,out,var);
 	  abc[0][i] = out[0];
 	  abc[1][i] = out[1];
 #else
-	  frtCall(transfercomputecellabs)(&idx,&(cell_gas_density(cell)),&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),&dx,abc[0]+i,var);
+	  frtCall(transfercomputecellabs)(&idx,&(cell_HI_density(cell)),&(cell_HeI_density(cell)),&(cell_HeII_density(cell)),&(cell_H2_density(cell)),buffer+4,&dx,abc[0]+i);
 #endif
 	}
       else
 	{
-	  buffer[0] = cell_gas_density(cell);
-	  buffer[1] = cell_HI_density(cell);
-	  buffer[2] = cell_HeI_density(cell);
-	  buffer[3] = cell_HeII_density(cell);
-	  buffer[4] = cell_H2_density(cell);
+	  buffer[0] = cell_HI_density(cell);
+	  buffer[1] = cell_HeI_density(cell);
+	  buffer[2] = cell_HeII_density(cell);
+	  buffer[3] = cell_H2_density(cell);
+
 #if (RT_CFI == 1)
 	  frtCall(transfercomputecellabs)(&idx,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,&dx,out,var);
 	  abc[0][i] = out[0];
 	  abc[1][i] = out[1];
 #else
-	  frtCall(transfercomputecellabs)(&idx,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,&dx,out,var);
+	  frtCall(transfercomputecellabs)(&idx,buffer+0,buffer+1,buffer+2,buffer+3,buffer+4,&dx,out);
 	  abc[0][i] = out[0];
 #endif
 	}
@@ -490,16 +518,17 @@ void rtComputeAbsLevel(int level, int num_level_cells, int *level_cells, int fre
       if(abc[0][i]<0.0 || isnan(abc[0][i]))
 	{
 	  cart_debug("Oops: %d %d %g",i,cell,abc[0][i]);
-#ifdef RT_ABSORPTION_CALLBACK_FULL
-	  cart_debug("Z:    %g",var[FRT_Metallicity]);
-#else
-	  cart_debug("Z:    %g",var[0]);
-#endif
 	  cart_debug("rho:  %g",cell_gas_density(cell));
 	  cart_debug("Hi:   %g",cell_HI_density(cell));
 	  cart_debug("HeI:  %g",cell_HeI_density(cell));
 	  cart_debug("HeII: %g",cell_HeII_density(cell));
 	  cart_debug("H2:   %g",cell_H2_density(cell));
+#ifdef ENRICHMENT
+	  cart_debug("Z:    %g",cell_gas_metal_density(cell));
+#ifdef DUST_EVOLUTION
+	  cart_debug("Dust: %g",cell_dust_density(cell));
+#endif /* DUST_EVOLUTION */
+#endif /* ENRICHMENT */
 	  cart_error("Negative absorption");
 	}
 #endif

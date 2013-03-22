@@ -1,0 +1,26 @@
+initial conditions files for one MW like halo are available at http://www.astro.umd.edu/~sleitner/isoics/
+
+to run, rename the MWloz.dat file to 1e5.dat and move it to the output_dir.
+vcirc.dat sets the gas velocity. There is also a high fgas galaxy which should work, although the vcirc read will have to be removed. 
+
+/* UNITS */
+/* ----------- */
+/* Velocity: km/s */
+/* Mass: 10^9 Msun */
+/* Length: kpc */
+
+/* Disk properties (in above units) */
+/* ---------------------------- */
+/* Disk scale length: 3.57927 */
+/* Disk scale height: 0.357927 */
+/* M_DISK: 44.8431 */
+/* M_GAS: 8.96862 */
+/* M200: 1121.08 */
+/* R200: 214.286 */
+/* Total mass will be: 1358.5 */
+
+Particles:
+N_GAS   1e5
+N_HALO  1e5
+N_DISK  1e5
+N_BULGE 1e4
