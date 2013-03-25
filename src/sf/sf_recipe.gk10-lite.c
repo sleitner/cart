@@ -9,7 +9,6 @@
 #include "tree.h"
 #include "units.h"
 
-#include "models/form_star.all.h"
 
 /*
 //  Recipe from GK10, without full RT (using equation 6)
@@ -43,7 +42,6 @@ void sfr_config_init()
   control_parameter_add3(control_parameter_double,&sfr.U_MW,"sf:U_MW","sfr.U_MW","sf:recipe=2:U_MW","If positive, choose a constant value for the U_MW in Gnedin & Kravtsov 2010 eq 6. If -1, you are selecting an estimate for U_MW based on the SFR smoothed on some scale... (under development).");
 
   control_parameter_add3(control_parameter_double,&sfr.D_MW,"sf:D_MW","sfr.D_MW","sf:recipe=2:D_MW","If positive, choose a constant value for the D_MW in Gnedin & Kravtsov 2010 eq 6. If -1, you are selecting an estimate for D_MW based on the cell metallicity.");
-  star_form_config_init();
 }
 
 
@@ -56,14 +54,12 @@ void sfr_config_verify()
   VERIFY(sf:very-high-density, sfr.very_high_density > 0.0 );
   VERIFY(sf:U_MW, (sfr.U_MW==-1 || sfr.U_MW>0.0) );
   VERIFY(sf:D_MW, (sfr.D_MW==-1 || sfr.D_MW>0.0) );
-  star_form_config_verify();
 }
 
 
 void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time*sqrt(32*constants->G*constants->XH*constants->mp/(3*M_PI)); 
-  star_form_setup( level );
 }
 
 
@@ -128,6 +124,7 @@ double sfr_rate(int cell)
       return 0.0;
     }
 }
+
 
 struct StarFormationRecipe sf_recipe_internal =
 {

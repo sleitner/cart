@@ -9,6 +9,7 @@
 #include "tree.h"
 #include "units.h"
 
+
 /*
 //  Oldstyle HART recipe
 */
@@ -26,7 +27,6 @@ void sfr_config_init()
   control_parameter_add4(control_parameter_double,&sfr.slope,"sf:slope","sfr.slope","sf:recipe=0:slope","alpha_sf","the slope of the star formation law with gas density (see HART documentation for exact definition).");
 
   control_parameter_add4(control_parameter_double,&sfr.efficiency,"sf:efficiency","sfr.efficiency","sf:recipe=0:efficiency","eps_sf","the relative efficiency of the star formation law (see HART documentation for exact definition).");
-  star_form_config_init();
 }
 
 
@@ -34,14 +34,12 @@ void sfr_config_verify()
 {
   VERIFY(sf:slope, sfr.slope > 0.0 );
   VERIFY(sf:efficiency, sfr.efficiency > 0.0 );
-  star_form_config_verify();
 }
 
 
 void sfr_setup(int level)
 {
   sfr.factor = sfr.efficiency*units->time/(4.0e9*constants->yr)*pow(units->density*pow(constants->Mpc,3.0)/(1.0e16*constants->Msun),sfr.slope-1);
-  star_form_setup( level ); 
 }
 
 
@@ -50,13 +48,14 @@ double sfr_rate(int cell)
   return sfr.factor*pow(cell_gas_density(cell),sfr.slope);
 }
 
+
 struct StarFormationRecipe sf_recipe_internal =
 {
   "hart",
   sfr_rate,
   sfr_config_init,
   sfr_config_verify,
-  sfr_setup 
+  sfr_setup
 };
 
 

@@ -29,8 +29,7 @@ void config_init_formstar()
   strcpy(ptr,sf_formstar_internal.name);
   control_parameter_add(r,ptr,"sf:formstar","a method for forming star particles. This parameter is for listing only, and must be set with SF_FORMSTAR define in defs.h. See /src/sf for available methods.");
 
-//  printf("\nfrom where you expect:      \n");
-//  if(sf_formstar_internal.config_init != NULL) sf_formstar_internal.config_init();
+  if(sf_formstar_internal.config_init != NULL) sf_formstar_internal.config_init();
 }
 
 

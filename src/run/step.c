@@ -43,8 +43,6 @@
 #include "starformation_feedback_step.h"
 #include "step.h"
 
-extern int poissonRF12_starformation_indicator;
-extern int continuous_starformation_indicator;
 extern int min_time_refinement_factor;
 extern int max_time_refinement_factor;
 extern int time_refinement_level;
