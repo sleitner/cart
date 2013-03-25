@@ -76,6 +76,7 @@ void config_init_star_formation()
   config_init_imf();
 
   config_init_star_formation_recipe();
+  config_init_formstar();
   config_init_star_formation_feedback();
 }
 
@@ -104,6 +105,7 @@ void config_verify_star_formation()
 
   config_verify_star_formation_recipe();
   config_verify_star_formation_feedback();
+  config_verify_formstar();
 }
 
 #endif /* HYDRO */
@@ -113,6 +115,7 @@ void init_star_formation()
   int j;
   
   init_star_formation_feedback();
+  init_formstar();
 
   /*
   //  NG: This limit is very obscure, disable by default

@@ -16,7 +16,7 @@
 #include "units.h"
 #include "rand.h"
 
-#include "form_star.starII.h"
+#include "form_star.runaway-starII.h"
 
 /* STARII related */
 double starII_highmass_slope=-2.35;          /* IMF slope used for sampling starII masses */
@@ -86,12 +86,10 @@ void starII_init()
     sIIminpw = pow( starII_minimum_mass, starII_highmass_slope+1 );
     imfmaxpw = pow( imf->max_mass, starII_highmass_slope+1 ) ;
     tdelay_popM_feedback = OneStar_stellar_lifetime(starII_minimum_mass, 1.0);
-    starII_runaway_init();
 }
 
 void starII_setup(int level){
     starII_avg_mass_code = starII_avg_mass * constants->Msun / units->mass;
-    starII_runaway_setup(level);
 }
 
 double msample_imf_highmass()

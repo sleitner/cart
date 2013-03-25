@@ -15,8 +15,6 @@
 #include "tree.h"
 #include "units.h"
 
-#include "form_star.starII.h"
-
 extern int starII_runaway_indicator;
 
 double Ostar_frac_runaway = 0.5; 
@@ -41,8 +39,6 @@ void starII_runaway_config_verify()
     VERIFY(runaway:Ostar_mass, Ostar_mass >  8.0 );
     VERIFY(runaway:Bstar_mass, Bstar_mass >= 8.0 && Bstar_mass < Ostar_mass );
 }
-void starII_runaway_init(){if(!(starII_runaway_indicator));}
-void starII_runaway_setup(int level){if(!(starII_runaway_indicator));}
 
 double sample_exponential(double tau){
     return -tau*log(cart_rand());

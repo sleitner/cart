@@ -20,6 +20,7 @@ struct FormStar
   void (*form_star_particles)(int level, int icell, double dtl, double dt, float sfr); 
   void (*config_init)();           /* can be NULL */
   void (*config_verify)();         /* can be NULL */
+  void (*init)();                  /* can be NULL */
   void (*setup)(int level);        /* can be NULL */
 };
 
@@ -27,6 +28,8 @@ extern const struct FormStar *sf_formstar;
 
 void config_init_formstar();
 void config_verify_formstar();
+void init_formstar();
+void setup_formstar(int level);
 
 #endif /* HYDRO && STAR_FORMATION */
 

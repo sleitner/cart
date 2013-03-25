@@ -16,7 +16,6 @@
 #include "units.h"
 
 #include "form_star.stargrowth.h"
-//snl add includes
 
 
 void get_com_pos( int icell, double com_pos[nDim], int level ){

@@ -29,7 +29,8 @@ void config_init_formstar()
   strcpy(ptr,sf_formstar_internal.name);
   control_parameter_add(r,ptr,"sf:formstar","a method for forming star particles. This parameter is for listing only, and must be set with SF_FORMSTAR define in defs.h. See /src/sf for available methods.");
 
-  if(sf_formstar_internal.config_init != NULL) sf_formstar_internal.config_init();
+//  printf("\nfrom where you expect:      \n");
+//  if(sf_formstar_internal.config_init != NULL) sf_formstar_internal.config_init();
 }
 
 
@@ -57,6 +58,16 @@ void config_verify_formstar()
   VERIFY(sf:formstar, 1 );
 
   if(sf_formstar_internal.config_verify != NULL) sf_formstar_internal.config_verify();
+}
+
+void init_formstar()
+{
+  if(sf_formstar_internal.init != NULL) sf_formstar_internal.init ();
+}
+
+void setup_formstar(int level)
+{
+  if(sf_formstar->setup != NULL) sf_formstar->setup(level);
 }
 
 #endif /* HYDRO && STAR_FORMATION */

@@ -1,5 +1,5 @@
-#ifndef __FORMSTARS_POISSONRF12_H__
-#define __FORMSTARS_POISSONRF12_H__
+#ifndef __FORMSTARS_HART_H__
+#define __FORMSTARS_HART_H__
 
 #ifndef CONFIGURED
 #error "Missing config.h include."
@@ -7,12 +7,9 @@
 
 
 #ifdef STAR_FORMATION
-
-void poissonRF12_config_init();
-void poissonRF12_config_verify();
-void poissonRF12_init();
-void poissonRF12_setup(int level);
-void poissonRF12_star_formation( int level, int icell, double dtl, double dt_eff, float sfr);
+void formstar_hart_config_init();
+void formstar_hart_config_verify();
+void formstar_hart_setup(int level);
 
 #endif /* STAR_FORMATION */
 #endif

@@ -51,7 +51,7 @@ void config_init_star_formation_feedback()
   ptr = cart_alloc(char,strlen(sf_feedback_particle_internal.name)+1);
   strcpy(ptr,sf_feedback_particle_internal.name);
   control_parameter_add(r,ptr,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
-  control_parameter_add3(control_parameter_double,&feedback_temperature_ceiling,"fb:temperature-ceiling","feedback_temperature_ceiling","T_max_feedback","maximum gas temperature for the feedback to operate. No feedback is allowed in the gas with the temperature above this limit.");
+
   control_parameter_add2(control_parameter_time,&feedback_sampling_timescale,"fb:sampling-timescale","feedback_sampling_timescale","the intervals at which feedback routines are called.");
 
   control_parameter_add2(control_parameter_time,&feedback_speed_time_ceiling,"fb:time-ceiling","feedback_speed_time_ceiling","minimum cell crossing time feedback can contribute to. Kinetic feedback doesn't add to gas speed above this limit.");
