@@ -37,6 +37,10 @@
 
 ?#define SF_RECIPE			<value>
 ?#define SF_FEEDBACK			<value>
+/*
+//  The method used to spawn and/or grow star particles.
+*/
+?#define SF_FORMSTAR			<value>
 
 ?#define OLDSTYLE_SF_ALGORITHM
 
