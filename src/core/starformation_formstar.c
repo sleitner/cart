@@ -64,9 +64,4 @@ void init_formstar()
   if(sf_formstar_internal.init != NULL) sf_formstar_internal.init ();
 }
 
-void setup_formstar(int level)
-{
-  if(sf_formstar->setup != NULL) sf_formstar->setup(level);
-}
-
 #endif /* HYDRO && STAR_FORMATION */

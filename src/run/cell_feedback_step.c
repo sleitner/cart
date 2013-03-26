@@ -28,7 +28,7 @@ void cell_feedback(int level) {
 	setup_cell_feedback(level);
 	t_next = tl[level] + dtl[level];
 
-	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 #ifdef STAR_FORMATION
 #pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next), schedule(dynamic)
 	for ( i = 0; i < num_level_cells; i++ ) {

@@ -43,13 +43,13 @@ void star_form_setup(int level)
 
 void star_form_particles(int level, int icell, double dtl, double dt_eff, float sfr){
     int i;
-    double mstar;
+    float mstar;
     
     mstar = sfr*dt_SF*cell_volume[level];
     
     /* draw number of star formation events 0...\inf from poisson distribution */
     mstar = MAX( mstar_min, mstar );
-    mstar *= (double)cart_rand_poisson( sfr*cell_volume[level]*dt_eff/mstar );
+    mstar *= cart_rand_poisson( sfr*cell_volume[level]*dt_eff/mstar );
     
     if ( mstar > 0.0 ) {
         

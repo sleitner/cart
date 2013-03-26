@@ -46,11 +46,15 @@ float star_formation_volume_max[nDim];
 DEFINE_LEVEL_ARRAY(int,star_formation_frequency);
 
 /* star formation parameters */
+int sf_min_level = min_level;  /* Minimum level on which to create stars */
+
 double sf_min_gas_number_density = 0.1;      /* in cm^{-3}; used to be called rho_SF */
 double sf_max_gas_temperature = 2.0e4;       /* in K; used to be called T_SF */
-int sf_min_level = min_level;  /* Minimum level on which to create stars */
+
 double sf_sampling_timescale = 1.0e6;        /* in yrs; used to be called dtmin_SF, also in HART */
+
 float sf_min_overdensity = 200;
+
 float sf_metallicity_floor = 0.0;            /* this is an obscure parameter, read its help string in config_init_star_formation(). */
 
 void config_init_star_formation()
@@ -109,6 +113,7 @@ void config_verify_star_formation()
 }
 
 #endif /* HYDRO */
+
 
 void init_star_formation()
 {

@@ -39,12 +39,11 @@ void star_formation(int level, int time_multiplier) {
 
   start_time( WORK_TIMER );
 
+  select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF,  &num_level_cells, &level_cells );
+
   sfr = cart_alloc(float,num_level_cells);
   star_formation_rate(level,num_level_cells,level_cells,sfr);
-
   dt_eff = dtl[level] * time_multiplier;
-
-  select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 
   if(sf_formstar->setup != NULL) sf_formstar->setup(level);
 

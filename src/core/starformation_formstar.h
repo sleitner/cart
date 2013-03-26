@@ -29,7 +29,6 @@ extern const struct FormStar *sf_formstar;
 void config_init_formstar();
 void config_verify_formstar();
 void init_formstar();
-void setup_formstar(int level);
 
 #endif /* HYDRO && STAR_FORMATION */
 

@@ -43,7 +43,7 @@ void star_form_setup(int level)
 
 void star_form_particles(int level, int icell, double dtl, double dt_eff, float sfr){
     int i;
-    double mstar;
+    float mstar;
     double P_SF, P_mass;
     
     /* probability of forming a star is Poisson with <t> = dt_SF */
