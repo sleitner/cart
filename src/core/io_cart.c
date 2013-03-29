@@ -83,7 +83,7 @@ void config_verify_io_cart() {
 	VERIFY(io:cart-particle-num-row, cart_particle_num_row > 0 );
 	VERIFY(io:cart-particle-file-mode, cart_particle_file_mode >= 0 && cart_particle_file_mode <= 2 );
 	VERIFY(io:cart-grid-file-mode, cart_grid_file_mode >= 0 && cart_grid_file_mode <= 4 );
-#ifdef HYRO_TRACERS
+#ifdef HYDRO_TRACERS
 	VERIFY(io:cart-tracer-num-row, cart_tracer_num_row > 0 );
 #endif /* HYDRO_TRACERS */
 }
@@ -157,7 +157,6 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		cart_debug("Writing hydro tracer restart...");
 		switch(tracer_filename_flag)
 		  {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 		  case WRITE_SAVE:
 		    {
 			sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
@@ -168,18 +167,6 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 			sprintf( filename_tracers, "%s/%s_%d.dtr", output_directory, jobname, current_restart_backup );
 			break;
 		    }
-#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
-		  case WRITE_SAVE:
-		    {
-			sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
-			break;
-		    }
-		  case WRITE_BACKUP:
-		    {
-			sprintf( filename_tracers, "%s/tracers_%d.dat", output_directory, current_restart_backup );
-			break;
-		    }
-#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  default:
 		    {
 			cart_error("Invalid value for tracer_filename_flag in write_cart_restart!");
@@ -197,7 +184,6 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 		cart_debug("Writing particle restart...");
 		switch(particle_filename_flag)
 		  {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 		  case WRITE_SAVE:
 		    {
 			sprintf( filename1, "%s/%s_%s.dph", output_directory, jobname, label );
@@ -214,24 +200,6 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 			sprintf( filename4, "%s/%s_%d.dst", output_directory, jobname, current_restart_backup );
 			break;
 		    }
-#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
-		  case WRITE_SAVE:
-		    {
-			sprintf( filename1, "%s/PMcrd%s.DAT", output_directory, label );
-			sprintf( filename2, "%s/PMcrs0%s.DAT", output_directory, label );
-			sprintf( filename3, "%s/pt%s.dat", output_directory, label );
-			sprintf( filename4, "%s/stars_%s.dat", output_directory, label );
-			break;
-		    }
-		  case WRITE_BACKUP:
-		    {
-			sprintf( filename1, "%s/PMcrd_%d.DAT", output_directory, current_restart_backup );
-			sprintf( filename2, "%s/PMcrs_%d.DAT", output_directory, current_restart_backup );
-			sprintf( filename3, "%s/pt_%d.dat", output_directory, current_restart_backup );
-			sprintf( filename4, "%s/stars_%d.dat", output_directory, current_restart_backup );
-			break;
-		    }
-#endif  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 		  default :
 		    {
 			cart_error("Invalid value (%d) for particle_filename_flag in write_cart_restart!", particle_filename_flag);
@@ -310,21 +278,12 @@ void read_cart_restart( const char *label ) {
 			cart_debug("Unable to locate restart.dat, trying default filenames!");
 
 			/* try generic names */
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
 			sprintf( filename1,  "%s/%s.dph", output_directory, jobname );
 			sprintf( filename2, "%s/%s.dxv", output_directory, jobname );
 			sprintf( filename3, "%s/%s.dpt", output_directory, jobname );
 			sprintf( filename4, "%s/%s.dst", output_directory, jobname );
 			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
-#else
-			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
-			sprintf( filename1,  "%s/PMcrd.DAT", output_directory );
-			sprintf( filename2, "%s/PMcrs.DAT", output_directory );
-			sprintf( filename3, "%s/pt.dat", output_directory );
-			sprintf( filename4, "%s/stars.dat", output_directory );
-			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
-#endif
 		} else {
 			fscanf( restart, "%s\n", filename_gas );
 #ifdef HYDRO
@@ -341,21 +300,12 @@ void read_cart_restart( const char *label ) {
 			fclose(restart);
 		}
 	} else {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 		sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
 		sprintf( filename1,  "%s/%s_%s.dph", output_directory, jobname, label );
 		sprintf( filename2, "%s/%s_%s.dxv", output_directory, jobname, label );
 		sprintf( filename3, "%s/%s_%s.dpt", output_directory, jobname, label );
 		sprintf( filename4, "%s/%s_%s.dst", output_directory, jobname, label );
 		sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
-#else
-		sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
-		sprintf( filename1,  "%s/PMcrd%s.DAT", output_directory, label );
-		sprintf( filename2, "%s/PMcrs0%s.DAT", output_directory, label );
-		sprintf( filename3, "%s/pt%s.dat", output_directory, label );
-		sprintf( filename4, "%s/stars_%s.dat", output_directory, label );
-		sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
-#endif
 	}
 
 #ifdef SAVE_LOAD_BALANCE_PARTITION

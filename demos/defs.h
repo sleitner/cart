@@ -18,8 +18,6 @@
 
 #define DEBUG_MEMORY_USE
 
-#define PREFIX_JOBNAME_TO_OUTPUT_FILES 
-
 #define num_root_grid_refinements	7
 #define num_refinement_levels		9
 #define num_octs			100000

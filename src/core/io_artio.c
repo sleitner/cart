@@ -99,7 +99,7 @@ void config_init_io_artio() {
 	control_parameter_add2(control_parameter_int,&num_artio_grid_files,"io:num-grid-files","num_grid_files","Number of output grid files. Defaults to the number of MPI tasks.");
 	control_parameter_add2(control_parameter_allocation_strategy,&artio_grid_allocation_strategy,"io:grid-file-allocation-strategy","grid_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: ARTIO_ALLOC_EQUAL_SFC, ARTIO_ALLOC_EQUAL_PROC");
 
-	control_parameter_add2(control_parameter_int,&artio_fileset_directory,"io:artio-fileset-directory","artio_fileset_directory","Whether to group artio outputs into subdirectories of output_directory");
+	control_parameter_add2(control_parameter_bool,&artio_fileset_directory,"io:artio-fileset-directory","artio_fileset_directory","Whether to group artio outputs into subdirectories of output_directory (boolean value)");
 
 #ifdef PARTICLES
 	num_artio_particle_files = num_procs;
@@ -110,11 +110,14 @@ void config_init_io_artio() {
 
 void config_verify_io_artio() {
 	VERIFY(io:artio-buffer-size, artio_buffer_size == -1 || artio_buffer_size > 0 );
+	if ( artio_buffer_size != -1 ) {
+		artio_fileset_set_buffer_size(artio_buffer_size);
+    }
 
 	VERIFY(io:num-grid-files, num_artio_grid_files > 0 && num_artio_grid_files < max_sfc_index );
 	VERIFY(io:grid-file-allocation-strategy, artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
 
-	VERIFY(io:artio-fileset_directory, artio_fileset_directory == 0 || artio_fileset_directory == 1 );
+	VERIFY(io:artio-fileset-directory, artio_fileset_directory == 0 || artio_fileset_directory == 1 );
 
 #ifdef PARTICLES 
 	VERIFY(io:num-particle-files, num_artio_particle_files > 0 && num_artio_particle_files < max_sfc_index );
@@ -317,7 +320,9 @@ void create_artio_filename( int filename_flag, char *label, char *filename ) {
 		case WRITE_SAVE:
 			if ( artio_fileset_directory ) {
 				sprintf( dir, "%s/%s_%s/", output_directory, jobname, label );
-				system_mkdir( dir );
+				if ( system_mkdir( dir ) ) {
+					cart_error("Unable to create directory %s for artio fileset!", dir );
+				}
 				sprintf( filename, "%s/%s_%s", dir, jobname, label );
 			} else {
 				sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
@@ -354,21 +359,12 @@ void write_artio_restart( int grid_filename_flag, int particle_filename_flag, in
 		fileset_options |= WRITE_TRACERS;
 
 		switch(tracer_filename_flag) {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 			case WRITE_SAVE:
 				sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
 				break;
 			case WRITE_BACKUP:
 				sprintf( filename_tracers, "%s/%s_%d.dtr", output_directory, jobname, current_restart_backup );
 				break;
-#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
-			case WRITE_SAVE:
-				sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
-				break;
-			case WRITE_BACKUP:
-				sprintf( filename_tracers, "%s/tracers_%d.dat", output_directory, current_restart_backup );
-				break;
-#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 			default:
 				cart_error("Invalid value for tracer_filename_flag in write_artio_restart!");
 		}
@@ -1119,11 +1115,7 @@ void read_artio_restart( const char *label ) {
 			cart_debug("Unable to locate restart.dat, trying default filename!");
 			sprintf( filename, "%s/%s", output_directory, jobname );
 #ifdef HYDRO_TRACERS
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
-#else
-			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
-#endif
 #endif /* HYDRO_TRACERS */
 		} else {
 			fscanf( restart, "%s\n", filename );
@@ -1135,11 +1127,7 @@ void read_artio_restart( const char *label ) {
 	} else {
 		sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
 #ifdef HYDRO_TRACERS
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
         sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
-#else
-        sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
-#endif
 #endif /* HYDRO_TRACERS */
 	}	
 
@@ -1155,10 +1143,6 @@ void read_artio_restart( const char *label ) {
 	if (num_file_root_cells != num_root_cells) {
 		cart_error( "Number of root cells in file %s header does not match compiled value: %d vs %d",
 				filename, num_file_root_cells, num_root_cells);
-	}
-
-	if ( artio_buffer_size != -1 ) {
-		artio_fileset_set_buffer_size(artio_buffer_size);
 	}
 
 	if ( !artio_fileset_has_grid(handle) ||

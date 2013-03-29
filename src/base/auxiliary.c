@@ -686,7 +686,7 @@ void dmuPrintRegistryContents()
 #ifdef num_octs
   cart_debug("DMU: num_octs=%d",num_octs);
 #endif
-#ifdef num_particle
+#ifdef num_particles
   cart_debug("DMU: num_particles=%d",num_particles);
 #endif
 #ifdef num_star_particles

@@ -8,7 +8,6 @@
 #define HYDRO
 #define REFINEMENT
 /* #define MOMENTUM_DIFFUSION /\*affects refinement*\/ */
-#define PREFIX_JOBNAME_TO_OUTPUT_FILES
 #define STAR_PRESSURE
 
 #define num_root_grid_refinements	6

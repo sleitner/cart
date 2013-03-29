@@ -54,21 +54,12 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 	    {
 	    case WRITE_SAVE:
 	      {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 #ifdef COSMOLOGY
 		sprintf( filename_sclog, "%s/%s_a%06.4f.dsc", output_directory, jobname, auni[min_level] );
 #else
 		sprintf( filename_sclog, "%s/%s_a%06d.dsc", output_directory, jobname, step );
 		cart_error("LOG_STAR_CREATION isn't setup to run without cosmology yet");
 #endif /* COSMOLOGY */
-#else
-#ifdef COSMOLOGY
-		sprintf( filename_sclog, "%s/star_creation_a%06.4f.dat", output_directory, auni[min_level] );
-#else
-		sprintf( filename_sclog, "%s/star_creation_a%06d.dat", output_directory, step );
-		cart_error("LOG_STAR_CREATION define isn't setup to run without cosmology yet");
-#endif /* COSMOLOGY */
-#endif
 		combine_star_creation_log(); 
 		finalize_star_creation_log( filename_sclog );
 		break;

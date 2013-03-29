@@ -47,7 +47,7 @@ int current_output;
 int last_restart_step;
 
 int current_restart_backup = 0;
-int num_restart_backups = 1;
+int num_restart_backups = 2;
 
 int output_frequency = 0;
 int restart_frequency = 1;
