@@ -56,7 +56,7 @@ extern double auni_init;
 int artio_buffer_size = -1;
 int num_artio_grid_files = 1;
 int artio_grid_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
-int artio_fileset_directory = 0;
+int artio_create_fileset_directory = 0;
 
 #ifdef PARTICLES
 int num_artio_particle_files = 1;
@@ -99,7 +99,7 @@ void config_init_io_artio() {
 	control_parameter_add2(control_parameter_int,&num_artio_grid_files,"io:num-grid-files","num_grid_files","Number of output grid files. Defaults to the number of MPI tasks.");
 	control_parameter_add2(control_parameter_allocation_strategy,&artio_grid_allocation_strategy,"io:grid-file-allocation-strategy","grid_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: ARTIO_ALLOC_EQUAL_SFC, ARTIO_ALLOC_EQUAL_PROC");
 
-	control_parameter_add2(control_parameter_bool,&artio_fileset_directory,"io:artio-fileset-directory","artio_fileset_directory","Whether to group artio outputs into subdirectories of output_directory (boolean value)");
+	control_parameter_add2(control_parameter_bool,&artio_create_fileset_directory,"io:artio-create-fileset-directory","artio_create_fileset_directory","Whether to group artio outputs into subdirectories of output_directory (boolean value)");
 
 #ifdef PARTICLES
 	num_artio_particle_files = num_procs;
@@ -117,7 +117,7 @@ void config_verify_io_artio() {
 	VERIFY(io:num-grid-files, num_artio_grid_files > 0 && num_artio_grid_files < max_sfc_index );
 	VERIFY(io:grid-file-allocation-strategy, artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
 
-	VERIFY(io:artio-fileset-directory, artio_fileset_directory == 0 || artio_fileset_directory == 1 );
+	VERIFY(io:artio-create-fileset-directory, artio_create_fileset_directory == 0 || artio_create_fileset_directory == 1 );
 
 #ifdef PARTICLES 
 	VERIFY(io:num-particle-files, num_artio_particle_files > 0 && num_artio_particle_files < max_sfc_index );
@@ -318,7 +318,7 @@ void create_artio_filename( int filename_flag, char *label, char *filename ) {
 
 	switch(filename_flag) {
 		case WRITE_SAVE:
-			if ( artio_fileset_directory ) {
+			if ( artio_create_fileset_directory ) {
 				sprintf( dir, "%s/%s_%s/", output_directory, jobname, label );
 				if ( system_mkdir( dir ) ) {
 					cart_error("Unable to create directory %s for artio fileset!", dir );
@@ -1204,9 +1204,9 @@ void read_artio_restart( const char *label ) {
 #endif
    
 	if ( artio_parameter_get_int( handle, "current_restart_backup", &current_restart_backup ) != ARTIO_SUCCESS ) {
-		current_restart_backup = step % (num_restart_backups * ((restart_frequency>0) ? restart_frequency : 1) );
+		current_restart_backup = (step%((restart_frequency>0) ? restart_frequency : 1) + 1) % num_restart_backups;
 	} else {
-		current_restart_backup = current_restart_backup % num_restart_backups;
+		current_restart_backup = (current_restart_backup+1) % num_restart_backups;
 	}
  
 	/* unit parameters */

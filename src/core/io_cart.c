@@ -216,6 +216,10 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 	}
 #endif /* PARTICLES */
 
+	if ( grid_filename_flag == WRITE_BACKUP || particle_filename_flag == WRITE_BACKUP || tracer_filename_flag == WRITE_BACKUP ) {
+		current_restart_backup = (current_restart_backup+1) % num_restart_backups;
+	}
+
 	if ( local_proc_id == MASTER_NODE && 
 			(grid_filename_flag != NO_WRITE 
 #ifdef PARTICLES
@@ -255,6 +259,7 @@ void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int
 }
 
 void read_cart_restart( const char *label ) {
+	char *p;
 	FILE *restart;
 	char filename[256];
 	char filename_gas[256];
@@ -275,30 +280,22 @@ void read_cart_restart( const char *label ) {
 		restart = fopen( filename, "r" );
 
 		if ( restart == NULL ) {
-			cart_debug("Unable to locate restart.dat, trying default filenames!");
+			cart_error("Unable to locate restart.dat, please specify jobname or create restart.dat!");
+		} 
 
-			/* try generic names */
-			sprintf( filename_gas, "%s/%s.d", output_directory, jobname );
-			sprintf( filename1,  "%s/%s.dph", output_directory, jobname );
-			sprintf( filename2, "%s/%s.dxv", output_directory, jobname );
-			sprintf( filename3, "%s/%s.dpt", output_directory, jobname );
-			sprintf( filename4, "%s/%s.dst", output_directory, jobname );
-			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
-		} else {
-			fscanf( restart, "%s\n", filename_gas );
+		fscanf( restart, "%s\n", filename_gas );
 #ifdef HYDRO
 #ifdef HYDRO_TRACERS
-			fscanf( restart, "%s\n", filename_tracers );
+		fscanf( restart, "%s\n", filename_tracers );
 #endif /* HYDRO_TRACERS */
 #endif /* HYDRO */
-			fscanf( restart, "%s\n", filename1 );
-			fscanf( restart, "%s\n", filename2 );
-			fscanf( restart, "%s\n", filename3 );
+		fscanf( restart, "%s\n", filename1 );
+		fscanf( restart, "%s\n", filename2 );
+		fscanf( restart, "%s\n", filename3 );
 #ifdef STAR_FORMATION
-			fscanf( restart, "%s\n", filename4 );
+		fscanf( restart, "%s\n", filename4 );
 #endif /* STAR_FORMATION */
-			fclose(restart);
-		}
+		fclose(restart);
 	} else {
 		sprintf( filename_gas, "%s/%s_%s.d", output_directory, jobname, label );
 		sprintf( filename1,  "%s/%s_%s.dph", output_directory, jobname, label );
@@ -373,8 +370,13 @@ void read_cart_restart( const char *label ) {
 	end_time( PARTICLE_READ_IO_TIMER );
 #endif /* PARTICLES */
 
-	/* cart files don't save current_restart_backup */
-	current_restart_backup = step % (num_restart_backups * ((restart_frequency>0) ? restart_frequency : 1) );
+	/* cart files don't save current_restart_backup, try to detect from filename */
+	p = strrchr( filename_gas, '_' );
+	if ( p != NULL && sscanf( p, "_%d.d", &current_restart_backup ) == 1 ) {
+		current_restart_backup = (current_restart_backup+1) % num_restart_backups;
+	} else {
+		current_restart_backup = (step%((restart_frequency>0) ? restart_frequency : 1) + 1) % num_restart_backups;
+	}
 }
 
 void set_cart_grid_file_mode(int mode)
