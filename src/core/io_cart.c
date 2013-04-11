@@ -73,7 +73,7 @@ void config_init_io_cart() {
 	control_parameter_add2(control_parameter_int,&cart_grid_file_mode,"io:cart-grid-file-mode","grid_file_mode","Grid file mode (ask Nick)");
 
 #ifdef HYDRO_TRACERS
-	control_paramter_add2(control_parameter_int,&cart_tracer_num_row,"io:cart-tracer-num-row","tracer_num_row","Page size for old style ART tracer particle format (also used for ARTIO).");
+	control_parameter_add2(control_parameter_int,&cart_tracer_num_row,"io:cart-tracer-num-row","tracer_num_row","Page size for old style ART tracer particle format (also used for ARTIO).");
 #endif /* HYDRO_TRACERS */
 }
 
