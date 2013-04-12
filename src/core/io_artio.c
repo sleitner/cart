@@ -380,8 +380,8 @@ void write_artio_restart( int grid_filename_flag, int particle_filename_flag, in
 			create_artio_filename(grid_filename_flag, label, filename);
 			write_artio_restart_worker( filename, fileset_options | WRITE_GRID );
 		} else if ( fileset_options ) {
-			create_artio_filename(grid_filename_flag, label, filename);
-			write_artio_restart_worker( filename, fileset_options );
+			/* only writing tracers */
+			write_artio_restart_worker( NULL, fileset_options );
 		}
 	} else {
 		if ( particle_filename_flag == grid_filename_flag ) {
