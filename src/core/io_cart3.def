@@ -1,0 +1,654 @@
+/*
+//  C-style poor man template
+*/
+
+#ifdef HYDRO
+#ifdef HYDRO_TRACERS
+int compare_tracer_ids( const void *a, const void *b ) {
+	return ( tracer_id[*(int *)a] - tracer_id[*(int *)b] );
+}
+
+void write_cart_hydro_tracers( char *filename ) {
+	int i, j, k;
+	FILE *output;
+	int size;
+	int icell, index;
+	float adum, ainit;
+	float boxh, OmM0, OmL0, OmB0, h100;
+	int *tracer_order;
+	char label[32];
+	int num_tracers_in_page;
+	int num_tracers_per_page, num_tracers_per_proc_page, num_pages;
+	int num_tracers_written, current_id, local_count;
+	float *output_page;
+	float *output_vars_page;
+	int *page_ids[MAX_PROCS];
+	float *vars_page[MAX_PROCS];
+	double *page[MAX_PROCS];
+	int num_pages_sent;
+	int num_pages_received[MAX_PROCS];
+	int count[MAX_PROCS];
+	int pos[MAX_PROCS];
+	MPI_Status status;
+
+	cart_debug("writing hydro tracers");
+
+	num_tracers_per_page = cart_tracer_num_row * cart_tracer_num_row;
+	num_tracers_per_proc_page = num_tracers_per_page / num_procs;
+	num_pages = (num_tracers_total > 0) ? (num_tracers_total - 1) / num_tracers_per_page + 1 : 0;
+
+	/* construct mapping of id -> tracer id */
+	tracer_order = cart_alloc(int, num_local_tracers );
+	j = 0;
+	for ( i = 0; i < num_tracers; i++ ) {
+		if ( tracer_id[i] != NULL_TRACER ) {
+			tracer_order[j++] = i;
+		}
+	}
+	cart_assert( j == num_local_tracers );
+
+	qsort( tracer_order, num_local_tracers, sizeof(int), compare_tracer_ids );
+
+	if ( local_proc_id == MASTER_NODE ) { 
+		output = fopen( filename, "w" );
+		if ( output == NULL ) {
+			cart_error("Unable to open hydro tracer file %s.", filename );
+		}
+
+		/* write header to file */
+		size = 256*sizeof(char);
+		fwrite(&size, sizeof(int), 1, output );
+		fwrite(jobname, sizeof(char), 256, output );
+		fwrite(&size, sizeof(int), 1, output );
+		
+		/* istep, t, dt, adum, ainit */
+#ifdef COSMOLOGY
+		adum = auni[min_level];
+		ainit = auni_init;
+#else
+		adum = ainit = 1.0;
+#endif
+
+		size = sizeof(int) + 2 * sizeof(double) + 2 * sizeof(float);
+
+		fwrite( &size, sizeof(int), 1, output );
+		fwrite( &step, sizeof(int), 1, output );
+		fwrite( &tl[min_level], sizeof(double), 1, output );
+		fwrite( &dtl[min_level], sizeof(double), 1, output );
+#ifdef COSMOLOGY
+		fwrite( &adum, sizeof(float), 1, output );
+		fwrite( &ainit, sizeof(float), 1, output );
+#endif
+		fwrite( &size, sizeof(int), 1, output );
+
+#ifdef COSMOLOGY
+		/* boxh, Om0, Oml0, Omb0, hubble */
+		boxh = box_size;
+		OmM0 = cosmology->OmegaM;
+		OmL0 = cosmology->OmegaL;
+		OmB0 = cosmology->OmegaB;
+		h100 = cosmology->h;
+
+		size = 5 * sizeof(float);
+		fwrite( &size, sizeof(int), 1, output );
+		fwrite( &boxh, sizeof(float), 1, output );
+		fwrite( &OmM0, sizeof(float), 1, output );
+		fwrite( &OmL0, sizeof(float), 1, output );
+		fwrite( &OmB0, sizeof(float), 1, output );
+		fwrite( &h100, sizeof(float), 1, output );
+		fwrite( &size, sizeof(int), 1, output );
+#endif /* COSMOLOGY */
+
+		/* num_grid */
+		size = sizeof(int);
+		fwrite( &size, sizeof(int), 1, output );
+		size = num_grid;
+		fwrite( &size, sizeof(int), 1, output );
+		size = sizeof(int);
+		fwrite( &size, sizeof(int), 1, output );
+
+		/* number of tracers & page_size */
+		size = 2 * sizeof(int);
+		fwrite( &size, sizeof(int), 1, output );
+		fwrite( &num_tracers_total, sizeof(int), 1, output );
+		fwrite( &cart_tracer_num_row, sizeof(int), 1, output );
+		fwrite( &size, sizeof(int), 1, output );
+
+		/* hydro variables traced */
+		size = sizeof(int);
+		fwrite( &size, sizeof(int), 1, output );
+		fwrite( &num_hydro_vars_traced, sizeof(int), 1, output );
+		fwrite( &size, sizeof(int), 1, output );
+
+		size = 32 * num_hydro_vars_traced * sizeof(int);
+		fwrite( &size, sizeof(int), 1, output );
+
+		for ( i = 0; i < num_hydro_vars_traced; i++ ) {
+			snprintf( label, 32, "%s", hydro_vars_traced_labels[i] );
+			fwrite( label, sizeof(char), 32, output );
+		}
+
+		/* write precision of positions */
+		size = sizeof(float);
+		fwrite( &size, sizeof(int), 1, output );
+
+		/* allocate space to receive pages of tracers from other procs */
+		for ( i = 1; i < num_procs; i++ ) {
+			page_ids[i] = cart_alloc(int, num_tracers_per_proc_page );
+			page[i] = cart_alloc(double, nDim * num_tracers_per_proc_page );
+			vars_page[i] = cart_alloc(float, num_hydro_vars_traced * num_tracers_per_proc_page );
+		}
+
+		/* allocate actual page that will be written */
+		output_page = cart_alloc(float, nDim * num_tracers_per_page );
+
+		/* receive initial pages */
+		for ( i = 1; i < num_procs; i++ ) {
+			num_pages_received[i] = 0;
+			MPI_Recv( page_ids[i], num_tracers_per_proc_page, 
+				MPI_INT, i, num_pages_received[i], mpi.comm.run, &status );
+			MPI_Get_count( &status, MPI_INT, &count[i] );
+			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
+			MPI_Recv( page[i], nDim * num_tracers_per_proc_page, MPI_DOUBLE, i, 
+				num_pages_received[i], mpi.comm.run, MPI_STATUS_IGNORE );
+			pos[i] = 0;
+			num_pages_received[i]++;
+		}
+
+		current_id = 0;
+		local_count = 0;
+		for ( i = 0; i < num_pages; i++ ) {
+			/* construct page */
+			num_tracers_written = 0;
+			if ( i == num_pages - 1 ) {
+				num_tracers_in_page = num_tracers_total - num_tracers_per_page * (num_pages - 1);
+			} else {
+				num_tracers_in_page = num_tracers_per_page;
+			}
+
+			cart_assert( num_tracers_in_page > 0 && num_tracers_in_page <= num_tracers_per_page );
+
+			while ( num_tracers_written < num_tracers_in_page ) {
+				/* add from our list */
+				while ( num_tracers_written < num_tracers_in_page &&
+						local_count < num_local_tracers &&
+						tracer_id[tracer_order[local_count]] == current_id ) {
+					index = tracer_order[local_count];
+					
+					output_page[num_tracers_written] 							= tracer_x[index][0] + 1.0;
+					output_page[num_tracers_per_page + num_tracers_written] 	= tracer_x[index][1] + 1.0;
+					output_page[2 * num_tracers_per_page + num_tracers_written]	= tracer_x[index][2] + 1.0;
+
+					local_count++;
+					num_tracers_written++;
+					current_id++;
+				}
+
+				/* add from each processor in turn */
+				for ( j = 1; j < num_procs; j++ ) {
+					while ( num_tracers_written < num_tracers_in_page &&
+							pos[j] < count[j] &&
+							page_ids[j][pos[j]] == current_id ) {
+
+						output_page[num_tracers_written] 							= page[j][nDim * pos[j]] + 1.0;
+						output_page[num_tracers_per_page + num_tracers_written]		= page[j][nDim * pos[j]+1] + 1.0;
+						output_page[2 * num_tracers_per_page + num_tracers_written] = page[j][nDim * pos[j]+2] + 1.0;
+
+						num_tracers_written++;
+						current_id++;
+						pos[j]++;
+
+						/* if we've run out, refill page */
+						if ( pos[j] == count[j] && count[j] == num_tracers_per_proc_page ) {
+							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_INT,
+								j, num_pages_received[j], mpi.comm.run, &status );
+							MPI_Get_count( &status, MPI_INT, &count[j] );
+							cart_assert( count[j] >= 0 && count[j] <= num_tracers_per_proc_page );
+							MPI_Recv( page[j], nDim*num_tracers_per_proc_page,
+								MPI_DOUBLE, j, num_pages_received[j], 
+								mpi.comm.run, MPI_STATUS_IGNORE );
+							pos[j] = 0;
+							num_pages_received[j]++;
+						}
+					}
+				}
+			}
+
+			cart_assert( num_tracers_written == num_tracers_in_page );
+
+			/* write page */
+			fwrite( output_page, sizeof(float), nDim * num_tracers_per_page, output );
+		}
+
+		cart_free( output_page );
+
+		/* allocate actual page which will be written */
+		output_vars_page = cart_alloc(float, num_hydro_vars_traced * num_tracers_per_page );
+
+		/* receive initial pages */
+		for ( i = 1; i < num_procs; i++ ) {
+			MPI_Recv( page_ids[i], num_tracers_per_proc_page, MPI_INT, 
+				i, num_pages_received[i], mpi.comm.run, &status );
+			MPI_Get_count( &status, MPI_INT, &count[i] );
+			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
+			MPI_Recv( vars_page[i], num_hydro_vars_traced * num_tracers_per_proc_page, 
+				MPI_FLOAT, i, num_pages_received[i], mpi.comm.run, MPI_STATUS_IGNORE );
+			pos[i] = 0;
+			num_pages_received[i]++;
+		}
+
+		current_id = 0;
+		local_count = 0;
+		for ( i = 0; i < num_pages; i++ ) {
+			/* construct page */
+			num_tracers_written = 0;
+			if ( i == num_pages - 1 ) {
+				num_tracers_in_page = num_tracers_total - num_tracers_per_page*(num_pages-1);
+			} else {
+				num_tracers_in_page = num_tracers_per_page;
+			}
+
+			cart_assert( num_tracers_in_page > 0 && num_tracers_in_page <= num_tracers_per_page );
+
+			while ( num_tracers_written < num_tracers_in_page ) {
+				/* add from our list */
+				while ( num_tracers_written < num_tracers_in_page &&
+						local_count < num_local_tracers &&
+						tracer_id[tracer_order[local_count]] == current_id ) {
+
+					index = tracer_order[local_count];
+					icell = cell_find_position( tracer_x[index] );
+
+					for ( j = 0; j < num_hydro_vars_traced; j++ ) {
+						cart_assert( j*num_tracers_per_page + num_tracers_written < num_hydro_vars_traced*num_tracers_per_page );
+						output_vars_page[j*num_tracers_per_page + num_tracers_written] = 
+								cell_var(icell,hydro_vars_traced[j]);
+					}
+
+					local_count++;
+					num_tracers_written++;
+					current_id++;
+				}
+
+				/* add from each processor in turn */
+				for ( j = 1; j < num_procs; j++ ) {
+					while ( num_tracers_written < num_tracers_in_page &&
+							pos[j] < count[j] &&
+							page_ids[j][pos[j]] == current_id ) {
+
+						for ( k = 0; k < num_hydro_vars_traced; k++ ) {
+							output_vars_page[k*num_tracers_per_page + num_tracers_written ] =
+								vars_page[j][num_hydro_vars_traced*pos[j]+k];
+						}
+					
+						num_tracers_written++;
+						current_id++;
+						pos[j]++;
+
+						/* if we've run out, refill page */
+						if ( pos[j] == count[j] && count[j] == num_tracers_per_proc_page ) {
+							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_INT,
+								j, num_pages_received[j], mpi.comm.run, &status );
+							MPI_Get_count( &status, MPI_INT, &count[j] );
+							cart_assert( count[j] >= 0 && count[j] <= num_tracers_per_proc_page );
+							MPI_Recv( vars_page[j], num_hydro_vars_traced*num_tracers_per_proc_page,
+								MPI_FLOAT, j, num_pages_received[j], 
+								mpi.comm.run, MPI_STATUS_IGNORE );
+							pos[j] = 0;
+							num_pages_received[j]++;
+						}
+					}
+				}
+			}
+
+			cart_assert( num_tracers_written == num_tracers_in_page );
+
+			/* write page */
+			fwrite( output_vars_page, sizeof(float), num_hydro_vars_traced * num_tracers_per_page, output );
+		}		
+
+		cart_free( output_vars_page );
+
+		for ( i = 1; i < num_procs; i++ ) {
+			cart_free( vars_page[i] );
+			cart_free( page[i] );
+			cart_free( page_ids[i] );
+		}
+		fclose( output );
+	} else {
+		num_pages_sent = 0;
+		page_ids[local_proc_id] = cart_alloc(int, num_tracers_per_proc_page );
+		page[local_proc_id] = cart_alloc(double, nDim*num_tracers_per_proc_page );
+		vars_page[local_proc_id] = cart_alloc(float, num_hydro_vars_traced*num_tracers_per_proc_page );
+
+		num_tracers_written = 0;
+		do {
+			/* pack page */
+			local_count = 0;
+			for ( i = 0; i < num_tracers_per_proc_page && num_tracers_written < num_local_tracers; i++ ) {
+				index = tracer_order[num_tracers_written];
+				cart_assert( index >= 0 && index < num_tracers );
+				cart_assert( tracer_id[index] >= 0 && tracer_id[index] < num_tracers_total );
+				cart_assert( i >= 0 && i < num_tracers_per_proc_page );
+				page_ids[local_proc_id][i] = tracer_id[index];
+				page[local_proc_id][local_count++] = tracer_x[index][0];
+				page[local_proc_id][local_count++] = tracer_x[index][1];
+				page[local_proc_id][local_count++] = tracer_x[index][2];
+				num_tracers_written++;
+			}
+
+			cart_assert( i <= num_tracers_per_proc_page );
+
+			/* send the page */
+			MPI_Send( page_ids[local_proc_id], i, MPI_INT, 
+				MASTER_NODE, num_pages_sent, mpi.comm.run );
+			MPI_Send( page[local_proc_id], local_count, MPI_DOUBLE, 
+				MASTER_NODE, num_pages_sent, mpi.comm.run );
+			num_pages_sent++;
+		} while ( i == num_tracers_per_proc_page );
+
+		cart_free( page[local_proc_id] );
+
+		/* send hydro traced variables */
+		num_tracers_written = 0;
+		do {
+			local_count = 0;
+			for ( i = 0; i < num_tracers_per_proc_page && num_tracers_written < num_local_tracers; i++ ) {
+				index = tracer_order[num_tracers_written];
+				cart_assert( index >= 0 && index < num_tracers );
+				cart_assert( tracer_id[index] >= 0 && tracer_id[index] < num_tracers_total );
+
+				page_ids[local_proc_id][i] = tracer_id[index];
+				icell = cell_find_position( tracer_x[index] );
+
+				for ( j = 0; j < num_hydro_vars_traced; j++ ) {
+					vars_page[local_proc_id][local_count++] = cell_var(icell,hydro_vars_traced[j]);
+				}
+
+				num_tracers_written++;
+			}
+
+			cart_assert( i <= num_tracers_per_proc_page );
+
+			MPI_Send( page_ids[local_proc_id], i, MPI_INT, 	
+				MASTER_NODE, num_pages_sent, mpi.comm.run );
+			MPI_Send( vars_page[local_proc_id], local_count, 
+				MPI_FLOAT, MASTER_NODE, num_pages_sent, mpi.comm.run );
+			num_pages_sent++;
+		} while ( i == num_tracers_per_proc_page );
+
+		cart_free( vars_page[local_proc_id] );
+		cart_free( page_ids[local_proc_id] );
+	}
+
+	cart_free( tracer_order );
+}
+
+void read_cart_hydro_tracers( char *filename ) {
+	int i, j;
+	FILE *input;
+	int size, endian;
+	char tracerjobname[256];
+	double tmpt, tmpdt;
+	int tmp_num_grid, tmp_num_hydro_vars_traced;
+	int num_read;
+	int proc;
+	int current_id;
+	int tracer;
+	int index;
+	int coords[nDim];
+	float ainit, adum;
+	float boxh, Om0, Oml0, Omb0, h;
+	char label[32];
+	int num_tracers_in_page;
+	int num_tracers_per_page, num_tracers_per_proc_page, num_pages;
+	double *input_page;
+	double *x, *y, *z;
+	int *page_ids[MAX_PROCS];
+	double *page[MAX_PROCS];
+	int count[MAX_PROCS];
+	int current_page[MAX_PROCS];
+	MPI_Status status;
+
+	if ( local_proc_id == MASTER_NODE ) {
+		input = fopen( filename, "r" );
+		if ( input == NULL ) {
+			cart_error("Unable to open hydro tracer file %s.", filename );
+		}
+
+		endian = 0;
+
+                /* write header to file */
+		fread( &size, sizeof(int), 1, input );
+
+		if ( size != 256*sizeof(char) ) {
+			reorder( (char *)&size, sizeof(int) );
+
+			if ( size == 256*sizeof(char) ) {
+				endian = 1;
+				cart_debug("switching endianness of tracer file");
+			} else {
+				cart_debug("hydro tracer file %s appears to be corrupt!", filename );
+			}
+		}
+
+		fread( tracerjobname, sizeof(char), 256, input );
+		fread(&size, sizeof(int), 1, input );
+
+		cart_debug("tracer job name: %s", tracerjobname );
+
+		fread( &size, sizeof(int), 1, input );
+		fread( &step, sizeof(int), 1, input );
+		fread( &tmpt, sizeof(double), 1, input );
+		fread( &tmpdt, sizeof(double), 1, input );
+#ifdef COSMOLOGY
+		fread( &adum, sizeof(float), 1, input );
+		fread( &ainit, sizeof(float), 1, input );
+#endif /* COSMOLOGY */
+		fread( &size, sizeof(int), 1, input );
+
+#ifdef COSMOLOGY 
+		/* boxh, Om0, Oml0, Omb0, hubble */
+		fread( &size, sizeof(int), 1, input );
+		fread( &boxh, sizeof(float), 1, input );
+		fread( &Om0, sizeof(float), 1, input );
+		fread( &Oml0, sizeof(float), 1, input );
+		fread( &Omb0, sizeof(float), 1, input );
+		fread( &h, sizeof(float), 1, input );
+		fread( &size, sizeof(int), 1, input );
+#endif /* COSMOLOGY */
+
+		/* num_grid */
+		fread( &size, sizeof(int), 1, input );
+		fread( &tmp_num_grid, sizeof(int), 1, input );
+		fread( &size, sizeof(int), 1, input );	
+
+		if ( endian ) {
+			reorder( (char *)&tmp_num_grid, sizeof(int) );
+		}
+
+		if ( tmp_num_grid != num_grid ) {
+			cart_error("num_grid in %s doesn't match compiled: %u vs %u\n", filename, tmp_num_grid, num_grid );
+		}
+
+		/* number of tracers & page_size */
+		fread( &size, sizeof(int), 1, input );
+		fread( &num_tracers_total, sizeof(int), 1, input );
+		fread( &cart_tracer_num_row, sizeof(int), 1, input );
+		fread( &size, sizeof(int), 1, input );
+
+		if ( endian ) {
+			reorder( (char *)&num_tracers_total, sizeof(int) );
+			reorder( (char *)&cart_tracer_num_row, sizeof(int) );
+		}
+
+		/* hydro variables traced */
+		fread( &size, sizeof(int), 1, input );
+		fread( &tmp_num_hydro_vars_traced, sizeof(int), 1, input );
+		fread( &size, sizeof(int), 1, input );
+
+		if ( endian ) {
+			reorder( (char *)&tmp_num_hydro_vars_traced, sizeof(int) );
+		}
+
+		fread( &size, sizeof(int), 1, input );
+
+		for ( i = 0; i < tmp_num_hydro_vars_traced; i++ ) {
+			fread( label, sizeof(char), 32, input );
+		}
+
+		fread( &size, sizeof(int), 1, input );
+	}
+
+	MPI_Bcast( &cart_tracer_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+	MPI_Bcast( &num_tracers_total, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+
+	num_tracers_per_page = cart_tracer_num_row*cart_tracer_num_row;
+	num_tracers_per_proc_page = num_tracers_per_page/num_procs;
+	num_pages = (num_tracers_total>0) ? (num_tracers_total-1) / num_tracers_per_page + 1 : 0;
+
+	if ( local_proc_id == MASTER_NODE ) {
+		input_page = cart_alloc(double, nDim*num_tracers_per_page );
+
+		x = input_page;
+		y = &input_page[num_tracers_per_page];
+		z = &input_page[2*num_tracers_per_page];
+
+		/* allocate buffer space for tracers on other processors */
+		for ( i = 1; i < num_procs; i++ ) {
+			page_ids[i] = cart_alloc(int, num_tracers_per_proc_page );
+			page[i] = cart_alloc(double, nDim*num_tracers_per_proc_page );
+			count[i] = 0;
+			current_page[i] = 0;
+		}
+
+		current_id = 0;
+
+		for ( i = 0; i < num_pages; i++ ) {
+			if ( i == num_pages - 1 ) {
+				num_tracers_in_page = num_tracers_total - num_tracers_per_page*(num_pages-1);
+			} else {
+				num_tracers_in_page = num_tracers_per_page;
+			}
+
+			num_read = fread( input_page, sizeof(double), nDim*num_tracers_per_page, input );
+
+			if ( num_read != nDim*num_tracers_per_page ) {
+				cart_error("Error reading from tracer file %s: insufficient data", filename );
+			}
+
+			if ( endian ) {
+				for ( j = 0; j < num_tracers_in_page; j++ ) {
+					reorder( (char *)&x[j], sizeof(double) );
+					reorder( (char *)&y[j], sizeof(double) );
+					reorder( (char *)&z[j], sizeof(double) );
+				}
+			}
+	
+			for ( j = 0; j < num_tracers_in_page; j++ ) {
+				x[j] -= 1.0;
+				y[j] -= 1.0;
+				z[j] -= 1.0;
+
+				/* enforce periodic boundary conditions */
+				if ( x[j] < 0.0 ) {
+					x[j] += (double)num_grid;
+				} else if ( x[j] >= (double)num_grid ) {
+					x[j] -= (double)num_grid;
+				}
+
+				if ( y[j] < 0.0 ) {
+					y[j] += (double)num_grid;
+				} else if ( y[j] >= (double)num_grid ) {
+					y[j] -= (double)num_grid;
+				}
+
+				if ( z[j] < 0.0 ) {
+					z[j] += (double)num_grid;
+				} else if ( z[j] >= (double)num_grid ) {
+					z[j] -= (double)num_grid;
+				}
+
+				coords[0] = (int)(x[j]);
+				coords[1] = (int)(y[j]);
+				coords[2] = (int)(z[j]);
+	
+				index = sfc_index( coords );
+				cart_assert( index >= 0 && index < max_sfc_index );
+				proc = processor_owner( index );
+	
+				if ( proc == MASTER_NODE ) {
+					tracer = tracer_alloc( current_id );
+
+					tracer_x[tracer][0] = x[j];
+					tracer_x[tracer][1] = y[j];
+					tracer_x[tracer][2] = z[j];
+				} else {
+					page_ids[proc][count[proc]] = current_id;
+					page[proc][nDim*count[proc]] = x[j];
+					page[proc][nDim*count[proc]+1] = y[j];
+					page[proc][nDim*count[proc]+2] = z[j];
+					count[proc]++;
+
+					if ( count[proc] == num_tracers_per_proc_page ) {
+						MPI_Send( page_ids[proc], num_tracers_per_proc_page, MPI_INT, proc,
+							current_page[proc], mpi.comm.run );
+						MPI_Send( page[proc], nDim*num_tracers_per_proc_page,
+							MPI_DOUBLE, proc, current_page[proc], mpi.comm.run );
+						count[proc] = 0;
+						current_page[proc]++;
+					}
+				}
+
+				current_id++;
+			}
+		}
+
+		/* send final pages */
+		for ( proc = 1; proc < num_procs; proc++ ) {
+			MPI_Send( page_ids[proc], count[proc], MPI_INT, proc, current_page[proc], mpi.comm.run );
+			MPI_Send( page[proc], nDim*count[proc], MPI_DOUBLE, proc, current_page[proc], mpi.comm.run );
+			cart_free( page_ids[proc] );
+			cart_free( page[proc] );
+		}
+
+		cart_free( input_page );
+
+		fclose( input );
+	} else {
+
+		page_ids[local_proc_id] = cart_alloc(int, num_tracers_per_proc_page );
+		page[local_proc_id] = cart_alloc(double, nDim*num_tracers_per_proc_page );
+		count[local_proc_id] = num_tracers_per_proc_page;
+		current_page[local_proc_id] = 0;
+
+		while ( count[local_proc_id] == num_tracers_per_proc_page ) {
+			MPI_Recv( page_ids[local_proc_id], num_tracers_per_proc_page, MPI_INT,
+				MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
+			MPI_Get_count( &status, MPI_INT, &count[local_proc_id] );
+			MPI_Recv( page[local_proc_id], nDim*num_tracers_per_proc_page,
+				MPI_DOUBLE, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
+
+			current_page[local_proc_id]++;
+
+			for ( i = 0; i < count[local_proc_id]; i++ ) {
+				tracer = tracer_alloc( page_ids[local_proc_id][i] );
+
+				tracer_x[tracer][0] = page[local_proc_id][nDim*i];
+				tracer_x[tracer][1] = page[local_proc_id][nDim*i+1];
+				tracer_x[tracer][2] = page[local_proc_id][nDim*i+2];
+			}
+		}
+
+		cart_free( page[local_proc_id] );
+		cart_free( page_ids[local_proc_id] );
+	}
+
+	cart_debug("num_local_tracers = %u", num_local_tracers );
+	build_tracer_list();
+}
+
+#endif /* HYDRO_TRACERS */
+#endif /* HYDRO */
+
+
