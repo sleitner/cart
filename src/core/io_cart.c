@@ -52,6 +52,7 @@ int cart_particle_file_mode = 0;
 
 #ifdef HYDRO_TRACERS
 int cart_tracer_num_row = num_grid;
+int cart_tracer_file_mode = 0;
 #endif /* HYDRO_TRACERS */
 
 #ifdef RADIATIVE_TRANSFER
@@ -74,6 +75,7 @@ void config_init_io_cart() {
 
 #ifdef HYDRO_TRACERS
 	control_parameter_add2(control_parameter_int,&cart_tracer_num_row,"io:cart-tracer-num-row","tracer_num_row","Page size for old style ART tracer particle format (also used for ARTIO).");
+    control_parameter_add2(control_parameter_int,&cart_tracer_file_mode,"io:cart-tracer-file-mode","tracer_file_mode","Precision of hydro tracer positions to write to file. 0 = double precision, 1 = single precision. Default is 0.");
 #endif /* HYDRO_TRACERS */
 }
 
@@ -85,6 +87,7 @@ void config_verify_io_cart() {
 	VERIFY(io:cart-grid-file-mode, cart_grid_file_mode >= 0 && cart_grid_file_mode <= 4 );
 #ifdef HYDRO_TRACERS
 	VERIFY(io:cart-tracer-num-row, cart_tracer_num_row > 0 );
+    VERIFY(io:cart-tracer-file-mode, cart_tracer_file_mode >= 0 && cart_trader_file_mode <= 1 );
 #endif /* HYDRO_TRACERS */
 }
 
@@ -2614,14 +2617,48 @@ void read_cart_particles( char *header_filename, char *data_filename,
 }
 #endif /* PARTICLES */
 
-
 #ifdef HYDRO
 #ifdef HYDRO_TRACERS
 int compare_tracer_ids( const void *a, const void *b ) {
 	return ( tracer_id[*(int *)a] - tracer_id[*(int *)b] );
 }
 
+/*
+//  Create multiple versions of write_cart_hydro_tracers using C-style templates
+*/
+#define FUNCTION_WRITE              write_cart_hydro_tracers_double
+#define FUNCTION_READ               read_cart_hydro_tracers_double
+#define HYDRO_TRACER_POSITION_FLOAT double
+#include "io_cart3_hydro_tracer.def"
+
+#define FUNCTION_WRITE              write_cart_hydro_tracers_float
+#define FUNCTION_READ               read_cart_hydro_tracers_float
+#define HYDRO_TRACER_POSITION_FLOAT float
+#include "io_cart3_hydro_tracer.def"
+
 void write_cart_hydro_tracers( char *filename ) {
+    switch(cart_particle_file_mode) {
+        case 0: {
+            write_cart_hydro_tracers_double(char *filename);
+        }
+        case 1: {
+            write_cart_hydro_tracers_float(char *filename);
+        }
+    }
+}
+
+void read_cart_hydro_tracers( char *filename ) {
+    switch(cart_particle_file_mode) {
+        case 0: {
+            read_cart_hydro_tracers_double(char *filename);
+        }
+        case 1: {
+            read_cart_hydro_tracers_float(char *filename);
+        }
+    }
+}
+
+void write_cart_hydro_tracers_archive( char *filename ) {
 	int i, j, k;
 	FILE *output;
 	int size;
@@ -2741,6 +2778,8 @@ void write_cart_hydro_tracers( char *filename ) {
 			fwrite( label, sizeof(char), 32, output );
 		}
 
+        /* modified to write size of tracer position */
+        size = sizeof(double);
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* allocate space to receive pages of tracers from other procs */
@@ -2995,7 +3034,7 @@ void write_cart_hydro_tracers( char *filename ) {
 	cart_free( tracer_order );
 }
 
-void read_cart_hydro_tracers( char *filename ) {
+void read_cart_hydro_tracers_archive( char *filename ) {
 	int i, j;
 	FILE *input;
 	int size, endian;

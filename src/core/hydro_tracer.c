@@ -41,22 +41,26 @@ int hydro_vars_traced[] = {
 	HVAR_GAS_DENSITY,
 	HVAR_INTERNAL_ENERGY,
 	HVAR_METAL_DENSITY_II,
-	HVAR_METAL_DENSITY_Ia };
+	HVAR_METAL_DENSITY_Ia
+};
 char *hydro_vars_traced_labels[] = { 	
 	"density",
-	"internal energy",
-	"SNII metallicity",
-	"SNIa metallicity" };
+	"energy internal",
+	"metallicity ii",
+	"metallicity ia"
+};
 #else  /* ENRICHMENT && ENRICHMENT_SNIa */
-int num_hydro_vars_traced = 3;
+int num_hydro_vars_traced = 2;
 int hydro_vars_traced[] = { 
 	HVAR_GAS_DENSITY,
-	HVAR_GAS_ENERGY,
-	HVAR_INTERNAL_ENERGY };
+	HVAR_INTERNAL_ENERGY
+	//HVAR_GAS_ENERGY
+};
 char *hydro_vars_traced_labels[] = {	
 	"density",
-	"total energy",
-	"internal energy" };
+	"energy internal"
+	//"energy total"
+};
 #endif /* ENRICHMENT && ENRICHMENT_SNIa */
 
 
