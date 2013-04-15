@@ -837,8 +837,8 @@ halo_list *find_halos() {
 					h->mvir*cosmology->h*units->mass/constants->Msun );
         }
 
-
-		if ( h->mvir < min_halo_mass_code ) {
+		/* explicitly discard if mvir has been set to 0 or is less than minimum parameter */
+		if ( h->mvir == 0.0 || h->mvir < min_halo_mass_code ) {
 			if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
 				cart_debug("halo id = %d too small, discarding", h->id );
 			}
