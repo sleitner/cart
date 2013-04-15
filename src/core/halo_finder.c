@@ -92,17 +92,17 @@ void control_parameter_list_halo_delta_vir(FILE *stream, const void *ptr) {
 	}
 }
 
-void control_parameter_set_halo_finding_volume(const char *value, void *ptr, int ind) {
+void control_parameter_set_halo_finder_volume(const char *value, void *ptr, int ind) {
 	if ( sscanf(value, "%*[(]%lg%*[,]%lg%*[,]%lg%*[,;]%lg%*[)]", &halo_finder_volume_center[0],
 			&halo_finder_volume_center[1],
 			&halo_finder_volume_center[2],
 			&halo_finder_volume_radius ) != 4 ) {
-		cart_error("Unable to read value for halo:volume_center from `%s`", value );
+		cart_error("Unable to read value for halo:finder_volume from `%s`", value );
 	}
 	halo_finder_volume_flag = 1;
 }
 
-void control_parameter_list_halo_finding_volume(FILE *stream, const void *ptr) {
+void control_parameter_list_halo_finder_volume(FILE *stream, const void *ptr) {
 	fprintf(stream, "(%g, %g, %g; %g)", halo_finder_volume_center[0],
 			halo_finder_volume_center[1], halo_finder_volume_center[2],
 			halo_finder_volume_radius );
@@ -110,8 +110,8 @@ void control_parameter_list_halo_finding_volume(FILE *stream, const void *ptr) {
 
 void config_init_halo_finder() {
 	ControlParameterOps control_parameter_halo_delta_vir = { control_parameter_set_halo_delta_vir, control_parameter_list_halo_delta_vir };
-	ControlParameterOps control_parameter_halo_finder_volume = { control_parameter_set_halo_finding_volume, 
-			control_parameter_list_halo_finding_volume };
+	ControlParameterOps control_parameter_halo_finder_volume = { control_parameter_set_halo_finder_volume, 
+			control_parameter_list_halo_finder_volume };
 
 	control_parameter_add2(control_parameter_string,halo_finder_output_directory_d,"directory:halo-finder","halo_finder_output_directory","directory for output halo catalog files." );
 	control_parameter_add(control_parameter_int,&halo_finder_frequency,"frequency:halo-finder","Sets number of root level steps between halo finding steps");
@@ -160,7 +160,7 @@ void config_verify_halo_finder() {
 	VERIFY( halo:debug_enabled, halo_finder_debug_flag == 0 || halo_finder_debug_flag == 1 );
 
 	/* cannot fully verify volume center until coordinate system defined */
-	VERIFY( halo:halo_finder_volume, halo_finder_volume_flag==0 || 
+	VERIFY( halo:finder_volume, halo_finder_volume_flag==0 || 
 		(halo_finder_volume_radius > 0.0 && halo_finder_volume_center[0] >= 0.0 &&
 			halo_finder_volume_center[1] >= 0.0 && halo_finder_volume_center[2] >= 0 ) );
 }
@@ -359,6 +359,11 @@ void compute_halo_mass( halo *h ) {
 		total_cv[i] = 0.0;
 	}
 
+	if ( halo_finder_debug_flag && local_proc_id == MASTER_NODE ) {
+		cart_debug("Binned profile for halo %d", h->id );
+		cart_debug("bin rr [kpc/h] delta(<r) M(<r) [Msun/h] vcirc [km/s]");
+	}
+
 	for ( bin = 0; bin < num_bins; bin++ ) {
 		total_mass += bin_mass[bin];
 		bin_total_mass[bin] = total_mass;
@@ -387,6 +392,12 @@ void compute_halo_mass( halo *h ) {
 			vmax = vcirc;
 		}
 
+		if ( halo_finder_debug_flag && local_proc_id == MASTER_NODE ) {
+			cart_debug("%u %e %e %e %e", bin, rr[bin]*1000.*units->length_in_chimps,
+				dbi2, total_mass*cosmology->h*units->mass/constants->Msun,
+				vcirc*units->velocity/constants->kms );
+		}
+
 		/* compute virial radius */
 		if ( bin > 0 && ( dbi1 >= delta_vir_mean && dbi2 < delta_vir_mean ) ) {
 			rrl = log10(rr[bin]);
@@ -407,8 +418,15 @@ void compute_halo_mass( halo *h ) {
 	}
 
 	if ( bin == num_bins ) {
-		h->rvir = rr[num_bins-1];
-		h->mvir = bin_total_mass[num_bins-1];
+		if ( dbi2 >= delta_vir_mean ) {
+				/* normal halo, didn't reach virial overdensity */
+				h->rvir = rr[num_bins-1];
+				h->mvir = bin_total_mass[num_bins-1];
+		} else {
+				/* virial overdensity must lie inside first bin, throw halo away */
+				h->rvir = rr[0];
+				h->mvir = 0.0;
+		}
 
 		for ( i = 0; i < nDim; i++ ) {
 			h->vel[i] = bin_total_cv[i][num_bins-1];
@@ -669,6 +687,10 @@ halo_list *find_halos() {
 		hf_radius = halo_finder_volume_radius / units->length_in_chimps;
 		for ( i = 0; i < nDim; i++ ) {
 			hf_center[i] = halo_finder_volume_center[i] / units->length_in_chimps;
+			if ( hf_center[i] < 0 || hf_center[i] > num_grid ) {
+				cart_error("Invalid position in halo finder, %e, %e chimps\n",
+					hf_center[i], halo_finder_volume_center[i] );
+			}
 		}
 	}
 
