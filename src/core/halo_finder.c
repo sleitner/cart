@@ -63,12 +63,23 @@ char halo_finder_output_directory_d[CONTROL_PARAMETER_STRING_LENGTH] = ".";
 const char* halo_finder_output_directory = halo_finder_output_directory_d;
 
 void control_parameter_set_halo_delta_vir(const char *value, void *ptr, int ind) {
+	char mode;
+
 	if ( strcmp(value,"vir") == 0 ) {
 		delta_vir = 1.0;
 		delta_vir_unit = 2;
-	} else if ( sscanf(value, "%lgc", &delta_vir) == 1 ) {
-		delta_vir_unit = 1;
-	} else if ( sscanf(value, "%lgm", &delta_vir) == 1 || sscanf(value, "%lg", &delta_vir) == 1 ) {
+	} else if ( sscanf(value, "%lg%c", &delta_vir, &mode ) == 2 ) {
+		if ( mode == 'c' ) {
+			delta_vir_unit = 1;
+		} else if ( mode == 'm' ) {
+			delta_vir_unit = 0;
+		} else if ( mode == 'v' ) {
+			/* why are you asking for a multiple of the virial overdensity? */
+			delta_vir_unit = 2;
+		} else {
+			cart_error("Unknown overdensity unit `%c` in halo:overdensity string `%s`", mode, value );
+		}	
+	} else if ( sscanf(value, "%lg", &delta_vir) == 1 ) {
 		delta_vir_unit = 0;
 	} else {
 		cart_error("Unable to read value for halo:overdensity from `%s`", value );
@@ -76,7 +87,6 @@ void control_parameter_set_halo_delta_vir(const char *value, void *ptr, int ind)
 }
 
 void control_parameter_list_halo_delta_vir(FILE *stream, const void *ptr) {
-	fprintf(stream, "%g", delta_vir );
 	switch (delta_vir_unit) {
 		case 0:
 			fprintf(stream,"%f mean", delta_vir);
@@ -103,9 +113,13 @@ void control_parameter_set_halo_finder_volume(const char *value, void *ptr, int 
 }
 
 void control_parameter_list_halo_finder_volume(FILE *stream, const void *ptr) {
-	fprintf(stream, "(%g, %g, %g; %g)", halo_finder_volume_center[0],
-			halo_finder_volume_center[1], halo_finder_volume_center[2],
-			halo_finder_volume_radius );
+	if ( halo_finder_volume_flag ) {
+		fprintf(stream, "(%g, %g, %g; %g)", halo_finder_volume_center[0],
+				halo_finder_volume_center[1], halo_finder_volume_center[2],
+				halo_finder_volume_radius );
+	} else {
+		fprintf(stream, "(NOT SET)");
+	}
 }
 
 void config_init_halo_finder() {
@@ -672,10 +686,10 @@ halo_list *find_halos() {
 			delta_vir_mean = delta_vir;
 			break;
 		case 1:
-			delta_vir_mean = delta_vir/cosmology->OmegaM*pow(abox[min_level],3.0)/pow(cosmology_mu(abox[min_level]),2.0);
+			delta_vir_mean = delta_vir/(cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0));
 			break;
 		case 2:
-			x = 1.0 - cosmology->OmegaM/pow(abox[min_level],-3.0)/pow(cosmology_mu(abox[min_level]),2.0);
+			x = cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0) - 1.0;
 			delta_vir_mean = ( 18.0*M_PI*M_PI + 82.0*x - 39.0*x*x ) / ( 1 + x );
 			break;
 		default:
@@ -752,7 +766,9 @@ halo_list *find_halos() {
 	/* apply density threshold and density max constraint for halo centers */
 	num_centers_local = 0;
 	for ( i = 0; i < num_particles; i++ ) {
-		if ( particle_flag[i] == 2 && particle_density[i] > delta_halo_center ) {
+		if ( particle_flag[i] == 2 && 
+				particle_density[i] > MAX( delta_halo_center,
+					delta_vir_mean / ( 1.0 - cosmology->OmegaB / cosmology->OmegaM ) ) ) {
 			num_centers_local++;
 		}
 	}
@@ -763,7 +779,9 @@ halo_list *find_halos() {
 
 	num_centers_local = 0;
 	for ( i = 0; i < num_particles; i++ ) {
-		if ( particle_flag[i] == 2 && particle_density[i] > delta_halo_center ) {
+		if ( particle_flag[i] == 2 &&
+				particle_density[i] > MAX( delta_halo_center,
+					delta_vir_mean / ( 1.0 - cosmology->OmegaB / cosmology->OmegaM ) ) ) {
 			order[num_centers_local++] = i;
 		}
 	}
