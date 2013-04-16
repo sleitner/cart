@@ -487,7 +487,7 @@ void halo_recenter( halo *h ) {
 		k2 = (int)(h->pos[2]+rcm);
 
 #ifdef OPENMP_DECLARE_CONST
-#pragma omp parallel private(cell_list,i,j,k,m,local_cm,local_cm_mass,coords,r,icell,ipart,dx,mass,level,ioct,parent,child)
+#pragma omp parallel default(none) shared(i1,i2,j1,j2,k1,k2,niter,h,cm,cm_mass,rcm,cell_child_oct,cell_particle_list,particle_list_next,cell_vars,particle_mass,particle_x,num_bins,cell_volume,oct_pos,oct_level,cell_delta) private(cell_list,i,j,k,m,local_cm,local_cm_mass,coords,r,icell,ipart,dx,mass,level,ioct,parent,child)
 #else
 #ifndef COMPILER_GCC
 		/* Get compiler segfault under GCC */
@@ -929,7 +929,7 @@ void write_halo_list( halo_list *halos ) {
 
 		fprintf( output, "# %s\n", jobname );
 		fprintf( output, "# step = %u, auni = %8.6f, abox = %8.6f\n", step, auni[min_level], abox[min_level] );
-		fprintf( output, "# Cosmology: OmM = %.2f, OmL = %.2f, OmB = %.4f, h = %.2f, DeltaDC = %.3f\n",
+		fprintf( output, "# Cosmology: OmM = %.3f, OmL = %.3f, OmB = %.4f, h = %.3f, DeltaDC = %.3f\n",
 				cosmology->OmegaM, cosmology->OmegaL, cosmology->OmegaB, cosmology->h, cosmology->DeltaDC );
 		fprintf( output, "# Lbox = %.2f [Mpc/h comoving]\n", box_size );
 		fprintf( output, "# num_neighbors = %u, Deltamin = %.2f, Deltavir = %.2f (mean)\n", 
