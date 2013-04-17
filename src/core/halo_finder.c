@@ -943,7 +943,7 @@ void write_halo_list( halo_list *halos ) {
 			fprintf( output, "# Halo centering: density peak\n" );
 		}
 
-		fprintf( output, "# Columns: halo_id x y z [Mpc/h comoving] vx vy vz [peculiar km/s] Rvir [kpc/h comoving]\n#     Mvir [Msun/h] vmax [km/s] rmax [kpc/h comoving]\n" );
+		fprintf( output, "# Columns: halo_id x y z [Mpc/h comoving] vx vy vz [peculiar km/s] Rvir [kpc/h comoving]\n#     Mvir [Msun/h] np vmax [km/s] rmax [kpc/h comoving]\n" );
 		fprintf( output, "#################################################################################################################\n");
 
 		for ( ih = 0; ih < halos->num_halos; ih++ ) {
