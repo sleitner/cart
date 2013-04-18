@@ -373,7 +373,7 @@ void compute_halo_mass( halo *h ) {
 		total_cv[i] = 0.0;
 	}
 
-	if ( halo_finder_debug_flag && local_proc_id == MASTER_NODE ) {
+	if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
 		cart_debug("Binned profile for halo %d", h->id );
 		cart_debug("bin rr [kpc/h] delta(<r) M(<r) [Msun/h] vcirc [km/s]");
 	}
@@ -406,7 +406,7 @@ void compute_halo_mass( halo *h ) {
 			vmax = vcirc;
 		}
 
-		if ( halo_finder_debug_flag && local_proc_id == MASTER_NODE ) {
+		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
 			cart_debug("%u %e %e %e %e", bin, rr[bin]*1000.*units->length_in_chimps,
 				dbi2, total_mass*cosmology->h*units->mass/constants->Msun,
 				vcirc*units->velocity/constants->kms );
@@ -625,7 +625,7 @@ void halo_recenter( halo *h ) {
 
 		dr = sqrt(dr)/rcm;
 
-		if ( halo_finder_debug_flag ) {
+		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
 			cart_debug("id = %d, x = %e %e %e, rcm = %e, dr = %e, cm_mass = %e", h->id,
 				h->pos[0]*units->length_in_chimps, 
 				h->pos[1]*units->length_in_chimps,
@@ -838,9 +838,9 @@ halo_list *find_halos() {
 		compute_halo_mass(h);
 
 		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
-            cart_debug("halo id = %d, initial mass %e Msun/h", h->id, h->mvir*cosmology->h*units->mass/constants->Msun );
-        }
-
+			cart_debug("halo id = %d, initial mass %e Msun/h", h->id, 
+				h->mvir*cosmology->h*units->mass/constants->Msun );
+		}
 
 		if ( halo_center_definition == 0 ) {
 			halo_recenter(h);
@@ -853,7 +853,7 @@ halo_list *find_halos() {
 					h->pos[1]*units->length_in_chimps, 
 					h->pos[2]*units->length_in_chimps, 
 					h->mvir*cosmology->h*units->mass/constants->Msun );
-        }
+		}
 
 		/* explicitly discard if mvir has been set to 0 or is less than minimum parameter */
 		if ( h->mvir == 0.0 || h->mvir < min_halo_mass_code ) {
