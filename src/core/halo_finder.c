@@ -137,7 +137,7 @@ void config_init_halo_finder() {
 	control_parameter_add(control_parameter_double,&cm_convergence_ftol,"halo:cm_convergence_ftol","Fractional movement in halo center of mass necessary for convergence.");
 	control_parameter_add(control_parameter_double,&cm_convergence_abs,"halo:cm_convergence_abs","Absolute movement in halo center of mass (units of cell_size[max_level]) necessary for convergence.");
 	control_parameter_add(control_parameter_int,&num_bins,"halo:rhalo_num_bins","Number of logarithmic bins to use for computing overdensity radius rvir");
-    control_parameter_add(control_parameter_double,&rmin_physical,"halo:rhalo_bin_rmin", "Minimum radius to search for overdensity radius rvir [comoving Mpc/h]");
+	control_parameter_add(control_parameter_double,&rmin_physical,"halo:rhalo_bin_rmin", "Minimum radius to search for overdensity radius rvir [comoving Mpc/h]");
 	control_parameter_add(control_parameter_double,&rmax_physical,"halo:rhalo_bin_rmax", "Maximum radius to search for overdensity radius rvir [comoving Mpc/h]");
 
 	control_parameter_add2(control_parameter_halo_delta_vir,&delta_vir, "halo:overdensity", "delta_vir", "Overdensity that defines halo rvir and Mvir.  A suffix of 'c' or 'm' selects overdensity with respect to critical and mean matter density, respectively, or a special value of vir uses the fitting formula of Bryan & Norman '98.  No suffix defaults to matter overdensity.");
@@ -433,13 +433,13 @@ void compute_halo_mass( halo *h ) {
 
 	if ( bin == num_bins ) {
 		if ( dbi2 >= delta_vir_mean ) {
-				/* normal halo, didn't reach virial overdensity */
-				h->rvir = rr[num_bins-1];
-				h->mvir = bin_total_mass[num_bins-1];
+			/* normal halo, didn't reach virial overdensity */
+			h->rvir = rr[num_bins-1];
+			h->mvir = bin_total_mass[num_bins-1];
 		} else {
-				/* virial overdensity must lie inside first bin, throw halo away */
-				h->rvir = rr[0];
-				h->mvir = 0.0;
+			/* virial overdensity must lie inside first bin, throw halo away */
+			h->rvir = rr[0];
+			h->mvir = 0.0;
 		}
 
 		for ( i = 0; i < nDim; i++ ) {
