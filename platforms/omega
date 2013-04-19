@@ -6,4 +6,4 @@ CFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp
 FFLAGS  = -m64 -xHOST -O3 -ipo -fp-model precise -fpic -openmp 
 F77     = mpif77
 INCLUDES = 
-EXTRALIBS = -lifcore
+EXTRALIBS = -lifcore -lmpi_f77

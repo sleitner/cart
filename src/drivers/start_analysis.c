@@ -256,6 +256,9 @@ void run(int restart, const char *restart_label)
 #ifdef PARTICLES
       init_particles();
 #endif /* PARTICLES */
+#ifdef HYDRO_TRACERS
+      init_hydro_tracers();
+#endif /* HYDRO_TRACERS */
 
       read_restart(str);
       load_balance();

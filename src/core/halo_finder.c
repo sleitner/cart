@@ -3,7 +3,9 @@
 #if defined(COSMOLOGY) && defined(PARTICLES)
 
 #include <dirent.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include "auxiliary.h"
@@ -29,18 +31,25 @@ int num_bins = 80;
 double rmin_physical = 1e-3;
 double rmax_physical = 2.0;
 double delta_vir = 180.;
-double delta_halo_center = 1000;
-double min_halo_center_level = max_level-2;
+double delta_vir_mean = -1.0;
+int delta_vir_unit = 0;                     /* unit of delta_vir, 0=mean, 1=critical, 2=Bryan & Norman '98 virial */
+double delta_halo_center = 1000;            /* always in units of mean density */
+double min_halo_center_level = MAX(min_level,max_level-2);
 double min_halo_mass = 0.0; 
 
+int halo_finder_debug_flag = 0;             /* output additional information during halo finding */
 int halo_finder_frequency = 0;              /* repeated halo finding disabled by default */
 int halo_particle_list_flag = 1;			/* write hp_*.dat files mapping particles to halos and computing binding energy */
-int halo_center_definition = 0;             /* 0 = cm convergence, 1 density peak */
+int halo_center_definition = 0;             /* 0 = cm convergence, 1 = dm density peak */
 int halo_num_nearest_neighbors = 24;
 double cm_radius_initial_reduction = 0.333;
 double cm_radius_freduce = 0.05;
 double cm_convergence_ftol = 1e-4;
 double cm_convergence_abs = 5.0;            /* in units of cell_size[max_level] */
+
+int halo_finder_volume_flag = 0;            /* whether to limit halo finding to a spherical region */
+double halo_finder_volume_center[nDim];     /* center in chimps */ 
+double halo_finder_volume_radius = 0.0;     /* radius in chimps */
 
 double rlmin, rlmax, drl;
 double rl[MAX_HALO_BINS];
@@ -53,7 +62,71 @@ extern int step;
 char halo_finder_output_directory_d[CONTROL_PARAMETER_STRING_LENGTH] = ".";
 const char* halo_finder_output_directory = halo_finder_output_directory_d;
 
+void control_parameter_set_halo_delta_vir(const char *value, void *ptr, int ind) {
+	char mode;
+
+	if ( strcmp(value,"vir") == 0 ) {
+		delta_vir = 1.0;
+		delta_vir_unit = 2;
+	} else if ( sscanf(value, "%lg%c", &delta_vir, &mode ) == 2 ) {
+		if ( mode == 'c' ) {
+			delta_vir_unit = 1;
+		} else if ( mode == 'm' ) {
+			delta_vir_unit = 0;
+		} else if ( mode == 'v' ) {
+			/* why are you asking for a multiple of the virial overdensity? */
+			delta_vir_unit = 2;
+		} else {
+			cart_error("Unknown overdensity unit `%c` in halo:overdensity string `%s`", mode, value );
+		}	
+	} else if ( sscanf(value, "%lg", &delta_vir) == 1 ) {
+		delta_vir_unit = 0;
+	} else {
+		cart_error("Unable to read value for halo:overdensity from `%s`", value );
+	}
+}
+
+void control_parameter_list_halo_delta_vir(FILE *stream, const void *ptr) {
+	switch (delta_vir_unit) {
+		case 0:
+			fprintf(stream,"%f mean", delta_vir);
+			break;
+		case 1:
+			fprintf(stream,"%f crit", delta_vir);
+			break;
+		case 2:
+			fprintf(stream, "vir");
+			break;
+		default:
+			cart_error("Invalid delta_vir_unit = %d", delta_vir_unit );
+	}
+}
+
+void control_parameter_set_halo_finder_volume(const char *value, void *ptr, int ind) {
+	if ( sscanf(value, "%*[(]%lg%*[,]%lg%*[,]%lg%*[,;]%lg%*[)]", &halo_finder_volume_center[0],
+			&halo_finder_volume_center[1],
+			&halo_finder_volume_center[2],
+			&halo_finder_volume_radius ) != 4 ) {
+		cart_error("Unable to read value for halo:finder_volume from `%s`", value );
+	}
+	halo_finder_volume_flag = 1;
+}
+
+void control_parameter_list_halo_finder_volume(FILE *stream, const void *ptr) {
+	if ( halo_finder_volume_flag ) {
+		fprintf(stream, "(%g, %g, %g; %g)", halo_finder_volume_center[0],
+				halo_finder_volume_center[1], halo_finder_volume_center[2],
+				halo_finder_volume_radius );
+	} else {
+		fprintf(stream, "(NOT SET)");
+	}
+}
+
 void config_init_halo_finder() {
+	ControlParameterOps control_parameter_halo_delta_vir = { control_parameter_set_halo_delta_vir, control_parameter_list_halo_delta_vir };
+	ControlParameterOps control_parameter_halo_finder_volume = { control_parameter_set_halo_finder_volume, 
+			control_parameter_list_halo_finder_volume };
+
 	control_parameter_add2(control_parameter_string,halo_finder_output_directory_d,"directory:halo-finder","halo_finder_output_directory","directory for output halo catalog files." );
 	control_parameter_add(control_parameter_int,&halo_finder_frequency,"frequency:halo-finder","Sets number of root level steps between halo finding steps");
 
@@ -64,12 +137,17 @@ void config_init_halo_finder() {
 	control_parameter_add(control_parameter_double,&cm_convergence_ftol,"halo:cm_convergence_ftol","Fractional movement in halo center of mass necessary for convergence.");
 	control_parameter_add(control_parameter_double,&cm_convergence_abs,"halo:cm_convergence_abs","Absolute movement in halo center of mass (units of cell_size[max_level]) necessary for convergence.");
 	control_parameter_add(control_parameter_int,&num_bins,"halo:rhalo_num_bins","Number of logarithmic bins to use for computing overdensity radius rvir");
-    control_parameter_add(control_parameter_double,&rmin_physical,"halo:rhalo_bin_rmin", "Minimum radius to search for overdensity radius rvir [comoving Mpc/h]");
-	control_parameter_add(control_parameter_double,&rmax_physical,"halo:rhalo_bin_rmax", "Maximum radius to serach for overdensity radius rvir [comoving Mpc/h]");
-	control_parameter_add2(control_parameter_double,&delta_vir,"halo:overdensity","halo:delta_vir", "Overdensity with respect to the mean matter density that defines halo rvir and Mvir");                                                                                                                                   
+	control_parameter_add(control_parameter_double,&rmin_physical,"halo:rhalo_bin_rmin", "Minimum radius to search for overdensity radius rvir [comoving Mpc/h]");
+	control_parameter_add(control_parameter_double,&rmax_physical,"halo:rhalo_bin_rmax", "Maximum radius to search for overdensity radius rvir [comoving Mpc/h]");
+
+	control_parameter_add2(control_parameter_halo_delta_vir,&delta_vir, "halo:overdensity", "delta_vir", "Overdensity that defines halo rvir and Mvir.  A suffix of 'c' or 'm' selects overdensity with respect to critical and mean matter density, respectively, or a special value of vir uses the fitting formula of Bryan & Norman '98.  No suffix defaults to matter overdensity.");
+
 	control_parameter_add2(control_parameter_double,&delta_halo_center,"halo:center_overdensity","halo:deltamin", "Overdensity necessary for a particle to be considered a potential halo center");
 	control_parameter_add(control_parameter_int,&min_halo_center_level,"halo:center_min_level","Minimum level to compute smoothed densities and therefore be eligible to be a halo center");
 	control_parameter_add(control_parameter_double,&min_halo_mass,"halo:min_halo_mass","Minimum mass within chosen overdensity to consider a halo");
+
+	control_parameter_add2(control_parameter_bool,&halo_finder_debug_flag,"halo:debug_enabled","halo_finder_debug_flag","Enable extra debugging information during halo finding.");
+	control_parameter_add2(control_parameter_halo_finder_volume,halo_finder_volume_center,"halo:finder_volume","halo_finder_volume","Limits halo centers to within the spherical volume given by (x,y,z; r) chimps.  Note: this can fail to match the non-volume-limited halo finder for halos near the volume radius, due to halo exclusion.  Should be used to debug the halo finder.");
 }
 
 void config_verify_halo_finder() {
@@ -90,9 +168,15 @@ void config_verify_halo_finder() {
 	VERIFY( halo:rhalo_bin_rmin, rmin_physical > 0 && rmin_physical < rmax_physical );
 	VERIFY( halo:rhalo_bin_rmax, rmax_physical > 0.0 );
 	VERIFY( halo:overdensity, delta_vir > 0.0 );
-	VERIFY( halo:center_overdensity, delta_halo_center >= delta_vir );
+	VERIFY( halo:center_overdensity, delta_halo_center >= delta_vir ); 
 	VERIFY( halo:center_min_level, min_halo_center_level >= min_level && min_halo_center_level <= max_level );
 	VERIFY( halo:min_halo_mass, min_halo_mass >= 0.0 );
+	VERIFY( halo:debug_enabled, halo_finder_debug_flag == 0 || halo_finder_debug_flag == 1 );
+
+	/* cannot fully verify volume center until coordinate system defined */
+	VERIFY( halo:finder_volume, halo_finder_volume_flag==0 || 
+		(halo_finder_volume_radius > 0.0 && halo_finder_volume_center[0] >= 0.0 &&
+			halo_finder_volume_center[1] >= 0.0 && halo_finder_volume_center[2] >= 0 ) );
 }
 
 double loglin_interpolate( double *binned_var, int bin, double rlout, double rri, double rll ) {
@@ -289,6 +373,11 @@ void compute_halo_mass( halo *h ) {
 		total_cv[i] = 0.0;
 	}
 
+	if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+		cart_debug("Binned profile for halo %d", h->id );
+		cart_debug("bin rr [kpc/h] delta(<r) M(<r) [Msun/h] vcirc [km/s]");
+	}
+
 	for ( bin = 0; bin < num_bins; bin++ ) {
 		total_mass += bin_mass[bin];
 		bin_total_mass[bin] = total_mass;
@@ -317,14 +406,20 @@ void compute_halo_mass( halo *h ) {
 			vmax = vcirc;
 		}
 
+		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+			cart_debug("%u %e %e %e %e", bin, rr[bin]*1000.*units->length_in_chimps,
+				dbi2, total_mass*cosmology->h*units->mass/constants->Msun,
+				vcirc*units->velocity/constants->kms );
+		}
+
 		/* compute virial radius */
-		if ( bin > 0 && ( dbi1 >= delta_vir && dbi2 < delta_vir ) ) {
+		if ( bin > 0 && ( dbi1 >= delta_vir_mean && dbi2 < delta_vir_mean ) ) {
 			rrl = log10(rr[bin]);
 			rll = log10(rl[bin]);
 			rri = 1.0/(rrl-rll);
 			dlbi1 = log10(dbi1);
 			dlbi2 = log10(dbi2);
-			h->rvir = pow( 10.0, (log10(delta_vir)*(rrl-rll) + 
+			h->rvir = pow( 10.0, (log10(delta_vir_mean)*(rrl-rll) + 
 							rll*dlbi2 - rrl*dlbi1)/(dlbi2-dlbi1));
 			h->mvir = log_interpolate( bin_total_mass, bin, log10(h->rvir), rri, rll );
 
@@ -337,8 +432,15 @@ void compute_halo_mass( halo *h ) {
 	}
 
 	if ( bin == num_bins ) {
-		h->rvir = rr[num_bins-1];
-		h->mvir = bin_total_mass[num_bins-1];
+		if ( dbi2 >= delta_vir_mean ) {
+			/* normal halo, didn't reach virial overdensity */
+			h->rvir = rr[num_bins-1];
+			h->mvir = bin_total_mass[num_bins-1];
+		} else {
+			/* virial overdensity must lie inside first bin, throw halo away */
+			h->rvir = rr[0];
+			h->mvir = 0.0;
+		}
 
 		for ( i = 0; i < nDim; i++ ) {
 			h->vel[i] = bin_total_cv[i][num_bins-1];
@@ -466,7 +568,6 @@ void halo_recenter( halo *h ) {
 
 								ipart = cell_particle_list[icell];
 								while ( ipart != NULL_PARTICLE ) {
-									local_cm_mass += particle_mass[ipart];
 									r = 0.0;
 									for ( m = 0; m < nDim; m++ ) {
 										dx[m] = particle_x[ipart][m] - h->pos[m];
@@ -523,6 +624,17 @@ void halo_recenter( halo *h ) {
         }
 
 		dr = sqrt(dr)/rcm;
+
+		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+			cart_debug("id = %d, x = %e %e %e, rcm = %e, dr = %e, cm_mass = %e", h->id,
+				h->pos[0]*units->length_in_chimps, 
+				h->pos[1]*units->length_in_chimps,
+				h->pos[2]*units->length_in_chimps,
+				rcm*units->length_in_chimps,
+				dr*rcm*units->length_in_chimps,
+				cm_mass_total*cosmology->h*units->mass/constants->Msun );
+		}
+
 		rcm *= 1.0-cm_radius_freduce;
 		niter++;
 	} while ( dr > cm_convergence_ftol && 
@@ -559,12 +671,42 @@ halo_list *find_halos() {
 	halo_list *halos;
 	int hid;
 	double min_halo_mass_code;
-
-	min_halo_mass_code = min_halo_mass*constants->Msun*cosmology->h/units->mass;
-
-	start_time( HALO_FINDER_TIMER );
+	double hf_center[nDim];
+	double hf_radius;
+	double x;
 
 	cart_debug("Finding halos...");
+	start_time( HALO_FINDER_TIMER );
+
+	min_halo_mass_code = min_halo_mass*constants->Msun/cosmology->h/units->mass;
+
+	/* set up virial overdensity */
+	switch ( delta_vir_unit ) {
+		case 0:
+			delta_vir_mean = delta_vir;
+			break;
+		case 1:
+			delta_vir_mean = delta_vir/(cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0));
+			break;
+		case 2:
+			x = cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0) - 1.0;
+			delta_vir_mean = ( 18.0*M_PI*M_PI + 82.0*x - 39.0*x*x ) / ( 1 + x );
+			break;
+		default:
+			cart_error("Invalid halo virial overdensity definition!");
+	}
+
+	/* set up halo finding volume */
+	if ( halo_finder_volume_flag ) {
+		hf_radius = halo_finder_volume_radius / units->length_in_chimps;
+		for ( i = 0; i < nDim; i++ ) {
+			hf_center[i] = halo_finder_volume_center[i] / units->length_in_chimps;
+			if ( hf_center[i] < 0 || hf_center[i] > num_grid ) {
+				cart_error("Invalid position in halo finder, %e, %e chimps\n",
+					hf_center[i], halo_finder_volume_center[i] );
+			}
+		}
+	}
 
 	/* set up binning */
 	rlmin = log10( rmin_physical/units->length_in_chimps );
@@ -591,7 +733,8 @@ halo_list *find_halos() {
 	for ( i = 0; i < num_particles; i++ ) {
 		if ( particle_level[i] != FREE_PARTICLE_LEVEL && 
 				particle_id[i] < particle_species_indices[1] ) {
-			if ( particle_level[i] >= min_halo_center_level ) {
+			if ( particle_level[i] >= min_halo_center_level && (!halo_finder_volume_flag || 
+					compute_distance_periodic( particle_x[i], hf_center ) < hf_radius ) ) {
 				particle_flag[i] = 2;
 				num_centers_local++;
 			} else {
@@ -623,18 +766,22 @@ halo_list *find_halos() {
 	/* apply density threshold and density max constraint for halo centers */
 	num_centers_local = 0;
 	for ( i = 0; i < num_particles; i++ ) {
-		if ( particle_flag[i] == 2 && particle_density[i] > delta_halo_center ) {
+		if ( particle_flag[i] == 2 && 
+				particle_density[i] > MAX( delta_halo_center,
+					delta_vir_mean / ( 1.0 - cosmology->OmegaB / cosmology->OmegaM ) ) ) {
 			num_centers_local++;
 		}
 	}
 
-	cart_debug("identified %u potential centers meeting density criterion", num_centers_local );
+	cart_debug("identified %u local potential centers meeting density criterion", num_centers_local );
 
 	order = cart_alloc(int, num_centers_local);
 
 	num_centers_local = 0;
 	for ( i = 0; i < num_particles; i++ ) {
-		if ( particle_flag[i] == 2 && particle_density[i] > delta_halo_center ) {
+		if ( particle_flag[i] == 2 &&
+				particle_density[i] > MAX( delta_halo_center,
+					delta_vir_mean / ( 1.0 - cosmology->OmegaB / cosmology->OmegaM ) ) ) {
 			order[num_centers_local++] = i;
 		}
 	}
@@ -680,15 +827,39 @@ halo_list *find_halos() {
 		/* broadcast position to other processors */
 		MPI_Bcast( h->pos, nDim, MPI_DOUBLE, global_particle.proc, mpi.comm.run );
 
+		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+			cart_debug("halo id = %d, finding center around (%e %e %e) Mpc/h", h->id, 
+					h->pos[0]*units->length_in_chimps,
+					h->pos[1]*units->length_in_chimps, 
+					h->pos[2]*units->length_in_chimps );
+		}
+
 		/* grow sphere */
 		compute_halo_mass(h);
+
+		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+			cart_debug("halo id = %d, initial mass %e Msun/h", h->id, 
+				h->mvir*cosmology->h*units->mass/constants->Msun );
+		}
 
 		if ( halo_center_definition == 0 ) {
 			halo_recenter(h);
 			compute_halo_mass(h);
 		}
 
-		if ( h->mvir < min_halo_mass_code ) {
+		if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+			cart_debug("halo id = %d, after recentering (%e %e %e) Mpc/h, M = %e Msun/h",
+					h->id, h->pos[0]*units->length_in_chimps,
+					h->pos[1]*units->length_in_chimps, 
+					h->pos[2]*units->length_in_chimps, 
+					h->mvir*cosmology->h*units->mass/constants->Msun );
+		}
+
+		/* explicitly discard if mvir has been set to 0 or is less than minimum parameter */
+		if ( h->mvir == 0.0 || h->mvir < min_halo_mass_code ) {
+			if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+				cart_debug("halo id = %d too small, discarding", h->id );
+			}
 			halos->num_halos--;
 			continue;
 		}
@@ -700,6 +871,9 @@ halo_list *find_halos() {
 
 				r = compute_distance_periodic( h2->pos, h->pos );
 				if ( r < h2->rvir ) {
+					if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
+						cart_debug("halo id = %d center inside halo %d, discarding", h->id, h2->id );
+					}
 					halos->num_halos--;
 					h = NULL;
 					break;
@@ -755,11 +929,11 @@ void write_halo_list( halo_list *halos ) {
 
 		fprintf( output, "# %s\n", jobname );
 		fprintf( output, "# step = %u, auni = %8.6f, abox = %8.6f\n", step, auni[min_level], abox[min_level] );
-		fprintf( output, "# Cosmology: OmM = %.2f, OmL = %.2f, OmB = %.4f, h = %.2f, DeltaDC = %.3f\n",
+		fprintf( output, "# Cosmology: OmM = %.3f, OmL = %.3f, OmB = %.4f, h = %.3f, DeltaDC = %.3f\n",
 				cosmology->OmegaM, cosmology->OmegaL, cosmology->OmegaB, cosmology->h, cosmology->DeltaDC );
 		fprintf( output, "# Lbox = %.2f [Mpc/h comoving]\n", box_size );
 		fprintf( output, "# num_neighbors = %u, Deltamin = %.2f, Deltavir = %.2f (mean)\n", 
-			halo_num_nearest_neighbors, delta_halo_center, delta_vir);
+			halo_num_nearest_neighbors, delta_halo_center, delta_vir_mean );
 		fprintf( output, "# Binning: rmin = %.3f, rmax = %.3f [Mpc/h comoving], num_bins = %u\n", rmin_physical, rmax_physical, num_bins );
 
 		if ( halo_center_definition == 0 ) {
@@ -769,7 +943,7 @@ void write_halo_list( halo_list *halos ) {
 			fprintf( output, "# Halo centering: density peak\n" );
 		}
 
-		fprintf( output, "# Columns: halo_id x y z [Mpc/h comoving] vx vy vz [peculiar km/s] Rvir [kpc/h comoving]\n#     Mvir [Msun/h] vmax [km/s] rmax [kpc/h comoving]\n" );
+		fprintf( output, "# Columns: halo_id x y z [Mpc/h comoving] vx vy vz [peculiar km/s] Rvir [kpc/h comoving]\n#     Mvir [Msun/h] np vmax [km/s] rmax [kpc/h comoving]\n" );
 		fprintf( output, "#################################################################################################################\n");
 
 		for ( ih = 0; ih < halos->num_halos; ih++ ) {
