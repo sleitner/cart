@@ -855,6 +855,19 @@ halo_list *find_halos() {
 					h->mvir*cosmology->h*units->mass/constants->Msun );
 		}
 
+		/* eliminate lower density centers */
+#ifndef COMPILER_GCC
+#pragma omp parallel for default(none) shared(order,num_centers_local,i,particle_x,h) private(j,r)
+#endif
+		for ( j = i; j < num_centers_local; j++ ) {
+			if ( order[j] >= 0 ) {
+				r = compute_distance_periodic( particle_x[order[j]], h->pos );
+				if ( r < h->rvir ) {
+					order[j] = -1;
+				}
+			}
+		}
+
 		/* explicitly discard if mvir has been set to 0 or is less than minimum parameter */
 		if ( h->mvir == 0.0 || h->mvir < min_halo_mass_code ) {
 			if ( local_proc_id == MASTER_NODE && halo_finder_debug_flag ) {
@@ -885,19 +898,6 @@ halo_list *find_halos() {
 			}
 		}
 
-		/* eliminate lower density centers */
-#ifndef COMPILER_GCC
-		/* Get compiler segfault under GCC */
-#pragma omp parallel for default(none) shared(order,num_centers_local,i,particle_x,h) private(j,r)
-#endif
-		for ( j = i; j < num_centers_local; j++ ) {
-			if ( order[j] >= 0 ) {
-				r = compute_distance_periodic( particle_x[order[j]], h->pos );
-				if ( r < h->rvir ) {
-					order[j] = -1;
-				}
-			}
-		}
 		hid++;
 	}
 
