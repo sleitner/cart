@@ -10,7 +10,6 @@
 #define ENRICHMENT
 #define ENRICHMENT_SNIa
 
-#define PREFIX_JOBNAME_TO_OUTPUT_FILES
 #define SF_RECIPE <hart>
 #define SF_FEEDBACK <hart>
 

@@ -54,34 +54,18 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 	    {
 	    case WRITE_SAVE:
 	      {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 #ifdef COSMOLOGY
 		sprintf( filename_sclog, "%s/%s_a%06.4f.dsc", output_directory, jobname, auni[min_level] );
 #else
 		sprintf( filename_sclog, "%s/%s_a%06d.dsc", output_directory, jobname, step );
 		cart_error("LOG_STAR_CREATION isn't setup to run without cosmology yet");
 #endif /* COSMOLOGY */
-#else
-#ifdef COSMOLOGY
-		sprintf( filename_sclog, "%s/star_creation_a%06.4f.dat", output_directory, auni[min_level] );
-#else
-		sprintf( filename_sclog, "%s/star_creation_a%06d.dat", output_directory, step );
-		cart_error("LOG_STAR_CREATION define isn't setup to run without cosmology yet");
-#endif /* COSMOLOGY */
-#endif
 		combine_star_creation_log(); 
 		finalize_star_creation_log( filename_sclog );
 		break;
 	      }
 	    case WRITE_BACKUP:
 	      {
-		//sprintf( filename_sclog, "%s/%s_2.dsc", output_directory, jobname );
-		combine_star_creation_log(); 
-		break;
-	      }
-	    case WRITE_GENERIC:
-	      {
-		//sprintf( filename_sclog, "%s/%s.dsc", output_directory, jobname );
 		combine_star_creation_log(); 
 		break;
 	      }
@@ -92,7 +76,7 @@ void write_restart( int grid_filename_flag, int particle_filename_flag, int trac
 #endif /* LOG_STAR_CREATION */
 #endif /* STAR_FORMATION */
 
-	if ( grid_filename_flag != NO_WRITE ) {
+	if ( grid_filename_flag != NO_WRITE && particle_filename_flag != NO_WRITE && tracer_filename_flag != NO_WRITE ) {
 		sprintf( filename, "%s/rng_state_"ART_PROC_FORMAT".dat", logfile_directory, local_proc_id );
 		cart_rand_save_state( filename );
 
@@ -116,14 +100,9 @@ void save_check() {
 	} else
 #endif /* COSMOLOGY */
 	if ( restart_frequency != 0 && step % restart_frequency == 0 ) {
-		if ( step % (2*restart_frequency) == 0 ) {
-			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
-		} else {
-			grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_GENERIC;
-		}
+		grid_save_flag = particle_save_flag = tracer_save_flag = WRITE_BACKUP;
 	} 
 
-	
 	if ( grid_output_frequency != 0 && step % grid_output_frequency == 0 ) {
 		grid_save_flag = WRITE_SAVE;		
     }

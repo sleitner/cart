@@ -260,8 +260,8 @@ void compute_particle_densities( int num_nearest_neighbors, int *particle_flag, 
 #endif
 }
 
-#ifdef PARTICLE_VDISP
 /* this code is untested, won't compile, and shouldn't be used */
+/*
 void compute_particle_vdisp() {
 	int i, j;
 	int ipart;
@@ -274,7 +274,6 @@ void compute_particle_vdisp() {
 	cell_list = stack_init();
 	particle_heap = min_heap_init( num_nearest_neighbors );
 
-	/* compute density */
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( particle_flag[ipart] ) {
 			particle_find_nearest_neighbors( ipart, num_nearest_neighbors,
@@ -294,7 +293,7 @@ void compute_particle_vdisp() {
 		}
 	}
 
-	/* compute mean velocity at each particle position */
+	// compute mean velocity at each particle position 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( particle_flag[ipart] ) {
 			particle_find_nearest_neighbors( ipart, num_nearest_neighbors,
@@ -324,7 +323,6 @@ void compute_particle_vdisp() {
 		}
 	}
 
-	/* compute velocity dispersion */
     for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( particle_flag[ipart] ) {
 			particle_find_nearest_neighbors( ipart, num_nearest_neighbors, 
@@ -360,6 +358,6 @@ void compute_particle_vdisp() {
         }
     }
 }
-#endif /* PARTICLE_VDISP */
+*/
 
 #endif /* PARTICLES */

@@ -36,6 +36,9 @@
 #include "../tools/artio/artio.h"
 
 extern int step;
+extern int restart_frequency;
+extern int current_restart_backup;
+extern int num_backup_restarts;
 
 DECLARE_LEVEL_ARRAY(double,dtl);
 DECLARE_LEVEL_ARRAY(double,tl_old);
@@ -53,6 +56,7 @@ extern double auni_init;
 int artio_buffer_size = -1;
 int num_artio_grid_files = 1;
 int artio_grid_allocation_strategy = ARTIO_ALLOC_EQUAL_SFC;
+int artio_create_fileset_directory = 0;
 
 #ifdef PARTICLES
 int num_artio_particle_files = 1;
@@ -95,6 +99,8 @@ void config_init_io_artio() {
 	control_parameter_add2(control_parameter_int,&num_artio_grid_files,"io:num-grid-files","num_grid_files","Number of output grid files. Defaults to the number of MPI tasks.");
 	control_parameter_add2(control_parameter_allocation_strategy,&artio_grid_allocation_strategy,"io:grid-file-allocation-strategy","grid_allocation_strategy","Determine how root cells are divided amongst the output files.  Supported options: ARTIO_ALLOC_EQUAL_SFC, ARTIO_ALLOC_EQUAL_PROC");
 
+	control_parameter_add2(control_parameter_bool,&artio_create_fileset_directory,"io:artio-create-fileset-directory","artio_create_fileset_directory","Whether to group artio outputs into subdirectories of output_directory (boolean value)");
+
 #ifdef PARTICLES
 	num_artio_particle_files = num_procs;
 	control_parameter_add2(control_parameter_int,&num_artio_particle_files,"io:num-particle-files","num_particle_files","Number of output particle files.  Defaults to the number of MPI tasks.");
@@ -104,9 +110,15 @@ void config_init_io_artio() {
 
 void config_verify_io_artio() {
 	VERIFY(io:artio-buffer-size, artio_buffer_size == -1 || artio_buffer_size > 0 );
+	if ( artio_buffer_size != -1 ) {
+		artio_fileset_set_buffer_size(artio_buffer_size);
+    }
 
 	VERIFY(io:num-grid-files, num_artio_grid_files > 0 && num_artio_grid_files < max_sfc_index );
 	VERIFY(io:grid-file-allocation-strategy, artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_grid_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
+
+	VERIFY(io:artio-create-fileset-directory, artio_create_fileset_directory == 0 || artio_create_fileset_directory == 1 );
+
 #ifdef PARTICLES 
 	VERIFY(io:num-particle-files, num_artio_particle_files > 0 && num_artio_particle_files < max_sfc_index );
 	VERIFY(io:particle-file-allocation-strategy, artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_SFC || artio_particle_allocation_strategy == ARTIO_ALLOC_EQUAL_PROC );
@@ -302,16 +314,25 @@ int compare_particle_species_id( const void *a, const void *b ) {
 #endif /* PARTICLES */
 
 void create_artio_filename( int filename_flag, char *label, char *filename ) {
+	char dir[256];
+
 	switch(filename_flag) {
 		case WRITE_SAVE:
-			sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
+			if ( artio_create_fileset_directory ) {
+				sprintf( dir, "%s/%s_%s/", output_directory, jobname, label );
+				if ( system_mkdir( dir ) ) {
+					cart_error("Unable to create directory %s for artio fileset!", dir );
+				}
+				sprintf( filename, "%s/%s_%s", dir, jobname, label );
+			} else {
+				sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
+			}
 			break;
 		case WRITE_BACKUP:
-			sprintf( filename, "%s/%s_2", output_directory, jobname );
+			sprintf( filename, "%s/%s_%d", output_directory, jobname, current_restart_backup );
 			break;
-		case WRITE_GENERIC:
-			sprintf( filename, "%s/%s", output_directory, jobname );
-			break;
+		default:
+			cart_error("Unknown filename_flag in create_artio_filename! %d", filename_flag );
 	}
 }
 
@@ -338,54 +359,43 @@ void write_artio_restart( int grid_filename_flag, int particle_filename_flag, in
 		fileset_options |= WRITE_TRACERS;
 
 		switch(tracer_filename_flag) {
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 			case WRITE_SAVE:
 				sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
 				break;
 			case WRITE_BACKUP:
-				sprintf( filename_tracers, "%s/%s_2.dtr", output_directory, jobname );
+				sprintf( filename_tracers, "%s/%s_%d.dtr", output_directory, jobname, current_restart_backup );
 				break;
-			case WRITE_GENERIC:
-				sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
-				break;
-#else  /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
-			case WRITE_SAVE:
-				sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
-				break;
-			case WRITE_BACKUP:
-				sprintf( filename_tracers, "%s/tracers_2.dat", output_directory );
-				break;
-			case WRITE_GENERIC:
-				sprintf( filename_tracers, "%s/tracers.dat", output_directory );
-				break;
-#endif /* PREFIX_JOBNAME_TO_OUTPUT_FILES */
 			default:
 				cart_error("Invalid value for tracer_filename_flag in write_artio_restart!");
 		}
 	}
 #endif /* HYDRO_TRACERS */	
 
+	if ( grid_filename_flag == WRITE_BACKUP || particle_filename_flag == WRITE_BACKUP || tracer_filename_flag == WRITE_BACKUP ) {
+		current_restart_backup = (current_restart_backup+1) % num_restart_backups;
+	}
+
 	if ( particle_filename_flag == NO_WRITE ) {
 		if ( grid_filename_flag != NO_WRITE ) {
 			create_artio_filename(grid_filename_flag, label, filename);
 			write_artio_restart_worker( filename, fileset_options | WRITE_GRID );
 		} else if ( fileset_options ) {
-			create_artio_filename(grid_filename_flag, label, filename);
-			write_artio_restart_worker( filename, fileset_options );
+			/* only writing tracers */
+			write_artio_restart_worker( NULL, fileset_options );
 		}
 	} else {
 		if ( particle_filename_flag == grid_filename_flag ) {
 			create_artio_filename(particle_filename_flag, label, filename);
 			write_artio_restart_worker( filename, fileset_options | WRITE_GRID | WRITE_PARTICLES );
 		} else {
-			if ( grid_filename_flag == WRITE_BACKUP || grid_filename_flag == WRITE_GENERIC ) {
+			if ( grid_filename_flag == WRITE_BACKUP ) {
 				create_artio_filename(grid_filename_flag, label, filename);
 				write_artio_restart_worker( filename, fileset_options | WRITE_GRID | WRITE_PARTICLES );
 
 				create_artio_filename(particle_filename_flag, label, filename);
 				write_artio_restart_worker( filename, WRITE_PARTICLES );
 			} else if ( grid_filename_flag == WRITE_SAVE ) {
-				/* implies particle_filename_flag == BACKUP || GENERIC */
+				/* implies particle_filename_flag == BACKUP */
 				create_artio_filename(particle_filename_flag, label, filename);
 				write_artio_restart_worker( filename, fileset_options | WRITE_GRID | WRITE_PARTICLES );
 
@@ -468,6 +478,8 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 #ifdef HYDRO	
 		artio_parameter_set_int_array( handle, "hydro_sweep_direction", num_levels, level_sweep_dir );
 #endif
+
+		artio_parameter_set_int( handle, "current_restart_backup", current_restart_backup );
 
 		/* unit parameters */
 		artio_parameter_set_double( handle, "box_size", box_size );
@@ -1103,11 +1115,7 @@ void read_artio_restart( const char *label ) {
 			cart_debug("Unable to locate restart.dat, trying default filename!");
 			sprintf( filename, "%s/%s", output_directory, jobname );
 #ifdef HYDRO_TRACERS
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
 			sprintf( filename_tracers, "%s/%s.dtr", output_directory, jobname );
-#else
-			sprintf( filename_tracers, "%s/tracers.dat", output_directory );
-#endif
 #endif /* HYDRO_TRACERS */
 		} else {
 			fscanf( restart, "%s\n", filename );
@@ -1119,11 +1127,7 @@ void read_artio_restart( const char *label ) {
 	} else {
 		sprintf( filename, "%s/%s_%s", output_directory, jobname, label );
 #ifdef HYDRO_TRACERS
-#ifdef PREFIX_JOBNAME_TO_OUTPUT_FILES
         sprintf( filename_tracers, "%s/%s_%s.dtr", output_directory, jobname, label );
-#else
-        sprintf( filename_tracers, "%s/tracers_%s.dat", output_directory, label );
-#endif
 #endif /* HYDRO_TRACERS */
 	}	
 
@@ -1139,10 +1143,6 @@ void read_artio_restart( const char *label ) {
 	if (num_file_root_cells != num_root_cells) {
 		cart_error( "Number of root cells in file %s header does not match compiled value: %d vs %d",
 				filename, num_file_root_cells, num_root_cells);
-	}
-
-	if ( artio_buffer_size != -1 ) {
-		artio_fileset_set_buffer_size(artio_buffer_size);
 	}
 
 	if ( !artio_fileset_has_grid(handle) ||
@@ -1202,7 +1202,13 @@ void read_artio_restart( const char *label ) {
 		level_sweep_dir[level] = 0;
 	}
 #endif
-    
+   
+	if ( artio_parameter_get_int( handle, "current_restart_backup", &current_restart_backup ) != ARTIO_SUCCESS ) {
+		current_restart_backup = (step%((restart_frequency>0) ? restart_frequency : 1) + 1) % num_restart_backups;
+	} else {
+		current_restart_backup = (current_restart_backup+1) % num_restart_backups;
+	}
+ 
 	/* unit parameters */
 	if ( artio_parameter_get_double( handle, "box_size", &box_size ) != ARTIO_SUCCESS ) {
 		cart_error("Unable to read box size from artio header file!");

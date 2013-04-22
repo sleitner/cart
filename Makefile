@@ -1,3 +1,4 @@
+TOP_DIR=.
 include Make.config
 
 .phony: all compile_tests run_tests clean docs utils

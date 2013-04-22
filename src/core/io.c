@@ -46,6 +46,9 @@ const char* requeue_command = requeue_command_d;
 int current_output;
 int last_restart_step;
 
+int current_restart_backup = 0;
+int num_restart_backups = 2;
+
 int output_frequency = 0;
 int restart_frequency = 1;
 #ifdef PARTICLES
@@ -191,6 +194,8 @@ void config_init_io()
 
   control_parameter_add2(control_parameter_int,&restart_frequency,"frequency:restart","restart_frequency","frequency (in global time steps) of producing restart files. Zero frequency disables this option.");
 
+  control_parameter_add2(control_parameter_int,&num_restart_backups,"io:restart-backups","num_restart_backups","number of individual restart backups to retain before overwriting.");
+
 #ifdef PARTICLES
   control_parameter_add2(control_parameter_int,&particle_output_frequency,"frequency:particle-output","particle_output_frequency","frequency (in global time steps) of producing particle output files. Zero frequency disables this option.");
 #endif /* PARTICLES */
@@ -237,6 +242,8 @@ void config_verify_io()
   VERIFY(frequency:user-output, output_frequency >= 0 );
 
   VERIFY(frequency:restart, restart_frequency >= 0 );
+
+  VERIFY(io:restart-backups, num_restart_backups > 0 );
 
 #ifdef PARTICLES
   VERIFY(frequency:particle-output, particle_output_frequency >= 0 );

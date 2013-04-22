@@ -8,7 +8,6 @@
 
 #define HYDRO
 #define REFINEMENT
-#define PREFIX_JOBNAME_TO_OUTPUT_FILES
 
 
 #define num_root_grid_refinements	4
