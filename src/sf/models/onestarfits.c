@@ -11,30 +11,32 @@
 #include "onestarfits.h"
 #include "form_star.starII.h"
 
+#ifndef ENRICHMENT
+#error "for onestarfits ENRICHMENT should be on"
+#endif /* ENRICHMENT */
+
 double agetau(double ini_mass_sol, double age_yr, double Zsol);
 /* Raiteri et al. 1996 */
 /* Mej=0.7682*pow(mass_sol,1.056) */
 double OneStar_snII_Mejected_Fe(double mass_code){
+    /* need units/cosmology set */
     return 2.802e-4 * pow(mass_code*units->mass/constants->Msun,1.864)/units->mass*constants->Msun;
 }
 double OneStar_snII_Mejected_Ox(double mass_code){
+    /* need units/cosmology set */
     return 4.586e-4 * pow(mass_code*units->mass/constants->Msun,2.721)/units->mass*constants->Msun;
 }
 ////////////////////////////////////////////
 double OneStar_stellar_lifetime(double ini_mass_sol, double Zsol){  
     /* stellar lifetime in code units */
+    /* need units/cosmology set */
     double logtstar, tstar;
     double a0,a1,a2;
     double logM, logZ;
     logM = log10(ini_mass_sol);
-
     /* for no enrichment use Z=-1.0, use Z=-3.0 floor*/
-#ifdef ENRICHMENT
     /* logZ is in absolute metallicity*/
     logZ = log10( MAX( Zsol, 1e-2 )*constants->Zsun ); /* Z scales with oxygen abundance */ 
-#else
-    logZ = log10(constants->Zsun)-1;
-#endif /* ENRICHMENT */
     a0 =  10.13 + 7.547e-2 *logZ - 8.084e-3 *(logZ*logZ);
     a1 = -4.424 - 7.939e-1 *logZ - 1.187e-1 *(logZ*logZ);
     a2 =  1.262 + 3.385e-1 *logZ + 5.417e-2 *(logZ*logZ);
@@ -45,6 +47,7 @@ double OneStar_stellar_lifetime(double ini_mass_sol, double Zsol){
 
 double agetau(double ini_mass_sol, double age_yr, double Zsol){
     double star_life;
+    /* need units/cosmology set */
     star_life = OneStar_stellar_lifetime(ini_mass_sol, Zsol);
     return age_yr*constants->yr/units->time/star_life;
 }
@@ -118,6 +121,8 @@ const double Lsun_to_ergs = 3.826e33; /* Lsun ->ergs/s*/
 #ifdef STARFORM
 double OneStar_Lbol_RT(int ipart){
     double ini_mass_sol, age_yr, Zsol, restenergy, Lbol ; 
+    /* need units/cosmology set */
+    cart_error("careful -- RT wants an ionizing source function.");
     restenergy = particle_mass[ipart]*units->mass * constants->c*constants->c; /* erg */
     ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
     age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time/constants->yr ;
@@ -127,6 +132,7 @@ double OneStar_Lbol_RT(int ipart){
 }
 double OneStar_Lion_RT(int ipart){
     double ini_mass_sol, age_yr, Zsol, restenergy, Lion ; 
+    /* need units/cosmology set */
     restenergy = particle_mass[ipart]*units->mass * constants->c*constants->c; /* erg */
     ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
     age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time/constants->yr ;
@@ -143,10 +149,6 @@ double OneStar_Lbol_hydro(double ini_mass_sol, double age_yr, double Zsol){
     return hL;
 }
 
-double OneStar_fmass_secular(double ini_mass_sol, double age_yr, double Zsol){ 
-/*secular mass loss per star*/
-    return 1; 
-}
 double OneStar_wind_pdot_msunyrkms(double ini_mass_sol, double age_yr, double Zsol){ 
 /* high-mass stellar wind momentum (\dot{M*}*vinf)*/
     const double zfac=0.8;
@@ -173,6 +175,7 @@ double OneStar_wind_pdot_msunyrkms(double ini_mass_sol, double age_yr, double Zs
 }
 double OneStar_wind_pdot(double ini_mass_sol, double age_yr, double Zsol){ 
     double pdot =  OneStar_wind_pdot_msunyrkms(ini_mass_sol, age_yr, Zsol);
+    /* need units/cosmology set */
     return pdot * 
 	constants->Msun / constants->yr * constants->kms/
 	(units->mass * units->velocity / units->time);
@@ -232,7 +235,7 @@ void testonestar(){
 //population vs individual star
 /* set logscale z; splot [5:6][0:40][.1:10]'testonestar.dat' u 1:3:9, 'testonestar.dat' u 1:3:8, 'testonestar.dat' u 1:3:7 w d*/
 			/* this is a single star (if ionizing recall little ionizing flux at 8Msun)*/
-			rad_luminosity_popM_starII0(ipart), 
+			rad_luminosity_popM_ionizingstarII0(ipart), 
 			/* this is for the whole population with mass of ipart */
 			rad_luminosity_popM(ipart), 
 			rad_luminosity_hart(ipart),
