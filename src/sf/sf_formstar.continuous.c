@@ -14,6 +14,7 @@
 
 #include "models/form_star.starII.h"
 
+double sf_min_stellar_particle_mass = 0;     /* not used, but needs to be set for ifrit analysis */
 extern double sf_sampling_timescale ;        /* in yrs; used to be called dtmin_SF, also in HART */
 int find_lowv_cluster(int icell);
 
@@ -38,7 +39,6 @@ void star_form_config_init()
 
     control_parameter_add2(control_parameter_bool, &starII_indicator, "starII:indicator", "starII_indicator", "turn on starII star-formation");
     starII_config_init();
-  continuous_config_init();
 }
 
 
