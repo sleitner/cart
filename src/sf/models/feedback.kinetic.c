@@ -24,8 +24,7 @@
 // This file tells how to distribute some input momentum to kicks and/or internal energy 
 */
 
-/* turbulence option is inactive -- can be added to input SNe-> turbulence */
-double kfb_boost_kicks=2;
+double kfb_boost_kicks=1;
 struct kfb_t
 {
     const char* method;
