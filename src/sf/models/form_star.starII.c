@@ -85,11 +85,11 @@ void starII_init()
     
     sIIminpw = pow( starII_minimum_mass, starII_highmass_slope+1 );
     imfmaxpw = pow( imf->max_mass, starII_highmass_slope+1 ) ;
-    tdelay_popM_feedback = OneStar_stellar_lifetime(starII_minimum_mass, 1.0);
 }
 
 void starII_setup(int level){
     starII_avg_mass_code = starII_avg_mass * constants->Msun / units->mass;
+    tdelay_popM_feedback = OneStar_stellar_lifetime(starII_minimum_mass, 1.0); /* need units */
 }
 
 double msample_imf_highmass()
