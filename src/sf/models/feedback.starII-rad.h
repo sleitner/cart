@@ -6,7 +6,7 @@
 #endif
 
 #ifdef STARFORM
-float rad_luminosity_popM_starII0(int ipart);
+float rad_luminosity_popM_ionizingstarII0(int ipart);
 #endif /* STARFORM */
 
 #endif /* FEEDBACK_STARII_RAD_H__ */

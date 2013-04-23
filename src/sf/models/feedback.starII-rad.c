@@ -20,8 +20,8 @@
 extern double tdelay_popM_feedback;
 
 
-/* RT source function for individual stars */
-float rad_luminosity_popM_starII0(int ipart){
+/* RT ionizing source function for individual stars */
+float rad_luminosity_popM_ionizingstarII0(int ipart){
     float Lion ; 
     double Zsol;
     if(!particle_is_star(ipart)) return 0.0;
@@ -34,7 +34,7 @@ float rad_luminosity_popM_starII0(int ipart){
 	    Lion = rad_luminosity_popM(ipart);
 	    return Lion;
 	}else{
-	/* should return "\Int Lion{0,min_starII_mass}" at early times, but min_starII_mass should be small enough anyway*/
+            /* should return "\Int Lion{0,min_starII_mass}" at early times, but min_starII_mass should be small enough anyway*/
 	    return 0; 
 	}
     }
