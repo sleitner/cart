@@ -37,7 +37,7 @@ void starII_runaway_config_verify()
     VERIFY(runaway:Ostar_frac, Ostar_frac_runaway >= 0.0 && Ostar_frac_runaway<=1.0 );
     VERIFY(runaway:Bstar_frac, Bstar_frac_runaway >= 0.0 && Bstar_frac_runaway<=1.0 );
     VERIFY(runaway:Ostar_mass, Ostar_mass >  8.0 );
-    VERIFY(runaway:Bstar_mass, Bstar_mass >= 8.0 && Bstar_mass < Ostar_mass );
+    VERIFY(runaway:Bstar_mass, Bstar_mass >  0.0 && Bstar_mass < Ostar_mass );
 }
 
 double sample_exponential(double tau){
