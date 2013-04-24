@@ -26,6 +26,7 @@
 #include "models/feedback.starII-rad.h"
 
 #include "times.h"
+#include "timing.h"
 #include "starformation.h"
 #include "particle.h"
 

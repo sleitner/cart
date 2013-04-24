@@ -15,6 +15,7 @@
 #include "starformation.h"
 #include "tree.h"
 #include "units.h"
+#include "timing.h"
 
 #include "feedback.ml.h"
 #include "onestarfits.h"

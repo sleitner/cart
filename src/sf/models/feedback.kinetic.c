@@ -14,6 +14,7 @@
 #include "starformation.h"
 #include "tree.h"
 #include "units.h"
+#include "timing.h"
 
 #include "rand.h"
 #include "feedback.kinetic.h"
@@ -160,12 +161,12 @@ void kfb_init(){
  *                27 cell stencil                      *
  *******************************************************/
 
-/*                          6  7  8  9 10 11 12 13 14 15 16 17  */
+/*                       6  7  8  9 10 11 12 13 14 15 16 17  */
 const int CubeDir1[] = { 0, 1, 0, 1, 0, 1, 2, 3, 0, 1, 2, 3 };
 const int CubeDir2[] = { 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5 };
                             
 /* in direction +/-x from x=0 y=+/- and z=+/-  */  
-/*                              18  19  20  21  22  23  24  25 */
+/*                           18  19  20  21  22  23  24  25 */
 const int CubeDir3a[]    = {  0,  1,  0,  1,  0,  1,  0,  1 };
 const int CubeOrigin3a[] = { 12, 12, 13, 13, 16, 16, 17, 17 };
 const int CubeDir3b[]    = {  2,  3,  2,  3,  2,  3,  2,  3 };
@@ -198,7 +199,7 @@ int CubeDelPos[][nDim] = {
 #define CubeStencilSize 26
 #define num_corners 8
 
-void GetCubeStencil(int level, int cell, int nb[])
+void GetCubeStencil(int level, int cell, int nb[CubeStencilSize])
 {
   int j, levNb[num_neighbors];
   
@@ -211,7 +212,7 @@ void GetCubeStencil(int level, int cell, int nb[])
   /*
   //  Second level neighbors
   */
-  for(j=0; j<CubeStencilSize-num_neighbors-num_corners; j++)
+  for(j=0; j<CubeStencilSize-num_neighbors; j++)
     {
       if(levNb[CubeDir1[j]] == level)
 	{
@@ -239,7 +240,6 @@ void GetCubeStencil(int level, int cell, int nb[])
        }
   }
       
-
 }
 
 
