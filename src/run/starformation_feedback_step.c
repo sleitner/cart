@@ -46,9 +46,9 @@ void star_particle_feedback(int level, int time_multiplier) {
 #ifndef COMPILER_GCC
 		/* Get compiler segfault under GCC */
 #ifdef STAR_PARTICLE_TYPES
-#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next, particle_mass), schedule(dynamic) 
+#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next, particle_mass, sf_feedback_particle), schedule(dynamic) 
 #else
-#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,particle_species_indices,num_particle_species,particle_list_next), schedule(dynamic)
+#pragma omp parallel for default(none), private(iter_cell,ipart), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_t,t_next,particle_id,particle_species_indices,num_particle_species,particle_list_next, sf_feedback_particle), schedule(dynamic)
 #endif
 #endif
 	for ( i = 0; i < num_level_cells; i++ ) {

@@ -47,7 +47,7 @@ void star_formation(int level, int time_multiplier) {
 
   if(sf_formstar->setup != NULL) sf_formstar->setup(level);
 
-#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,level,sf_recipe,dt_eff, sfr, dtl), schedule(dynamic)
+#pragma omp parallel for default(none), private(i,icell), shared(num_level_cells,level_cells,level,sf_formstar,dt_eff, sfr, dtl), schedule(dynamic)
   for(i=0;i<num_level_cells; i++)
     {
         if ( sfr[i] <=0 ) continue;
