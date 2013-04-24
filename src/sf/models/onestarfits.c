@@ -96,9 +96,7 @@ double OneStar_ionizing_fraction(double ini_mass_sol, double age_yr, double Zsol
 double OneStar_Lbol_Lsun(double ini_mass_sol, double age_yr, double Zsol){
     double fmlow, fML, ftm, Lbol, tau; 
 
-    cart_debug("you here? %e %e %e", ini_mass_sol, age_yr, Zsol);
     tau = agetau(ini_mass_sol, age_yr, Zsol );
-    cart_debug("tau %e ", tau);
     if( tau > 3 || ini_mass_sol < 1.0 ){
 	Lbol = 0;
     }else{
@@ -109,7 +107,6 @@ double OneStar_Lbol_Lsun(double ini_mass_sol, double age_yr, double Zsol){
 	Lbol = pow(10,fmlow*fML*ftm) ; /*in Lsun*/
     }
     cart_assert(Lbol>=0);
-    cart_debug("Lbol %e ", Lbol);
     return Lbol;
 }
 
