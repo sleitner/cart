@@ -38,7 +38,6 @@ extern double starII_rapSR_boost;
 extern double starII_wind_momentum_boost;
 
 extern double tauIR_boost;
-extern int continuous_starformation_indicator;
 
 void sfb_config_init()
 {
@@ -57,11 +56,24 @@ void sfb_config_init()
 }
 
 
+
+#define STR_VALUE(arg)      #arg
+#define to_string(name)     STR_VALUE(name)
+void check_fsdefs_compatible()
+{
+#ifdef SF_FORMSTAR
+    const char *formstar_external_name = to_string(SF_FORMSTAR);
+#else
+    const char *formstar_external_name = "";
+#endif
+    if(strcmp("<continuous>",formstar_external_name)!=0){
+        cart_error("SF_FORMSTAR needs to be <continous> for SF_FEEDBACK -starII variants");
+    }
+}
 void sfb_config_verify()
 {
-  if(!continuous_starformation_indicator){
-	cart_error("starII currently requires continuous star formation");
-  }
+  check_fsdefs_compatible();
+
   snII_config_verify();
   snIa_config_verify();
   ml_snl2012_config_verify();
@@ -196,7 +208,7 @@ struct StellarFeedbackParticle sf_feedback_particle_internal =
 {
     "popM-starII",
     sfb_hydro_feedback,
-    rad_luminosity_popM_starII0,
+    rad_luminosity_popM_ionizingstarII0,
     NULL,
     sfb_config_init,
     sfb_config_verify,

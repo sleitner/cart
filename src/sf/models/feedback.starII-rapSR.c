@@ -38,16 +38,18 @@ void starII_rapSR_setup(int level)
 }
 void starII_rapSR_kick(int level, int icell, int ipart, double ini_mass_sol, double age_yr, double Zsol, double t_next){
     double dp;
-    double L_UV;
+/*     double L_UV; */
+    double L_bol; 
     double tau;
     double dt = t_next - particle_t[ipart];
  
     cart_assert(star_particle_type[ipart] == STAR_TYPE_STARII);
     if(starII_rapSR_boost > 0){
-	L_UV =  OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * OneStar_UV_fraction(ini_mass_sol, age_yr, Zsol) * Lsun_to_ergs ;
+/* 	L_UV =  OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * OneStar_UV_fraction(ini_mass_sol, age_yr, Zsol) * Lsun_to_ergs ; */
+	L_bol =  OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * Lsun_to_ergs ;
 	tau = tau_UV(icell);
 	
-	dp  = starII_rapSR_boost * L_UV / constants->c * dt * units->time 
+	dp  = starII_rapSR_boost * L_bol / constants->c * dt * units->time 
 	    * ( 1 - exp(-tau) ) 
 	    / (units->mass * units->velocity);  
 	distribute_momentum(dp, level, icell, dt);

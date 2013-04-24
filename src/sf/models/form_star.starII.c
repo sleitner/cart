@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "auxiliary.h"
 #include "control_parameter.h"
@@ -32,7 +33,6 @@ double sIIminpw, imfmaxpw;
 double tdelay_popM_feedback;
 void starII_config_init()
 {
-//    if(!(starII_indicator)) return;
     control_parameter_add2(control_parameter_double,&starII_highmass_slope,"starII:highmass-slope","starII_highmass_slope","IMF slope used for sampling starII masses.");
     control_parameter_add2(control_parameter_double,&starII_minimum_mass,"starII:minimum-mass","starII_minimum_mass","the minimum mass of 'virtual' starII particles in Msun.");
     
@@ -40,11 +40,26 @@ void starII_config_init()
     starII_runaway_config_init();
 }
 
+#define STR_VALUE(arg)      #arg
+#define to_string(name)     STR_VALUE(name)
+void check_fbdefs_compatible()
+{
+#ifdef SF_FEEDBACK
+    const char *feedback_external_name = to_string(SF_FEEDBACK);
+#else
+    const char *feedback_external_name = "";
+#endif
+    if(strcmp("<popM-starII>",feedback_external_name)!=0){
+        cart_error("SF_FORMSTAR includes STARII formation then SF_FEEDBACK must be a -starII variant");
+    }
+}
 void starII_config_verify()
 {
 #ifndef STAR_PARTICLE_TYPES
     cart_error("STAR_PARTICLE_TYPES must be defined for starII_indicator True");
 #endif /* STAR_PARTICLE_TYPES */
+    check_fbdefs_compatible();
+
     VERIFY(starII:runaway-indicator,starII_runaway_indicator==1 || starII_runaway_indicator==0);
     VERIFY(starII:highmass-slope,starII_highmass_slope);
     VERIFY(starII:minimum-mass, starII_minimum_mass >1.0 );
