@@ -318,6 +318,7 @@ void run( int restart, const char *restart_label ) {
 			log_star_creation(-1,-1.0,FILE_CLOSE); 
 			log_star_creation(-1,-1.0,FILE_OPEN); 
 #endif
+                        PLUGIN_POINT(CFLRestart)();
 		} else {
 			current_steps++;
 

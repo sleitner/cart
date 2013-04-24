@@ -1,6 +1,8 @@
 #include "config.h"
 #if defined(HYDRO) && defined(STAR_FORMATION)
 
+#include <math.h>
+
 #include "auxiliary.h"
 #include "control_parameter.h"
 #include "hydro.h"

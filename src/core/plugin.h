@@ -32,8 +32,9 @@ typedef struct Plugin
   void (*LevelStepBegin)(int level, MPI_Comm level_com);
   void (*LevelStepEnd)(int level, MPI_Comm level_com);
   void (*LevelStepFail)(int level, MPI_Comm level_com);
-  void (*RecordDistributedMomentum)(double dp, int icell, int level);
+    void (*RecordDistributedMomentum)(double dp, int icell, int level);
   void (*RefinementIndicator)(int cell, int level, float *value);
+  void (*CFLRestart)();
 }
 plugin_t;
 

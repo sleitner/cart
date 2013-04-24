@@ -74,10 +74,6 @@ double OneStar_UV_fraction(double ini_mass_sol, double age_yr, double Zsol){
 	ftZ = 1 + 0.7*logZ_scl * agetau(ini_mass_sol, age_yr, Zsol);
 	ft = 0.55*(1.5 - agetau(ini_mass_sol, age_yr, Zsol));
 	ft = MAX( ft , 0.0 );
-/* 	cart_debug("ft%e, ftZ%e, fmZ%e, fmlow%e, fexp%e %e",  */
-/* 		   ft, ftZ, fmZ, fmlow, fmexp, */
-/* 		   ini_mass_sol */
-/* 	    ); */
 	uvfraction =  fmlow * fmexp * fmZ * ftZ * ft;
     }else{
 	uvfraction = 0;
@@ -100,7 +96,9 @@ double OneStar_ionizing_fraction(double ini_mass_sol, double age_yr, double Zsol
 double OneStar_Lbol_Lsun(double ini_mass_sol, double age_yr, double Zsol){
     double fmlow, fML, ftm, Lbol, tau; 
 
+    cart_debug("you here? %e %e %e", ini_mass_sol, age_yr, Zsol);
     tau = agetau(ini_mass_sol, age_yr, Zsol );
+    cart_debug("tau %e ", tau);
     if( tau > 3 || ini_mass_sol < 1.0 ){
 	Lbol = 0;
     }else{
@@ -111,9 +109,9 @@ double OneStar_Lbol_Lsun(double ini_mass_sol, double age_yr, double Zsol){
 	Lbol = pow(10,fmlow*fML*ftm) ; /*in Lsun*/
     }
     cart_assert(Lbol>=0);
+    cart_debug("Lbol %e ", Lbol);
     return Lbol;
 }
-////////////////////////////////////////////
 
 /* RT luminosity is in energy/restmassenergy/sec_codeunits */
 const double Lsun_to_ergs = 3.826e33; /* Lsun ->ergs/s*/
