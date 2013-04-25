@@ -33,8 +33,13 @@ void star_destruction(int level) {
   if(sf_feedback_particle->destroy_star_particle == NULL) return;
 
   start_time( WORK_TIMER );
+  select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 
+#ifdef STAR_PARTICLE_TYPES
 #pragma omp parallel for default(none), private(icell,ipart,ipart_prev,idelete), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next, particle_list_prev, sf_feedback_particle), schedule(dynamic)
+#else
+#pragma omp parallel for default(none), private(icell,ipart,ipart_prev,idelete), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_id,particle_species_indices,num_particle_species,particle_list_next, particle_list_prev, sf_feedback_particle), schedule(dynamic)
+#endif
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
 	
@@ -42,7 +47,6 @@ void star_destruction(int level) {
         while ( ipart != NULL_PARTICLE ) {
 		ipart_prev = particle_list_prev[ipart] ;
 		if ( particle_is_star(ipart) ){
-		    //stellar_destruction(level,cell,ipart,&idelete );
                     idelete = sf_feedback_particle->destroy_star_particle(level,icell,ipart);
                     if(idelete == -1){ 
                         delete_particle(icell,ipart);
