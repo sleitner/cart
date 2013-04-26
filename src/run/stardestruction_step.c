@@ -34,12 +34,12 @@ void star_destruction(int level) {
 
   start_time( WORK_TIMER );
   select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
-
-#ifdef STAR_PARTICLE_TYPES
-#pragma omp parallel for default(none), private(icell,ipart,ipart_prev,idelete), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next, particle_list_prev, sf_feedback_particle), schedule(dynamic)
-#else
-#pragma omp parallel for default(none), private(icell,ipart,ipart_prev,idelete), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_id,particle_species_indices,num_particle_species,particle_list_next, particle_list_prev, sf_feedback_particle), schedule(dynamic)
-#endif
+/* cannot be done shared-memory parallel */
+/* #ifdef STAR_PARTICLE_TYPES */
+/* #pragma omp parallel for default(none), private(icell,ipart,ipart_prev,idelete), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_id,star_particle_type,particle_species_indices,num_particle_species,particle_list_next, particle_list_prev, sf_feedback_particle), schedule(dynamic) */
+/* #else */
+/* #pragma omp parallel for default(none), private(icell,ipart,ipart_prev,idelete), shared(num_level_cells,level_cells,cell_particle_list,particle_level,level,particle_id,particle_species_indices,num_particle_species,particle_list_next, particle_list_prev, sf_feedback_particle), schedule(dynamic) */
+/* #endif */
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
 	
