@@ -43,7 +43,7 @@ extern double blastwave_time_cut;
 #endif /* BLASTWAVE_FEEDBACK */
 
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
-extern double fix_turbulence_dissipation_time;
+extern double fix_isotropic_turbulence_dissipation_time;
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 
@@ -685,7 +685,7 @@ void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells
     int i, icell; 
     float cell_old;
     float crossing_time,vas,tcode_diss;
-    tcode_diss = fix_turbulence_dissipation_time*constants->yr/units->time;
+    tcode_diss = fix_isotropic_turbulence_dissipation_time*constants->yr/units->time;
 #pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl,tcode_diss), private(i,icell,crossing_time,vas,cell_old)
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];

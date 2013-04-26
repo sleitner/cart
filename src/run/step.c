@@ -781,7 +781,7 @@ int timestep( int level, MPI_Comm level_com )
 #endif /* PARTICLES */
 
 #ifdef ISOTROPIC_TURBULENCE_ENERGY 
-	hydro_turbulence_sources(level);
+	hydro_isotropic_turbulence_sources(level);
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 	/* advance time on level */

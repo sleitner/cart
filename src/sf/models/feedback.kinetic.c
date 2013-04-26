@@ -341,11 +341,11 @@ void kinetic_to_internal(int icell, double p0, double p1, int toturbulence){
 
     if( toturbulence == 1){
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
-	if(units->temperature*cell_turbulence_temperature(icell) < feedback_turbulence_temperature_ceiling)
+	if(units->temperature*cell_isotropic_turbulence_temperature(icell) < feedback_turbulence_temperature_ceiling)
 	    {
 		cell_isotropic_turbulence_energy(icell) += dU;
 		cell_gas_energy(icell) += dU/2.;  /* half was already kinetic */
-		cell_gas_pressure(icell) += dU*(turbulence_gamma-1);
+		cell_gas_pressure(icell) += dU*(isotropic_turbulence_gamma-1);
 	    }
 #else
 	cart_error("ISOTROPIC_TURBULENCE_ENERGY must be defined");

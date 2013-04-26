@@ -71,7 +71,7 @@ void config_init_hydro()
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
   control_parameter_add2(control_parameter_float,&gamma_internal.isotropic_turbulence,"gamma:isotropic_turbulence","gamma.isotropic_turbulence","gamma for turbulent energy");
   
-  control_parameter_add2(control_parameter_double,&fraction_SN_to_isotropic_turbulence,"isotropic_turbulence:fraction-SN-to-isotropic_turbulence","fraction_SN_to_isotropic_turbulence","fraction of SN energy that goes to isotropic_turbulence.");
+  control_parameter_add2(control_parameter_double,&fraction_SN_to_isotropic_turbulence,"isotropic_turbulence:fraction-SN-to-turbulence","fraction_SN_to_isotropic_turbulence","fraction of SN energy that goes to isotropic turbulence.");
 
   control_parameter_add3(control_parameter_time,&fix_isotropic_turbulence_dissipation_time,"isotropic_turbulence:fix-dissipation-time","fix_isotropic_turbulence_dissipation_time","isotropic_turbulence.fix_dissipation_time", "time scale over which isotropic_turbulence dissipates, if not set then defaults to cell crossing time.");
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
@@ -107,9 +107,9 @@ void config_verify_hydro()
 #endif /* BLASTWAVE_FEEDBACK */
 
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
-  VERIFY(fix-isotropic_turbulence-dissipation-time, fix_isotropic_turbulence_dissipation_time > 0.0 || fix_isotropic_turbulence_dissipation_time == -1.0 );
+  VERIFY(isotropic_turbulence:fix-dissipation-time, fix_isotropic_turbulence_dissipation_time > 0.0 || fix_isotropic_turbulence_dissipation_time == -1.0 );
 
-  VERIFY(isotropic_turbulence:fraction-SN-to-isotropic_turbulence, fraction_SN_to_isotropic_turbulence >= 0.0 && fraction_SN_to_isotropic_turbulence <= 1.0);
+  VERIFY(isotropic_turbulence:fraction-SN-to-turbulence, fraction_SN_to_isotropic_turbulence >= 0.0 && fraction_SN_to_isotropic_turbulence <= 1.0);
   
   VERIFY(gamma:isotropic_turbulence , gamma_internal.isotropic_turbulence  > 1.0);
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */

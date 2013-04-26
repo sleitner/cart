@@ -177,7 +177,7 @@ void snIa_thermal_feedback(int level, int cell, int ipart, double t_next )
           dU = MIN(phi*snIa_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
 #ifdef TURBULENT_ENERGY
 	  dU_turb = fraction_SN_to_turbulence*dU;
-	  if(units->temperature*cell_turbulence_temperature(cell) < feedback_turbulence_temperature_ceiling)
+	  if(units->temperature*cell_isotropic_turbulence_temperature(cell) < feedback_turbulence_temperature_ceiling)
 	      {
 		  cell_turbulent_energy(cell) += dU_turb;
 		  cell_gas_energy(cell) += dU_turb;

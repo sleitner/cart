@@ -19,7 +19,7 @@ void hydro_step( int level );
 void hydro_copy_vars( int level, int direction );
 
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
-void hydro_turbulence_sources(int level);
+void hydro_isotropic_turbulence_sources(int level);
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 void hydro_eos(int level);
 

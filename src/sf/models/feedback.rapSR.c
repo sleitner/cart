@@ -27,10 +27,10 @@ static double tauUV_factor;
 double rapSR_boost = 1;
 double rapSR_timescale = 3e6;
 
-double rapSR_luminosity_phys;
+double rapSR_specific_luminosity_phys;
 double rapSR_timescale_phys;
-double rapSR_luminosity_code;
-double rapSR_pdot_code;
+double rapSR_specific_luminosity_code;
+double rapSR_specific_pdot_code = 0;
 double rapSR_timescale_code;
 void rapSR_config_init()
 {
@@ -44,15 +44,16 @@ void rapSR_config_verify()
 }
 void rapSR_init()
 {
-    rapSR_luminosity_phys = rapSR_boost * 6e42*constants->erg / (1e6*constants->Msun) ; /* rough from sb99 ergs/s per gram */
+    rapSR_specific_luminosity_phys = 6e42*constants->erg / (1e6*constants->Msun) ; /* rough from sb99 ergs/s per gram */
     rapSR_timescale_phys = rapSR_timescale*constants->yr;
 }
 void rapSR_setup(int level)
 {
     tauUV_factor = units->number_density * 2.0e-21 *units->length;
-    rapSR_pdot_code = rapSR_luminosity_phys / constants->c 
-	* units->mass*units->time/(units->mass*units->velocity); /* p per time per mass! */
-    rapSR_luminosity_code = rapSR_luminosity_phys / units->energy * units->mass * units->time; /* per unit mass note this is not rt units for luminosity */
+    rapSR_specific_pdot_code = rapSR_specific_luminosity_phys / constants->c 
+	* units->mass*units->time/(units->mass*units->velocity); /* p per time per mass */
+    rapSR_specific_luminosity_code = rapSR_specific_luminosity_phys 
+	/ units->energy * units->mass * units->time; /* per unit mass note this is not rt units for luminosity */
     rapSR_timescale_code = rapSR_timescale_phys / units->time ;
 }
 
@@ -68,22 +69,29 @@ float tau_UV(int icell){
     return tau;
 }
 
-void rapSR_kick(int level, int icell, int ipart, double t_next){
-    double dp ;
-    double tau;
-    double dt = t_next - particle_t[ipart];
-    double tage = particle_t[ipart] - star_tbirth[ipart];
+double rapSR_pdot(int ipart){
 #ifdef STAR_PARTICLE_TYPES
-    if(!(star_particle_type[ipart] == STAR_TYPE_NORMAL || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH )){
-        cart_error("bad particle type for rapSR");
+    if(!(star_particle_type[ipart] == STAR_TYPE_NORMAL 
+	 || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH ) ){
+	cart_error("bad particle type for rapSR");
     }
+    if(rapSR_specific_pdot_code <= 0){ cart_error("rapSR not setup");}
 #endif
+    double tage = particle_t[ipart] - star_tbirth[ipart];
+    double pdot; 
+    pdot = rapSR_specific_pdot_code * particle_mass[ipart];
+    if(tage > rapSR_timescale_code ){
+	pdot *= pow((tage/rapSR_timescale_code),-1.2); /* fit to sb99 */
+    }
+    return pdot;
+}
+
+void rapSR_kick(int level, int icell, int ipart, double t_next){
+    double dp, pdot;
+    double dt = t_next - particle_t[ipart];
     if(rapSR_boost > 0){
-	tau = tau_UV(icell);
-	dp  =  rapSR_pdot_code * particle_mass[ipart] * dt * ( 1 - exp(-tau) );
-	if(tage > rapSR_timescale_code ){
-	    dp *= pow((tage/rapSR_timescale_code),-1.2); /* fit to sb99 */
-	}
+	dp = rapSR_boost * rapSR_pdot(ipart) 
+	    * dt * ( 1 - exp(-tau_UV(icell)) );
 	distribute_momentum(dp, level, icell, dt); 
     }
 }

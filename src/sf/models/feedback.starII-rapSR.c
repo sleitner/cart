@@ -36,23 +36,22 @@ void starII_rapSR_config_verify()
 void starII_rapSR_setup(int level)
 {
     tauUV_factor = units->number_density * 2.0e-21 *units->length;
+    Lsun_to_pdot = Lsun_to_ergs / constants->c * units->time/ (units->mass * units->velocity);
+}
+double starII_rapSR_pdot(double ini_mass_sol,double age_yr,double Zsol){
+    if(Lsun_to_pdot <= 0){ cart_error("starII_rapSR not setup");}
+    pdot = OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * Lsun_to_pdot ;
+    return pdot;
 }
 void starII_rapSR_kick(int level, int icell, int ipart, double ini_mass_sol, double age_yr, double Zsol, double t_next){
     double dp;
-/*     double L_UV; */
     double L_bol; 
     double tau;
     double dt = t_next - particle_t[ipart];
- 
     cart_assert(star_particle_type[ipart] == STAR_TYPE_STARII);
     if(starII_rapSR_boost > 0){
-/* 	L_UV =  OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * OneStar_UV_fraction(ini_mass_sol, age_yr, Zsol) * Lsun_to_ergs ; */
-	L_bol =  OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * Lsun_to_ergs ;
-	tau = tau_UV(icell);
-	
-	dp  = starII_rapSR_boost * L_bol / constants->c * dt * units->time 
-	    * ( 1 - exp(-tau) ) 
-	    / (units->mass * units->velocity);  
+	dp = starII_rapSR_boost * starII_rapSR_pdot(ini_mass_sol, age_yr, Zsol) 
+	    * dt * ( 1 - exp(-tau_UV(icell)) ) ;  
 	distribute_momentum(dp, level, icell, dt);
     }
 }

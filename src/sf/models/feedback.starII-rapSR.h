@@ -6,6 +6,7 @@ void starII_rapSR_config_init();
 void starII_rapSR_config_verify();
 void starII_rapSR_setup();
 
+double starII_rapSR_pdot(double ini_mass_sol,double age_yr,double Zsol);
 void starII_rapSR_kick(int level, int icell, int ipart, double ini_mass_sol, double age_yr, double Zsol, double t_next);
 #endif
 #endif

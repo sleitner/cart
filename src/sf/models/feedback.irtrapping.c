@@ -17,6 +17,8 @@
 
 #include "onestarfits.h"
 #include "feedback.kinetic.h"
+#include "feedback.starII-rapSR.h"
+#include "feedback.rapSR.h"
 
 int Apply_AVK_tauIR = 0;
 double tauIR_boost = 0;
@@ -101,55 +103,64 @@ double AVK_tauIR(double Msol, double Zsol ){
      return tauIR;
 }
 
-void masslum_from_star0(int level, int icell, double *Msol, double *LUV_ergis){
+void masspdot_from_cell(int level, int icell, float *Msol_cell, float *pdot_cell){
     int ipart;
-    double mstar, lstar; 
-
-    mstar=0;
-#ifndef RADIATIVE_TRANSFER
-    lstar=0;
-#endif
+    double mstar_sum, pdot_sum; 
+    double ini_mass_sol, Zsol, age_yr; 
+    mstar_sum=0;
+    pdot_sum=0;
     ipart = cell_particle_list[icell];
     while ( ipart != NULL_PARTICLE ) {
  	if ( particle_is_star(ipart) ){
-	    if( (particle_t[ipart]-star_tbirth[ipart])*units->time 
-		< constants->yr*clump_survival_time ){
-		mstar += particle_mass[ipart];
-#ifndef RADIATIVE_TRANSFER
-		lstar += sf_feedback_particle->rt_source(ipart)*particle_mass[ipart]; 
+	    age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time / constants->yr;
+	    if( age_yr < clump_survival_time ){
+		mstar_sum += particle_mass[ipart];
+#ifdef PARTICLE_TYPES
+		if(star_particle_type[ipart] == STAR_TYPE_NORMAL 
+		   || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH ){
+		    pdot_sum += rapSR_pdot(ipart);
+		}else if(star_particle_type[ipart] == STAR_TYPE_STARII){
+		    ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
+		    Zsol = star_metallicity_II[ipart]/constants->Zsun;
+		    pdot += starII_rapSR_pdot( ini_mass_sol, age_yr, Zsol) 
+		}else{
+		    cart_error("star type  needs an associated pdot");
+		}
+#else
+		pdot_sum += rapSR_pdot(ipart);
 #endif
 	    }
 	}
 	ipart = particle_list_next[ipart];
     }
-#ifdef RADIATIVE_TRANSFER
-    /* uses cic (rtAfterAssignDensity adds inv_volume) */
-    (*LUV_ergis) = cell_rt_source(icell)*cell_volume[level]  * factor_rt_to_ergis ; 
-#else
-    (*LUV_ergis) = lstar * factor_rt_to_ergis; /* uses ngp */             
-#endif
-    (*Msol) =  mstar*units->mass/constants->Msun;
+    (*pdot_cell) = pdot_sum; /* uses ngp */             
+    (*Msol_cell) = mstar_sum*units->mass/constants->Msun;
 }
-
+/* #ifndef RADIATIVE_TRANSFER */
+/* 		pdot += sf_feedback_particle->rt_source(ipart)*particle_mass[ipart]* factor_rt_to_ergis;  */
+/* #endif */
+/* #ifdef RADIATIVE_TRANSFER */
+/*     /\* uses cic (rtAfterAssignDensity adds inv_volume) *\/ */
+/*     (*pdot_cell) = cell_rt_source(icell)*cell_volume[level]  */
+/* 	* 6 /\* Lbol ~ 6*Lion *\/ */
+/* 	* factor_rt_to_ergis / constants->c  */
+/* 	* (units->time)/ (units->velocity * units->mass); */
+/* #endif */
 
 void cell_trapIR(int level, int icell, double t_next, double dt){
-    float Zsol;
-    float Lbol_ergis, LUV_ergis;
-    float Mcell_sun;
-    float tauIR;
-    float dp;
-    
-    if( tauIR_boost > 0 ){
-
-#ifdef ENRICHMENT
-	Zsol = cell_gas_metal_density(icell)/(cell_gas_density(icell)*constants->Zsun);
-#else
-	cart_error("ENRICHMENT is required for tauIR model to function");
+    double Zsol;
+    float pdot_cell;
+    float Msol_cell;
+    double tauIR;
+    double dp;
+#ifndef ENRICHMENT
+    cart_error("ENRICHMENT is required for tauIR model to function");
 #endif
-	masslum_from_star0(level, icell, &Mcell_sun, &LUV_ergis);
-	Lbol_ergis = LUV_ergis*6; /* similar to rapSR_luminosity_code*/
-	if(LUV_ergis>0){
-	    
+    if( tauIR_boost > 0 ){
+	Zsol = cell_gas_metal_density(icell)/(cell_gas_density(icell)*constants->Zsun);
+	masspdot_from_cell(level, icell, &Msol_cell, &pdot_cell);
+	//Lbol_ergis = LUV_ergis*6; /* similar to rapSR_luminosity_code*/
+	if(pdot_cell>0){
 	    tauIR = tauIR_boost *  Kappa_IR(Zsol) 
 #ifdef RADIATIVE_TRANSFER
 		* (cell_HI_density(icell)+2.0*cell_H2_density(icell))/constants->XH
@@ -157,13 +168,10 @@ void cell_trapIR(int level, int icell, double t_next, double dt){
 		* cell_gas_density(icell)
 #endif /* RADIATIVE_TRANSFER */
 		* Zsol * cell_sobolev_length(icell);
-	    
-	    if(Apply_AVK_tauIR)
-		{
-		    tauIR += tauIR_boost * AVK_tauIR(Mcell_sun, Zsol) ;
-		}
-	    dp = LUV_ergis * tauIR / constants->c * (dt*units->time) 
-		/ (units->velocity * units->mass);
+	    if(Apply_AVK_tauIR){
+		tauIR += tauIR_boost * AVK_tauIR(Msol_cell, Zsol) ;
+	    }
+	    dp = pdot_cell * tauIR * dt ;
 	    distribute_momentum(dp, level, icell, dt);
 	}
     }

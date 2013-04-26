@@ -92,7 +92,7 @@ void starII_explosion_thermal(int level, int icell, int ipart){
 
 #ifdef TURBULENT_ENERGY
     dU_turb = fraction_SN_to_turbulence*dU;
-    if(units->temperature*cell_turbulence_temperature(icell) < feedback_turbulence_temperature_ceiling)
+    if(units->temperature*cell_isotropic_turbulence_temperature(icell) < feedback_turbulence_temperature_ceiling)
 	{
 	    cell_turbulent_energy(icell) += dU_turb;
 	    cell_gas_energy(icell) += dU_turb;
