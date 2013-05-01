@@ -24,6 +24,7 @@
 float tau_UV(int icell);
 static double tauUV_factor;
 int starII_rapSR_boost = 1;
+float Lsun_to_pdot;
 
 void starII_rapSR_config_init()
 {
@@ -39,6 +40,7 @@ void starII_rapSR_setup(int level)
     Lsun_to_pdot = Lsun_to_ergs / constants->c * units->time/ (units->mass * units->velocity);
 }
 double starII_rapSR_pdot(double ini_mass_sol,double age_yr,double Zsol){
+    double pdot;
     if(Lsun_to_pdot <= 0){ cart_error("starII_rapSR not setup");}
     pdot = OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * Lsun_to_pdot ;
     return pdot;
