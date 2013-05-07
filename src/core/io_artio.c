@@ -181,6 +181,9 @@ void define_file_variables(int *num_variables, char *variable_labels[num_vars],
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
 	add_variable( "HVAR_ISOTROPIC_TURBULENCE_ENERGY", HVAR_ISOTROPIC_TURBULENCE_ENERGY );
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+	add_variable( "VAR_EXTRA_PRESSURE_SOURCE", VAR_EXTRA_PRESSURE_SOURCE );
+#endif
 
 
 #endif /* HYDRO */
