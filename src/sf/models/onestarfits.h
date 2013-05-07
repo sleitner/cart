@@ -28,6 +28,8 @@ double OneStar_Lion_RT(int ipart);
 void testonestar();
 #endif
 
+double agetau(double ini_mass_sol, double age_yr, double Zsol);
+
 extern const double Lsun_to_ergs; /* Lsun ->ergs/s*/
 
 #endif /* __ONESTARFITS_H__ */

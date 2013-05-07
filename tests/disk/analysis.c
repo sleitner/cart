@@ -58,7 +58,7 @@ const plugin_t* add_plugin(int id){
 
 void writebegin(){
     int icell;
-    write_restart( WRITE_GENERIC, WRITE_GENERIC, WRITE_GENERIC );
+    write_restart( WRITE_SAVE, WRITE_SAVE, WRITE_SAVE );
 }
 
 void run_output(){
