@@ -23,10 +23,10 @@
 
 extern double dUfact;
 extern double feedback_temperature_ceiling;
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
 extern double feedback_turbulence_temperature_ceiling;
-#ifdef TURBULENT_ENERGY
-extern double fraction_SN_to_turbulence;
-#endif /* TURBULENT_ENERGY */
+extern double fraction_SN_to_isotropic_turbulence;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
 struct
 {

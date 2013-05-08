@@ -24,9 +24,6 @@ double OneStar_Lbol_RT(int ipart);
 double OneStar_Lion_RT(int ipart);
 #endif
 #endif
-#ifdef DEBUG_SNL
-void testonestar();
-#endif
 
 double agetau(double ini_mass_sol, double age_yr, double Zsol);
 
