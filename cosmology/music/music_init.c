@@ -57,6 +57,12 @@ void zero_hydro( int icell ){
     cell_HeIII_density(icell) = 0;
     cell_H2_density(icell) = 0;
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+    cell_extra_pressure_source(icell) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+    cell_isotropic_turbulence_energy(icell) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 }
 
 void set_zero_hydro() {
@@ -138,6 +144,12 @@ void music_init() {
       cell_HeIII_density(i) = 0;
       cell_H2_density(i) = 0;
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+      cell_extra_pressure_source(i) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+      cell_isotropic_turbulence_energy(i) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
     }
 #endif /* HYDRO */
 

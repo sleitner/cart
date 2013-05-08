@@ -700,6 +700,12 @@ void gicAssignCellData(int cell, float w, float delta, float vx, float vy, float
   cell_H2_density(cell) = cell_gas_density(cell)*constants->XH*1.0e-10;
 #endif
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+  cell_extra_pressure_source(cell) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+  cell_isotropic_turbulence_energy(cell) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
   if(!cell_is_leaf(cell))
     {
@@ -1254,6 +1260,13 @@ void gic_init()
       cell_HeIII_density(i) = 0;
       cell_H2_density(i) = 0;
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+  cell_extra_pressure_source(i) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+  cell_isotropic_turbulence_energy(i) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
+
     }
 #endif /* HYDRO */
 

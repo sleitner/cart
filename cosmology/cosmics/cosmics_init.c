@@ -497,6 +497,12 @@ void cosmics_init()
       cell_HeIII_density(cell) = cell_gas_density(cell)*0.0;
       cell_H2_density(cell) = cell_gas_density(cell)*constants->XH*2.0e-6;
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+      cell_extra_pressure_source(cell) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+      cell_isotropic_turbulence_energy(cell) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
     }
   cart_free(level_cells);
 

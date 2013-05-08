@@ -213,6 +213,12 @@ void read_hart_gas_ic( char *filename ) {
 		cell_HeIII_density(i) = cell_gas_density(i)*0.0;
 		cell_H2_density(i) = cell_gas_density(i)*constants->XH*2.0e-6;
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+		cell_extra_pressure_source(i) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+		cell_isotropic_turbulence_energy(i) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 	}
 }
 
