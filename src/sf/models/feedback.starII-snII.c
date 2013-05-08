@@ -90,18 +90,18 @@ void starII_explosion_thermal(int level, int icell, int ipart){
     /* Now add type II feedback */
     dU = MIN(starII_SNe_code.thermal_energy*cell_volume_inverse[level], dUfact*cell_gas_density(icell));
 
-#ifdef TURBULENT_ENERGY
-    dU_turb = fraction_SN_to_turbulence*dU;
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+    dU_turb = fraction_SN_to_isotropic_turbulence*dU;
     if(units->temperature*cell_isotropic_turbulence_temperature(icell) < feedback_turbulence_temperature_ceiling)
-	{
-	    cell_turbulent_energy(icell) += dU_turb;
-	    cell_gas_energy(icell) += dU_turb;
-	    cell_gas_pressure(icell) += dU_turb*(turbulence_gamma-1);
-
-	    dU = (1-fraction_SN_to_turbulence)*dU;
-	}
-#endif /* TURBULENT_ENERGY */
-
+        {
+            cell_isotropic_turbulence_energy(icell) += dU_turb;
+            cell_gas_energy(icell) += dU_turb;
+            cell_gas_pressure(icell) += dU_turb*(isotropic_turbulence_gamma-1);
+            
+            dU = (1-fraction_SN_to_isotropic_turbulence)*dU;
+        }
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
+    
     /* limit energy release and don't allow to explode in hot bubble */
     if(units->temperature*cell_gas_temperature(icell) < feedback_temperature_ceiling)
 	{

@@ -684,9 +684,9 @@ void hydro_isotropic_turbulence_sources( int level ){
 void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells, int *level_cells) {
     int i, icell; 
     float cell_old;
-    float crossing_time,vas,tcode_diss;
+    float crossing_time,vas,tcode_diss, dU;
     tcode_diss = fix_isotropic_turbulence_dissipation_time*constants->yr/units->time;
-#pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl,tcode_diss), private(i,icell,crossing_time,vas,cell_old)
+#pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl,tcode_diss), private(i,icell,crossing_time,vas,cell_old, dU)
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
 	if ( cell_is_leaf(icell) ) {
@@ -700,7 +700,9 @@ void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells
 		cell_isotropic_turbulence_energy(icell) *= exp(-dtl[level]/crossing_time);
 	    }
 	    /* turbulent energy goes into internal energy */
-	    cell_gas_internal_energy(icell) += cell_old - cell_isotropic_turbulence_energy(icell);
+            dU = cell_old - cell_isotropic_turbulence_energy(icell);
+	    cell_gas_internal_energy(icell) += dU;
+            cell_gas_pressure(icell) += dU*(cell_gas_gamma(icell)-1);
 	}
     }   
 }

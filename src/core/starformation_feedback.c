@@ -17,7 +17,7 @@ const struct StellarFeedbackParticle *sf_feedback_particle = &sf_feedback_partic
 
 extern struct StellarFeedbackCell sf_feedback_cell_internal;
 const struct StellarFeedbackCell *sf_feedback_cell = &sf_feedback_cell_internal;
-double feedback_turbulence_temperature_ceiling = 1.0e7;
+double feedback_turbulence_temperature_ceiling = 1.0e8;
 double feedback_sampling_timescale = 0;           /* in yrs */
 double feedback_temperature_ceiling = 1.0e8;  /* Used to be called T_max_feedback; also, was a define in HART */
 double feedback_speed_time_ceiling = 1e4;  /* do not accelerate flows so that time-steps drop below~1e4yr (1e3km/s at 10pc) for a flow that is has v=0 wrt the grid*/
