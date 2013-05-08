@@ -37,30 +37,44 @@ int tracer_list_enabled = 0;
 
 #if defined(ENRICHMENT) && defined(ENRICHMENT_SNIa)
 int num_hydro_vars_traced = 4;
-int hydro_vars_traced[] = {		
+int hydro_vars_traced[] = {
 	HVAR_GAS_DENSITY,
 	HVAR_INTERNAL_ENERGY,
+	//HVAR_GAS_ENERGY,
+	//HVAR_PRESSURE,
+    //HVAR_ELECTRON_INTERNAL_ENERGY,
 	HVAR_METAL_DENSITY_II,
-	HVAR_METAL_DENSITY_Ia };
-char *hydro_vars_traced_labels[] = { 	
-	"density",
-	"internal energy",
-	"SNII metallicity",
-	"SNIa metallicity" };
+	HVAR_METAL_DENSITY_Ia
+};
+char *hydro_vars_traced_labels[] = {
+	"HVAR_GAS_DENSITY",
+	"HVAR_INTERNAL_ENERGY",    // internal energy
+	//"HVAR_GAS_ENERGY",       // total energy
+	//"HVAR_PRESSURE",
+    //"HVAR_ELECTRON_INTERNAL_ENERGY",
+	"HVAR_METAL_DENSITY_II",
+	"HVAR_METAL_DENSITY_Ia"
+};
 #else  /* ENRICHMENT && ENRICHMENT_SNIa */
-int num_hydro_vars_traced = 3;
-int hydro_vars_traced[] = { 
-	HVAR_GAS_DENSITY,
-	HVAR_GAS_ENERGY,
-	HVAR_INTERNAL_ENERGY };
-char *hydro_vars_traced_labels[] = {	
-	"density",
-	"total energy",
-	"internal energy" };
+int num_hydro_vars_traced = 2;
+int hydro_vars_traced[] = {
+    HVAR_GAS_DENSITY,
+    HVAR_INTERNAL_ENERGY
+    //HVAR_GAS_ENERGY,
+    //HVAR_PRESSURE,
+    //HVAR_ELECTRON_INTERNAL_ENERGY
+};
+char *hydro_vars_traced_labels[] = {
+    "HVAR_GAS_DENSITY",
+    "HVAR_INTERNAL_ENERGY"    // internal energy
+    //"HVAR_GAS_ENERGY",       // total energy
+    //"HVAR_PRESSURE",
+    //"HVAR_ELECTRON_INTERNAL_ENERGY"
+};
 #endif /* ENRICHMENT && ENRICHMENT_SNIa */
 
 
-void init_hydro_tracers() { 
+void init_hydro_tracers() {
 	int i;
 
 	for ( i = 0; i < num_tracers; i++ ) {
@@ -119,7 +133,7 @@ void set_hydro_tracers( int min_tracer_level ) {
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		num_tracers_total += proc_num_leafs[proc];
 	}
-	
+
 	/* put a tracer particle at the center of every leaf cell */
 	for ( level = min_tracer_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
@@ -145,7 +159,7 @@ void set_hydro_tracers( int min_tracer_level ) {
 }
 
 #ifdef PARTICLES
-void set_hydro_tracers_to_particles() { 
+void set_hydro_tracers_to_particles() {
 	int i;
 	int ipart;
 	int icell;
@@ -267,9 +281,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 			recv_id[proc] = cart_alloc(unsigned int, page_size );
 			recv_tracers[proc] = cart_alloc(double, tracers_page_size );
 
-			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0, 
+			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0,
 					mpi.comm.run, &recv_id_requests[proc] );
-			MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, 
+			MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE,
 					proc, 0, mpi.comm.run, &recv_tracer_requests[proc] );
 
 			page_count[proc] = 0;
@@ -282,9 +296,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 	/* compute number of pages we'll need to send */
 	num_pages_to_send = 0;
 	for ( proc = 0; proc < num_procs; proc++ ) {
-		if ( ( trade_level == -1 && proc != local_proc_id ) || 
-				( trade_level != -1 && 				
-				( num_remote_buffers[trade_level][proc] > 0 
+		if ( ( trade_level == -1 && proc != local_proc_id ) ||
+				( trade_level != -1 &&
+				( num_remote_buffers[trade_level][proc] > 0
 				|| num_local_buffers[trade_level][proc] > 0 ) ) ) {
 			/* must send at least 1 page */
 			if ( num_tracers_to_send[proc] > 0 ) {
@@ -299,13 +313,13 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 	send_id = cart_alloc(unsigned int, num_pages_to_send * page_size );
 	send_tracers = cart_alloc(double, num_pages_to_send * tracers_page_size );
 	send_requests = cart_alloc(MPI_Request, 2*num_pages_to_send );
-	
+
 	num_pages_sent = 0;
 	num_send_requests = 0;
 	for ( proc = 0; proc < num_procs; proc++ ) {
-		if ( ( trade_level == -1 && proc != local_proc_id ) || 
-				( trade_level != -1 &&  
-				( num_remote_buffers[trade_level][proc] > 0 || 
+		if ( ( trade_level == -1 && proc != local_proc_id ) ||
+				( trade_level != -1 &&
+				( num_remote_buffers[trade_level][proc] > 0 ||
 				num_local_buffers[trade_level][proc] > 0 ) ) ) {
 			if ( num_tracers_to_send[proc] > 0 ) {
 				tracer_count = 0;
@@ -313,22 +327,22 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 				proc_pages_sent = 0;
 
 				tracer = tracer_list_to_send[proc];
-	
+
 				while ( tracer != NULL_TRACER ) {
 					send_id[page_size*num_pages_sent+id_count++] = tracer_id[tracer];
-	
+
 					for ( j = 0; j < nDim; j++ ) {
-						send_tracers[tracers_page_size*num_pages_sent+tracer_count++] = 
+						send_tracers[tracers_page_size*num_pages_sent+tracer_count++] =
 							tracer_x[tracer][j];
 					}
-	
+
 					tracer = tracer_list_next[tracer];
 
 					if ( id_count == page_size ) {
-						MPI_Isend( &send_id[num_pages_sent*page_size], page_size, MPI_INT, proc, 
+						MPI_Isend( &send_id[num_pages_sent*page_size], page_size, MPI_INT, proc,
 							proc_pages_sent, mpi.comm.run, &send_requests[num_send_requests++] );
-						MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracers_page_size, 
-							MPI_DOUBLE, proc, proc_pages_sent, mpi.comm.run, 
+						MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracers_page_size,
+							MPI_DOUBLE, proc, proc_pages_sent, mpi.comm.run,
 							&send_requests[num_send_requests++] );
 
 						proc_pages_sent++;
@@ -337,12 +351,12 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 						tracer_count = 0;
 					}
 				}
-	
+
 				tracer_list_free( tracer_list_to_send[proc] );
-	
-				MPI_Isend( &send_id[num_pages_sent*page_size], id_count, MPI_INT, proc, proc_pages_sent, 
+
+				MPI_Isend( &send_id[num_pages_sent*page_size], id_count, MPI_INT, proc, proc_pages_sent,
 					mpi.comm.run, &send_requests[num_send_requests++] );
-				MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracer_count, MPI_DOUBLE, proc, 
+				MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracer_count, MPI_DOUBLE, proc,
 					proc_pages_sent, mpi.comm.run, &send_requests[num_send_requests++] );
 
 				num_pages_sent++;
@@ -350,9 +364,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 
 			} else {
 				/* send a single empty page */
-				MPI_Isend( &send_id[page_size*num_pages_sent], 0, MPI_INT, proc, 0, mpi.comm.run, 
+				MPI_Isend( &send_id[page_size*num_pages_sent], 0, MPI_INT, proc, 0, mpi.comm.run,
 					&send_requests[num_send_requests++] );
-				MPI_Isend( &send_tracers[tracers_page_size*num_pages_sent], 0, MPI_DOUBLE, proc, 0, 
+				MPI_Isend( &send_tracers[tracers_page_size*num_pages_sent], 0, MPI_DOUBLE, proc, 0,
 					mpi.comm.run, &send_requests[num_send_requests++] );
 
 				num_pages_sent++;
@@ -393,9 +407,9 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 			/* if we received a full page, set up to receive a new one */
 			if ( id_count == page_size ) {
 				page_count[proc]++;
-				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, page_count[proc], 
+				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, page_count[proc],
 						mpi.comm.run, &recv_id_requests[proc] );
-				MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, proc, 
+				MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, proc,
 						page_count[proc], mpi.comm.run, &recv_tracer_requests[proc] );
 			} else {
 				cart_free( recv_id[proc] );
@@ -520,7 +534,7 @@ void join_tracer_list( int icell ) {
 
 	cart_assert( icell >= 0 && icell < num_cells );
 	cart_assert( cell_is_refined(icell) );
-	
+
 	/* find children with tracers */
 	tracer = NULL_TRACER;
 	for ( i = 0; i < num_children; i++ ) {
@@ -559,7 +573,7 @@ void insert_tracer( int icell, int tracer ) {
 		cart_assert( tracer_list_prev[head] == NULL_TRACER );
 		tracer_list_prev[head] = tracer;
 	}
-	
+
 	cell_tracer_list[icell] = tracer;
 }
 
