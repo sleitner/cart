@@ -72,7 +72,7 @@ void rtUnPackCellData(int level, int cell, frt_real *var, frt_real *rawrf);
 void rtSetupSource(int level)
 {
 #if defined(STAR_FORMATION) && !defined(RT_TEST)
-  if(sf_feedback->setup != NULL) sf_feedback->setup(level);
+  if(sf_feedback->setup != NULL) sf_particle_feedback->setup(level);
 #endif 
 }
 
@@ -89,7 +89,7 @@ float (*rtSource)(int ipart) = NULL;
 void rtConfigInit()
 {
 #if defined(STAR_FORMATION) && !defined(RT_TEST)
-  rtSource = sf_feedback->rt_source;
+  rtSource = sf_particle_feedback->rt_source;
 #else
   rtSource = rtConstantSource;
 #endif
