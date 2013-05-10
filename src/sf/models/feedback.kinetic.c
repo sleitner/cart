@@ -25,6 +25,10 @@
 // This file tells how to distribute some input momentum to kicks and/or internal energy 
 */
 
+#ifdef STAR_FORMATION
+extern double feedback_temperature_ceiling;
+#endif /* STAR_FORMATION */
+extern double feedback_turbulence_temperature_ceiling;
 double kfb_boost_kicks=1;
 struct kfb_t
 {
@@ -147,7 +151,6 @@ void kfb_config_verify()
     VERIFY(kfb:boost_kicks, kfb_boost_kicks>=0);
 }
 
-extern int cancel_to_turbulence;
 int cancel_to_turbulence=0;
 void kfb_init(){
     if(strcmp(kfb_internal_turbulence,"cancel") == 0 || strcmp(kfb_internal_turbulence,"both") == 0){
@@ -296,9 +299,10 @@ void cart_rand_unit_vector_oct(double uni[nDim], int ichild){
 /* ------- act on the cells ----------------------------------- */
 void kfb_pressurize_cell(int icell, double dPressure){
 /* add a fixed pressure source to generate momentum */
-    double dU;
 #ifdef EXTRA_PRESSURE_SOURCE
 	cell_extra_pressure_source(icell) += dPressure;
+#else
+	cart_error("need extra pressure source to pressurize cells");
 #endif /* EXTRA_PRESSURE_SOURCE */
 }
 void kfb_pressurize(double dPressure, int level, int icell){
@@ -325,10 +329,6 @@ void kfb_pressurize(double dPressure, int level, int icell){
     }
 }
 
-#ifdef STAR_FORMATION
-extern double feedback_temperature_ceiling;
-#endif /* STAR_FORMATION */
-extern double feedback_turbulence_temperature_ceiling;
 void kinetic_to_internal(int icell, double p0, double p1, int toturbulence){
     /* cancel momentum and convert to internal energy */
     double  p2_cancel, dU;
@@ -362,7 +362,6 @@ void kinetic_to_internal(int icell, double p0, double p1, int toturbulence){
     }
 }
 
-double pos[nDim];
 void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
     double uni[nDim], p1, dp_cell, dp_dir;
     int i;
