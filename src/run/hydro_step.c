@@ -675,7 +675,7 @@ void turbulent_pressure_floor ( int level ) {
 }
 void hydro_isotropic_turbulence_sources( int level ){
     if(pressure_floor > 0){
-	turbulent_pressure_floor ( level );
+//	turbulent_pressure_floor ( level );
     }
     /* feedback-generated turbulence is in sf */
     /* extrapolation of the inertial range? */
@@ -753,7 +753,7 @@ void hydro_advance_internalenergy( int level ) {
 		for(j=0; j<num_extra_energy_variables ;j++){
 		    gamma1 = extra_energy_gamma(j) - 1.0; 
 		    div = 1.0 + gamma1 * ref[icell] * div_dt;
-		    cell_extra_energy_variables(icell,j) = MAX( 1.0e-30, cell_extra_energy_variables(icell,j)*div*div*div );
+		    cell_extra_energy_variables(icell,j) = MAX( 0.0, cell_extra_energy_variables(icell,j)*div*div*div );
 		}
 
 		/* synchronize internal and total energy */
@@ -1086,7 +1086,7 @@ void hydro_copy_vars( int level, int direction ) {
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 			for ( j = 0; j < num_extra_energy_variables; j++ ) {
-		    	        cell_extra_energy_variables(icell,j) = MAX( 1.0e-30, backup_hvar(icell,j+6+num_electronion_noneq_vars));
+		    	        cell_extra_energy_variables(icell,j) = MAX( 0.0, backup_hvar(icell,j+6+num_electronion_noneq_vars));
 			}
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cell_advected_variable(icell,j) = MAX( 1.0e-30, 
@@ -1111,7 +1111,7 @@ void hydro_copy_vars( int level, int direction ) {
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
 				for ( j = 0; j < num_extra_energy_variables; j++ ) {
-				        cell_extra_energy_variables(icell,j) = MAX( 1.0e-30, backup_hvar(icell,j+6+num_electronion_noneq_vars)); 
+				        cell_extra_energy_variables(icell,j) = MAX( 0.0, backup_hvar(icell,j+6+num_electronion_noneq_vars)); 
 				}
 				for ( j = 0; j < num_chem_species; j++ ) {
 					cell_advected_variable(icell,j) = MAX( 1.0e-30, 
