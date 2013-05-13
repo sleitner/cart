@@ -1303,14 +1303,15 @@ void read_artio_restart( const char *label ) {
 				nDim, star_formation_volume_min ) != ARTIO_SUCCESS ||
 			artio_parameter_get_float_array( handle, "star_formation_volume_max", 
 				nDim, star_formation_volume_max ) != ARTIO_SUCCESS ) {
-		cart_error("Unable to read star formation volume from artio header file!");
+		cart_debug("Unable to read star formation volume from artio header file!");
 	}
 
 	if ( artio_parameter_get_double( handle, "total_stellar_mass", 
 				&total_stellar_mass ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "total_stellar_initial_mass", 
 				&total_stellar_initial_mass ) != ARTIO_SUCCESS ) {
-		cart_error("Unable to read stellar mass variables from artio header file!");
+		cart_debug("Unable to read stellar mass variables from artio header file.  Star formation rates reported in sf.log may not be correct");
+		total_stellar_mass = total_stellar_initial_mass = 0.0;
 	}
 #endif /* STAR_FORMATION */
 
