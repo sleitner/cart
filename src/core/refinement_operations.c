@@ -44,7 +44,7 @@ double cell_internal_energy( int icell ) {
 #endif /* HYDRO */
 
 int split ( int cell ) {
-	int i, j;
+        int i, j, ind;
 	int neighbor, cell_number;
 	int result;
 	int child_cell;
@@ -54,11 +54,13 @@ int split ( int cell ) {
 	double moment;	
 #ifdef HYDRO
 	double weights[num_hydro_vars-nDim];
+        double weightextP;
 #endif /* HYDRO */
 
 	cart_assert( cell >= 0 && cell < num_cells );
 
 #ifdef HYDRO
+        weightextP = 0;
 	for ( i = 0; i < num_hydro_vars-nDim; i++ ) {
 		weights[i] = 0.0;
 	}
@@ -126,6 +128,16 @@ int split ( int cell ) {
 			cell_electron_internal_energy(child_cell) = cell_interpolate_with_neighbors( cell, HVAR_ELECTRON_INTERNAL_ENERGY, neighbors );
 			weights[5] += cell_electron_internal_energy(child_cell);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+                        
+			for ( j = 0; j < num_extra_energy_variables; j++ ) {
+                                cell_extra_energy_variables(child_cell,j) = 
+                                    cell_interpolate_with_neighbors( cell, HVAR_EXTRA_ENERGY_VARIABLES+j, neighbors );
+                                weights[j+5+num_electronion_noneq_vars] +=  cell_extra_energy_variables(child_cell,j);
+			}
+
+			cell_extra_pressure_source(child_cell) = cell_interpolate_with_neighbors( 
+                            cell, VAR_EXTRA_PRESSURE_SOURCE, neighbors );
+                        weightextP += cell_extra_pressure_source(child_cell);
 
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cell_advected_variable(child_cell,j) = cell_interpolate_with_neighbors( cell, HVAR_ADVECTED_VARIABLES+j, neighbors );
@@ -167,6 +179,14 @@ int split ( int cell ) {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 		weights[5] = (weights[5] == 0.0) ? 0.0: (double)num_children * (double)cell_electron_internal_energy(cell) / weights[5];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+                for ( j = 0; j < num_extra_energy_variables; j++ ) {
+                    ind = j+5+num_electronion_noneq_vars;
+                    weights[ind] = (weights[ind] == 0.0) ? 0.0: 
+                        (double)num_children *
+                        (double)cell_extra_energy_variables(cell,j) / 
+                        weights[ind];
+                }
+		weightextP = (weightextP == 0.0) ? 0.0: (double)num_children * (double)cell_extra_pressure_source(cell) / weightextP;
 
 		for ( j = 0; j < num_chem_species; j++ ) {
 			weights[num_hydro_vars-num_chem_species-nDim+j] = 
@@ -193,6 +213,11 @@ int split ( int cell ) {
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 			cell_electron_internal_energy(child_cell) *= weights[5];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+
+			for ( j = 0; j < num_extra_energy_variables; j++ ) {
+				cell_extra_energy_variables(child_cell,j) *= weights[j+5+num_electronion_noneq_vars];
+			}
+                        cell_extra_pressure_source(cell) *= weightextP;
 
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cell_advected_variable(child_cell,j) *= weights[num_hydro_vars-num_chem_species-nDim+j];

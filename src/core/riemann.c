@@ -361,7 +361,21 @@ void fluxh( double dtx, double dtx2, double v[num_hydro_vars-1][4], double c[2],
 
 	f[7] = vudtx * ( fl * xup_l + fr * xup_r );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
+	for ( j = 7+num_electronion_noneq_vars; j < 7+num_electronion_noneq_vars+num_extra_energy_variables; j++ ) {
+		dv0 = v[j][1] - v[j][0];
+		dv1 = v[j][2] - v[j][1];
+		dv2 = v[j][3] - v[j][2];
+		dv11 = v[j][2] - v[j][0];
+		dv20 = v[j][3] - v[j][1];
 
+		dlq0 = ( dv1*dv0 < 0.0 ) ? 0.0 : 2.0*MIN( fabs(dv0), fabs(dv1) );
+		dlq1 = ( dv1*dv2 < 0.0 ) ? 0.0 : 2.0*MIN( fabs(dv1), fabs(dv2) );
+
+		fl = v[j][1] + ( 0.5 - dtx2 * vu ) * SIGN( MIN( 0.5 * fabs(dv11), dlq0 ), dv11 ) * c[0];
+		fr = v[j][2] - ( 0.5 + dtx2 * vu ) * SIGN( MIN( 0.5 * fabs(dv20), dlq1 ), dv20 ) * c[1];
+
+		f[j] = vudtx * ( fl * xup_l + fr * xup_r );
+	}
 	/* compute fluxes of advected species */
 	for ( j = num_hydro_vars-num_chem_species-1; j < num_hydro_vars - 1; j++ ) {
 		dv0 = v[j][1] - v[j][0];
@@ -442,7 +456,10 @@ void lapidus( double dtx2, int L1, int R1, int sweep_direction, int j3, int j4, 
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
 	f[7] += diff * ( cell_electron_internal_energy(L1) - cell_electron_internal_energy(R1) );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-
+	for ( j = 0 ; j < num_extra_energy_variables; j++ ) {
+	    f[j+7+num_electronion_noneq_vars] += diff * ( cell_extra_energy_variables(L1,j) 
+			     - cell_extra_energy_variables(R1,j) ) ;
+	}
 	for ( j = 0; j < num_chem_species; j++ ) {
 		f[j+num_hydro_vars-num_chem_species-1] += diff * ( cell_advected_variable(L1,j) - cell_advected_variable(R1,j) );
 	}
