@@ -20,6 +20,7 @@
 #include "hydro_step.h"
 #include "rt_step.h"
 #include "step.h"
+#include "plugin.h"
 
 
 #ifndef HYDRO_CHUNK_SIZE
@@ -689,7 +690,6 @@ void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells
 #pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl,tcode_diss), private(i,icell,crossing_time,vas,cell_old, dU)
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
-	if ( cell_is_leaf(icell) ) {
 	    cell_old = cell_isotropic_turbulence_energy(icell);
 	    /* dissipate tubulent energy */
 	    if(tcode_diss>0){
@@ -703,8 +703,7 @@ void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells
             dU = cell_old - cell_isotropic_turbulence_energy(icell);
 	    cell_gas_internal_energy(icell) += dU;
             cell_gas_pressure(icell) += dU*(cell_gas_gamma(icell)-1);
-	}
-    }   
+    }
 }
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
@@ -715,11 +714,9 @@ void hydro_zero_extra_source_vars(int level, int num_level_cells, int *level_cel
 #pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl), private(i,j,icell)
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];
-	if ( cell_is_leaf(icell) ) {
-            for ( j = 0; j < num_extra_source_vars; j++ ) {
-                cell_extra_source_variables(icell,j) = 0.0;
-            }
-        }   
+	for ( j = 0; j < num_extra_source_vars; j++ ) {
+	    cell_extra_source_variables(icell,j) = 0.0;
+	}
     }
 }
 #endif /* EXTRA_PRESSURE_SOURCE */
@@ -815,12 +812,16 @@ void apply_hydro_fluxes( int icell, double factor, double dxi_factor, double f[n
 	backup_hvar(icell,6) += factor*f[7];
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 
+	for ( j = 0; j < num_extra_energy_variables; j++ ) {
+	    backup_hvar(icell,j+6+num_electronion_noneq_vars) += factor*f[7+num_electronion_noneq_vars+j];
+	}
+	    
 	for ( j = num_hydro_vars-num_chem_species-2; j < num_hydro_vars-2; j++ ) {
 		backup_hvar(icell,j) += factor*f[j+1];
 	}
 }
 
-#if defined(ISOTROPIC_TURBULENCE_ENERGY) || defined(EXTRA_PRESSURE_SOURCE)
+#if (defined(ISOTROPIC_TURBULENCE_ENERGY) || defined(EXTRA_PRESSURE_SOURCE) ) 
 
 void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
         int i,j, irl;
@@ -907,6 +908,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 #endif
         
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
+	    
 }
 
 #else /* defined(ISOTROPIC_TURBULENCE_ENERGY) || defined(EXTRA_PRESSURE_SOURCE) */
@@ -926,7 +928,6 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	int R2 = cell_list[3];
 
 	cart_assert( cell_is_leaf(L1) && cell_is_leaf(R1) );
-
 	/* L2 */
 	v[0][0] = cell_gas_density(L2);
 	v[1][0] = MAX( pressure_floor * v[0][0]*v[0][0], cell_gas_pressure(L2) );
