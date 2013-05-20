@@ -122,8 +122,8 @@ void masspdot_from_cell(int level, int icell, float *Msol_cell, float *pdot_cell
 		}else if(star_particle_type[ipart] == STAR_TYPE_STARII){
 		    ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
 		    Zsol = star_metallicity_II[ipart]/constants->Zsun;
-		    pdot += starII_rapSR_pdot( ini_mass_sol, age_yr, Zsol) 
-		}else{
+		    pdot += starII_rapSR_pdot( ini_mass_sol, age_yr, Zsol) ;
+                }else{
 		    cart_error("star type  needs an associated pdot");
 		}
 #else
