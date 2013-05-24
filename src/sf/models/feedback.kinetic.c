@@ -215,7 +215,7 @@ void GetCubeStencil(int level, int cell, int nb[CubeStencilSize])
   /*
   //  Second level neighbors
   */
-  for(j=0; j<CubeStencilSize-num_neighbors; j++)
+  for(j=0; j<CubeStencilSize-num_neighbors-num_corners; j++)
     {
       if(levNb[CubeDir1[j]] == level)
 	{
@@ -242,6 +242,23 @@ void GetCubeStencil(int level, int cell, int nb[CubeStencilSize])
 	  nb[num_neighbors+j] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
        }
   }
+  /*
+  //  Third level neighbors (skipping corners for now)
+  */
+   for(j=0; j<num_corners; j++){ 
+       nb[CubeStencilSize-num_corners+j] = -1;
+   }
+/*   for(j=0; j<num_corners; j++){ */
+/*       if(        cell_level( nb[CubeOrigin3a[j]] ) == level ){ */
+/*           nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]); */
+/*       } else if( cell_level( nb[CubeOrigin3b[j]] ) == level ){ */
+/*           nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]); */
+/*       } else{ */
+/*           nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]); */
+/* // either way of getting to corner should be the same */
+/* //          cart_assert( nb[CubeStencilSize-num_corners+j] == cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]) ); */
+/*       } */
+/*   } */
       
 }
 
@@ -417,7 +434,7 @@ void kfb_kick_cube(double dp, int level, int icell){
     
     num_local_cells=1; /* This is not written to cross processor boundaries! */
     for(j=0; j<CubeStencilSize; j++){
-	if( cell_is_local(nb26[j]) ){
+	if( nb26[j] != -1 && cell_is_local(nb26[j]) ){
 	    if( cell_is_leaf(nb26[j]) ){
 		num_local_cells++;
 	    }else{
@@ -433,7 +450,7 @@ void kfb_kick_cube(double dp, int level, int icell){
 	}
     }
     for(j=0; j<CubeStencilSize; j++){
-	if( cell_is_local(nb26[j]) ){
+	if( nb26[j] != -1 && cell_is_local(nb26[j]) ){
 	    if( cell_is_leaf(nb26[j]) ){
 		kfb_kick_cell(nb26[j], -2, CubeDelPos[j], dp/num_local_cells, level);
 	    }else{
@@ -458,7 +475,7 @@ void kfb_kick_cube_constv(double dp, int level, int icell, double *mall_level){
     
     *mall_level=cell_gas_density(icell) ; 
     for(j=0; j<CubeStencilSize; j++){
-	if( cell_is_local(nb26[j]) ){
+	if(nb26[j] != -1 &&  cell_is_local(nb26[j])){
 	    if( cell_is_leaf(nb26[j]) ){
 		*mall_level += cell_gas_density(nb26[j]); 
 	    }else{
@@ -476,7 +493,7 @@ void kfb_kick_cube_constv(double dp, int level, int icell, double *mall_level){
 
     dv = dp/(*mall_level); /* constv*/
     for(j=0; j<CubeStencilSize; j++){
-	if( cell_is_local(nb26[j]) ){
+	if( nb26[j] != -1 && cell_is_local(nb26[j]) ){
 	    if( cell_is_leaf(nb26[j]) ){
 		dpi=dv*cell_gas_density( nb26[j] );
 		kfb_kick_cell(nb26[j], -2, CubeDelPos[j], dpi, level);
