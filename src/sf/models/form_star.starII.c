@@ -50,7 +50,7 @@ void check_fbdefs_compatible()
     const char *feedback_external_name = "";
 #endif
     if(strcmp("<popM-starII>",feedback_external_name)!=0){
-        cart_error("SF_FORMSTAR includes STARII formation then SF_FEEDBACK must be a -starII variant");
+        cart_error("SF_FORMSTAR includes STARII formation then SF_FEEDBACK must be a -starII variant : %s", feedback_external_name);
     }
 }
 void starII_config_verify()
@@ -58,11 +58,13 @@ void starII_config_verify()
 #ifndef STAR_PARTICLE_TYPES
     cart_error("STAR_PARTICLE_TYPES must be defined for starII_indicator True");
 #endif /* STAR_PARTICLE_TYPES */
-    check_fbdefs_compatible();
-
+	
     VERIFY(starII:runaway-indicator,starII_runaway_indicator==1 || starII_runaway_indicator==0);
     VERIFY(starII:highmass-slope,starII_highmass_slope);
     VERIFY(starII:minimum-mass, starII_minimum_mass >1.0 );
+    if(starII_runaway_indicator == 1){
+	check_fbdefs_compatible();
+    }
     starII_runaway_config_verify();
 }   
 

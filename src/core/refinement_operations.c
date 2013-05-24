@@ -188,7 +188,9 @@ int split ( int cell ) {
                         (double)cell_extra_energy_variables(cell,j) / 
                         weights[ind];
                 }
+#ifdef EXTRA_PRESSURE_SOURCE
 		weightextP = (weightextP == 0.0) ? 0.0: (double)num_children * (double)cell_extra_pressure_source(cell) / weightextP;
+#endif 
 
 		for ( j = 0; j < num_chem_species; j++ ) {
 			weights[num_hydro_vars-num_chem_species-nDim+j] = 

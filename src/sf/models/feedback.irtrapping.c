@@ -115,14 +115,14 @@ void masspdot_from_cell(int level, int icell, float *Msol_cell, float *pdot_cell
 	    age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time / constants->yr;
 	    if( age_yr < clump_survival_time ){
 		mstar_sum += particle_mass[ipart];
-#ifdef PARTICLE_TYPES
+#ifdef STAR_PARTICLE_TYPES
 		if(star_particle_type[ipart] == STAR_TYPE_NORMAL 
 		   || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH ){
 		    pdot_sum += rapSR_pdot(ipart);
 		}else if(star_particle_type[ipart] == STAR_TYPE_STARII){
 		    ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
 		    Zsol = star_metallicity_II[ipart]/constants->Zsun;
-		    pdot += starII_rapSR_pdot( ini_mass_sol, age_yr, Zsol) ;
+		    pdot_sum += starII_rapSR_pdot( ini_mass_sol, age_yr, Zsol) ;
                 }else{
 		    cart_error("star type  needs an associated pdot");
 		}
