@@ -938,7 +938,7 @@ void write_halo_list( halo_list *halos ) {
 
 		if ( halo_center_definition == 0 ) {
 			fprintf( output, "# Halo centering: center of mass, freduce = %.3f, conv. ftol = %.2e, abs = %.2f [kpc/h comoving]\n", 
-					cm_radius_freduce, cm_convergence_ftol, cm_convergence_abs );	
+					cm_radius_freduce, cm_convergence_ftol, cm_convergence_abs*cell_size[max_level]*units->length_in_chimps*1000.0 );	
 		} else {
 			fprintf( output, "# Halo centering: density peak\n" );
 		}
