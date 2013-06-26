@@ -34,7 +34,7 @@ double delta_vir = 180.;
 double delta_vir_mean = -1.0;
 int delta_vir_unit = 0;                     /* unit of delta_vir, 0=mean, 1=critical, 2=Bryan & Norman '98 virial */
 double delta_halo_center = 1000;            /* always in units of mean density */
-double min_halo_center_level = MAX(min_level,max_level-2);
+int min_halo_center_level = MAX(min_level,max_level-2);
 double min_halo_mass = 0.0; 
 
 int halo_finder_debug_flag = 0;             /* output additional information during halo finding */
