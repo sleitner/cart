@@ -686,10 +686,10 @@ halo_list *find_halos() {
 			delta_vir_mean = delta_vir;
 			break;
 		case 1:
-			delta_vir_mean = delta_vir/(cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0));
+			delta_vir_mean = delta_vir/(cosmology->OmegaM*auni[min_level]/pow(cosmology_mu(auni[min_level]),2.0));
 			break;
 		case 2:
-			x = cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0) - 1.0;
+			x = cosmology->OmegaM*auni[min_level]/pow(cosmology_mu(auni[min_level]),2.0) - 1.0;
 			delta_vir_mean = ( 18.0*M_PI*M_PI + 82.0*x - 39.0*x*x ) / ( 1 + x );
 			break;
 		default:
@@ -920,7 +920,7 @@ void write_halo_list( halo_list *halos ) {
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
-		sprintf( filename, "%s/halo_catalog_a%6.4f.dat", halo_finder_output_directory, abox[min_level] );
+		sprintf( filename, "%s/halo_catalog_a%6.4f.dat", halo_finder_output_directory, auni[min_level] );
 
 		output = fopen( filename, "w" );
 		if ( output == NULL ) {
@@ -1004,7 +1004,7 @@ void write_halo_particle_list( halo_list *halos ) {
 	start_time( HALO_FINDER_WRITE_PARTICLES_TIMER );
 
 	if ( local_proc_id == MASTER_NODE ) {
-		sprintf( filename, "%s/halo_particles_a%6.4f.dat", halo_finder_output_directory, abox[min_level] );
+		sprintf( filename, "%s/halo_particles_a%6.4f.dat", halo_finder_output_directory, auni[min_level] );
 
 		output = fopen( filename, "w" );
 
