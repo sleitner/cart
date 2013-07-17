@@ -1,0 +1,530 @@
+/*
+//  C-style poor man template
+*/
+#include "units.h"
+
+#ifndef FUNCTION
+#error "FUNCTION must be defined"
+#endif
+
+#ifndef PARTICLE_FLOAT
+#error "PARTICLE_FLOAT must be defined"
+#endif
+
+#ifndef MPI_PARTICLE_FLOAT
+#error "MPI_PARTICLE_FLOAT must be defined"
+#endif
+
+#ifdef COSMOLOGY
+void find_gas_particle_density( int level, double size2, double size_inverse, 
+                                double pos[nDim], double mass,
+                                int cell_list[num_children], 
+                                float mass_assigned[num_children] ) {
+    double corner[nDim];
+    double cornerx0, cornerx1, cornery0, cornery1, cornerz0, cornerz1;
+    double x, y, z;
+    double xs, ys, zs;
+    double dx0, dx1, dy0, dy1, dz0, dz1;
+    double d00, d01, d10, d11;
+
+    x = pos[0];
+    y = pos[1];
+    z = pos[2];
+
+    cornerx0 = x - size2;
+    cornerx1 = x + size2;
+    cornery0 = y - size2;
+    cornery1 = y + size2;
+    cornerz0 = z - size2;
+    cornerz1 = z + size2;
+
+    if ( cornerx0 < 0.0 ) cornerx0 += (double)num_grid;
+    if ( cornerx1 >= (double)num_grid ) cornerx1 -= (double)num_grid;
+    if ( cornery0 < 0.0 ) cornery0 += (double)num_grid;
+    if ( cornery1 >= (double)num_grid ) cornery1 -= (double)num_grid;
+    if ( cornerz0 < 0.0 ) cornerz0 += (double)num_grid;
+    if ( cornerz1 >= (double)num_grid ) cornerz1 -= (double)num_grid;
+
+    xs = x*size_inverse + 0.5;
+    ys = y*size_inverse + 0.5;
+    zs = z*size_inverse + 0.5;
+
+    dx1 = xs - floor(xs);
+    dy1 = ys - floor(ys);
+    dz1 = zs - floor(zs);
+
+    dx0 = 1.0 - dx1;
+    dy0 = 1.0 - dy1;
+    dz0 = 1.0 - dz1;
+
+    dx0 *= mass;
+    dx1 *= mass;
+
+    d00 = dx0*dy0;
+    d01 = dx0*dy1;
+    d10 = dx1*dy0;
+    d11 = dx1*dy1;
+
+    /* child 0 */
+    corner[0] = cornerx0;
+    corner[1] = cornery0;
+    corner[2] = cornerz0;
+
+    cell_list[0] = cell_find_position_level( level, corner );
+    mass_assigned[0] = d00*dz0;
+
+    /* child 1 */
+    corner[0] = cornerx1;
+
+    cell_list[1] = cell_find_position_level( level, corner );
+    mass_assigned[1] = d10*dz0;
+
+    /* child 2 */
+    corner[0] = cornerx0;
+    corner[1] = cornery1;
+
+    cell_list[2] = cell_find_position_level( level, corner );
+    mass_assigned[2] = d01*dz0;
+
+    /* child 3 */
+    corner[0] = cornerx1;
+
+    cell_list[3] = cell_find_position_level( level, corner );
+    mass_assigned[3] = d11*dz0;
+
+    /* child 4 */
+    corner[0] = cornerx0;
+    corner[1] = cornery0;
+    corner[2] = cornerz1;
+
+    cell_list[4] = cell_find_position_level( level, corner );
+    mass_assigned[4] = d00*dz1;
+
+    /* child 5 */
+    corner[0] = cornerx1;
+
+    cell_list[5] = cell_find_position_level( level, corner );
+    mass_assigned[5] = d10*dz1;
+
+    /* child 6 */
+    corner[0] = cornerx0;
+    corner[1] = cornery1;
+
+    cell_list[6] = cell_find_position_level( level, corner );
+    mass_assigned[6] = d01*dz1;
+
+    /* child 7 */
+    corner[0] = cornerx1;
+
+    cell_list[7] = cell_find_position_level( level, corner );
+    mass_assigned[7] = d11*dz1;
+}
+
+/* 
+// MUSIC particles are placed at cell center but 
+// refinement map will not match MUSIC so interpolate
+*/
+void assign_gas_particle_cic(double pos[nDim],double vel[nDim], double mass, double up_gas){ 
+    /* mass in code units and up_gas in energy units for the given particle 
+       (NOT energy density or specific units) */
+    int  k;
+    int icell, level;
+    double size2, size_inverse;
+    int cell_list[num_children];
+    float mass_assigned[num_children];
+    double newrho;
+    double fracHII = 1.2e-5*sqrt(cosmology->Omh2)/cosmology->Obh2;
+
+    icell = cell_find_position(pos);
+    level = cell_level(icell);
+    size2 = 0.5*cell_size[level];
+    size_inverse = cell_size_inverse[level];
+    find_gas_particle_density( level, size2, size_inverse, pos, mass,
+                               cell_list, mass_assigned );
+    for ( k = 0; k < num_children; k++ ) {
+        icell = cell_list[k];
+        if ( icell > -1 ) {
+            newrho = mass_assigned[k] *cell_volume_inverse[level];
+            cell_gas_density(icell) += newrho;
+            cell_momentum(icell,0) += newrho*vel[0];
+            cell_momentum(icell,1) += newrho*vel[1];
+            cell_momentum(icell,2) += newrho*vel[2];
+            cell_gas_gamma(icell) = constants->gamma;
+            cell_gas_internal_energy(icell) += up_gas*newrho; 
+            cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
+            cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
+#ifdef ENRICHMENT
+            cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
+#ifdef ENRICHMENT_SNIa
+            cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
+#ifdef RADIATIVE_TRANSFER
+            cell_HI_density(icell) = cell_gas_density(icell)*constants->XH*(1.0-fracHII);
+            cell_HII_density(icell) = cell_gas_density(icell)*constants->XH*fracHII;
+            cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+            cell_HeII_density(icell) = cell_gas_density(icell)*0.0;
+            cell_HeIII_density(icell) = cell_gas_density(icell)*0.0;
+#ifdef RT_CHEMISTRY
+            cell_H2_density(icell) = cell_gas_density(icell)*constants->XH*2.0e-6;
+#else
+            cell_H2_density(icell) = cell_gas_density(icell)*constants->XH*1.0e-10;
+#endif
+#endif
+        }
+    }
+}
+
+
+/* MUSIC particles are placed at every cell center */
+void assign_gas_particle_ngc(double pos[nDim],double vel[nDim], double mass, double up_gas){ 
+    /* mass in code units and up_gas in energy units for the given particle (NOT energy density or specific units) */
+    int icell, level;
+    double size2, size_inverse;
+    double newrho;
+    
+    icell = cell_find_position(pos);
+    level = cell_level(icell);
+    newrho = mass*cell_volume_inverse[level];
+    cell_gas_density(icell) += newrho;
+    cell_momentum(icell,0) += newrho*vel[0];
+    cell_momentum(icell,1) += newrho*vel[1];
+    cell_momentum(icell,2) += newrho*vel[2];
+    cell_gas_gamma(icell) = constants->gamma;
+    cell_gas_internal_energy(icell) += up_gas*newrho; 
+    cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
+    cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
+#ifdef ENRICHMENT
+    cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
+#ifdef ENRICHMENT_SNIa
+    cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
+#ifdef RADIATIVE_TRANSFER
+    double fracHII = 1.2e-5*sqrt(cosmology->Omh2)/cosmology->Obh2;
+    cell_HI_density(icell) = cell_gas_density(icell)*constants->XH*(1.0-fracHII);
+    cell_HII_density(icell) = cell_gas_density(icell)*constants->XH*fracHII;
+    cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+    cell_HeII_density(icell) = cell_gas_density(icell)*0.0;
+    cell_HeIII_density(icell) = cell_gas_density(icell)*0.0;
+#ifdef RT_CHEMISTRY
+    cell_H2_density(icell) = cell_gas_density(icell)*constants->XH*2.0e-6;
+#else
+    cell_H2_density(icell) = cell_gas_density(icell)*constants->XH*1.0e-10;
+#endif
+#endif
+		 
+}
+
+
+void FUNCTION( char *header_filename, char *data_filename, 
+			int num_sfcs, int *sfc_list ) {
+	int i, j;
+	int proc;
+	PARTICLE_FLOAT *page[MAX_PROCS];
+	PARTICLE_FLOAT *input_page, *x, *y, *z, *vx, *vy, *vz;
+	int sfc;
+	int num_read;
+	int count[MAX_PROCS];
+	int coords[nDim];
+	double pos[nDim], vel[nDim];
+	int num_parts_in_page, num_parts_per_page;
+	int num_parts_per_proc_page;
+	int num_pages, index;
+	int current_page[MAX_PROCS];
+	int  endian;
+	int *sfc_map;
+	FILE *input;
+	particle_header header;
+	int nbody_flag;
+	int grid_change_flag;
+	float rfact, vfact;
+	float grid_shift;
+	MPI_Status status;
+
+	const int other_gas_props=1; //1 density
+	PARTICLE_FLOAT *m;
+	/* may read this someday  *u */
+	double up_gas, mp_gas;
+	    
+
+#ifdef COSMOLOGY
+	struct CosmologyParameters temp_cosmo;
+#endif /* COSMOLOGY */
+
+	double 	sum_mass =0;
+	if ( local_proc_id == MASTER_NODE ) {
+		read_cart_particle_header( header_filename, &header, &endian, &nbody_flag );
+
+		/*
+		//  Thermal state of the primordial gas
+		*/
+		double q = abox[min_level]*137.0*pow(cosmology->Obh2/0.022,0.4);
+		double tempin = 2.728/abox[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
+//		double tempin = header.tintg;
+
+		up_gas = tempin / ((constants->gamma-1)*constants->wmu*units->temperature);  
+		
+		cart_particle_num_row  = header.Nrow;
+	
+		if ( nbody_flag ) {
+			vfact = 2.0/sqrt(header.OmM0);
+			grid_shift = 1.5;
+		} else {
+			vfact = 1.0;
+			grid_shift = 1.0;
+		}
+	
+#ifndef OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID
+		if ( header.Ngrid != num_grid ) {
+			cart_debug( "Mismatch between particle file num_grid and compiled value!" );
+			rfact = (float)num_grid / (float)header.Ngrid;
+			vfact *= rfact;
+			grid_change_flag = 1;
+		} else
+#endif
+		{
+			grid_change_flag = 0;
+		}
+
+		/* this was set by particle reads */
+		cart_debug("num_particles_total = %u", num_particles_total );
+		num_parts_per_page = header.Nrow*header.Nrow; 
+		num_parts_per_proc_page = num_parts_per_page/num_procs; 
+		num_pages = (num_particles_total > 0) ? (num_particles_total-1) / num_parts_per_page + 1 : 0;
+
+		cart_assert( num_pages > 0 && num_parts_per_page*num_pages >= num_particles_total );
+
+		MPI_Bcast( &cart_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+
+
+
+		/* /////////////////
+		// header stuff ready 
+		*/ /////////////////
+
+
+		if ( num_sfcs > 0 ) {
+			/* create hash for quick checking if we should read in particles */
+			sfc_map = cart_alloc(int, num_root_cells );
+
+			for ( i = 0; i < num_root_cells; i++ ) {
+				sfc_map[i] = 0;
+			}
+
+			for ( sfc = 0; sfc < num_sfcs; sfc++ ) {
+				sfc_map[ sfc_list[sfc] ] = 1;
+			}
+		}
+
+		input_page = cart_alloc(PARTICLE_FLOAT, (2*nDim+other_gas_props)*num_parts_per_page );
+
+		x = input_page;
+		y = &input_page[num_parts_per_page];
+		z = &input_page[2*num_parts_per_page];
+		vx = &input_page[3*num_parts_per_page];
+		vy = &input_page[4*num_parts_per_page];
+		vz = &input_page[5*num_parts_per_page];
+   		m = &input_page[6*num_parts_per_page];
+/*		u = &input_page[7*num_parts_per_page]; */
+
+		/* allocate buffer space for particles on other processors */
+		for ( i = 1; i < num_procs; i++ ) {
+			page[i] = cart_alloc(PARTICLE_FLOAT, (2*nDim+other_gas_props)*num_parts_per_proc_page );
+			count[i] = 0;
+			current_page[i] = 0;
+		}
+
+		/* start loading actual particle data */
+		input = fopen( data_filename, "r" );
+		if ( input == NULL ) {
+			cart_error( "Unable to open particle file %s for reading!", data_filename );
+		}
+
+		for ( i = 0; i < num_pages; i++ ) {
+			if ( i == num_pages - 1 ) {
+				num_parts_in_page = num_particles_total - num_parts_per_page*(num_pages-1);
+			} else {
+				num_parts_in_page = num_parts_per_page;
+			}
+
+			num_read = fread( input_page, sizeof(PARTICLE_FLOAT), (2*nDim+other_gas_props)*num_parts_per_page, input );
+			if ( num_read != (2*nDim+other_gas_props)*num_parts_per_page ) {
+				cart_error("Error reading from particle file %s: insufficient data", data_filename );
+			}
+
+			if ( endian ) {
+				for ( j = 0; j < num_parts_in_page; j++ ) {
+					reorder( (char *)&x[j], sizeof(PARTICLE_FLOAT) );
+					reorder( (char *)&y[j], sizeof(PARTICLE_FLOAT) );
+					reorder( (char *)&z[j], sizeof(PARTICLE_FLOAT) );
+					reorder( (char *)&vx[j], sizeof(PARTICLE_FLOAT) );
+					reorder( (char *)&vy[j], sizeof(PARTICLE_FLOAT) );
+					reorder( (char *)&vz[j], sizeof(PARTICLE_FLOAT) );
+   					reorder( (char *)&m[j], sizeof(PARTICLE_FLOAT) );
+/*					reorder( (char *)&u[j], sizeof(PARTICLE_FLOAT) ); */
+				}
+			}
+
+
+			for ( j = 0; j < num_parts_in_page; j++ ) {
+				/* convert to our coordinates 0->num_grid */
+				x[j] -= grid_shift;
+				y[j] -= grid_shift;
+				z[j] -= grid_shift;
+
+				if ( grid_change_flag ) {
+					x[j] *= rfact;
+					y[j] *= rfact;
+					z[j] *= rfact;
+				}
+
+				if ( nbody_flag || grid_change_flag ) {
+					vx[j] *= vfact;
+					vy[j] *= vfact;
+					vz[j] *= vfact;
+				}
+				
+				/* enforce periodic boundary conditions */
+				if ( x[j] < 0.0 ) {
+					x[j] += (double)num_grid;
+				} else if ( x[j] >= (double)num_grid ) {
+					x[j] -= (double)num_grid;
+				}
+
+				if ( y[j] < 0.0 ) {
+					y[j] += (double)num_grid;
+				} else if ( y[j] >= (double)num_grid ) {
+					y[j] -= (double)num_grid;
+				}
+
+				if ( z[j] < 0.0 ) {
+					z[j] += (double)num_grid;
+				} else if ( z[j] >= (double)num_grid ) {
+					z[j] -= (double)num_grid;
+				}
+
+				coords[0] = (int)(x[j]);
+				coords[1] = (int)(y[j]);
+				coords[2] = (int)(z[j]);
+
+				index = sfc_index( coords );
+				cart_assert( index >= 0 && index < max_sfc_index );
+
+				/* check if we're supposed to read in this particle */
+				if ( num_sfcs > 0 && sfc_map[index] == 0 ) {
+					proc = -1;
+				} else if ( num_procs == 1 ) {
+					proc = MASTER_NODE;
+				} else {
+					proc = processor_owner( index );
+				}
+
+
+				if ( proc == MASTER_NODE ) {
+				    /* assign gas to grid cell */
+				    pos[0] = x[j]; pos[1] = y[j]; pos[2] = z[j];
+				    vel[0] =vx[j]; vel[1] =vy[j]; vel[2] =vz[j];
+   				    mp_gas = m[j]; 
+				    /* up_gas = u[j] ; */
+				    sum_mass +=mp_gas;
+// 				    assign_gas_particle_ngc(pos,vel,mp_gas,up_gas);
+ 				    assign_gas_particle_cic(pos,vel,mp_gas,up_gas);
+				} else if ( proc >= 0 && proc < num_procs ) {
+					/* add the particle to a processor page */
+					page[proc][(2*nDim+other_gas_props)*count[proc]] = x[j];
+					page[proc][(2*nDim+other_gas_props)*count[proc]+1] = y[j];
+					page[proc][(2*nDim+other_gas_props)*count[proc]+2] = z[j];
+					page[proc][(2*nDim+other_gas_props)*count[proc]+3] = vx[j];
+					page[proc][(2*nDim+other_gas_props)*count[proc]+4] = vy[j];
+					page[proc][(2*nDim+other_gas_props)*count[proc]+5] = vz[j];
+   					page[proc][(2*nDim+other_gas_props)*count[proc]+6] = m[j];
+/*       				page[proc][(2*nDim+other_gas_props)*count[proc]+7] = u[j]; */
+
+					count[proc]++;
+
+					if ( count[proc] == num_parts_per_proc_page ) {
+						MPI_Send( page[proc], (2*nDim+other_gas_props)*num_parts_per_proc_page, 
+							MPI_PARTICLE_FLOAT, proc, current_page[proc], mpi.comm.run );
+                                                MPI_Send( &num_parts_per_proc_page, 1 , MPI_INT, proc, current_page[proc], mpi.comm.run );
+
+
+						count[proc] = 0;
+						current_page[proc]++;
+					}
+				}
+
+			}
+                }	
+	
+		/* send final pages */
+		for ( proc = 1; proc < num_procs; proc++ ) {
+			MPI_Send( page[proc], (2*nDim+other_gas_props)*count[proc], MPI_PARTICLE_FLOAT, proc, current_page[proc], mpi.comm.run );
+			MPI_Send( &count[proc], 1 , MPI_INT, proc, current_page[proc], mpi.comm.run );
+
+			cart_free( page[proc] );
+		}
+
+		cart_free( input_page );
+
+		fclose(input);
+
+		if ( num_sfcs > 0 ) {
+			cart_free( sfc_map );
+		}
+	} else {
+           
+		MPI_Bcast( &cart_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
+
+		current_page[local_proc_id] = 0;
+
+		page[local_proc_id] = cart_alloc(PARTICLE_FLOAT, (2*nDim+other_gas_props)*num_parts_per_proc_page );
+
+		count[local_proc_id] = num_parts_per_proc_page;
+		while ( count[local_proc_id] == num_parts_per_proc_page ) {
+
+			MPI_Recv( page[local_proc_id], 
+                                  (2*nDim+other_gas_props)*num_parts_per_proc_page, 
+                                  MPI_PARTICLE_FLOAT, MASTER_NODE, 
+                                  current_page[local_proc_id], mpi.comm.run, &status );
+			MPI_Recv( &count[local_proc_id], 1, MPI_INT, MASTER_NODE, 
+                                  current_page[local_proc_id], mpi.comm.run, &status );
+
+
+			current_page[local_proc_id]++;
+
+			for ( i = 0; i < count[local_proc_id]; i++ ) {
+				pos[0] = page[local_proc_id][(2*nDim+other_gas_props)*i]; 
+				pos[1] = page[local_proc_id][(2*nDim+other_gas_props)*i+1];
+				pos[2] = page[local_proc_id][(2*nDim+other_gas_props)*i+2];
+				vel[0] = page[local_proc_id][(2*nDim+other_gas_props)*i+3];
+				vel[1] = page[local_proc_id][(2*nDim+other_gas_props)*i+4];
+				vel[2] = page[local_proc_id][(2*nDim+other_gas_props)*i+5];
+				mp_gas = page[local_proc_id][(2*nDim+other_gas_props)*i+6];
+/*				up_gas = page[local_proc_id][(2*nDim+other_gas_props)*i+7]; */
+				sum_mass +=mp_gas;
+//				assign_gas_particle_ngc(pos,vel,mp_gas,up_gas);
+				assign_gas_particle_cic(pos,vel,mp_gas,up_gas);
+			}
+		}
+
+
+		cart_free( page[local_proc_id] );
+	}
+
+	MPI_Allreduce(MPI_IN_PLACE, &sum_mass, 1, MPI_DOUBLE, MPI_SUM,mpi.comm.run);
+	cart_debug("sum_mass of particles %f ",sum_mass*cosmology->OmegaM/cosmology->OmegaB); 
+
+}
+
+#undef FUNCTION
+#undef PARTICLE_FLOAT
+#undef MPI_PARTICLE_FLOAT
+
+#endif  /* COSMOLOGY */

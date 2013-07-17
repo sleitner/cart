@@ -31,9 +31,12 @@
 #include "hydro.h"
 #include "starformation.h"
 
+#include "music_init.h"
+#include "io_music.h"
 
-void error_check_music_io();
+
 #ifdef HYDRO
+void error_check_music_io();
 void zero_hydro( int icell ){
     cell_gas_density(icell) = 0;
     cell_momentum(icell,0) = 0;
@@ -57,6 +60,12 @@ void zero_hydro( int icell ){
     cell_HeIII_density(icell) = 0;
     cell_H2_density(icell) = 0;
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+    cell_extra_pressure_source(icell) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+    cell_isotropic_turbulence_energy(icell) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
 }
 
 void set_zero_hydro() {
@@ -91,7 +100,7 @@ void music_init() {
   char type[2];
   /*  Make sure we have a blank slate */
   if(cosmology_is_set()){
-      cart_error("Cosmology is set before GIC files are read. Cosmological parameters should NOT be set in the config file when using the GIC reader.");
+      cart_error("Cosmology is set before MUSIC files are read. Cosmological parameters should NOT be set in the config file when using the MUSIC reader.");
   }
   /*  Where do we get the root name? Use options for now */
   tmp = extract_option1("root-file-name","root",NULL);
@@ -138,6 +147,12 @@ void music_init() {
       cell_HeIII_density(i) = 0;
       cell_H2_density(i) = 0;
 #endif
+#ifdef EXTRA_PRESSURE_SOURCE
+      cell_extra_pressure_source(i) = 0;
+#endif /* EXTRA_PRESSURE_SOURCE */
+#ifdef ISOTROPIC_TURBULENCE_ENERGY
+      cell_isotropic_turbulence_energy(i) = 0;
+#endif /* ISOTROPIC_TURBULENCE_ENERGY */
     }
 #endif /* HYDRO */
 
@@ -203,7 +218,7 @@ void music_init() {
 
 	cart_debug("music io: error check");
 	error_check_music_io();
-	
+
 	for(level=min_level; level<max_level; level++){
 	    hydro_magic( level );
 	    hydro_eos( level );
@@ -228,22 +243,35 @@ void music_init() {
 void error_check_music_io(){
     /* 
     // check that ART refinement doesn't over-resolve MUSIC 
-    // refinement map (no empty cells after NGC) 
+    // refinement map (no empty cells after assign density) 
     // and make sure correct initial gas mass 
     */
     int num_level_cells, icell;
     int *level_cells;
-    double pos[nDim];
     double sum=0, checksum=0;
     int level, i;
+    double pos[nDim]; //snl
     for ( level = max_level; level >= min_level; level-- ) {
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
-#pragma omp parallel for reduction(+ : sum) default(none), private(i,icell), shared(num_level_cells,level_cells,cell_vars,level)
+#pragma omp parallel for reduction(+ : sum) default(none), private(i,icell,pos), shared(num_level_cells,level_cells,cell_vars,level,constants)
 	for ( i = 0; i < num_level_cells; i++ ) {
 	    icell = level_cells[i] ;
 	    sum+=cell_gas_density(icell)*cell_volume[level];
-	    cart_assert(cell_gas_density(icell)>0);
-	    cart_assert(cell_gas_gamma(icell)!=0);
+
+            if(cell_gas_gamma(icell)<=1){ //snl
+                cell_gas_gamma(icell) = constants->gamma;
+                hydro_magic_one_cell(icell);
+#ifdef RADIATIVE_TRANSFER
+                cell_HI_density(i) = cell_gas_density(i)*constants->XH;
+                cell_HII_density(i) = 0;
+                cell_HeI_density(i) = cell_gas_density(i)*constants->XHe;
+                cell_HeII_density(i) = 0;
+                cell_HeIII_density(i) = 0;
+                cell_H2_density(i) = 0;
+#endif
+                cell_center_position(icell, pos);
+                cart_error("location of unitialized cells %f %f %f %d %e",pos[0], pos[1], pos[2], level, cell_gas_density(icell));
+            }
 	}
 	cart_free( level_cells );
     }
@@ -258,6 +286,7 @@ void error_check_music_io(){
 	}
     }
 
+    cart_debug("done checking hydro in music");
 }
 #endif /* HYDRO */
 

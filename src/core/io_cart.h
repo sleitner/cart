@@ -80,6 +80,7 @@ void read_cart_particles(  char *header_filename, char *data_filename, char *tim
 			int num_sfcs, int *sfc_list );
 void read_cart_particle_header( char *header_filename, particle_header *header, int *endian, int *nbody_flag ); 
 #endif /* PARTICLES */
+void read_cart_header_to_units( char *header_filename);
 
 void read_cart_restart(const char *);
 void write_cart_restart( int grid_filename_flag, int particle_filename_flag, int tracer_filename_flag );
