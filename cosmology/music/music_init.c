@@ -250,7 +250,7 @@ void error_check_music_io(){
     int *level_cells;
     double sum=0, checksum=0;
     int level, i;
-    double pos[nDim]; //snl
+    double pos[nDim]; 
     for ( level = max_level; level >= min_level; level-- ) {
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 #pragma omp parallel for reduction(+ : sum) default(none), private(i,icell,pos), shared(num_level_cells,level_cells,cell_vars,level,constants)
@@ -258,7 +258,10 @@ void error_check_music_io(){
 	    icell = level_cells[i] ;
 	    sum+=cell_gas_density(icell)*cell_volume[level];
 
-            if(cell_gas_gamma(icell)<=1){ //snl
+            if(cell_gas_gamma(icell)<=1){ 
+                cart_debug("unitialized cell at %f %f %f level %d rho %e",
+                           pos[0], pos[1], pos[2], level, cell_gas_density(icell));
+                cart_error("The initial ART refinement map is 2+ levels deeper than the MUSIC particles. This may be okay, but the user should know what they are doing if they bypass this error.");
                 cell_gas_gamma(icell) = constants->gamma;
                 hydro_magic_one_cell(icell);
 #ifdef RADIATIVE_TRANSFER
@@ -270,7 +273,6 @@ void error_check_music_io(){
                 cell_H2_density(i) = 0;
 #endif
                 cell_center_position(icell, pos);
-                cart_error("location of unitialized cells %f %f %f %d %e",pos[0], pos[1], pos[2], level, cell_gas_density(icell));
             }
 	}
 	cart_free( level_cells );
