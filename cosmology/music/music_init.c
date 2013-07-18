@@ -253,10 +253,12 @@ void music_init() {
 
 	units_update(min_level); /* aexpn only set on min_level */
 	cosmology_set_fixed();
- 	build_mesh();  
 
 #ifdef HYDRO
-	set_zero_hydro();
+	set_zero_hydro(); /* needed before build_mesh so split doesnt error */
+#endif
+ 	build_mesh();  
+#ifdef HYDRO
 	read_music_gas_particles( filename_header, filename_hydro, 0, NULL ); 
 	for(level=min_level; level<max_level; level++){
             merge_buffer_cell_gas_density_momentum(level);
