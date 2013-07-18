@@ -34,7 +34,7 @@ double delta_vir = 180.;
 double delta_vir_mean = -1.0;
 int delta_vir_unit = 0;                     /* unit of delta_vir, 0=mean, 1=critical, 2=Bryan & Norman '98 virial */
 double delta_halo_center = 1000;            /* always in units of mean density */
-double min_halo_center_level = MAX(min_level,max_level-2);
+int min_halo_center_level = MAX(min_level,max_level-2);
 double min_halo_mass = 0.0; 
 
 int halo_finder_debug_flag = 0;             /* output additional information during halo finding */
@@ -686,10 +686,10 @@ halo_list *find_halos() {
 			delta_vir_mean = delta_vir;
 			break;
 		case 1:
-			delta_vir_mean = delta_vir/(cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0));
+			delta_vir_mean = delta_vir/(cosmology->OmegaM*auni[min_level]/pow(cosmology_mu(auni[min_level]),2.0));
 			break;
 		case 2:
-			x = cosmology->OmegaM*abox[min_level]/pow(cosmology_mu(abox[min_level]),2.0) - 1.0;
+			x = cosmology->OmegaM*auni[min_level]/pow(cosmology_mu(auni[min_level]),2.0) - 1.0;
 			delta_vir_mean = ( 18.0*M_PI*M_PI + 82.0*x - 39.0*x*x ) / ( 1 + x );
 			break;
 		default:
@@ -920,7 +920,7 @@ void write_halo_list( halo_list *halos ) {
 	}
 
 	if ( local_proc_id == MASTER_NODE ) {
-		sprintf( filename, "%s/halo_catalog_a%6.4f.dat", halo_finder_output_directory, abox[min_level] );
+		sprintf( filename, "%s/halo_catalog_a%6.4f.dat", halo_finder_output_directory, auni[min_level] );
 
 		output = fopen( filename, "w" );
 		if ( output == NULL ) {
@@ -1004,7 +1004,7 @@ void write_halo_particle_list( halo_list *halos ) {
 	start_time( HALO_FINDER_WRITE_PARTICLES_TIMER );
 
 	if ( local_proc_id == MASTER_NODE ) {
-		sprintf( filename, "%s/halo_particles_a%6.4f.dat", halo_finder_output_directory, abox[min_level] );
+		sprintf( filename, "%s/halo_particles_a%6.4f.dat", halo_finder_output_directory, auni[min_level] );
 
 		output = fopen( filename, "w" );
 
