@@ -36,6 +36,7 @@
 
 
 #ifdef HYDRO
+void merge_buffer_cell_gas_density_momentum(int level);
 void error_check_music_io();
 void zero_hydro( int icell ){
     cell_gas_density(icell) = 0;
@@ -82,6 +83,57 @@ void set_zero_hydro() {
         cart_free( level_cells );
     }
 
+
+    for ( level = max_level - 1; level >= min_level; level-- ) {
+        hydro_split_update(level); /* update all non-leafs with their child's value */
+        hydro_eos(level);
+    }
+}
+void initial_gas_state(int icell, double up_gas){
+    double fracHII = 1.2e-5*sqrt(cosmology->Omh2)/cosmology->Obh2;
+    cell_gas_internal_energy(icell) = up_gas*cell_gas_density(icell); 
+    cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
+    cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
+#ifdef ENRICHMENT
+    cell_gas_metal_density_II(icell) = 1e-30*cell_gas_density(icell);
+#ifdef ENRICHMENT_SNIa
+    cell_gas_metal_density_Ia(icell) = 1e-30*cell_gas_density(icell);
+#endif /* ENRICHMENT_SNIa */
+#endif /* ENRICHMENT */
+#ifdef RADIATIVE_TRANSFER
+    cell_HI_density(icell) = cell_gas_density(icell)*constants->XH*(1.0-fracHII);
+    cell_HII_density(icell) = cell_gas_density(icell)*constants->XH*fracHII;
+    cell_HeI_density(icell) = cell_gas_density(icell)*constants->XHe;
+    cell_HeII_density(icell) = cell_gas_density(icell)*0.0;
+    cell_HeIII_density(icell) = cell_gas_density(icell)*0.0;
+    /* taken from GIC: */
+#ifdef RT_CHEMISTRY 
+    cell_H2_density(icell) = cell_gas_density(icell)*constants->XH*2.0e-6;
+#else
+    cell_H2_density(icell) = cell_gas_density(icell)*constants->XH*1.0e-10;
+#endif
+#endif
+}
+		
+void reset_gas_state_after_density_merge() {
+    int i, level, icell;
+    int num_level_cells;
+    int *level_cells;
+
+    /* Thermal state of the primordial gas */
+    double up_gas;
+    double q = abox[min_level]*137.0*pow(cosmology->Obh2/0.022,0.4);
+    double tempin = 2.728/abox[min_level]*q/pow(pow(q,1.73)+1,1.0/1.73);
+    up_gas = tempin / ((constants->gamma-1)*constants->wmu*units->temperature);  
+
+    for ( level = min_level; level <= max_level; level++ ) {
+        select_level( level, (CELL_TYPE_BUFFER || CELL_TYPE_LOCAL) | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
+        for ( i = 0; i < num_level_cells; i++ ) {
+            icell = level_cells[i] ;
+            initial_gas_state( icell, up_gas );
+	}
+        cart_free( level_cells );
+    }
 
     for ( level = max_level - 1; level >= min_level; level-- ) {
         hydro_split_update(level); /* update all non-leafs with their child's value */
@@ -206,16 +258,16 @@ void music_init() {
 #ifdef HYDRO
 	set_zero_hydro();
 	read_music_gas_particles( filename_header, filename_hydro, 0, NULL ); 
+	for(level=min_level; level<max_level; level++){
+            merge_buffer_cell_gas_density_momentum(level);
+        }
+        reset_gas_state_after_density_merge();
 #endif /* HYDRO */
 	
 	/* build_mesh only load balanced particles, now add gas */
   	load_balance(); 
 
 #ifdef HYDRO
-	for(level=max_level; level>=min_level; level--){
-	    hydro_split_update(level);	    /* update non-leafs */
-	}
-
 	cart_debug("music io: error check");
 	error_check_music_io();
 
@@ -290,7 +342,186 @@ void error_check_music_io(){
 
     cart_debug("done checking hydro in music");
 }
+
+void merge_buffer_cell_gas_density_momentum( int level ) {
+	int i;
+	int index, child;
+	int icell, proc;
+
+	const int vars_per_cell = 4; /* total vars to send */
+	const int updatedbuffer_vars_size = 4; /* vars where buffer is updated after the merge */
+	const int updatedbuffer_vars[4] = { 
+	    HVAR_GAS_DENSITY, HVAR_MOMENTUM+0,HVAR_MOMENTUM+1, HVAR_MOMENTUM+2 };
+
+	MPI_Request sends[MAX_PROCS];
+	MPI_Request receives[MAX_PROCS];
+	MPI_Status status;
+	MPI_Status statuses[MAX_PROCS];
+
+	float *send_buffer;
+	float *recv_buffer;
+	int recv_offset[MAX_PROCS];
+	int num_send_vars[MAX_PROCS];
+	int num_recv_vars[MAX_PROCS];
+	int total_send_vars, total_recv_vars;
+	int send_offset;
+	int send_count, recv_count;
+
+	start_time( COMMUNICATION_TIMER );
+
+	cart_assert( buffer_enabled );
+
+	total_send_vars = total_recv_vars = 0;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		cart_assert( num_remote_buffers[level][proc] >= 0 );
+		cart_assert( num_local_buffers[level][proc] >= 0 );
+
+		if ( level == min_level ) {
+			num_recv_vars[proc] = vars_per_cell*num_remote_buffers[min_level][proc];
+			num_send_vars[proc] = vars_per_cell*num_local_buffers[min_level][proc];
+		} else {
+			num_recv_vars[proc] = vars_per_cell*num_children*num_remote_buffers[level][proc];
+			num_send_vars[proc] = vars_per_cell*num_children*num_local_buffers[level][proc];
+		}
+
+		cart_assert( num_send_vars[proc] >= 0 && num_recv_vars[proc] >= 0 );
+
+		total_send_vars += num_send_vars[proc];
+		total_recv_vars += num_recv_vars[proc];
+	}
+
+	/* set up receives */
+	recv_buffer = cart_alloc(float, total_recv_vars );
+
+	recv_count = 0;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_recv_vars[proc] > 0 ) {
+			recv_offset[proc] = recv_count;
+			MPI_Irecv( &recv_buffer[recv_count], num_recv_vars[proc], MPI_FLOAT,
+				proc, 0, mpi.comm.run, &receives[proc] );
+			recv_count += num_recv_vars[proc];
+		} else {
+			receives[proc] = MPI_REQUEST_NULL;
+		}
+	}	
+
+	/* pack cell ids and densities */
+	send_buffer = cart_alloc(float, total_send_vars );
+
+	send_offset = send_count = 0;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( num_send_vars[proc] > 0 ) {
+			if ( level == min_level ) {
+				cart_assert( num_send_vars[proc] == vars_per_cell*num_local_buffers[level][proc] );
+				for ( i = 0; i < num_local_buffers[min_level][proc]; i++ ) {
+					icell = local_buffers[min_level][proc][i];
+
+					send_buffer[send_count++] = cell_gas_density(icell);
+					send_buffer[send_count++] = cell_momentum(icell,0);
+					send_buffer[send_count++] = cell_momentum(icell,1);
+					send_buffer[send_count++] = cell_momentum(icell,2);
+				}
+			} else {
+				cart_assert( num_send_vars[proc] == vars_per_cell*num_children*num_local_buffers[level][proc] );
+
+				for ( i = 0; i < num_local_buffers[level][proc]; i++ ) {
+					index = local_buffers[level][proc][i];
+					cart_assert( index >= 0 && index < num_octs );
+					cart_assert( oct_level[index] == level );
+
+					for ( child = 0; child < num_children; child++ ) {
+						icell = oct_child( index, child );
+
+						cart_assert( icell >= 0 && icell < num_cells );
+						cart_assert( cell_level(icell) == level );
+
+						send_buffer[send_count++] = cell_gas_density(icell);
+						send_buffer[send_count++] = cell_momentum(icell,0);
+						send_buffer[send_count++] = cell_momentum(icell,1);
+						send_buffer[send_count++] = cell_momentum(icell,2);
+
+					}
+				}
+			}
+
+#ifdef DEBUG
+			if ( send_offset + num_send_vars[proc] != send_count ) {
+				for ( proc = 0; proc < num_procs; proc++ ) {
+					cart_debug("proc = %d, num_send = %d, num_local = %d", 
+						proc, num_send_vars[proc], num_local_buffers[level][proc] );
+				}
+				cart_debug("level = %d", level );
+				cart_debug("total_send_vars = %d", total_send_vars );
+				cart_debug("i = %d", i );
+				cart_debug("send_offset = %d", send_offset );
+				cart_debug("num_send_vars[%u] = %d", proc, num_send_vars[proc] );
+				cart_debug("num_local_buffers[%d][%d] = %d", level, proc );
+				cart_debug("send_count = %d", send_count );
+			}
+#endif
+
+			cart_assert( send_count <= total_send_vars );
+			cart_assert( send_offset + num_send_vars[proc] == send_count );
+
+			MPI_Isend( &send_buffer[send_offset], num_send_vars[proc], MPI_FLOAT,
+				proc, 0, mpi.comm.run, &sends[proc] );
+
+			send_offset = send_count;
+		} else {
+			sends[proc] = MPI_REQUEST_NULL;
+		}
+	}
+
+	/* process receives as they come in */
+	do {
+		MPI_Waitany( num_procs, receives, &proc, &status );
+
+		if ( proc != MPI_UNDEFINED ) {
+			recv_count = recv_offset[proc];
+
+			if ( level == min_level ) {
+				for ( i = 0; i < num_remote_buffers[min_level][proc]; i++ ) {
+					icell = root_cell_location( remote_buffers[min_level][proc][i] );
+
+					cell_gas_density(icell) += recv_buffer[recv_count++];
+					cell_momentum(icell,0)  += recv_buffer[recv_count++];
+					cell_momentum(icell,1)  += recv_buffer[recv_count++];
+					cell_momentum(icell,2)  += recv_buffer[recv_count++];
+				}
+			} else {
+				for ( i = 0; i < num_remote_buffers[level][proc]; i++ ) {
+					index = remote_buffers[level][proc][i];
+
+					for ( child = 0; child < num_children; child++ ) {
+						icell = oct_child( index, child );
+
+						cell_gas_density(icell) += recv_buffer[recv_count++];
+						cell_momentum(icell,0)  += recv_buffer[recv_count++];
+						cell_momentum(icell,1)  += recv_buffer[recv_count++];
+						cell_momentum(icell,2)  += recv_buffer[recv_count++];
+					}
+				}
+			}
+
+			cart_assert( recv_offset[proc] + num_recv_vars[proc] == recv_count );
+		}
+	} while ( proc != MPI_UNDEFINED );
+
+	cart_free( recv_buffer );
+
+	end_time(COMMUNICATION_TIMER );
+
+	/* now update density variables */
+	update_buffer_level( level, updatedbuffer_vars, updatedbuffer_vars_size );
+
+	/* wait for sends */
+	start_time( COMMUNICATION_TIMER );
+	MPI_Waitall( num_procs, sends, statuses );
+	end_time( COMMUNICATION_TIMER );
+
+	cart_free( send_buffer );
+
+}
+
 #endif /* HYDRO */
 
-
-        

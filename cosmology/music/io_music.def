@@ -154,9 +154,9 @@ void assign_gas_particle_cic(double pos[nDim],double vel[nDim], double mass, dou
             cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
             cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
 #ifdef ENRICHMENT
-            cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
+            cell_gas_metal_density_II(icell) = 1e-30*cell_gas_density(icell);
 #ifdef ENRICHMENT_SNIa
-            cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
+            cell_gas_metal_density_Ia(icell) = 1e-30*cell_gas_density(icell);
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
 #ifdef RADIATIVE_TRANSFER
@@ -195,9 +195,9 @@ void assign_gas_particle_ngc(double pos[nDim],double vel[nDim], double mass, dou
     cell_gas_pressure(icell) =  cell_gas_internal_energy(icell) * (cell_gas_gamma(icell)-1.0);
     cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
 #ifdef ENRICHMENT
-    cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
+    cell_gas_metal_density_II(icell) = 1e-30*cell_gas_density(icell);
 #ifdef ENRICHMENT_SNIa
-    cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
+    cell_gas_metal_density_Ia(icell) = 1e-30*cell_gas_density(icell);
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
 #ifdef RADIATIVE_TRANSFER
