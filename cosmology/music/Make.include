@@ -14,14 +14,14 @@ include $(TOP_DIR)/Make.config
 start.c: 
 	cp -i $(TOP_DIR)/cosmology/music/start.c.template start.c
 
-#.obj/music_reader.o: $(TOP_DIR)/cosmology/music/music_reader.c
-#	$(CC) $(CFLAGS) -I. $(INCLUDES) -o .obj/music_reader.o -c $(TOP_DIR)/cosmology/music/music_reader.c
+.obj/io_music.o: $(DEFS) $(TOP_DIR)/cosmology/music/io_music.def $(TOP_DIR)/cosmology/music/io_music.c 
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(TOP_DIR)/cosmology/music -I$(SRC_DIR)/core $(INCLUDES) -o $@ -c $(TOP_DIR)/cosmology/music/$(*F).c
 
-.obj/music_init.o: $(DEFS) $(TOP_DIR)/cosmology/music/music_init.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) -o .obj/music_init.o -c $(TOP_DIR)/cosmology/music/music_init.c
+.obj/music_init.o: $(DEFS) $(TOP_DIR)/cosmology/music/io_music.def $(TOP_DIR)/cosmology/music/io_music.c $(TOP_DIR)/cosmology/music/music_init.c
+	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(TOP_DIR)/cosmology/music -I$(SRC_DIR)/core $(INCLUDES) -o $@ -c $(TOP_DIR)/cosmology/music/$(*F).c
 
-$(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/music_init.o 
-	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/music -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(SRC_DIR)/extra $(INCLUDES) $(SIM_OBJS) .obj/music_init.o $(START).c -o $(ART) $(LIBS) $(EXTRALIBS)
+$(ART): .obj/.phony $(DEFS) $(SIM_OBJS) $(START).c .obj/music_init.o .obj/io_music.o
+	$(CC) $(CFLAGS) -I. -I$(TOP_DIR)/cosmology/music -I$(SRC_DIR)/base -I$(SRC_DIR)/core -I$(SRC_DIR)/extra $(INCLUDES) $(SIM_OBJS) .obj/music_init.o .obj/io_music.o $(START).c -o $(ART) $(LIBS) $(EXTRALIBS)
 
 EXEC =
 
