@@ -259,7 +259,11 @@ void mark_refinement_indicators( int cell, int level ) {
 		indicator = MAX( dark_1stspec_indicator(cell, level), indicator );
 	}
 
-        if ( refinement_indicator[PLUGIN_INDICATOR].use[level] ) {
+	if ( refinement_indicator[DARK_PARTICLE_COUNT_INDICATOR].use[level] ) {
+		indicator = MAX( dark_particle_count_indicator( cell, level ), indicator );
+	}
+
+	if ( refinement_indicator[PLUGIN_INDICATOR].use[level] ) {
 		indicator = MAX( plugin_indicator( cell, level ), indicator );
 	}
 
@@ -337,6 +341,29 @@ float dark_1stspec_indicator( int cell, int level ) {
 	cart_error("need particle defined for gas_1stspec_indicator");
 #endif /* PARTICLES */
 	return MIN( ave_mass, refinement_indicator[DARK_1STSPEC_INDICATOR].weight );
+}
+
+float dark_particle_count( int cell, int level ) {
+#ifdef PARTICLES
+	int ipart;
+	int count = 0;
+
+	ipart = cell_particle_list[cell];
+	while ( ipart != NULL ) {
+#ifdef STARFORM
+		if (!particle_is_star(ipart)) count++;
+#else
+		count++
+#endif /* STARFORM */
+		ipart = particle_list_next[ipart];
+	}
+
+	if ( count > refinement_indicator[DARK_PARTICLE_COUNT_INDICATOR].threshold[level] ) {
+		return 1.0;
+	} 
+#endif /* PARTICLES */
+
+	return 0.0;
 }
 
 float plugin_indicator( int cell, int level ) {
