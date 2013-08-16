@@ -338,32 +338,62 @@ float dark_1stspec_indicator( int cell, int level ) {
 	     * refinement_indicator[DARK_1STSPEC_INDICATOR].threshold[level] );
 #else
 	ave_mass = 0.0;
-	cart_error("need particle defined for gas_1stspec_indicator");
+	cart_error("need PARTICLES defined for gas_1stspec_indicator");
 #endif /* PARTICLES */
 	return MIN( ave_mass, refinement_indicator[DARK_1STSPEC_INDICATOR].weight );
 }
 
-float dark_particle_count( int cell, int level ) {
 #ifdef PARTICLES
-	int ipart;
-	int count = 0;
+int recursive_dark_particle_count( int cell, int num_highres_dark_particles ) {
+	int i, ipart, count = 0;
 
 	ipart = cell_particle_list[cell];
-	while ( ipart != NULL ) {
-#ifdef STARFORM
-		if (!particle_is_star(ipart)) count++;
-#else
-		count++
-#endif /* STARFORM */
-		ipart = particle_list_next[ipart];
+	while ( ipart != NULL_PARTICLE ) {
+		if ( particle_id[ipart] < num_highres_dark_particles ) {
+            count++;
+        }
+        ipart = particle_list_next[ipart];
+    }
+
+	if ( cell_is_refined(cell) ) {
+		for ( i = 0; i < num_children; i++ ) {
+			count += recursive_dark_particle_count( cell_child(cell,i), num_highres_dark_particles );
+		}
 	}
 
-	if ( count > refinement_indicator[DARK_PARTICLE_COUNT_INDICATOR].threshold[level] ) {
-		return 1.0;
-	} 
+	return count;
+}
 #endif /* PARTICLES */
 
+float dark_particle_count_indicator( int cell, int level ) {
+#ifdef PARTICLES
+	int num_highres_dark_particles;
+	int count;
+
+#ifdef STARFORM
+	if ( num_particle_species > 2 ) {
+		num_highres_dark_particles = particle_species_indices[num_particle_species-2];
+	} else {
+		num_highres_dark_particles = particle_species_indices[num_particle_species-1];
+	}
+#else
+	if ( num_particle_species > 1 ) {
+		num_highres_dark_particles = particle_species_indices[num_particle_species-1];
+	} else {
+		num_highres_dark_particles = particle_species_indices[num_particle_species];
+	}	
+#endif
+
+	count = recursive_dark_particle_count(cell, num_highres_dark_particles);
+/* Hard threshold works poorly with our diffusion scheme, better to use a ratio
+	if ( count >= refinement_indicator[DARK_PARTICLE_COUNT_INDICATOR].threshold[level] ) {
+		return 1.0;
+	} 
+*/
+	return (float)count/refinement_indicator[DARK_PARTICLE_COUNT_INDICATOR].threshold[level]; 
+#else 
 	return 0.0;
+#endif /* PARTICLES */
 }
 
 float plugin_indicator( int cell, int level ) {
