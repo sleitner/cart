@@ -192,6 +192,18 @@ void cart_debug( const char *fmt, ... ) {
 }
 #endif
 
+void cart_breakpoint( int proc, MPI_Comm comm ) {
+	int i = 0;
+	if ( proc == -1 || proc == local_proc_id ) {
+		while ( i == 0 ) {
+			sleep(1);
+		}
+	}
+
+	MPI_Barrier( comm );
+} 
+
+
 int is_option_present(const char* full_name, const char* short_name, int with_argument)
 {
   int i, len;
