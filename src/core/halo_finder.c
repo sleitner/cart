@@ -725,6 +725,11 @@ halo_list *find_halos() {
         bin_volume_cumulative[i] = 4.0*M_PI/3.0*rr[i]*rr[i]*rr[i];
     }
 
+	/* test that values of minimum mass and rr[0] are consistent */
+	if ( bin_volume[0]*delta_vir_mean < min_halo_mass_code ) {
+		cart_debug("WARNING: value of halo:rhalo_bin_rmin too large for chosen halo:min_halo_mass.  Small halos may be missed due to binning.");
+	}
+
 	/* allocate particle_flag and particle_density */
 	particle_flag = cart_alloc(int, num_particles);
 
