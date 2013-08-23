@@ -150,7 +150,6 @@ void FUNCTION( char *header_filename, char *data_filename,
 		tintg		= header.tintg;
 		ekin		= header.ekin;
 		ekin1		= header.ekin1;
-		ekin2		= header.ekin2;
 		au0			= header.au0;
 		aeu0		= header.aeu0;
 
