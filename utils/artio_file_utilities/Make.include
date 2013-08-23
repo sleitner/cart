@@ -1,13 +1,10 @@
 
-dummy_afu: aph pt
+dummy_afu: pt
 
 include $(TOP_DIR)/Make.config
-
-aph: .obj/.phony $(IOL_OBJS) $(TOP_DIR)/utils/artio_file_utilities/artio_print_header.c
-	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/tools/artio $(INCLUDES) $(IOL_OBJS) $(TOP_DIR)/utils/artio_file_utilities/artio_print_header.c -o aph $(LIBS) $(EXTRALIBS)
 
 pt: .obj/.phony $(DEFS) $(FIC_OBJS) $(TOP_DIR)/utils/artio_file_utilities/performance_tester.c
 	$(CC) $(CFLAGS) -I. -I$(SRC_DIR)/base -I$(SRC_DIR)/core $(INCLUDES) $(FIC_OBJS) $(TOP_DIR)/utils/artio_file_utilities/performance_tester.c -o pt $(LIBS) $(EXTRALIBS)
 
-ALL += aph pt
-CLEAN += *.o aph pt
+ALL += pt
+CLEAN += *.o pt
