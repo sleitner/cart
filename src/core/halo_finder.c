@@ -34,7 +34,7 @@ double delta_vir = 180.;
 double delta_vir_mean = -1.0;
 int delta_vir_unit = 0;                     /* unit of delta_vir, 0=mean, 1=critical, 2=Bryan & Norman '98 virial */
 double delta_halo_center = 1000;            /* always in units of mean density */
-int min_halo_center_level = MAX(min_level,max_level-2);
+int min_halo_center_level = min_level;		/* reduces the number of particles that we compute density for */
 double min_halo_mass = 0.0; 
 
 int halo_finder_debug_flag = 0;             /* output additional information during halo finding */
@@ -937,15 +937,27 @@ void write_halo_list( halo_list *halos ) {
 		fprintf( output, "# Cosmology: OmM = %.3f, OmL = %.3f, OmB = %.4f, h = %.3f, DeltaDC = %.3f\n",
 				cosmology->OmegaM, cosmology->OmegaL, cosmology->OmegaB, cosmology->h, cosmology->DeltaDC );
 		fprintf( output, "# Lbox = %.2f [Mpc/h comoving]\n", box_size );
-		fprintf( output, "# num_neighbors = %u, Deltamin = %.2f, Deltavir = %.2f (mean)\n", 
-			halo_num_nearest_neighbors, delta_halo_center, delta_vir_mean );
+		fprintf( output, "# num_neighbors = %u, Deltamin = %.2f, min_center_level = %u, Deltavir = %.2f (mean)\n", 
+			halo_num_nearest_neighbors, delta_halo_center, min_halo_center_level, delta_vir_mean );
 		fprintf( output, "# Binning: rmin = %.3f, rmax = %.3f [Mpc/h comoving], num_bins = %u\n", rmin_physical, rmax_physical, num_bins );
+
+		if ( min_halo_mass > 0.0 ) {
+			fprintf( output, "# Minimum halo mass: %.5e", min_halo_mass );
+		}
 
 		if ( halo_center_definition == 0 ) {
 			fprintf( output, "# Halo centering: center of mass, freduce = %.3f, conv. ftol = %.2e, abs = %.2f [kpc/h comoving]\n", 
 					cm_radius_freduce, cm_convergence_ftol, cm_convergence_abs*cell_size[max_level]*units->length_in_chimps*1000.0 );	
 		} else {
 			fprintf( output, "# Halo centering: density peak\n" );
+		}
+
+		if ( halo_finder_volume_flag ) {
+			fprintf( output, "# Halo finding limited to volume (%g, %g, %g; %g) chimps", 
+					halo_finder_volume_center[0],
+					halo_finder_volume_center[1], 
+					halo_finder_volume_center[2],
+					halo_finder_volume_radius );
 		}
 
 		fprintf( output, "# Columns: halo_id x y z [Mpc/h comoving] vx vy vz [peculiar km/s] Rvir [kpc/h comoving]\n#     Mvir [Msun/h] np vmax [km/s] rmax [kpc/h comoving]\n" );
