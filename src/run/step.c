@@ -501,6 +501,8 @@ int timestep( int level, MPI_Comm level_com )
 {
 	int j, courant_cell;
 	double velocity;
+	int nlevel;
+	int factor;
 	int ret;
 	int step_ret;
 	int true_ret;
@@ -578,6 +580,25 @@ int timestep( int level, MPI_Comm level_com )
 				break;
 			}
 		}
+	} else {
+		/* advance timestep on lower levels */
+		factor = 1;
+        for ( nlevel = level + 1; nlevel <= max_level; nlevel++ ) {
+			for ( j = 0; j < factor*time_refinement_factor[nlevel]; j++ ) {
+                tl_old[nlevel] = tl[nlevel];
+                tl[nlevel] += dtl[nlevel];
+
+#ifdef COSMOLOGY
+                abox_old[nlevel] = abox[nlevel];
+                abox[nlevel] = abox_from_tcode( tl[nlevel] );
+                auni[nlevel] = auni_from_tcode( tl[nlevel] );
+#endif
+
+                num_steps_on_level[nlevel]++;
+            }
+			factor *= time_refinement_factor[nlevel];
+            cart_assert( fabs( tl[nlevel] - (tl[level]+dtl[level]) ) < 1e-6 );
+        }
 	}
 
 	if(level <= max_mpi_sync_level)
@@ -594,31 +615,6 @@ int timestep( int level, MPI_Comm level_com )
 	//  reset the basic units to a further moment in time.
 	*/
 	start_time( WORK_TIMER );
-
-	if(level>min_level && tl[level]+0.1*dtl[level]<tl[level-1])
-	  {
-	    /*
-	    //  A new level appeared locally. Sync the time variables 
-	    //  with the parent. The time-step variable should've been 
-	    //  set already.
-	    */
-	    cart_debug("Creating level %d...",level);
-#ifdef COSMOLOGY
-	    cart_debug("Spatial resolution: %le kpc (proper), %le CHIMP (comoving)",units->length*cell_size[level]/constants->kpc,units->length_in_chimps*cell_size[level]);
-#else  /* COSMOLOGY */
-	    cart_debug("Spatial resolution: %le kpc",units->length*cell_size[level]/constants->kpc);
-#endif /* COSMOLOGY */
-
-
-	    tl[level] = tl[level-1];
-#ifdef COSMOLOGY
-	    abox[level] = abox[level-1];
-	    auni[level] = auni[level-1];
-	    abox_old[level] = abox_old[level-1];
-#endif /* COSMOLOGY */
-
-	    num_steps_on_level[level] = num_steps_on_level[level-1]*time_refinement_factor[level];
-	  }
 	units_update(level);
 	end_time( WORK_TIMER );
 
@@ -746,25 +742,25 @@ int timestep( int level, MPI_Comm level_com )
 #if defined(HYDRO) || defined(REFINEMENT)
     /* if hydro or refinement are enabled, we destroyed the value of the 
      * acceleration variable and need to recompute it here */
-        compute_accelerations_particles(level);
+	compute_accelerations_particles(level);
 #endif /* HYDRO || REFINEMENT */
 
-        accelerate_particles(level);
+	accelerate_particles(level);
 #endif /* GRAVITY */
 
 #ifdef STAR_FORMATION
-        if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
-          star_particle_feedback(level, star_feedback_frequency[level]);
+	if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
+		star_particle_feedback(level, star_feedback_frequency[level]);
 
-	  /* update cell values changed by starformation and feedback */
-	  start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
-	  update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+		/* update cell values changed by starformation and feedback */
+		start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
+		update_buffer_level( level, all_hydro_vars, num_hydro_vars );
 #ifdef AGN
-	  for ( j = level+1; j <= max_level; j++ ) {
-                update_buffer_level( j, all_hydro_vars, num_hydro_vars );
-          }
+		for ( j = level+1; j <= max_level; j++ ) {
+			update_buffer_level( j, all_hydro_vars, num_hydro_vars );
+		}
 #endif /* AGN */
-	  end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
+		end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 	}  
 #endif /* STAR_FORMATION */
 
