@@ -37,15 +37,15 @@ float particle_pot[num_particles];
 
 int particle_level[num_particles];
 float particle_mass[num_particles];
-particleid_t particle_id[num_particles];
+int particle_id[num_particles];
 int particle_list_next[num_particles];
 int particle_list_prev[num_particles];
 
 /* particle species */
 int num_particle_species = 0;
 float particle_species_mass[MAX_PARTICLE_SPECIES];
-particleid_t particle_species_num[MAX_PARTICLE_SPECIES];
-particleid_t particle_species_indices[MAX_PARTICLE_SPECIES+1];
+int particle_species_num[MAX_PARTICLE_SPECIES];
+int particle_species_indices[MAX_PARTICLE_SPECIES+1];
 
 /* variables for logging energy */
 double tintg = 0.0;
@@ -58,8 +58,8 @@ double ap1 = 0.0;
 
 int cell_particle_list[num_cells];
 
-particleid_t num_local_particles = 0;
-particleid_t num_particles_total = 0;
+int num_local_particles = 0;
+long num_particles_total = 0;
 
 int next_free_particle = 0;
 int free_particle_list = NULL_PARTICLE;
@@ -145,7 +145,7 @@ void update_particle_list( int level ) {
 					insert_particle( new_cell, ipart );
 				}
 			} else if ( proc == -1 ) {
-				cart_error( "Unable to locate processor for particle %ld!", particle_id[ipart]);
+				cart_error( "Unable to locate processor for particle %d!", particle_id[ipart]);
 			} else {
 				delete_particle( iter_cell, ipart );
 				particle_list_next[ipart] = particle_list_to_send[proc];
@@ -193,7 +193,7 @@ void update_particle_list( int level ) {
 
 void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_to_send[MAX_PROCS], int trade_level, int free_particle_flag ) {
 	int i, j;
-	particleid_t id_count, part_count;
+	int id_count, part_count;
 	int proc, icell, ipart;
 	int page_size, parts_page_size;
 	int proc_pages_sent;
@@ -341,7 +341,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	}
 
 	/* allocate space for the pages */
-	send_id = cart_alloc(particleid_t, num_pages_to_send * page_size );
+	send_id = cart_alloc(int, num_pages_to_send * page_size );
 	send_parts = cart_alloc(double, num_pages_to_send * parts_page_size );
 	num_request_types = 2;
 
@@ -681,7 +681,7 @@ void build_particle_list() {
 	particle_list_enabled = 1;
 }
 
-int particle_alloc( particleid_t id ) { 
+int particle_alloc( int id ) { 
 	int ipart;
 	int i;
 
@@ -711,7 +711,7 @@ int particle_alloc( particleid_t id ) {
 				}
 
 				if ( i == num_star_particles ) {
-					cart_error("Ran out of star particles %d, increase num_star_particles!", i);
+                                        cart_error("Ran out of star particles %d, increase num_star_particles!", i);
 				}
 			}
 		} else {
@@ -733,7 +733,7 @@ int particle_alloc( particleid_t id ) {
 					}
 
 					if ( next_free_star_particle >= num_star_particles ) {
-						cart_error("Ran out of particles (next=%d), increase num_star_particles!",next_free_star_particle );
+                                                cart_error("Ran out of particles (next=%d), increase num_star_particles!",next_free_star_particle );
 					} else {
 						ipart = next_free_star_particle;
 						next_free_star_particle++;
