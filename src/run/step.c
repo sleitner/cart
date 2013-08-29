@@ -584,20 +584,17 @@ int timestep( int level, MPI_Comm level_com )
 		/* advance timestep on lower levels */
 		factor = 1;
         for ( nlevel = level + 1; nlevel <= max_level; nlevel++ ) {
-			for ( j = 0; j < factor*time_refinement_factor[nlevel]; j++ ) {
-                tl_old[nlevel] = tl[nlevel];
-                tl[nlevel] += dtl[nlevel];
+			tl[nlevel] = tl[level] + dtl[level];
+			tl_old[nlevel] = tl[nlevel] - dtl[nlevel];
 
 #ifdef COSMOLOGY
-                abox_old[nlevel] = abox[nlevel];
-                abox[nlevel] = abox_from_tcode( tl[nlevel] );
-                auni[nlevel] = auni_from_tcode( tl[nlevel] );
+			abox[nlevel] = abox_from_tcode( tl[nlevel] );
+			auni[nlevel] = auni_from_tcode( tl[nlevel] );
+			abox_old[nlevel] = abox_from_tcode( tl_old[nlevel] );
 #endif
 
-                num_steps_on_level[nlevel]++;
-            }
 			factor *= time_refinement_factor[nlevel];
-            cart_assert( fabs( tl[nlevel] - (tl[level]+dtl[level]) ) < 1e-6 );
+            num_steps_on_level[nlevel] += factor;
         }
 	}
 
