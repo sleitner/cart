@@ -583,7 +583,7 @@ int timestep( int level, MPI_Comm level_com )
 	} else {
 		/* advance timestep on lower levels */
 		factor = 1;
-        for ( nlevel = level + 1; nlevel <= max_level; nlevel++ ) {
+		for ( nlevel = level + 1; nlevel <= max_level; nlevel++ ) {
 			tl[nlevel] = tl[level] + dtl[level];
 			tl_old[nlevel] = tl[nlevel] - dtl[nlevel];
 
@@ -594,8 +594,8 @@ int timestep( int level, MPI_Comm level_com )
 #endif
 
 			factor *= time_refinement_factor[nlevel];
-            num_steps_on_level[nlevel] += factor;
-        }
+			num_steps_on_level[nlevel] += factor;
+		}
 	}
 
 	if(level <= max_mpi_sync_level)
