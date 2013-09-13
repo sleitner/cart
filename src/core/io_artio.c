@@ -510,7 +510,6 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 		artio_parameter_set_double( handle, "energy:tintg", tintg );
 		artio_parameter_set_double( handle, "energy:ekin", ekin );
 		artio_parameter_set_double( handle, "energy:ekin1", ekin1 );
-		artio_parameter_set_double( handle, "energy:ekin2", ekin2 );
 		artio_parameter_set_double( handle, "energy:au0", au0 );
 		artio_parameter_set_double( handle, "energy:aeu0", aeu0 );
 		artio_parameter_set_double( handle, "energy:ap0", ap0 );
@@ -1285,7 +1284,6 @@ void read_artio_restart( const char *label ) {
 	if ( artio_parameter_get_double( handle, "energy:tintg", &tintg ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "energy:ekin", &ekin ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "energy:ekin1", &ekin1 ) != ARTIO_SUCCESS ||
-			artio_parameter_get_double( handle, "energy:ekin2", &ekin2 ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "energy:au0", &au0 ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "energy:aeu0", &aeu0 ) != ARTIO_SUCCESS ||
 			artio_parameter_get_double( handle, "energy:ap0", &ap0 ) != ARTIO_SUCCESS ) {

@@ -10,7 +10,8 @@ if ( defined($ARGV[1]) ) {
 
 my @selected_timers = ( "hydro", "gravity", "density", "refinement", "communication", "work", "RT_cooling", "RT_level_update", "level_total" );
 
-open FILE, "$directory/timing.00000.log" or die "Unable to load timing file!\n";
+($file) = glob("$directory/timing.0*.log");
+open FILE, $file or die "Unable to load timing file!\n";
 
 $line = <FILE>;
 ($num_levels,$num_timers) = ($line =~ /^\# (\d+) levels (\d+) timers/ );

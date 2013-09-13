@@ -51,7 +51,6 @@ int particle_species_indices[MAX_PARTICLE_SPECIES+1];
 double tintg = 0.0;
 double ekin = 0.0;
 double ekin1 = 0.0;
-double ekin2 = 0.0;
 double au0 = 0.0;
 double aeu0 = 0.0;
 double ap0 = 0.0;

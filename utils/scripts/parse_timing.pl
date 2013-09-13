@@ -8,7 +8,8 @@ if ( defined($ARGV[1]) ) {
 	$print_step = -1;
 }
 
-open FILE, "$directory/timing.00000.log" or die "Unable to load timing file!\n";
+($file) = glob("$directory/timing.0*.log");
+open FILE, $file or die "Unable to load timing file!\n";
 
 $line = <FILE>;
 ($num_levels,$num_timers) = ($line =~ /^\# (\d+) levels (\d+) timers/ );
