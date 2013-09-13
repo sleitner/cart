@@ -98,7 +98,7 @@ void config_verify_star_formation_feedback()
   */
   VERIFY(fb:temperature-ceiling, feedback_temperature_ceiling > 1.0e6 );
   VERIFY(fb:time-ceiling, feedback_speed_time_ceiling < 1.0e6 && feedback_speed_time_ceiling >0);
-  VERIFY(fb:turbulence-temperature-ceiling, feedback_turbulence_temperature_ceiling >= 1.0e6 );
+  VERIFY(fb:turbulence-temperature-ceiling, feedback_turbulence_temperature_ceiling >= 1.0e1 );
 
   VERIFY(fb:sampling-timescale, feedback_sampling_timescale >= 0 && feedback_sampling_timescale < 1e10)
 

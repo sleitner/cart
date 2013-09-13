@@ -48,7 +48,6 @@ void grow_star_particle( int ipart, float delta_mass, int icell, int level) {
     double new_density;
     double density_fraction, thermal_pressure;
     double sum_mass, pmass_orig;
-    double com_pos[nDim];
 	
     cart_assert( ipart < num_star_particles );
     add_mass = MIN( delta_mass, 0.667*cell_volume[cell_level(icell)]*cell_gas_density(icell) );

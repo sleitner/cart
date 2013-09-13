@@ -9,6 +9,6 @@
 #ifdef STAR_FORMATION
 void starII_runaway_config_init();
 void starII_runaway_config_verify();
-double starII_runaway_velocity(double mass_code);
+int starII_runaway_velocity(double mass_code, double vadd[nDim]);
 #endif /* STAR_FORMATION */
 #endif

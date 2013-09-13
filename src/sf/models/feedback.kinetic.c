@@ -381,6 +381,7 @@ void kinetic_to_internal(int icell, double p0, double p1, int toturbulence){
 
 void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
     double uni[nDim], p1, dp_cell, dp_dir;
+    double dp_prev;
     int i;
     
     if(ichild == -1){
@@ -401,8 +402,17 @@ void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
 	p1 = cell_momentum(icell,i);
  	kinetic_to_internal(icell, dp_dir, p1, cancel_to_turbulence);  
 
+        dp_prev = cell_momentum(icell,i);
         cell_momentum(icell,i) += dp_dir;
         if( isnan(cell_momentum(icell,i)) ){
+            cart_debug("dp_prev %e dp_dir %e  dv_prev %e dv_dir %e dvfact %e  nden %e",
+                       dp_prev,
+                       dp_dir,
+                       dp_prev/cell_gas_density(icell)*units->velocity/constants->kms,
+                       dp_dir/cell_gas_density(icell)*units->velocity/constants->kms,
+                       dvfact*units->velocity/constants->kms,
+                       cell_gas_density(icell)*units->number_density
+                );
             cart_error("cell momentum is nan after kick in feedback.kinetic.c");
         }
 

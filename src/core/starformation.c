@@ -10,6 +10,7 @@
 #include "starformation.h"
 #include "starformation_recipe.h"
 #include "starformation_feedback.h"
+#include "starformation_formstar.h"
 #include "times.h"
 #include "tree.h"
 #include "units.h"

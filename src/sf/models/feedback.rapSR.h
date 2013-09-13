@@ -3,6 +3,7 @@
 
 #ifdef STARFORM
 #if defined(HYDRO) && defined(PARTICLES)
+void rapSR_init();
 void rapSR_config_init();
 void rapSR_config_verify();
 void rapSR_setup(int level);

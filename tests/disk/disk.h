@@ -14,7 +14,7 @@
 /* #warning "no more star formation" */
 /* #define nomore_starformation 1 */
 #define n_ambient      (1e-5)
-#define T_ambient      (1e7)
+#define T_ambient      (1e6)
 #define Tgasmodelat1cc  1.0e2
 #define nbuild_mesh     2
 

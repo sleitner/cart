@@ -14,6 +14,7 @@
 #include "starformation.h"
 #include "tree.h"
 #include "units.h"
+#include "rand.h"
 
 extern int starII_runaway_indicator;
 
@@ -21,6 +22,9 @@ double Ostar_frac_runaway = 0.5;
 double Bstar_frac_runaway = 0.1;
 double Ostar_mass = 16;
 double Bstar_mass = 2;
+double sample_exponential(double tau);
+double starII_runaway_mean_kick(double mass_msun);
+int starII_runaway_velocity(double mass_code, double vadd[nDim]);
 
 
 void starII_runaway_config_init()
@@ -47,18 +51,26 @@ double starII_runaway_mean_kick(double mass_msun){
     double f = constants->kms/units->velocity; 
     return 50*pow(mass_msun/33. ,0.33)*f; /* Stone 1991 */
 }
-double starII_runaway_velocity(double mass_code){
+int starII_runaway_velocity(double mass_code, double vadd[nDim]){
+    double uni[nDim], vabs;
+    int i;
     double mass_msun = mass_code * units->mass/constants->Msun;
-    if(!(starII_runaway_indicator)) return 0.0;
+    cart_assert(starII_runaway_indicator);
 
-    if( mass_msun > Ostar_mass &&
-	cart_rand() < Ostar_frac_runaway){
-	return  sample_exponential( starII_runaway_mean_kick(mass_msun) );
+    if( mass_msun >= Bstar_mass ){
+	if( (mass_msun >= Ostar_mass && cart_rand() < Ostar_frac_runaway) ||
+	    (mass_msun < Ostar_mass && cart_rand() < Bstar_frac_runaway) ){
+
+	    cart_rand_unit_vector(uni);
+	    vabs = sample_exponential( starII_runaway_mean_kick(mass_msun) );
+	    for(i=0;i<nDim;i++){
+		vadd[i] = uni[i]*vabs;
+	    }
+	    
+	    return 1;
+	}
     }
-    if( mass_msun > Bstar_mass && mass_msun <= Ostar_mass &&
-	cart_rand() < Bstar_frac_runaway ){
-	return  sample_exponential( starII_runaway_mean_kick(mass_msun) );
-    }
+	    
     return 0;
 }
 #endif /* STAR_FORMATION */

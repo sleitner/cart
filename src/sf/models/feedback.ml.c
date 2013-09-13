@@ -113,7 +113,7 @@ void ml_setup(int level)
 
 void ml_feedback(int level, int cell, int ipart, double t_next )
 {
-  double dmloss, rhor, e_old, rhofact;
+  double dmloss;
 #ifdef COSMOLOGY
   double tn = tphys_from_tcode(t_next);
   double tb = tphys_from_tcode(star_tbirth[ipart]);
@@ -123,9 +123,6 @@ void ml_feedback(int level, int cell, int ipart, double t_next )
   double tb = star_tbirth[ipart];
   double t = particle_t[ipart];
 #endif /* COSMOLOGY */
-
-  float thermal_pressure;
-  int i;
 
   if(ml.loss_rate > 0.0)
     {

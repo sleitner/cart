@@ -164,14 +164,18 @@ void snII_thermal_feedback(int level, int cell, int ipart, double t_next )
           dU = MIN(phi*snII_code.energy*star_initial_mass[ipart],dUfact*cell_gas_density(cell));
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
 	  dU_turb = fraction_SN_to_isotropic_turbulence*dU;
-	  if(units->temperature*cell_isotropic_turbulence_temperature(cell) < feedback_turbulence_temperature_ceiling)
-	      {
-		  cell_isotropic_turbulence_energy(cell) += dU_turb;
-		  cell_gas_energy(cell) += dU_turb;
-		  cell_gas_pressure(cell) += dU_turb*(isotropic_turbulence_gamma-1);
-		  
-		  dU = (1-fraction_SN_to_isotropic_turbulence)*dU;
-	      }
+	  dU_turb = MIN(  dU_turb, 
+			MAX( 0.0, 
+			     (feedback_turbulence_temperature_ceiling / units->temperature)
+			     * cell_gas_density(cell)
+			     / ((isotropic_turbulence_gamma-1)*constants->wmu) 
+			     - cell_isotropic_turbulence_energy(cell)
+			    )  );
+	      
+	  cell_isotropic_turbulence_energy(cell) += dU_turb;
+	  cell_gas_energy(cell) += dU_turb;
+	  cell_gas_pressure(cell) += dU_turb*(isotropic_turbulence_gamma-1);
+	  dU -= dU_turb; 
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
           /* limit energy release and don't allow to explode in hot bubble */

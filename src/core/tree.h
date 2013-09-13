@@ -329,6 +329,7 @@ int root_cell_sfc_index( int icell );
 int cell_parent_root_sfc( int c);
 int cell_level( int c );
 void cell_center_position( int c, double position[nDim] );
+void cell_side_position( int c, double position[nDim] );
 int cell_find_position( double position[nDim] );
 int cell_find_position_sfc( int sfc, double position[nDim] );
 int cell_find_position_level( int level, double position[nDim] );

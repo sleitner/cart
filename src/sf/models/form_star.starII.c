@@ -18,11 +18,11 @@
 #include "rand.h"
 
 #include "form_star.runaway-starII.h"
+#include "onestarfits.h"
 
 /* STARII related */
 double starII_highmass_slope=-2.35;          /* IMF slope used for sampling starII masses */
 double starII_minimum_mass=8.0;              /* in Msun; mass above which individual stars are sampled */
-int starII_indicator=0 ;                     /* are we forming individual massive stars? */
 int starII_runaway_indicator=0;              /* are we letting individual massive stars runaway? */
 
 double starII_avg_mass_code;
@@ -56,7 +56,7 @@ void check_fbdefs_compatible()
 void starII_config_verify()
 {
 #ifndef STAR_PARTICLE_TYPES
-    cart_error("STAR_PARTICLE_TYPES must be defined for starII_indicator True");
+    cart_error("STAR_PARTICLE_TYPES must be defined for starII formation");
 #endif /* STAR_PARTICLE_TYPES */
 	
     VERIFY(starII:runaway-indicator,starII_runaway_indicator==1 || starII_runaway_indicator==0);
@@ -124,7 +124,7 @@ double msample_imf_highmass()
 void starII_creation( double dmstarII, int icell, int level, double dtl ){
     int ipart, i;
     double mstargas_left, starII_mass, Pform_leftover ;
-    double uni[nDim];
+    double vadd[nDim];
     /*  Form particles until alotted mass is used up. */
     mstargas_left = dmstarII ;
     while( mstargas_left > 0.0 ){
@@ -138,12 +138,13 @@ void starII_creation( double dmstarII, int icell, int level, double dtl ){
 	    ipart = create_star_particle( icell, starII_mass, dtl, STAR_TYPE_STARII ); 
 	}
         
-        if(starII_indicator){
-            cart_rand_unit_vector(uni);
-            for ( i = 0; i < nDim; i++ ) {
-                particle_v[ipart][i] += starII_runaway_velocity(starII_mass)*uni[i];
-            }
-        }
+        if(starII_runaway_indicator){
+	    if(starII_runaway_velocity(starII_mass, vadd)){
+		for ( i = 0; i < nDim; i++ ) {
+		    particle_v[ipart][i] += vadd[i];
+		}
+	    }
+	}
         mstargas_left -= starII_mass;
     }
 }

@@ -19,6 +19,8 @@
 #include "iterators.h"
 #include "load_balance.h"
 #include "run/step.h"
+#include "run/starformation_step.h"
+#include "run/hydro_step.h"
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
@@ -48,6 +50,7 @@ double pos_central[nDim]={num_grid/2.,num_grid/2.,num_grid/2.};
 char fname_allparticles[256];
 char fname_vcirc[256];
 int use_analytic_gas_distribution = 0;
+static double ZDISK = 0.1; //can be changed by filename
 
 int icell_wrt_central(double dispx,double dispy,double dispz){
     double pos[nDim];
@@ -98,9 +101,9 @@ void assign_gas_particle_density( int level, double pos[nDim], double vel[nDim],
 	    cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
 	    cart_assert( cell_gas_internal_energy(icell) > 0);
 #ifdef ENRICHMENT 
-	    cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
+	    cell_gas_metal_density_II(icell) = ZDISK * constants->Zsun*cell_gas_density(icell);
 #ifdef ENRICHMENT_SNIa
-	    cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
+	    cell_gas_metal_density_Ia(icell) = ZDISK * constants->Zsun*cell_gas_density(icell);
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
 #ifdef RADIATIVE_TRANSFER
@@ -224,7 +227,6 @@ void assign_gas_model(FILE *fd, int ngas){
     int i, icell, level;
     float xp,yp,zp, vxp,vyp,vzp, mp, u_gas;
     double pos[nDim], vel[nDim];
-    double Zsol = constants->Zsun;
     double mass; 
 
     for(i=0;i<ngas;i++)
@@ -298,9 +300,8 @@ void init_dm_particles(float mp, int nhalo){
 void assign_darkmatter_model(FILE *fd, int nhalo){
     static float mp1;
     int i, icell, level, ipart;
-    float xp,yp,zp, vxp,vyp,vzp, mp, u_gas;
+    float xp,yp,zp, vxp,vyp,vzp, mp;
     double pos[nDim], vel[nDim];
-    float Zsol = constants->Zsun;
     double pdt;
     int current_type;
     current_type = 0;
@@ -368,7 +369,7 @@ void assign_darkmatter_model(FILE *fd, int nhalo){
 
 void assign_star_model(FILE *fd, int nstars){
     int i, level, icell, ipart ;
-    float xp,yp,zp, vxp,vyp,vzp, mp, u_gas;
+    float xp,yp,zp, vxp,vyp,vzp, mp;
     double pos[nDim], vel[nDim];
     double Zsol = constants->Zsun;
     double pdt, age;
@@ -377,7 +378,8 @@ void assign_star_model(FILE *fd, int nstars){
     int Alladded_particles=0;
 
     cart_debug("starting assign star");
-    last_star_id = particle_species_indices[num_particle_species-1];
+    /* place_star adds one before assigning id*/
+    last_star_id = particle_species_indices[num_particle_species-1]-1;
     for(i=0;i<nstars;i++)
 	{
 	    fscanf(fd,"%e",&xp);
@@ -400,6 +402,7 @@ void assign_star_model(FILE *fd, int nstars){
 		pdt = 0.0; /* TIMESTEP IS IMPORTANT -- it cannot be the min_level timestep!! dtl[level]; */
 		age = 1e9*constants->yr/units->time; /* initial stars are old */
 		ipart = place_star_particle(icell, mp, Zsol, pos, vel, pdt, age, STAR_TYPE_NORMAL );
+		cart_assert(particle_is_star(ipart));
 		cart_assert(particle_x[ipart][0]<num_grid && particle_x[ipart][0]>0 );
 		cart_assert(particle_x[ipart][1]<num_grid && particle_x[ipart][1]>0 );
 		cart_assert(particle_x[ipart][2]<num_grid && particle_x[ipart][2]>0 );
@@ -506,7 +509,6 @@ void count_particle_types(int *ngas, int *nhalo, int *nstars){
 void read_model_particles(int iter_number){
     FILE *fd;
     char filename[256];
-    int level;
     static int ngas, nhalo, nstars;
 
     if(iter_number == 0){
@@ -633,9 +635,9 @@ void analytic_gas_model(int icell){
 	cell_gas_energy(icell) = cell_gas_internal_energy(icell)+cell_gas_kinetic_energy(icell);
 	cart_assert( cell_gas_internal_energy(icell) > 0);
 #ifdef ENRICHMENT 
-	cell_gas_metal_density_II(icell) = constants->Zsun*cell_gas_density(icell);
+	cell_gas_metal_density_II(icell) = ZDISK * constants->Zsun*cell_gas_density(icell);
 #ifdef ENRICHMENT_SNIa
-	cell_gas_metal_density_Ia(icell) = constants->Zsun*cell_gas_density(icell);
+	cell_gas_metal_density_Ia(icell) = ZDISK * constants->Zsun*cell_gas_density(icell);
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
 #ifdef RADIATIVE_TRANSFER
@@ -785,6 +787,7 @@ void set_zero_buffer(){
 
 void cfg_options_fromname(double *a0, double *boxh){
     char prefix[256];
+    ZDISK = 0.1;
     /* high/lowz */
     if(      strstr(jobname, "hiz")!= NULL){
         sprintf(prefix, "%s/hiz",output_directory);
@@ -821,14 +824,12 @@ void cfg_options_fromname(double *a0, double *boxh){
     if(strstr(jobname,"h12")!=NULL && strstr(jobname,"loz")!=NULL){
         sprintf(fname_vcirc,"%s/vcirc_lozmh12.dat",output_directory);
         use_analytic_gas_distribution = 1; 
+	ZDISK = 1.0;
     }
 }
 void init_run() {
-    int i,j,k;
-    int *level_cells, num_level_cells, level;
-    int icell,idir;
-    float frame_momentum[nDim];
-    double pos[nDim];
+    int i;
+    int level;
     double a0, boxh;
     
     cfg_options_fromname(&a0, &boxh);
@@ -892,7 +893,7 @@ void init_run() {
     init_particles();
     cart_debug("set particles NULL initially");
     build_particle_list(); /* double check particles */
-    
+
     get_refinement_region();
     build_cell_buffer();
     repair_neighbors();
@@ -918,7 +919,7 @@ void init_run() {
         cart_debug("reset hydro to analytic model");
         set_analytic_gas_model();
     }
-    
+
     hydro_magic( min_level );
     hydro_eos( min_level );
     
@@ -966,9 +967,6 @@ int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], d
 	int ipart;
 	int id;
 	int level;
-	float new_density;
-	float density_fraction, thermal_pressure;
-	float true_mass;
 
 	cart_assert( icell > -1 && icell < num_cells );
 	cart_assert( mass > 0.0 );
@@ -1005,9 +1003,9 @@ int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], d
 	total_stellar_mass += mass;
 
 #ifdef ENRICHMENT
-	star_metallicity_II[ipart] = Zsol;
+	star_metallicity_II[ipart] = ZDISK * Zsol;
 #ifdef ENRICHMENT_SNIa
-	star_metallicity_Ia[ipart] = Zsol;
+	star_metallicity_Ia[ipart] = ZDISK * Zsol;
 #endif /* ENRICHMENT_SNIa */
 #endif /* ENRICHMENT */
 	

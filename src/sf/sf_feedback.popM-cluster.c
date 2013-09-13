@@ -27,7 +27,6 @@
 extern double rapSR_boost;
 extern double wind_momentum_boost;
 extern double tauIR_boost;
-extern int cluster_buildup_indicator;
 
 void sfb_config_init()
 {

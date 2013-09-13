@@ -46,13 +46,18 @@ void init_da_exe_()
       /*
       //  This trick ensures that cell_first_species_mass(c) is now stellar density
       */
+#ifdef STAR_FORMATION
       max_first_species_id = 0;
+#endif /* STAR_FORMATION */
       for(level=min_level; level<=max_level; level++)
 	{
 	  cart_debug("assigning density on level %u", level );
 	  assign_density( level );
 	}
+#ifdef STAR_FORMATION
       max_first_species_id = -1; /* This will automatically reset it at the next density assignment call. */
+#endif /* STAR_FORMATION */
+
     }
 #endif /* GRAVITY || RADIATIVE_TRANSFER */
 }

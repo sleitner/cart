@@ -710,7 +710,6 @@ void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells
 #ifdef EXTRA_PRESSURE_SOURCE
 void hydro_zero_extra_source_vars(int level, int num_level_cells, int *level_cells) {
     int i,j, icell; 
-    float cell_old;
 #pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl), private(i,j,icell)
     for ( i = 0; i < num_level_cells; i++ ) {
 	icell = level_cells[i];

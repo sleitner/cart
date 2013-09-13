@@ -11,7 +11,7 @@ void starII_config_init();
 void starII_config_verify();
 void starII_init();
 void starII_setup(int level);
-void starII_star_formation( int level, int icell, double dtl, double dt_eff, float sfr);
+void starII_creation( double dmstarII, int icell, int level, double dtl );
 
 #endif /* STAR_FORMATION */
 #endif

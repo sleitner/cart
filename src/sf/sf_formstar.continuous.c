@@ -76,9 +76,7 @@ void star_form_setup(int level)
 extern double mfrac_starII ; /* this is given by IMF */
 void star_form_particles(int level, int icell, double dtl, double dt_eff, float sfr){
 /* creates cluster and builds until cluster age spread, samples starII; */
-    int i, ipart;
-    int num_level_cells;
-    int *level_cells;
+    int ipart;
     float dmstar;
     int star_type = STAR_TYPE_NORMAL;
     
