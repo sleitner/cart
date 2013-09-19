@@ -376,36 +376,6 @@ void cell_center_position( int c, double position[nDim] ) {
 	}
 }
 
-void cell_side_position( int c, double position[nDim]){
-/*                                                                                                                                                     
- * purpose: finds coordinates of side of cell c                                                                                                        
- */
-    int i;
-    int coords[nDim];
-    int level, child;
-    int parent;
-
-    cart_assert ( c >= 0 && c < num_cells );
-
-    if ( cell_is_root_cell(c) ) {
-	/* convert sfc index of cell to 3-d coordinates */
-	sfc_coords( cell_parent_root_sfc(c), coords);
-
-	for ( i = 0; i < nDim; i++ ) {
-	    position[i] = (double)coords[i];
-	}
-    } else {
-	parent = cell_parent_oct(c);
-	level = oct_level[parent];
-	child = cell_child_number(c);
-
-	/* use delta to compute offset from parent's center */
-	for ( i = 0; i < nDim; i++ ) {
-	    position[i] = oct_pos[parent][i] + cell_size[level] * (cell_delta[child][i] - 0.5);
-	}
-    }
-}
-
 int cell_find_position( double position[nDim] ) {
 	return cell_find_position_sfc( sfc_index_position(position), position );
 }
