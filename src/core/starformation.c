@@ -287,7 +287,7 @@ int create_star_particle( int icell, float mass, double pdt, int type ) {
 	}
 
 #ifdef BLASTWAVE_FEEDBACK
-        init_blastwave(icell);
+        start_blastwave(icell);
 #endif /* BLASTWAVE_FEEDBACK */
 
 	return ipart;

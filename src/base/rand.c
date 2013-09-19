@@ -65,8 +65,7 @@ double cart_rand() {
 	return ret;
 }
 
-unsigned long int cart_rand_int(int n) {
-        unsigned long int nmax = n;
+unsigned long int cart_rand_int(unsigned long int nmax) {
 	unsigned long int ret;
 
 #ifdef UNIQUE_RAND
@@ -132,12 +131,14 @@ unsigned int cart_rand_poisson( double mu ) {
 void cart_rand_unit_vector(double uni[nDim]){
     /* returns a random unit vector*/
     double phi, r;
-    if(nDim == 3){
+#if (nDim == 3)
 	uni[2] = cart_rand()*2-1;
 	r = sqrt(1-uni[2]*uni[2]);
-    }else if(nDim == 2){
+#elif (nDim == 2)
 	r=1;
-    }
+#else
+#error "Not implemented"
+#endif
 
     phi = cart_rand()*2*M_PI;
     uni[1] = r * sin(phi);

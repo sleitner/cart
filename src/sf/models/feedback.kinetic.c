@@ -20,7 +20,6 @@
 #include "feedback.kinetic.h"
 #include "plugin.h"
 
-#define mysign(x) (x > 0) ? 1 : ((x < 0) ? -1 : 0)
 /*  
 // This file tells how to distribute some input momentum to kicks and/or internal energy 
 */

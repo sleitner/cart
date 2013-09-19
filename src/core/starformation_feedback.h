@@ -48,7 +48,7 @@ void init_star_formation_feedback();
 void setup_star_formation_feedback(int level);
 
 #ifdef BLASTWAVE_FEEDBACK
-void init_blastwave(int icell);
+void start_blastwave(int icell);
 #endif /* BLASTWAVE_FEEDBACK */
 
 #endif /* STAR_FORMATION */

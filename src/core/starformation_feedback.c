@@ -120,7 +120,7 @@ void init_star_formation_feedback()
 #if defined(HYDRO) && defined(PARTICLES)
 
 #ifdef BLASTWAVE_FEEDBACK
-void init_blastwave(int icell)
+void start_blastwave(int icell)
 {
   cell_blastwave_time(icell) =  cell_gas_density(icell) * blastwave_time;
 }
