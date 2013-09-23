@@ -54,13 +54,11 @@ int split ( int cell ) {
 	double moment;	
 #ifdef HYDRO
 	double weights[num_hydro_vars-nDim];
-        double weightextP;
 #endif /* HYDRO */
 
 	cart_assert( cell >= 0 && cell < num_cells );
 
 #ifdef HYDRO
-        weightextP = 0;
 	for ( i = 0; i < num_hydro_vars-nDim; i++ ) {
 		weights[i] = 0.0;
 	}
@@ -136,9 +134,8 @@ int split ( int cell ) {
 			}
 
 #ifdef EXTRA_PRESSURE_SOURCE
-			cell_extra_pressure_source(child_cell) = cell_interpolate_with_neighbors( 
-                            cell, VAR_EXTRA_PRESSURE_SOURCE, neighbors );
-                        weightextP += cell_extra_pressure_source(child_cell);
+                        /* no smearing -- maintain gradient and \dot{p}=P*A */
+			cell_extra_pressure_source(child_cell) = cell_extra_pressure_source(cell);
 #endif
 
 			for ( j = 0; j < num_chem_species; j++ ) {
@@ -188,9 +185,6 @@ int split ( int cell ) {
                         (double)cell_extra_energy_variables(cell,j) / 
                         weights[ind];
                 }
-#ifdef EXTRA_PRESSURE_SOURCE
-		weightextP = (weightextP == 0.0) ? 0.0: (double)num_children * (double)cell_extra_pressure_source(cell) / weightextP;
-#endif 
 
 		for ( j = 0; j < num_chem_species; j++ ) {
 			weights[num_hydro_vars-num_chem_species-nDim+j] = 
@@ -221,9 +215,6 @@ int split ( int cell ) {
 			for ( j = 0; j < num_extra_energy_variables; j++ ) {
 				cell_extra_energy_variables(child_cell,j) *= weights[j+5+num_electronion_noneq_vars];
 			}
-#ifdef EXTRA_PRESSURE_SOURCE
-                        cell_extra_pressure_source(child_cell) *= weightextP;
-#endif
 
 			for ( j = 0; j < num_chem_species; j++ ) {
 				cell_advected_variable(child_cell,j) *= weights[num_hydro_vars-num_chem_species-nDim+j];
