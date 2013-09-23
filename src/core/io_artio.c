@@ -304,8 +304,8 @@ void unpack_cell_vars(int icell, int num_pack_vars, int *sim_var_indices,
 
 #ifdef PARTICLES
 int compare_particle_species_id( const void *a, const void *b ) {
-	int id1 = particle_id[*(int *)a];
-	int id2 = particle_id[*(int *)b];
+	particleid_t id1 = particle_id[*(int *)a];
+	particleid_t id2 = particle_id[*(int *)b];
 	int species1 = particle_species(id1);
 	int species2 = particle_species(id2);
 

@@ -19,7 +19,7 @@ void check_map() {
 	double pos[nDim];
 	int neighbors[num_neighbors];
 	int total_root_cells;
-	int total_particles;
+	particleid_t total_particles;
 	int level;
 	int count;
 	int ipart, ipart_next;
@@ -30,7 +30,7 @@ void check_map() {
 	float max_var[num_vars];
 	float min_var[num_vars];
 	int species_count[100];
-	int species_count_total[100];
+	particleid_t species_count_total[100];
 #ifdef GRAVITY
 	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
 	const int color[num_children] = {

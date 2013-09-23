@@ -980,7 +980,8 @@ void write_halo_particle_list( halo_list *halos ) {
 	int size;
 	int icell, ioct, ipart;
 	int bin, level, parent, child;
-	int nh, np;
+	int nh;
+    particleid_t np;
 	int *particle_counts;
 	int thread_particle_count;
 	int local_particle_count;
@@ -1021,7 +1022,7 @@ void write_halo_particle_list( halo_list *halos ) {
 		size = 2*sizeof(int);
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &nh, sizeof(float), 1, output );
-		fwrite( &np, sizeof(int), 1, output );
+		fwrite( &np, sizeof(particeid_t), 1, output );
 		fwrite( &size, sizeof(int), 1, output );
 
 		particle_counts = cart_alloc(int, num_procs);

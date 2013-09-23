@@ -23,7 +23,7 @@
 
 
 int max_dark_matter_level = max_level;
-int max_first_species_id = -1;
+particleid_t max_first_species_id = -1;
 
 void assign_particle_density_smoothed( int level );
 

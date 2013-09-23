@@ -557,7 +557,7 @@ void restart_load_balance_cart( char *grid_filename, char *particle_header_filen
 
 #ifdef PARTICLES
 
-int compare_particle_ids( const void *a, const void *b ) {
+particleid_t compare_particle_ids( const void *a, const void *b ) {
 	return ( particle_id[*(int *)a] - particle_id[*(int *)b] );
 }
 
