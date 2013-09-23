@@ -176,7 +176,7 @@ const int CubeOrigin3b[] = { 10, 10, 11, 11, 14, 14, 15, 15 };
 /* first 6 get static direction kick, next 12 get 2D randomness (one direction fixed), last 8 corners get 3D randomness like an oct (randomness of same order as non-zero entries)*/
 /*
 // This array returns 26 neighbors as if the whole mesh was uniform.
-// In particular, one neighbor of higher level will appear more than once. 
+// In particular, one neighbor of lower level will appear more than once. 
 // The first 6 neighbors are exactly as returned by cell_all_neighbors.
 // The other 20 neighbors are packed as above:
 */
@@ -200,10 +200,16 @@ int CubeDelPos[][nDim] = {
 }; 
 #define CubeStencilSize 26
 #define num_corners 8
-
+/* neighbors found are either 
+(1) at the same level in the current oct
+(2) at the same level (as a leaf or parent) in the neighboring oct
+(3) at 1 higher level (neighbor_level < level) making up the neighboring oct
+if at level or level+1 add to cell or all child leafs
+if at level-1 add momentum = fraction of volume in 1/8 corner
+*/
 void GetCubeStencil(int level, int cell, int nb[CubeStencilSize])
 {
-  int j, levNb[num_neighbors];
+  int j,k, levNb[num_neighbors];
   
   /*
   //  First level neighbors
@@ -216,13 +222,14 @@ void GetCubeStencil(int level, int cell, int nb[CubeStencilSize])
   */
   for(j=0; j<CubeStencilSize-num_neighbors-num_corners; j++)
     {
+      k = num_neighbors+j;
       if(levNb[CubeDir1[j]] == level)
 	{
 	  /*
 	  // Our neighbor in the first direction is on the same level,
 	  // it is sufficient to take its neighbor in the second direction.
 	  */
-	  nb[num_neighbors+j] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
+	  nb[k] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
 	}
       else if(levNb[CubeDir2[j]] == level)
 	{
@@ -230,45 +237,43 @@ void GetCubeStencil(int level, int cell, int nb[CubeStencilSize])
 	  // Our neighbor in the second direction is on the same level,
 	  // it is sufficient to take its neighbor in the first direction.
 	  */
-	  nb[num_neighbors+j] = cell_neighbor(nb[CubeDir2[j]],CubeDir1[j]);
+	  nb[k] = cell_neighbor(nb[CubeDir2[j]],CubeDir1[j]);
 	}
-      else /* tried to get to new cell from 2 directions, both blocked, assume not low level (not necessarily true) */
+      else /* tried to get to new cell from 2 directions, both higher level */
 	{ 
 	  /*
-	  // Both our neighbors are on a higher level. In that case the cell is kiddy-corner to 
-	  // the local cell/oct...
+	  // Both our neighbors are on a higher level. The 2nd-neighbor must be 
+	  // kitty-corner to the current oct.
 	  */
-	  nb[num_neighbors+j] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
+	  nb[k] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
+          /* only include stencil w/in 1 level of cell */
+	  if( cell_level(nb[k]) < level-1 ){
+              nb[k] = -1;
+          }
        }
   }
   /*
-  //  Third level neighbors (skipping corners for now)
+  // Only do the cube corners if there is a path there at the cell level
   */
-   for(j=0; j<num_corners; j++){ 
-       nb[CubeStencilSize-num_corners+j] = -1;
-   }
-/*   for(j=0; j<num_corners; j++){ */
-/*       if(        cell_level( nb[CubeOrigin3a[j]] ) == level ){ */
-/*           nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]); */
-/*       } else if( cell_level( nb[CubeOrigin3b[j]] ) == level ){ */
-/*           nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]); */
-/*       } else{ */
-/*           nb[CubeStencilSize-num_corners+j] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]); */
-/* // either way of getting to corner should be the same */
-/* //          cart_assert( nb[CubeStencilSize-num_corners+j] == cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]) ); */
-/*       } */
-/*   } */
-      
+  for(j=0; j<num_corners; j++){
+      k = CubeStencilSize-num_corners+j; 
+      if(        cell_level( nb[CubeOrigin3a[j]] ) == level ){
+          nb[k] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]);
+          nb[k] = cell_level(nb[k]) != level ? -1 : nb[k];
+      } else if( cell_level( nb[CubeOrigin3b[j]] ) == level ){
+          nb[k] = cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]);
+          nb[k] = cell_level(nb[k]) != level ? -1 : nb[k];
+      } else{
+          nb[k] = -1;
+      }
+  }
 }
 
 
 
 void cart_rand_unit_vector_block(double uni[nDim], int idir[nDim]){
     double phi, r;
-    /* returns a random unit in direction of oct child */
-    /* children start at bottom left */
-    /* 4 5   6 7 */
-    /* 0 1   2 3   +x-> +z^ +y>> */
+    /* returns a random unit vector in direction of cube stencil member */
     if(idir[0] == 0 && idir[1] == 0){
 	uni[2] = idir[2];
     }else{
@@ -291,7 +296,7 @@ void cart_rand_unit_vector_block(double uni[nDim], int idir[nDim]){
 
 void cart_rand_unit_vector_oct(double uni[nDim], int ichild){
     double phi, r;
-    /* returns a random unit in direction of oct child */
+    /* returns a random unit vector in direction of oct child */
     /* children start at bottom left */
     /* 4 5   6 7 */
     /* 0 1   2 3   +x-> +z^ +y>> */
@@ -392,29 +397,53 @@ void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
     }else{
 	cart_error("bad child argument %d",ichild);
     }
-    
-    /* max momentum that can be added to cell corresponding to feedback_speed_time_ceiling */
+ 
+    /* 
+    // Max momentum that can be added to cell corresponding to feedback_speed_time_ceiling 
+    // Momentum input is already scaled by volume for children 
+    // For parents at level-1 adding 1/8 momentum to buffer
+    */
     dp_cell = copysign(1.0,dp)*MIN( fabs(dp*cell_volume_inverse[level]), 
                                     dvfact*cell_gas_density(icell) ); 
     for(i=0; i<nDim; i++){
-	dp_dir = dp_cell * uni[i]; 
-	p1 = cell_momentum(icell,i);
- 	kinetic_to_internal(icell, dp_dir, p1, cancel_to_turbulence);  
-
-        dp_prev = cell_momentum(icell,i);
-        cell_momentum(icell,i) += dp_dir;
-        if( isnan(cell_momentum(icell,i)) ){
-            cart_debug("dp_prev %e dp_dir %e  dv_prev %e dv_dir %e dvfact %e  nden %e",
-                       dp_prev,
-                       dp_dir,
-                       dp_prev/cell_gas_density(icell)*units->velocity/constants->kms,
-                       dp_dir/cell_gas_density(icell)*units->velocity/constants->kms,
-                       dvfact*units->velocity/constants->kms,
-                       cell_gas_density(icell)*units->number_density
-                );
-            cart_error("cell momentum is nan after kick in feedback.kinetic.c");
+        dp_dir = dp_cell * uni[i]; 
+        if(cell_level(icell) >= level){
+            p1 = cell_momentum(icell,i);
+            kinetic_to_internal(icell, dp_dir, p1, cancel_to_turbulence);  
+            
+            dp_prev = cell_momentum(icell,i); //for debugging
+            cell_momentum(icell,i) += dp_dir;
+            if( isnan(cell_momentum(icell,i)) ){
+                cart_debug("dp_prev %e dp_dir %e  dv_prev %e dv_dir %e dvfact %e  nden %e",
+                           dp_prev,
+                           dp_dir,
+                           dp_prev/cell_gas_density(icell)*units->velocity/constants->kms,
+                           dp_dir/cell_gas_density(icell)*units->velocity/constants->kms,
+                           dvfact*units->velocity/constants->kms,
+                           cell_gas_density(icell)*units->number_density
+                    );
+                cart_error("cell momentum is nan after kick in feedback.kinetic.c");
+            }
+        }else{
+            /*     for higher levels you need the backup */
+            /*     backup_hvar(icell,2) = cell_momentum(icell,0); */
+            p1 = backup_hvar(icell,2+i);
+            dp_prev = p1; // for debugging
+            // forget kinetic to internal on higher levels
+            backup_hvar(icell,2+i) += dp_dir;
+            if( isnan(backup_hvar(icell,2+i)) ){
+                cart_debug("dp_prev %e dp_dir %e  dv_prev %e dv_dir %e dvfact %e  nden %e",
+                           dp_prev,
+                           dp_dir,
+                           dp_prev/backup_hvar(icell,0)*units->velocity/constants->kms,
+                           dp_dir/backup_hvar(icell,0)*units->velocity/constants->kms,
+                           dvfact*units->velocity/constants->kms,
+                           backup_hvar(icell,0)*units->number_density
+                    );
+                cart_error("cell momentum is nan after kick in feedback.kinetic.c");
+            }
+            cart_assert(cell_level(icell)==level-1);
         }
-
     }
 }
 
@@ -441,13 +470,13 @@ void kfb_kick_cube(double dp, int level, int icell){
     
     GetCubeStencil(level, icell, nb26);
     
-    num_local_cells=1; /* This is not written to cross processor boundaries! */
+    num_local_cells=1; /* This is not written to cross mpi-task boundaries! */
     for(j=0; j<CubeStencilSize; j++){
 	if( nb26[j] != -1 && cell_is_local(nb26[j]) ){
 	    if( cell_is_leaf(nb26[j]) ){
 		num_local_cells++;
-	    }else{
-		/* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
+            }else{
+		/* go down only one level in neighbors (only closest neighbors and neighbors at same level) */
 		iPar = nb26[j];
                 for(ichild=0; ichild<num_children; ichild++){
                     icell_child = cell_child(iPar,ichild);
@@ -461,7 +490,7 @@ void kfb_kick_cube(double dp, int level, int icell){
     for(j=0; j<CubeStencilSize; j++){
 	if( nb26[j] != -1 && cell_is_local(nb26[j]) ){
 	    if( cell_is_leaf(nb26[j]) ){
-		kfb_kick_cell(nb26[j], -2, CubeDelPos[j], dp/num_local_cells, level);
+                kfb_kick_cell(nb26[j], -2, CubeDelPos[j], dp/num_local_cells, level);
 	    }else{
 		/* go down only one level in neighbors (only closest neighbors and neighbors at same level)*/
 		iPar = nb26[j];
