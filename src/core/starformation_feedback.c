@@ -52,7 +52,7 @@ void config_init_star_formation_feedback()
   strcpy(ptr,sf_feedback_particle_internal.name);
   control_parameter_add(r,ptr,"sf:feedback","a feedback model for star formation. This parameter is for listing only, and must be set with SF_FEEDBACK define in defs.h. See /src/sf for available feedback models.");
 
-  control_parameter_add2(control_parameter_time,&feedback_sampling_timescale,"fb:sampling-timescale","feedback_sampling_timescale","the intervals at which feedback routines are called.");
+  control_parameter_add2(control_parameter_time,&feedback_sampling_timescale,"fb:sampling-timescale","feedback_sampling_timescale","the intervals at which feedback routines are called. Must be 0 for extra pressure.");
 
   control_parameter_add2(control_parameter_time,&feedback_speed_time_ceiling,"fb:time-ceiling","feedback_speed_time_ceiling","minimum cell crossing time feedback can contribute to. Kinetic feedback doesn't add to gas speed above this limit.");
 
@@ -100,7 +100,16 @@ void config_verify_star_formation_feedback()
   VERIFY(fb:time-ceiling, feedback_speed_time_ceiling < 1.0e6 && feedback_speed_time_ceiling >0);
   VERIFY(fb:turbulence-temperature-ceiling, feedback_turbulence_temperature_ceiling >= 1.0e1 );
 
-  VERIFY(fb:sampling-timescale, feedback_sampling_timescale >= 0 && feedback_sampling_timescale < 1e10)
+#ifdef EXTRA_PRESSURE_SOURCE
+  /* 
+  // extra pressure is set by feedback and then zeroed rather than being a conserved quantity. 
+  // so it would be turned off after the first zeroing 
+  // or left on for the duration of sampling timescale until the next feedback step.
+  */
+  VERIFY(fb:sampling-timescale, feedback_sampling_timescale == 0);
+#else
+  VERIFY(fb:sampling-timescale, feedback_sampling_timescale >= 0 && feedback_sampling_timescale < 1e10);
+#endif /* EXTRA_PRESSURE_SOURCE */
 
 #ifdef BLASTWAVE_FEEDBACK 
   VERIFY(blastwave-time, !(blastwave_time < 0.0) );
