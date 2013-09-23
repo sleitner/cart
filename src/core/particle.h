@@ -5,6 +5,7 @@
 #error "Missing config.h include."
 #endif
 
+#define particleid_t int16_t
 
 #ifdef PARTICLES 
 
@@ -38,19 +39,19 @@ extern double ap1;
 /* particle species */
 extern int num_particle_species;
 extern float particle_species_mass[MAX_PARTICLE_SPECIES];
-extern int particle_species_num[MAX_PARTICLE_SPECIES];
-extern int particle_species_indices[MAX_PARTICLE_SPECIES+1];
+extern particleid_t particle_species_num[MAX_PARTICLE_SPECIES];
+extern particleid_t particle_species_indices[MAX_PARTICLE_SPECIES+1];
 
 extern int particle_level[/* num_particles */];
 extern float particle_mass[/* num_particles */];
-extern int particle_id[/* num_particles */];
+extern particleid_t particle_id[/* num_particles */];
 extern int particle_list_next[/* num_particles */];
 extern int particle_list_prev[/* num_particles */];
 
 extern int cell_particle_list[num_cells];
 
 extern int num_local_particles;
-extern long num_particles_total;
+extern particleid_t num_particles_total;
 extern int next_free_particle;
 extern int free_particle_list;
 extern int particle_list_enabled;

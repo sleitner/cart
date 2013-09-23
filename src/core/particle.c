@@ -37,15 +37,15 @@ float particle_pot[num_particles];
 
 int particle_level[num_particles];
 float particle_mass[num_particles];
-int particle_id[num_particles];
+particleid_t particle_id[num_particles];
 int particle_list_next[num_particles];
 int particle_list_prev[num_particles];
 
 /* particle species */
 int num_particle_species = 0;
 float particle_species_mass[MAX_PARTICLE_SPECIES];
-int particle_species_num[MAX_PARTICLE_SPECIES];
-int particle_species_indices[MAX_PARTICLE_SPECIES+1];
+particleid_t particle_species_num[MAX_PARTICLE_SPECIES];
+particleid_t particle_species_indices[MAX_PARTICLE_SPECIES+1];
 
 /* variables for logging energy */
 double tintg = 0.0;
@@ -60,7 +60,7 @@ double ap1 = 0.0;
 int cell_particle_list[num_cells];
 
 int num_local_particles = 0;
-long num_particles_total = 0;
+particleid_t num_particles_total = 0;
 
 int next_free_particle = 0;
 int free_particle_list = NULL_PARTICLE;
