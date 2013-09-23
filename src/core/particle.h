@@ -61,7 +61,7 @@ extern int next_free_star_particle;
 extern int free_star_particle_list;
 #endif /* STAR_FORMATION */
 
-int particle_alloc( int id );
+int particle_alloc( particleid_t id );
 void particle_free( int ipart );
 void particle_list_free( int ihead );
 void particle_move( int ipart_old, int ipart_new );
@@ -83,7 +83,7 @@ void join_particle_list( int cell );
 void insert_particle( int cell, int part );
 void delete_particle( int cell, int part );
 void rebuild_particle_list();
-int particle_species( int id );
+int particle_species( particleid_t id );
 
 #ifdef STAR_FORMATION
 #define particle_id_is_star(id)		(id >= particle_species_indices[num_particle_species-1])

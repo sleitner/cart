@@ -682,7 +682,7 @@ void build_particle_list() {
 	particle_list_enabled = 1;
 }
 
-int particle_alloc( int id ) { 
+int particle_alloc( particleid_t id ) { 
 	int ipart;
 	int i;
 
@@ -1024,7 +1024,7 @@ void delete_particle( int icell, int part ) {
 	}
 }
 
-int particle_species( int id ) {
+int particle_species( particleid_t id ) {
 	int specie = 0;
 
 	for ( specie = 0; specie < num_particle_species; specie++ ) {
