@@ -104,7 +104,6 @@ void sfb_init()
   starII_explosion_feedback_init();
 
 /*   trapIR_init();  */
-  kfb_init();
 }
 
 void sfb_setup(int level)

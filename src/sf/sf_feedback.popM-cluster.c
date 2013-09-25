@@ -63,7 +63,6 @@ void sfb_init()
   rapSR_init(); 
 
 /*   trapIR_init();  */
-  kfb_init();
 }
 
 void sfb_setup(int level)
