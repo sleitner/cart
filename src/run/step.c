@@ -750,7 +750,7 @@ int timestep( int level, MPI_Comm level_com )
 #ifdef STAR_FORMATION
         if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
                 star_particle_feedback(level, star_feedback_frequency[level]);
-                cell_feedback(level);
+                cell_feedback(level, star_feedback_frequency[level]);
 
 #ifdef STAR_PARTICLE_TYPES 
                 /* feedback should care about star destruction if it happens before t_next */
@@ -760,6 +760,7 @@ int timestep( int level, MPI_Comm level_com )
 		/* update cell values changed by starformation and feedback */
 		start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 		update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+
 #ifdef AGN
 		for ( j = level+1; j <= max_level; j++ ) {
 			update_buffer_level( j, all_hydro_vars, num_hydro_vars );

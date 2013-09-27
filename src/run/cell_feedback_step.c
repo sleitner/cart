@@ -15,7 +15,7 @@
 void setup_cell_feedback(int level){}
 
 #ifdef HYDRO
-void cell_feedback(int level) {
+void cell_feedback(int level, int time_multiplier) {
 	int i;
 	int ipart;
 	int iter_cell;
@@ -26,15 +26,24 @@ void cell_feedback(int level) {
 	start_time( WORK_TIMER );
 
 	setup_cell_feedback(level);
-	t_next = tl[level] + dtl[level];
+        dt = time_multiplier*dtl[level];
+	t_next = tl[level] + time_multiplier*dtl[level];
 
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 #ifdef STAR_FORMATION
 #pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next, sf_feedback_cell), schedule(dynamic)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		iter_cell = level_cells[i];
-                sf_feedback_cell->hydro_feedback_cell(level,iter_cell,t_next, dtl[level]);  
+                sf_feedback_cell->hydro_feedback_cell(level,iter_cell,t_next, dt);  
 	}
+        if( nonlocalfeedback == 1 ){
+            update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+#pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next, sf_feedback_cell), schedule(dynamic)
+            for ( i = 0; i < num_level_cells; i++ ) {
+		iter_cell = level_cells[i];
+                sf_feedback_cell->nonlocal_feedback_cell(level,iter_cell,t_next, dt);  
+            }
+        }
 #endif /* STAR_FORMATION*/
 
 	cart_free(level_cells);

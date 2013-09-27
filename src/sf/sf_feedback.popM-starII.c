@@ -220,7 +220,8 @@ struct StellarFeedbackParticle sf_feedback_particle_internal =
 
 struct StellarFeedbackCell sf_feedback_cell_internal = 
 {
-    sfb_hydro_feedback_cell 
+    sfb_hydro_feedback_cell, 
+    nonlocal_kicks
 };
 
 #endif /* STARFORM */

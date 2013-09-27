@@ -34,6 +34,7 @@ extern const struct StellarFeedbackParticle *sf_feedback_particle;
 struct StellarFeedbackCell
 {
     void (*hydro_feedback_cell)(int level, int cell, double t_next, double dt); /* can be NULL */
+    void (*nonlocal_feedback_cell)(int level, int cell, double t_next, double dt); /* can be NULL */
 };
 
 extern const struct StellarFeedbackCell *sf_feedback_cell;

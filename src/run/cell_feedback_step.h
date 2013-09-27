@@ -6,6 +6,6 @@
 #error "Missing config.h include."
 #endif
 
-void cell_feedback(int level);
+void cell_feedback(int level, int time_multiplier);
 
 #endif
