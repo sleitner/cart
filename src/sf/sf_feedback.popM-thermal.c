@@ -73,7 +73,7 @@ void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt ){}
 struct StellarFeedbackCell sf_feedback_cell_internal =
 {
     sfb_hydro_feedback_cell,
-    NULL
+    gather_kicks
 };
 
 

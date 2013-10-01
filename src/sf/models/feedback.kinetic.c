@@ -30,14 +30,14 @@ extern double feedback_temperature_ceiling;
 extern double feedback_turbulence_temperature_ceiling;
 double kfb_boost_kicks = 1;
 
-#define UNIT_VECTOR -1
-#define CUBE_VECTOR -2
+#define UNIT_VECTOR     -1
+#define CUBE_VECTOR     -2
 #define NEIGHBOR_VECTOR -3
 
-#define KFB_METHOD_PRESSURIZE 0
-#define KFB_METHOD_KICKS      1
-#define KFB_METHOD_HYBRID     2
-#define KFB_METHOD_NONLOCAL   3
+#define KFB_METHOD_PRESSURIZE       0
+#define KFB_METHOD_KICKS            1
+#define KFB_METHOD_HYBRID           2
+#define KFB_METHOD_HYBRIDGATHER     3
 int kfb_internal_method = KFB_METHOD_PRESSURIZE;
 
 #define KFB_SPREAD_CELL       0
@@ -53,6 +53,8 @@ int kfb_internal_turbulence = KFB_TURBULENCE_NONE;
 extern double feedback_speed_time_ceiling;
 extern double dvfact;
 
+void kfb_kick_cube(double dp, int level, int icell);
+
 void control_parameter_set_kfb_method(const char *value, void *ptr, int ind) {
 	if ( strcmp(value,"pressurize") == 0 ) {
 		kfb_internal_method = KFB_METHOD_PRESSURIZE;
@@ -60,8 +62,8 @@ void control_parameter_set_kfb_method(const char *value, void *ptr, int ind) {
 		kfb_internal_method = KFB_METHOD_HYBRID;
 	} else if ( strcmp(value, "kicks") == 0 ) {
 		kfb_internal_method = KFB_METHOD_KICKS;
-	} else if ( strcmp(value, "hybrid_nonlocal") == 0 ) {
-		kfb_internal_method = KFB_METHOD_NONLOCAL;
+	} else if ( strcmp(value, "hybrid_gather") == 0 ) {
+		kfb_internal_method = KFB_METHOD_HYBRIDGATHER;
 	} else {
 		cart_error("String '%s' is not a valid method for kfb feedback.",value);
 	}
@@ -116,7 +118,7 @@ void kfb_config_verify()
 	VERIFY( kfb:method,
 #ifdef EXTRA_PRESSURE_SOURCE
 	        kfb_internal_method == KFB_METHOD_PRESSURIZE || kfb_internal_method == KFB_METHOD_KICKS || kfb_internal_method == KFB_METHOD_HYBRID ||
-	        kfb_internal_method == KFB_METHOD_NONLOCAL
+	        kfb_internal_method == KFB_METHOD_HYBRIDGATHER
 #else
 	        kfb_internal_method == KFB_METHOD_KICKS
 #endif /* EXTRA_PRESSURE_SOURCE */
@@ -313,7 +315,7 @@ void cart_rand_unit_vector_oct(double uni[nDim], int ichild){
 /* 
 // How to kick individual cells 
 */
-void kinetic_to_internal(int icell, double p0, double p1, int toturbulence){
+void kinetic_to_internal(int icell, double p0, double p1){
     /* cancel momentum and convert to internal energy */
     double  p2_cancel, dU;
     if(p0*p1 >0){ return; } /* same direction */
@@ -365,6 +367,14 @@ void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
 	/* max momentum that can be added to cell corresponding to feedback_speed_time_ceiling */
 	dp_cell = copysign(1.0,dp)*MIN( fabs(dp*cell_volume_inverse[level]), 
 			dvfact*cell_gas_density(icell) ); 
+	/////////////////////
+	/* plot 'checkoctrandir' u 6:7:3:4 w vec */
+	/* plot 'checkoctrandir' u 6:7:3:4 w vec, 'checkoctrandir' u 5:6:2:3 w vec, 'checkoctran\
+	   dir' u 5:7:2:4 w vec */
+/* 	double pos[nDim]; */
+/* 	cell_center_position(icell, pos); */
+/* 	printf("kicking %f %f %f  %f %f %f  %e\n", pos[0], pos[1], pos[2],uni[0], uni[1], uni[2],dp_cell); */
+	/////////////////////
 	for(i=0; i<nDim; i++){
 		dp_dir = dp_cell * uni[i]; 
 		p1 = cell_momentum(icell,i);
@@ -407,10 +417,11 @@ void kfb_gather_neighbor_stencil_weights(int level, int icell, double *weight){
 	// purpose: gather weighting such that kicks produce the same velocity across each A 
 	// (note kicks into a larger cell are treated as kicks into an octant of the larger cell)
 	*/
-	int iPar, ichild,icell_child;
+	int iPar, ichild,icell_child, iside;
 	int nb[num_neighbors], num_local_cells=0, j;
 	cell_all_neighbors(icell,nb);
-	if(      kfb_internal_spread == KFB_METHOD_HYBRID || kfb_internal_spread == KFB_METHOD_NONLOCAL ){ 
+	if(      kfb_internal_spread == KFB_METHOD_HYBRID || 
+	         kfb_internal_spread == KFB_METHOD_HYBRIDGATHER ){ 
 		*weight = cell_gas_density(icell)*6 ; /* P*Aside = \dot{p}/Acube*Aside*6 -- treat each face like a kick */
 	}else if(kfb_internal_spread == KFB_METHOD_KICKS ){ 
 		*weight = 0;
@@ -439,7 +450,8 @@ void kfb_gather_cube_stencil_weights(int level, int icell, double *weight){
     int nb26[CubeStencilSize], num_local_cells=0, j;
     double dpi, dv;
     GetCubeStencil(level, icell, nb26);
-	if(      kfb_internal_spread == KFB_METHOD_HYBRID || kfb_internal_spread == KFB_METHOD_NONLOCAL ){ 
+	if(      kfb_internal_spread == KFB_METHOD_HYBRID || 
+	         kfb_internal_spread == KFB_METHOD_HYBRIDGATHER ){ 
 		*weight = cell_gas_density(icell)*6 ; /* P*Aside = \dot{p}/Acube*Aside*6 -- treat each face like a kick */
 	}else if(kfb_internal_spread == KFB_METHOD_KICKS ){ 
 		*weight = 0;
@@ -522,25 +534,30 @@ void kfb_kick(double dp, int level, int icell){
 void kfb_pressurize(double dPressure, int level, int icell) {
 	int ioct, ichild;
 	switch ( kfb_internal_spread ) {
-		case KFB_SPREAD_CELL:
+	case KFB_SPREAD_CELL:
+		cell_extra_pressure_source(icell) += dPressure;
+		break;
+	case KFB_SPREAD_OCT:
+		if ( level == min_level ) {
 			cell_extra_pressure_source(icell) += dPressure;
-			break;
-		case KFB_SPREAD_OCT:
-			if ( level == min_level ) {
-				cell_extra_pressure_source(icell) += dPressure;
-			} else {
-				ioct = cell_parent_oct(cell);
-				for ( ichild = 0; ichild < num_children; ichild++ ) {
-					/* 4.0=24faces/6faces */
-					cell_extra_pressure_source(oct_child(ioct,ichild)) += dPressure/4.0;
-				}
+		} else {
+			ioct = cell_parent_oct(icell);
+			for ( ichild = 0; ichild < num_children; ichild++ ) {
+				/* 4.0=24faces/6faces */
+				cell_extra_pressure_source(oct_child(ioct,ichild)) += dPressure/4.0;
 			}
-			break;
-		case KFB_SPREAD_CUBE:
-			cart_error("spread across cube is not implemented");
-			break;
-		default:
-			cart_error("bad kfb spread option %s",kfb_internal_spread); 
+		}
+		break;
+	case KFB_SPREAD_CUBE:
+		if( kfb_internal_method == KFB_METHOD_HYBRID || 
+		    kfb_internal_method == KFB_METHOD_HYBRIDGATHER ){
+			cell_extra_pressure_source(icell) += dPressure;
+		}else{
+			cart_error(" Pressurizing across cube is not implemented");
+		}
+		break;
+	default:
+		cart_error("bad kfb spread option %s",kfb_internal_spread); 
 	}
 }
 #endif /* EXTRA_PRESSURE_SOURCE */
@@ -550,21 +567,21 @@ void kfb_pressurize(double dPressure, int level, int icell) {
 */
 void kfb_kick_cube(double dp, int level, int icell){
 	double weight;
-    kfb_gather_cube_stencil_weights( dp, level, icell, &weight ); 
-    kfb_kick_cube_constv( dp, level, icell, weight ); 
+    kfb_gather_cube_stencil_weights(level, icell, &weight ); 
+    kfb_kick_cube_constv(dp, level, icell, weight ); 
 }
 /* Hybrid kick/pressurize different stencils */
 #ifdef EXTRA_PRESSURE_SOURCE
 void kfb_hybrid_pressurize_kick(double dp, double dPressure, int level, int icell){
 	/* Hybrid approach: pressurize central cell +kick 26 surrounding cells */
 	double dPi, weight;
-    kfb_gather_cube_stencil_weights( dp, level, icell, &weight ); 
+    kfb_gather_cube_stencil_weights(level, icell, &weight ); 
     dPi = dPressure * 6*cell_gas_density(icell)/weight; /* 6 directions go into pressure (6 also in weight) */
-    kfb_pressurize( dPi, level, icell); 
-    kfb_kick_cube_constv( dp, level, icell, weight ); 
+    kfb_pressurize(dPi, level, icell); 
+    kfb_kick_cube_constv(dp, level, icell, weight ); 
 }
-void kfb_hybrid_nonlocal(double dPressure, int level, int icell){
-	/* nonlocal hybrid */
+void kfb_hybrid_gather(double dPressure, int level, int icell){
+	/* gather hybrid */
 	double dPi, weight;
     kfb_gather_neighbor_stencil_weights( level, icell, &weight ); 
     dPi = dPressure * 6*cell_gas_density(icell)/weight; /* 6 directions go into pressure (6 also in weight) */
@@ -582,25 +599,25 @@ void distribute_momentum(double dp, int level, int icell, double dt){
 	PLUGIN_POINT(RecordDistributedMomentum)(dp, icell, level);
 
 	switch ( kfb_internal_method ) {
-		case KFB_METHOD_KICKS:
-			kfb_kick(dp, level, icell);
-			break;
+	case KFB_METHOD_KICKS:
+		kfb_kick(dp, level, icell);
+		break;
 #ifdef EXTRA_PRESSURE_SOURCE
-		case KFB_METHOD_PRESSURIZE
-			dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
-			kfb_pressurize(dPressure, level, icell);
-			break;
-		case KFB_METHOD_HYBRID:
-			dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
-			kfb_hybrid_pressurize_kick(dp, dPressure, level, icell);
-			break;
-		case KFB_METHOD_NONLOCAL:
-			dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
-			kfb_hybrid_nonlocal(dp, dPressure, level, icell);
-			break;
+	case KFB_METHOD_PRESSURIZE:
+		dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
+		kfb_pressurize(dPressure, level, icell);
+		break;
+	case KFB_METHOD_HYBRID:
+		dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
+		kfb_hybrid_pressurize_kick(dp, dPressure, level, icell);
+		break;
+	case KFB_METHOD_HYBRIDGATHER:
+		dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
+		kfb_hybrid_gather(dPressure, level, icell);
+		break;
 #endif
-		default:
-			cart_error("Invalid kfb_internal_method in distribute_momentum");
+	default:
+		cart_error("Invalid kfb_internal_method in distribute_momentum");
 	}
 }
 
@@ -616,54 +633,61 @@ double constv_from_extra_pressure(int kicker, int receiver_level, double dt){
 	return dp1side/cell_gas_density(kicker);
 }
 void kfb_kick_from_pextra(int level, int icell, double dt){
-	int iPar, ichild,iside, icell_child;
-	int nb[num_neighbors], num_local_cells=0, j;
+	int iPar, ichild,iside, icell_child, idir, isign;
+	int nb[num_neighbors], levNb[num_neighbors], num_local_cells=0, j;
 	int dirNb[nDim];
+	double constv, dpi;
 	cell_all_neighbors(icell,nb);
 	for(j=0; j<num_neighbors; j++){
-		levNb[j] = cell_level(nb[j]);
-
-		/* -(0:-x),-(1:+x)... ; -sign because kick comes FROM neighbor direction */
-		dirNb[0]=0; dirNb[1]=0; dirNb[2]=0; 
-		idir = j/2; isign = -( (j%2)*2-1 ); 
-		cart_debug("j %d , idir %d, isign %d", j, idir, isign);//snl
-		dirNb[idir] = isign; 
-		
-		if( levNb[j] <= level && cell_is_leaf(nb[j]) ){ /* receiver same or fine */
-			/* the kicker cell is coarser or the same -- give constv kick to receiver */
-	        constv = constv_from_extra_pressure(nb[j], level, dt);
-	        dpi = constv*cell_gas_density(icell);//snl!!!
-	        kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);//snl!!!
-	        //cell_gas_momentum[icell][idir] += isign*constv*cell_gas_density(icell);
-		}else if( levNb[j] == level+1 ){  /* receiver coarser */
-			/* 
-			// the kicker cell is finer -- only receive an the octants worth
-			// of momentum, consistent with the weight gather. Even if you fill the 
-			// finer oct end up with half the velocity from the face because 
-			// half of the oct (the other "side") is not touched.
-			*/
-			iPar = nb[j];
-			for(ichild=0; ichild<num_side_children; ichild++){
-				iside = neighbor_side_child[j][ichild];
-				icell_child = cell_child(iPar,iside);
-				constv = constv_from_extra_pressure(icell_child, level, dt);
+		if( cell_extra_pressure_source(nb[j])/cell_gas_pressure(nb[j]) > 1e-6 ){ /* could be change in gradient, but this should be fine */ 
+			levNb[j] = cell_level(nb[j]);
+			
+			/* -(0:-x),-(1:+x)... ; -sign because kick comes FROM neighbor direction */
+			dirNb[0]=0; dirNb[1]=0; dirNb[2]=0; 
+			idir = j/2; isign = -( (j%2)*2-1 ); 
+			dirNb[idir] = isign; 
+			
+			if( levNb[j] <= level && cell_is_leaf(nb[j]) ){ /* receiver same or fine */
+				/* the kicker cell is coarser or the same -- give constv kick to receiver */
+				constv = constv_from_extra_pressure(nb[j], level, dt);
 				dpi = constv*cell_gas_density(icell);
 				kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);
+				//cell_gas_momentum[icell][idir] += isign*constv*cell_gas_density(icell);
+			}else if( levNb[j] == level+1 ){  /* receiver coarser */
+				/* 
+				// the kicker cell is finer -- only receive an the octants worth
+				// of momentum, consistent with the weight gather. Even if you fill the 
+				// finer oct end up with half the velocity from the face because 
+				// half of the oct (the other "side") is not touched.
+				*/
+				iPar = nb[j];
+				for(ichild=0; ichild<num_side_children; ichild++){
+					iside = neighbor_side_child[j][ichild];
+					icell_child = cell_child(iPar,iside);
+					constv = constv_from_extra_pressure(icell_child, level, dt);
+					dpi = constv*cell_gas_density(icell);
+					kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);
+				}
+			}else{
+				cart_error("kicker cell is at the wrong level %d -- should be within 1 of %d", levNb[j], level );
 			}
-		}else{
-			cart_error("kicker cell is at the wrong level %d -- should be within 1 of %d", levNb[j], level );
 		}
 	}
 }
-#endif
+#endif /* EXTRA_PRESSURE_SOURCE */
 /* ---------------- The external routine! -------------------- */
-void nonlocal_kicks(int level, int cell, double t_next, double dt ){
+void gather_kicks(int level, int icell, double t_next, double dt ){
     /* 
     // This collects kicks assigned through a cell field to 6-neighbors 
     // and distributes kicks to current cell.
     */
-    cart_assert(KFB_METHOD_NONLOCAL);
-    kfb_kick_from_pextra(level, icell, dt);
+	if(kfb_internal_method == KFB_METHOD_HYBRIDGATHER){
+#ifdef EXTRA_PRESSURE_SOURCE
+		kfb_kick_from_pextra(level, icell, dt);
+#else
+		cart_error("need EXTRA_PRESSURE_SOURCE for HYBRIDGATHER kicks currently");
+#endif
+	}
 }
 
 #endif /*STARFORM*/
