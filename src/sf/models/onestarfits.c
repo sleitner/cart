@@ -68,15 +68,15 @@ double OneStar_UV_fraction(double ini_mass_sol, double age_yr, double Zsol){
 #endif /* ENRICHMENT */
     
     if(ini_mass_sol > 5.0){
-	fmexp = 1 - exp( (5.0-ini_mass_sol)/27. );
-	fmlow = ini_mass_sol > 40 ? 1.0 : 50./(90-ini_mass_sol) ;
-	fmZ = 1 + logZ_scl * ( ini_mass_sol > 40 ? -.1 : 1)  ;
-	ftZ = 1 + 0.7*logZ_scl * agetau(ini_mass_sol, age_yr, Zsol);
-	ft = 0.55*(1.5 - agetau(ini_mass_sol, age_yr, Zsol));
-	ft = MAX( ft , 0.0 );
-	uvfraction =  fmlow * fmexp * fmZ * ftZ * ft;
+	    fmexp = 1 - exp( (5.0-ini_mass_sol)/27. );
+	    fmlow = ini_mass_sol > 40 ? 1.0 : 50./(90-ini_mass_sol) ;
+	    fmZ = 1 + logZ_scl * ( ini_mass_sol > 40 ? -.1 : 1)  ;
+	    ftZ = 1 + 0.7*logZ_scl * agetau(ini_mass_sol, age_yr, Zsol);
+	    ft = 0.55*(1.5 - agetau(ini_mass_sol, age_yr, Zsol));
+	    ft = MAX( ft , 0.0 );
+	    uvfraction =  fmlow * fmexp * fmZ * ftZ * ft;
     }else{
-	uvfraction = 0;
+	    uvfraction = 0;
     }
 	
     cart_assert(uvfraction >= 0 && uvfraction <= 1.0 );
@@ -98,13 +98,13 @@ double OneStar_Lbol_Lsun(double ini_mass_sol, double age_yr, double Zsol){
 
     tau = agetau(ini_mass_sol, age_yr, Zsol );
     if( tau > 3 || ini_mass_sol < 1.0 ){
-	Lbol = 0;
+	    Lbol = 0;
     }else{
-	fmlow = ini_mass_sol > 30 ? 1.0 : 1.0 - 0.07*pow( (30-(ini_mass_sol-8))/30. ,3) ;
-	fML = 3.9*pow( MAX(log10(ini_mass_sol),1.0) ,0.65);
-	ftm =1 - 0.1 * (ini_mass_sol-120)/120. * tau;
-	/* fit for > 8Msun stars only! */
-	Lbol = pow(10,fmlow*fML*ftm) ; /*in Lsun*/
+	    fmlow = ini_mass_sol > 30 ? 1.0 : 1.0 - 0.07*pow( (30-(ini_mass_sol-8))/30. ,3) ;
+	    fML = 3.9*pow( MAX(log10(ini_mass_sol),1.0) ,0.65);
+	    ftm =1 - 0.1 * (ini_mass_sol-120)/120. * tau;
+	    /* fit for > 8Msun stars only! */
+	    Lbol = pow(10,fmlow*fML*ftm) ; /*in Lsun*/
     }
     cart_assert(Lbol>=0);
     return Lbol;
@@ -133,7 +133,7 @@ double OneStar_Lion_RT(int ipart){
     age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time/constants->yr ;
     Zsol = star_metallicity_II[ipart]/constants->Zsun;
     Lion = OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * Lsun_to_ergs * units->time
-	* OneStar_ionizing_fraction(ini_mass_sol,age_yr,Zsol);
+	    * OneStar_ionizing_fraction(ini_mass_sol,age_yr,Zsol);
     return Lion / restenergy ;
 }
 #endif /* STARFORM */
@@ -161,7 +161,7 @@ double OneStar_wind_pdot_msunyrkms(double ini_mass_sol, double age_yr, double Zs
     logZsol = -1;
 #endif /* ENRICHMENT */
     logZ_scl=logZsol*zfac;
-
+    
     ls = log10( OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) );
     lmdotvw = ls < Lsplit ? m1*ls + (yint-b1*m1) : m2*ls + (yint-b2*m2);
     lmdotvw +=  logZ_scl;
