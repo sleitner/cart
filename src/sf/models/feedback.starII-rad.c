@@ -16,9 +16,7 @@
 #include "feedback.starII-rad.h"
 
 /* provides the luminosity used in density calculation*/
-
 extern double tdelay_popM_feedback;
-
 
 /* RT ionizing source function for individual stars */
 float rad_luminosity_popM_ionizingstarII0(int ipart){
@@ -38,9 +36,5 @@ float rad_luminosity_popM_ionizingstarII0(int ipart){
 	    }
     }
 }
-
-
-
-
 #endif /* STAR_PARTICLE_TYPES */
 #endif /* STARFORM */
