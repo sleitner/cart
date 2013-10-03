@@ -31,13 +31,13 @@ void cell_feedback(int level, int time_multiplier) {
 	
 	select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
 #ifdef STAR_FORMATION
-#pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next, sf_feedback_cell), schedule(dynamic)
+#pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next,dt_next, sf_feedback_cell), schedule(dynamic)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		iter_cell = level_cells[i];
 		sf_feedback_cell->hydro_feedback_cell(level,iter_cell,t_next, dt_next);  
 	}
 	update_buffer_level( level, all_hydro_vars, num_hydro_vars );
-#pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next, sf_feedback_cell), schedule(dynamic)
+#pragma omp parallel for default(none), private(iter_cell), shared(num_level_cells,level_cells,level,t_next,dt_next, sf_feedback_cell), schedule(dynamic)
 	for ( i = 0; i < num_level_cells; i++ ) {
 		iter_cell = level_cells[i];
 		sf_feedback_cell->nonlocal_feedback_cell(level,iter_cell,t_next, dt_next);  

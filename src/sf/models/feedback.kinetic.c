@@ -210,51 +210,55 @@ void GetCubeStencil(int level, int cell, int nb[CubeStencilSize])
   //  Second level neighbors
   */
   for(j=0; j<CubeStencilSize-num_neighbors-num_corners; j++)
-    {
-      k = num_neighbors+j;
-      if(levNb[CubeDir1[j]] == level)
-	{
-	  /*
-	  // Our neighbor in the first direction is on the same level,
-	  // it is sufficient to take its neighbor in the second direction.
-	  */
-	  nb[k] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
-	}
-      else if(levNb[CubeDir2[j]] == level)
-	{
-	  /*
-	  // Our neighbor in the second direction is on the same level,
-	  // it is sufficient to take its neighbor in the first direction.
-	  */
-	  nb[k] = cell_neighbor(nb[CubeDir2[j]],CubeDir1[j]);
-	}
-      else /* tried to get to new cell from 2 directions, both higher level */
-	{ 
-	  /*
-	  // Both our neighbors are on a higher level. The 2nd-neighbor must be 
-	  // kitty-corner to the current oct.
-	  */
-	  nb[k] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
-          /* only include stencil w/in 1 level of cell */
-	  if( cell_level(nb[k]) < level-1 ){
-              nb[k] = -1;
-          }
-       }
-  }
+	  {
+		  k = num_neighbors+j;
+		  if(levNb[CubeDir1[j]] == level)
+			  {
+				  /*
+				  // Our neighbor in the first direction is on the same level,
+				  // it is sufficient to take its neighbor in the second direction.
+				  */
+				  nb[k] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
+			  }
+		  else if(levNb[CubeDir2[j]] == level)
+			  {
+				  /*
+				  // Our neighbor in the second direction is on the same level,
+				  // it is sufficient to take its neighbor in the first direction.
+				  */
+				  nb[k] = cell_neighbor(nb[CubeDir2[j]],CubeDir1[j]);
+			  }
+		  else /* tried to get to new cell from 2 directions, both higher level */
+			  { 
+				  /*
+				  // Both our neighbors are on a higher level. The 2nd-neighbor must be 
+				  // kitty-corner to the current oct.
+				  */
+				  nb[k] = cell_neighbor(nb[CubeDir1[j]],CubeDir2[j]);
+				  /* only include stencil w/in 1 level of cell */
+				  if(nb[k] != -1 && cell_level(nb[k]) < level-1 ){
+					  nb[k] = -1;
+				  }
+			  }
+	  }
   /*
   // Only do the cube corners if there is a path there at the cell level
   */
   for(j=0; j<num_corners; j++){
-      k = CubeStencilSize-num_corners+j; 
-      if(        cell_level( nb[CubeOrigin3a[j]] ) == level ){
-          nb[k] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]);
-          nb[k] = cell_level(nb[k]) != level ? -1 : nb[k];
-      } else if( cell_level( nb[CubeOrigin3b[j]] ) == level ){
-          nb[k] = cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]);
-          nb[k] = cell_level(nb[k]) != level ? -1 : nb[k];
-      } else{
-          nb[k] = -1;
-      }
+	  k = CubeStencilSize-num_corners+j; 
+	  if(  nb[CubeOrigin3a[j]] != -1 && cell_level( nb[CubeOrigin3a[j]] ) == level ){
+		  nb[k] = cell_neighbor(nb[CubeOrigin3a[j]],CubeDir3a[j]);
+		  if(nb[k] != -1){
+			  nb[k] = cell_level(nb[k]) != level ? -1 : nb[k];
+		  }
+	  } else if( nb[CubeOrigin3b[j]] != -1 && cell_level( nb[CubeOrigin3b[j]] ) == level ){
+		  nb[k] = cell_neighbor(nb[CubeOrigin3b[j]],CubeDir3b[j]);
+		  if(nb[k] != -1){
+			  nb[k] = cell_level(nb[k]) != level ? -1 : nb[k];
+		  }
+	  } else{
+		  nb[k] = -1;
+	  }
   }
 }
 
