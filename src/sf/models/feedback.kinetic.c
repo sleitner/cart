@@ -272,11 +272,11 @@ void cart_rand_unit_vector_block(double uni[nDim], int idir[nDim]){
     // last 8 corners get 3D randomness like an oct (randomness of same order as non-zero entries)
     */
     if(idir[0] == 0 && idir[1] == 0){
-	    uni[2] = idir[2];
+	    uni[2] = (double)idir[2];
     }else{
-	    uni[2] = idir[2]*cart_rand();
+	    uni[2] = (double)idir[2]*cart_rand();
     }
-    r = sqrt(1-uni[2]*uni[2]);
+    r = sqrt(fabs(1-uni[2]*uni[2]));
     if     (idir[0] == 1 && idir[1] == 1){  phi = 1*M_PI/2.+cart_rand()*M_PI/2.; } //+x.+y
     else if(idir[0] ==-1 && idir[1] == 1){  phi = 2*M_PI/2.+cart_rand()*M_PI/2.; } //-x,+y
     else if(idir[0] ==-1 && idir[1] ==-1){  phi = 3*M_PI/2.+cart_rand()*M_PI/2.; } //-x,-y
