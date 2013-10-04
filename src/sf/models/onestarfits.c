@@ -26,7 +26,7 @@ double OneStar_snII_Mejected_Ox(double mass_code){
     /* need units/cosmology set */
     return 4.586e-4 * pow(mass_code*units->mass/constants->Msun,2.721)/units->mass*constants->Msun;
 }
-////////////////////////////////////////////
+
 double OneStar_stellar_lifetime(double ini_mass_sol, double Zsol){  
     /* stellar lifetime in code units */
     /* need units/cosmology set */
@@ -66,7 +66,6 @@ double OneStar_UV_fraction(double ini_mass_sol, double age_yr, double Zsol){
     logZsol = -1;
     logZ_scl=0.5; 
 #endif /* ENRICHMENT */
-    
     if(ini_mass_sol > 5.0){
 	    fmexp = 1 - exp( (5.0-ini_mass_sol)/27. );
 	    fmlow = ini_mass_sol > 40 ? 1.0 : 50./(90-ini_mass_sol) ;
@@ -75,27 +74,23 @@ double OneStar_UV_fraction(double ini_mass_sol, double age_yr, double Zsol){
 	    ft = 0.55*(1.5 - agetau(ini_mass_sol, age_yr, Zsol));
 	    ft = MAX( ft , 0.0 );
 	    uvfraction =  fmlow * fmexp * fmZ * ftZ * ft;
+	    uvfraction = MAX(0.0, MIN(1.0, uvfraction));
     }else{
 	    uvfraction = 0;
     }
-	
-    cart_assert(uvfraction >= 0 && uvfraction <= 1.0 );
     return uvfraction;
 }
 double OneStar_ionizing_fraction(double ini_mass_sol, double age_yr, double Zsol){
     double fmlow, flolo, UV_frac, fion;
-
     fmlow = ini_mass_sol < 30 ? 0.25*((30-ini_mass_sol)/(30-8.)) : 0  ; 
     flolo = ini_mass_sol < 16 ? 1.3*((16-ini_mass_sol)/(16-8.)) : 0  ; 
     UV_frac = OneStar_UV_fraction(ini_mass_sol, age_yr, Zsol) ;
     fion = UV_frac * pow(10,-0.1-fmlow-flolo);
-
-    cart_assert(fion >=0 && fion <= 1.0);
+    fion = MAX(0.0, MIN(1.0, fion));
     return  fion;
 }
 double OneStar_Lbol_Lsun(double ini_mass_sol, double age_yr, double Zsol){
     double fmlow, fML, ftm, Lbol, tau; 
-
     tau = agetau(ini_mass_sol, age_yr, Zsol );
     if( tau > 3 || ini_mass_sol < 1.0 ){
 	    Lbol = 0;
@@ -175,7 +170,3 @@ double OneStar_wind_pdot(double ini_mass_sol, double age_yr, double Zsol){
 	constants->Msun / constants->yr * constants->kms/
 	(units->mass * units->velocity / units->time);
 }
-
-
-
-
