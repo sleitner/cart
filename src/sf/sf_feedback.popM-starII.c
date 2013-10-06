@@ -68,8 +68,10 @@ void check_fsdefs_compatible()
 #else
     const char *formstar_external_name = "";
 #endif
-    if(strcmp("<continuous>",formstar_external_name)!=0){
-        cart_error("SF_FORMSTAR needs to be <continous> for SF_FEEDBACK -starII variants");
+    if(strcmp("<continuous>",formstar_external_name)!=0 &&
+       strcmp("<hart-starII>",formstar_external_name)!=0 
+        ){
+        cart_error("SF_FORMSTAR needs to be <continous> or <hart-starII> for SF_FEEDBACK -starII variants");
     }
 }
 void sfb_config_verify()

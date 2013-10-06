@@ -289,6 +289,11 @@ void cart_rand_unit_vector_block(double uni[nDim], int idir[nDim]){
     
     uni[0] = r * sin(phi);
     uni[1] = -r * cos(phi);
+    if( isnan(uni[0]) || isnan(uni[1]) || isnan(uni[2]) ){
+        cart_error("rand unit_vector_block NAN idir %d %d %d phi %f r %f %uni %f %f %f",
+                   idir[0], idir[1], idir[2], phi,r, uni[0],uni[1], uni[2]
+            );
+    }
 }
 
 void cart_rand_unit_vector_oct(double uni[nDim], int ichild){
