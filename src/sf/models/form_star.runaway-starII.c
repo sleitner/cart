@@ -58,19 +58,19 @@ int starII_runaway_velocity(double mass_code, double vadd[nDim]){
     cart_assert(starII_runaway_indicator);
 
     if( mass_msun >= Bstar_mass ){
-	if( (mass_msun >= Ostar_mass && cart_rand() < Ostar_frac_runaway) ||
-	    (mass_msun < Ostar_mass && cart_rand() < Bstar_frac_runaway) ){
-
-	    cart_rand_unit_vector(uni);
-	    vabs = sample_exponential( starII_runaway_mean_kick(mass_msun) );
-	    for(i=0;i<nDim;i++){
-		vadd[i] = uni[i]*vabs;
+	    if( (mass_msun >= Ostar_mass && cart_rand() < Ostar_frac_runaway) ||
+	        (mass_msun < Ostar_mass && cart_rand() < Bstar_frac_runaway) ){
+		    
+		    cart_rand_unit_vector(uni);
+		    vabs = sample_exponential( starII_runaway_mean_kick(mass_msun) );
+		    for(i=0;i<nDim;i++){
+			    vadd[i] = uni[i]*vabs;
+		    }
+		    
+		    return 1;
 	    }
-	    
-	    return 1;
-	}
     }
-	    
+    
     return 0;
 }
 #endif /* STAR_FORMATION */

@@ -122,30 +122,30 @@ double msample_imf_highmass()
 }
 
 void starII_creation( double dmstarII, int icell, int level, double dtl ){
-    int ipart, i;
+	int ipart, i;
     double mstargas_left, starII_mass, Pform_leftover ;
     double vadd[nDim];
     /*  Form particles until alotted mass is used up. */
     mstargas_left = dmstarII ;
     while( mstargas_left > 0.0 ){
-	starII_mass = msample_imf_highmass() *constants->Msun/units->mass;
-	if( mstargas_left < starII_mass ){ /* last II mass forms stochastically. */
-	    Pform_leftover = mstargas_left / starII_avg_mass_code; /* cannot be mass dependent: P(M*)=P(M*|IMF)*constant_wrt_M* */
-	    if( cart_rand() < Pform_leftover ){ 
-		ipart = create_star_particle( icell, starII_mass, dtl, STAR_TYPE_STARII ); 
+	    starII_mass = msample_imf_highmass() *constants->Msun/units->mass;
+	    if( mstargas_left < starII_mass ){ /* last II mass forms stochastically. */
+		    Pform_leftover = mstargas_left / starII_avg_mass_code; /* cannot be mass dependent: P(M*)=P(M*|IMF)*constant_wrt_M* */
+		    if( cart_rand() < Pform_leftover ){ 
+			    ipart = create_star_particle( icell, starII_mass, dtl, STAR_TYPE_STARII ); 
+		    }
+	    } else {
+		    ipart = create_star_particle( icell, starII_mass, dtl, STAR_TYPE_STARII ); 
 	    }
-	} else {
-	    ipart = create_star_particle( icell, starII_mass, dtl, STAR_TYPE_STARII ); 
-	}
-        
-        if(starII_runaway_indicator){
-	    if(starII_runaway_velocity(starII_mass, vadd)){
-		for ( i = 0; i < nDim; i++ ) {
-		    particle_v[ipart][i] += vadd[i];
-		}
+	    
+	    if(starII_runaway_indicator){
+		    if(starII_runaway_velocity(starII_mass, vadd)){
+			    for ( i = 0; i < nDim; i++ ) {
+				    particle_v[ipart][i] += vadd[i];
+			    }
+		    }
 	    }
-	}
-        mstargas_left -= starII_mass;
+	    mstargas_left -= starII_mass;
     }
 }
 #endif /* STAR_FORMATION */
