@@ -673,7 +673,7 @@ void kfb_kick_from_pextra(int level, int icell, double dt){
 				for(ichild=0; ichild<num_side_children; ichild++){
 					iside = neighbor_side_child[j][ichild];
 					icell_child = cell_child(iPar,iside);
-					cart_assert(cell_is_leaf(nb[j]));
+					cart_assert(cell_is_leaf(icell_child));
 					constv = constv_from_extra_pressure(icell_child, level, dt);
 					dpi = constv*cell_gas_density(icell);
 					kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);
