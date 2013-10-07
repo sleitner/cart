@@ -1036,6 +1036,61 @@ int particle_species( particleid_t id ) {
 	return specie;
 }
 
+/* dhr - this function is strictly overkill, since id order also defines
+ * species order.  Unsure why it was written this way, as it has costly
+ * species array lookups */
+int compare_particle_species_id( const void *a, const void *b ) {
+	particleid_t id1 = particle_id[*(int *)a];
+	particleid_t id2 = particle_id[*(int *)b];
+	int species1 = particle_species(id1);
+	int species2 = particle_species(id2);
+
+	if ( species1 == species2 ) {
+		if ( id1 > id2 ) {
+			return 1;
+		} else if ( id1 < id2 ) {
+			return -1;
+		} else {
+			return 0;
+		}
+	} else {
+		return species1 - species2;
+	}
+}
+
+int compare_particle_ids( const void *a, const void *b ) {
+	particleid_t id1 = particle_id[*(int *)a];
+	particleid_t id2 = particle_id[*(int *)b];
+
+	if ( id1 > id2 ) {
+		return 1;
+	} else if ( id1 < id2 ) {
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+int compare_particle_mass( const void *a, const void *b ) {
+	int index_a = *(int *)a;
+	int index_b = *(int *)b;
+
+	if ( particle_mass[index_a] < particle_mass[index_b] ) {
+		return -1;
+	} else if ( particle_mass[index_a] > particle_mass[index_b] ) {
+		return 1;
+	} else {
+		/* decreasing order of id */
+		if ( particle_id[index_b] > particle_id[index_a] ) {
+			return 1;
+		} else if ( particle_id[index_b] < particle_id[index_a] ) {
+			return -1;
+		} else {
+			return 0;
+		}
+	}
+}
+
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)
 #ifdef REFINEMENT
 void get_refinement_region(){

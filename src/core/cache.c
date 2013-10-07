@@ -334,7 +334,13 @@ int sort_particles( const void *a, const void *b ) {
 	} else if ( particle_parent_cell[index_a] > particle_parent_cell[index_b] ) {
 		return 1;
 	} else {
-		return ( particle_id[index_a] - particle_id[index_b] );
+		if ( particle_id[index_a] > particle_id[index_b] ) {
+			return 1;
+		} else if ( particle_id[index_a] < particle_id[index_b] ) {
+			return -1;
+		} else {
+			return 0;
+		}
 	}
 }
 

@@ -557,10 +557,6 @@ void restart_load_balance_cart( char *grid_filename, char *particle_header_filen
 
 #ifdef PARTICLES
 
-particleid_t compare_particle_ids( const void *a, const void *b ) {
-	return ( particle_id[*(int *)a] - particle_id[*(int *)b] );
-}
-
 void write_cart_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename ) {
 	int i;
 	int num_parts;

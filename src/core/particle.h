@@ -5,7 +5,8 @@
 #error "Missing config.h include."
 #endif
 
-#define particleid_t int16_t
+#define particleid_t int64_t
+#define MPI_PARTICLEID_T	MPI_LONG
 
 #ifdef PARTICLES 
 
@@ -65,6 +66,11 @@ int particle_alloc( particleid_t id );
 void particle_free( int ipart );
 void particle_list_free( int ihead );
 void particle_move( int ipart_old, int ipart_new );
+
+/* qsort comparison functions */
+int compare_particle_species_id( const void *a, const void *b );
+int compare_particle_ids( const void *a, const void *b );
+int compare_particle_mass( const void *a, const void *b );
 
 void init_particles();
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)

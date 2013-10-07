@@ -302,17 +302,6 @@ void unpack_cell_vars(int icell, int num_pack_vars, int *sim_var_indices,
 	}
 }
 
-#ifdef PARTICLES
-int compare_particle_species_id( const void *a, const void *b ) {
-	particleid_t id1 = particle_id[*(int *)a];
-	particleid_t id2 = particle_id[*(int *)b];
-	int species1 = particle_species(id1);
-	int species2 = particle_species(id2);
-
-	return ( species1 == species2 ) ? id1 - id2 : species1 - species2;
-}
-#endif /* PARTICLES */
-
 void create_artio_filename( int filename_flag, char *label, char *filename ) {
 	char dir[256];
 
@@ -1679,10 +1668,6 @@ void read_artio_particles( artio_fileset *handle ) {
 
 	artio_particle_clear_sfc_cache(handle);
 
-/*  DHR - due to deleted particles, this code is incorrect, i.e. the sum of the local active particles
-    does not equal num_particles_total
-	MPI_Allreduce( &num_particles_local, &num_particles_total, 1, MPI_LONG, MPI_SUM, mpi.comm.run );
-*/
 	num_particles_total = particle_species_indices[num_particle_species];
 
 	end_time( PARTICLE_READ_IO_TIMER );

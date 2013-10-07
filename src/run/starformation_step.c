@@ -117,9 +117,9 @@ void remap_star_ids() {
 	int ipart;
 	int block;
 	int max_stars;	
-	int new_id;
+	particleid_t new_id;
 	int total_new_stars;
-	int *block_ids;
+	particleid_t *block_ids;
 	int proc_new_stars[MAX_PROCS];
 
 	start_time( COMMUNICATION_TIMER );
@@ -140,7 +140,7 @@ void remap_star_ids() {
 
 	if ( total_new_stars > 0 ) {
 		/* create lists of indices for each block */
-		block_ids = cart_alloc(int, max_stars );
+		block_ids = cart_alloc(particleid_t, max_stars);
 
 		block_ids[0] = 0;
 		for ( block = 1; block < max_stars; block++ ) {
@@ -163,7 +163,7 @@ void remap_star_ids() {
 	
 				for ( i = 0; i < proc; i++ ) {
 					if ( proc_new_stars[i] > block ) {
-							new_id++;
+						new_id++;
 					}
 				}
 				

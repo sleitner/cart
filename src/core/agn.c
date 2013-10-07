@@ -162,21 +162,4 @@ double compute_r_K( int ipart, int icell ) {
 	return r_K;                                                                                                     
 }
 
-int sort_particles_by_mass( const void *a, const void *b ) {
-	int index_a = *(int *)a;
-	int index_b = *(int *)b;
-
-	cart_assert( index_a >= 0 && index_a < num_particles );
-	cart_assert( index_b >= 0 && index_b < num_particles );
-
-	if ( particle_mass[index_a] < particle_mass[index_b] ) {
-		return -1;
-	} else if ( particle_mass[index_a] > particle_mass[index_b] ) {
-		return 1;
-	} else {
-		/* decreasing order of id */
-		return ( particle_id[index_b] - particle_id[index_a] );
-	}
-} 
-
 #endif /* STAR_FORMATION && AGN */

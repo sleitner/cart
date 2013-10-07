@@ -68,7 +68,7 @@ void FUNCTION( char *particle_header_filename, char *particle_data, float *cell_
 	for ( page = 0; page < num_pages; page++ ) {
 		if ( page == num_pages - 1 ) {
 			num_parts_in_page = num_particles_total - 
-				num_parts_per_page*(num_pages-1);
+				(particleid_t)num_parts_per_page*(num_pages-1);
 		} else {
 			num_parts_in_page = num_parts_per_page;
 		}

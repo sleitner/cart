@@ -744,27 +744,27 @@ int timestep( int level, MPI_Comm level_com )
 
 #ifdef GRAVITY
 #if defined(HYDRO) || defined(REFINEMENT)
-    /* if hydro or refinement are enabled, we destroyed the value of the 
+	/* if hydro or refinement are enabled, we destroyed the value of the 
      * acceleration variable and need to recompute it here */
-        compute_accelerations_particles(level);
+	compute_accelerations_particles(level);
 #endif /* HYDRO || REFINEMENT */
 
-        accelerate_particles(level);
+	accelerate_particles(level);
 #endif /* GRAVITY */
 
 #ifdef STAR_FORMATION
-        if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
-          star_particle_feedback(level, star_feedback_frequency[level]);
+	if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
+		star_particle_feedback(level, star_feedback_frequency[level]);
 
-	  /* update cell values changed by starformation and feedback */
-	  start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
-	  update_buffer_level( level, all_hydro_vars, num_hydro_vars );
+		/* update cell values changed by starformation and feedback */
+		start_time( STELLAR_FEEDBACK_UPDATE_TIMER );
+		update_buffer_level( level, all_hydro_vars, num_hydro_vars );
 #ifdef AGN
-	  for ( j = level+1; j <= max_level; j++ ) {
-                update_buffer_level( j, all_hydro_vars, num_hydro_vars );
-          }
+		for ( j = level+1; j <= max_level; j++ ) {
+			update_buffer_level( j, all_hydro_vars, num_hydro_vars );
+		}
 #endif /* AGN */
-	  end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
+		end_time( STELLAR_FEEDBACK_UPDATE_TIMER );
 	}  
 #endif /* STAR_FORMATION */
 
