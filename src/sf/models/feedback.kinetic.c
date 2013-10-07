@@ -55,6 +55,9 @@ extern double dvfact;
 
 void kfb_kick_cube(double dp, int level, int icell);
 
+char kfb_internal_method_string[256];
+char kfb_internal_spread_string[256];
+char kfb_internal_turbulence_string[256];
 void control_parameter_set_kfb_method(const char *value, void *ptr, int ind) {
 	if ( strcmp(value,"pressurize") == 0 ) {
 		kfb_internal_method = KFB_METHOD_PRESSURIZE;
@@ -67,6 +70,7 @@ void control_parameter_set_kfb_method(const char *value, void *ptr, int ind) {
 	} else {
 		cart_error("String '%s' is not a valid method for kfb feedback.",value);
 	}
+	strcpy(kfb_internal_method_string,value);
 }
 
 void control_parameter_set_kfb_spread(const char *value, void *ptr, int ind) {
@@ -79,6 +83,7 @@ void control_parameter_set_kfb_spread(const char *value, void *ptr, int ind) {
     } else {
         cart_error("String '%s' is not a valid spreading method for kfb feedback.",value);
     }
+	strcpy(kfb_internal_spread_string,value);
 }
 
 void control_parameter_set_kfb_turbulence(const char *value, void *ptr, int ind) {
@@ -91,13 +96,17 @@ void control_parameter_set_kfb_turbulence(const char *value, void *ptr, int ind)
 	} else {
 		cart_error("String '%s' is not a valid spreading method for kfb feedback.",value);
 	}
+	strcpy(kfb_internal_turbulence_string,value);
 }
 
 void control_parameter_kfb_opts_method(FILE *stream, const void *ptr){
+	control_parameter_list_string(stream,kfb_internal_method_string);
 }
 void control_parameter_kfb_opts_spread(FILE *stream, const void *ptr){
+	control_parameter_list_string(stream,kfb_internal_spread_string);
 }
 void control_parameter_kfb_opts_turbulence(FILE *stream, const void *ptr){
+	control_parameter_list_string(stream,kfb_internal_turbulence_string);
 }
 
 void kfb_config_init(){
