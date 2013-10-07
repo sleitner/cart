@@ -662,7 +662,7 @@ void kfb_kick_from_pextra(int level, int icell, double dt){
 				dpi = constv*cell_gas_density(icell);
 				kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);
 				//cell_gas_momentum[icell][idir] += isign*constv*cell_gas_density(icell);
-			}else if( levNb[j] == level+1 ){  /* receiver coarser */
+			}else{
 				/* 
 				// the kicker cell is finer -- only receive an the octants worth
 				// of momentum, consistent with the weight gather. Even if you fill the 
@@ -673,12 +673,11 @@ void kfb_kick_from_pextra(int level, int icell, double dt){
 				for(ichild=0; ichild<num_side_children; ichild++){
 					iside = neighbor_side_child[j][ichild];
 					icell_child = cell_child(iPar,iside);
+					cart_assert(cell_is_leaf(nb[j]));
 					constv = constv_from_extra_pressure(icell_child, level, dt);
 					dpi = constv*cell_gas_density(icell);
 					kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);
 				}
-			}else{
-				cart_error("kicker cell is at the wrong level %d -- should be within 1 of %d", levNb[j], level );
 			}
 		}
 	}
