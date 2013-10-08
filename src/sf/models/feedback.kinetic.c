@@ -39,16 +39,19 @@ double kfb_boost_kicks = 1;
 #define KFB_METHOD_HYBRID           2
 #define KFB_METHOD_HYBRIDGATHER     3
 int kfb_internal_method = KFB_METHOD_PRESSURIZE;
+#define KFB_METHOD_STRING_DEFAULT "pressurize"
 
 #define KFB_SPREAD_CELL       0
 #define KFB_SPREAD_OCT        1
 #define KFB_SPREAD_CUBE       2
 int kfb_internal_spread = KFB_SPREAD_CELL;
+#define KFB_SPREAD_STRING_DEFAULT "cell"
 
 #define KFB_TURBULENCE_NONE   0
 #define KFB_TURBULENCE_CANCEL 1
 #define KFB_TURBULENCE_BOTH   2
 int kfb_internal_turbulence = KFB_TURBULENCE_NONE;
+#define KFB_TURBULENCE_STRING_DEFAULT "none"
 
 extern double feedback_speed_time_ceiling;
 extern double dvfact;
@@ -110,6 +113,10 @@ void control_parameter_kfb_opts_turbulence(FILE *stream, const void *ptr){
 }
 
 void kfb_config_init(){
+	sprintf(kfb_internal_method_string,KFB_METHOD_STRING_DEFAULT);
+	sprintf(kfb_internal_spread_string,KFB_SPREAD_STRING_DEFAULT);
+	sprintf(kfb_internal_turbulence_string,KFB_TURBULENCE_STRING_DEFAULT);
+	
     ControlParameterOps control_parameter_kfb_method = { control_parameter_set_kfb_method, control_parameter_kfb_opts_method };
     ControlParameterOps control_parameter_kfb_spread = { control_parameter_set_kfb_spread, control_parameter_kfb_opts_spread };
     ControlParameterOps control_parameter_kfb_turbulence = { control_parameter_set_kfb_turbulence, control_parameter_kfb_opts_turbulence };
