@@ -92,8 +92,18 @@ void extGalLums(const char *fname, const struct HALO_LIST *halos, float rmax, fl
   memset(gals,0,sizeof(struct GalData)*halos->num_halos);
 
   is_star = cart_alloc(char,num_particles);
-#pragma omp parallel for default(none), private(j), shared(is_star,particle_species_indices,particle_id,num_particle_species)
-  for(j=0; j<num_particles; j++) is_star[j] = particle_is_star(j);
+#pragma omp parallel for default(none), private(j), shared(is_star,particle_species_indices,particle_id,num_particle_species,particle_level)
+  for(j=0; j<num_particles; j++)
+    {
+      if(particle_level[j] == FREE_PARTICLE_LEVEL)
+	{
+	  is_star[j] = 0;
+	}
+      else
+	{
+	  is_star[j] = particle_is_star(j);
+	}
+    }
 
   /*
   // Loop over halos in reverse order, that way we mostly account for satellites
