@@ -442,7 +442,7 @@ void kfb_gather_neighbor_stencil_weights(int level, int icell, double *weight){
 	// purpose: gather weighting such that kicks produce the same velocity across each A 
 	// (note kicks into a larger cell are treated as kicks into an octant of the larger cell)
 	*/
-	int iPar, ichild,icell_child, iside;
+	int iPar, ichild,nb_child, iside;
 	int nb[num_neighbors], num_local_cells=0, j;
 	cell_all_neighbors(icell,nb);
 	if(      kfb_internal_spread == KFB_METHOD_HYBRID || 
@@ -462,16 +462,16 @@ void kfb_gather_neighbor_stencil_weights(int level, int icell, double *weight){
 			iPar = nb[j];
 			for(ichild=0; ichild<num_side_children; ichild++){
 				iside = neighbor_side_child[j][ichild];
-				icell_child = cell_child(iPar,iside);
+				nb_child = cell_child(iPar,iside);
 				/* normalizing by volume kicked relative to icell -- these get dv=constv/8 */ 
-				*weight += cell_gas_density(icell_child)/num_side_children; 
+				*weight += cell_gas_density(nb_child)/num_side_children; 
 			}
 		}
 	}
 }
 void kfb_gather_cube_stencil_weights(int level, int icell, double *weight){
 	/* gather weights for kicks to all 26+1 cube-neighbors */
-    int iPar, ichild,icell_child;
+    int iPar, ichild,nb_child;
     int nb26[CubeStencilSize], num_local_cells=0, j;
     double dpi, dv;
     GetCubeStencil(level, icell, nb26);
@@ -492,8 +492,8 @@ void kfb_gather_cube_stencil_weights(int level, int icell, double *weight){
 				/* kick down only one level in cube */
 				iPar = nb26[j];
 				for(ichild=0; ichild<num_children; ichild++){
-					icell_child = cell_child(iPar,ichild);
-					if(cell_is_leaf(icell_child)){ 
+					nb_child = cell_child(iPar,ichild);
+					if(cell_is_leaf(nb_child)){ 
 						*weight += cell_gas_density(nb26[j])/num_children;
 					}
 				}
@@ -504,7 +504,7 @@ void kfb_gather_cube_stencil_weights(int level, int icell, double *weight){
 
 void kfb_kick_cube_constv(double dp, int level, int icell, double weight){
 	/* kick 26 cube-neighbors except for nonlocal cells and difficult to reach corners */
-    int iPar, ichild,icell_child;
+    int iPar, ichild,nb_child;
     int nb26[CubeStencilSize], j;
     double dpi, dv;
     GetCubeStencil(level, icell, nb26);
@@ -519,10 +519,10 @@ void kfb_kick_cube_constv(double dp, int level, int icell, double weight){
 				/* kick down only one level in cube */
 			    iPar = nb26[j];
 			    for(ichild=0; ichild<num_children; ichild++){
-				    icell_child = cell_child(iPar,ichild);
-				    if(cell_is_leaf(icell_child)){
-					    dpi = dv*cell_gas_density( icell_child );
-					    kfb_kick_cell(icell_child, CUBE_VECTOR, CubeDelPos[j], dpi, level);
+				    nb_child = cell_child(iPar,ichild);
+				    if(cell_is_leaf(nb_child)){
+					    dpi = dv*cell_gas_density( nb_child );
+					    kfb_kick_cell(nb_child, CUBE_VECTOR, CubeDelPos[j], dpi, level);
 				    }
 				}
 			}
@@ -658,9 +658,9 @@ double constv_from_extra_pressure(int kicker, int receiver_level, double dt){
 	return dp1side/cell_gas_density(kicker);
 }
 void kfb_kick_from_pextra(int level, int icell, double dt){
-	int iPar, ichild,iside, icell_child, idir, isign;
+	int iPar, ichild,iside, nb_child, idir, dirsign;
 	int nb[num_neighbors], levNb[num_neighbors], num_local_cells=0, j;
-	int dirNb[nDim];
+	int dirkick[nDim], j_kicked;
 	double constv, dpi;
 	cell_all_neighbors(icell,nb);
 	for(j=0; j<num_neighbors; j++){
@@ -668,16 +668,17 @@ void kfb_kick_from_pextra(int level, int icell, double dt){
 			levNb[j] = cell_level(nb[j]);
 			
 			/* -(0:-x),-(1:+x)... ; -sign because kick comes FROM neighbor direction */
-			dirNb[0]=0; dirNb[1]=0; dirNb[2]=0; 
-			idir = j/2; isign = -( (j%2)*2-1 ); 
-			dirNb[idir] = isign; 
+			dirkick[0]=0; dirkick[1]=0; dirkick[2]=0; 
+			idir = (int)j/2; dirsign = ( (j%2)*2-1 ); 
+			dirkick[idir] = -dirsign; 
+			j_kicked = j - dirsign; /* j of kicked from the kicker's perspective */
 			
 			if( levNb[j] <= level && cell_is_leaf(nb[j]) ){ /* receiver same or fine */
 				/* the kicker cell is coarser or the same -- give constv kick to receiver */
 				constv = constv_from_extra_pressure(nb[j], level, dt);
 				dpi = constv*cell_gas_density(icell);
-				kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);
-				//cell_gas_momentum[icell][idir] += isign*constv*cell_gas_density(icell);
+				kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirkick, dpi, level);
+				//cell_gas_momentum[icell][idir] += dirsign*constv*cell_gas_density(icell);
 			}else{
 				/* 
 				// the kicker cell is finer -- only receive an the octants worth
@@ -687,12 +688,31 @@ void kfb_kick_from_pextra(int level, int icell, double dt){
 				*/
 				iPar = nb[j];
 				for(ichild=0; ichild<num_side_children; ichild++){
-					iside = neighbor_side_child[j][ichild];
-					icell_child = cell_child(iPar,iside);
-					cart_assert(cell_is_leaf(icell_child));
-					constv = constv_from_extra_pressure(icell_child, level, dt);
+					/* find the side closest. Note you're finding a NEIGHBOR'S closest side 
+					   (not the side of the kicked cell in the direction of the neighbor)
+					   so you need j in the direction of the kicked:
+					 */
+					iside = neighbor_side_child[j_kicked][ichild];
+					nb_child = cell_child(iPar,iside);
+					if(!cell_is_leaf(nb_child)){
+						double pos[nDim];
+						cell_center_position(icell, pos);
+						printf("kicked  %f %f %f  lev %d %e\n",
+						       pos[0],pos[1],pos[2], cell_level(icell),cell_size[level]/2);
+						cell_center_position(nb_child, pos);
+						printf("sourcechild  %f %f %f  lev %d %e\n",
+						       pos[0],pos[1],pos[2], cell_level(nb_child),cell_size[cell_level(nb[j])]/2);
+						cell_center_position(nb[j], pos);
+						printf("sourceparent %f %f %f  lev %d %e   dirkick %d %d %d \n",
+						       pos[0],pos[1],pos[2],
+						       cell_level(nb[j]),cell_size[cell_level(nb[j])]/2,
+						       dirkick[0], dirkick[1], dirkick[2]
+						       );
+					}
+					cart_assert(cell_is_leaf(nb_child)); //snl: this assert failed!
+					constv = constv_from_extra_pressure(nb_child, level, dt);
 					dpi = constv*cell_gas_density(icell);
-					kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirNb, dpi, level);
+					kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirkick, dpi, level);
 				}
 			}
 		}
