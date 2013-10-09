@@ -31,15 +31,15 @@
 *   src/core/particle.h [done]
 *   src/core/particle_buffer.c [nothing found, dhr agrees]
 *   src/core/tree_debug.c [MPI_INT?]
-*   src/drivers/start_analysis.c 
-*   src/extra/gic_tools.c
-*   src/extra/halo_tools.c
-*   src/extra/ifrit.c
+*   src/drivers/start_analysis.c [done]
+*   src/extra/gic_tools.c [no changes found]
+*   src/extra/halo_tools.c [done]
+*   src/extra/ifrit.c [no changes found]
 *   src/extra/sps.c [no changes necessary]
 *   src/run/agn_step.c [changed qsort comparison function]
-*   src/run/logging.c
+*   src/run/logging.c [no changes found]
 *   src/run/particle_step.c [no changes necessary]
-*   src/run/starformation_feedback_step.c
+*   src/run/starformation_feedback_step.c [no changes found]
 *   src/run/starformation_step.c [fixed star id remapping code]
 *   src/run/step.c [formatting changes only]
 *   tests/disk/disk.c [fixed particle id variables when calling particle_alloc]
@@ -49,9 +49,7 @@
 *   tests/rt/et/start_rt.c [changed particle id type, left other 64-bit unsafe code]
 *   tests/rt/iliev1a/start_rt.c [changed particle id type, left other 64-bit unsafe code]
 *   tests/zeldovich/start_zeldovich.c [changed particle id calculation, num_particles_total made 64-bit safe]
-*   utils/cart_file_utilities/convert_particle_endianness.c
+*   utils/cart_file_utilities/convert_particle_endianness.c [questions have pages]
 *   utils/cart_file_utilities/print_particle_aexp.c
 *   utils/cart_file_utilities/print_particle_info.c
-
-
 

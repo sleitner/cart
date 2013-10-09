@@ -50,7 +50,7 @@ int halo_level( const halo *h, MPI_Comm local_comm )
 void dump_region_around_halo(const char *filename, const halo *h, float size)
 {
   int i, j, n, nbuf;
-  int *ids;
+  particleid_t *ids;
   FILE *f;
 
   cart_assert(h != NULL);

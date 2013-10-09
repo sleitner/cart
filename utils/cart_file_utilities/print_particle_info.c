@@ -13,7 +13,7 @@ int main( int argc, char *argv[] ) {
 	int page;
 	int num_pages, num_read;
 	int num_parts_in_page, num_parts_per_page;
-	int num_particles_total;
+	particleid_t num_particles_total;
 	float *input_page;
 
 	if ( argc < 2 || argc > 3 ) {
