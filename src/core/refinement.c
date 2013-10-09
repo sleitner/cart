@@ -31,7 +31,7 @@ int refinement_is_static        = 0;
 int spatially_limited_refinement = 0;
 int refinement_volume_level     = min_level;
 
-float split_tolerance		= 0.8;
+float split_tolerance		= 0.6;
 float join_tolerance		= 0.2;
 
 int num_diffusion_steps		= 4;
