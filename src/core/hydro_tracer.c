@@ -21,7 +21,7 @@
 
 
 double tracer_x[num_tracers][nDim];
-int tracer_id[num_tracers];
+particleid_t tracer_id[num_tracers];
 int tracer_list_next[num_tracers];
 int tracer_list_prev[num_tracers];
 
@@ -444,7 +444,7 @@ void build_tracer_list() {
 	tracer_list_enabled = 1;
 }
 
-int tracer_alloc( int id ) {
+int tracer_alloc( particleid_t id ) {
 	int tracer;
 
 	if ( free_tracer_list == NULL_TRACER ) {

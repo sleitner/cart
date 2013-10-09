@@ -1617,7 +1617,7 @@ void read_artio_particles( artio_fileset *handle ) {
 				if ( pid >= INT_MAX ) {
 					cart_error("Error storing particle id %ld in 32-bit integer!", pid );
 				}
-				id = (int)pid;
+				id = (particleid_t)pid;
 				ipart = particle_alloc( id );
 
 				for ( j = 0; j < nDim; j++ ) {
