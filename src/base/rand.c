@@ -133,7 +133,7 @@ void cart_rand_unit_vector(double uni[nDim]){
     double phi, r;
 #if (nDim == 3)
 	uni[2] = cart_rand()*2-1;
-	r = sqrt(1-uni[2]*uni[2]);
+	r = sqrt(MAX(1-uni[2]*uni[2],0));
 #elif (nDim == 2)
 	r=1;
 #else

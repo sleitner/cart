@@ -293,7 +293,7 @@ void cart_rand_unit_vector_block(double uni[nDim], int idir[nDim]){
     }else{
 	    uni[2] = (double)idir[2]*cart_rand();
     }
-    r = sqrt(fabs(1-uni[2]*uni[2]));
+    r = sqrt(MAX(1-uni[2]*uni[2],0));
     if     (idir[0] == 1 && idir[1] == 1){  phi = 1*M_PI/2.+cart_rand()*M_PI/2.; } //+x.+y
     else if(idir[0] ==-1 && idir[1] == 1){  phi = 2*M_PI/2.+cart_rand()*M_PI/2.; } //-x,+y
     else if(idir[0] ==-1 && idir[1] ==-1){  phi = 3*M_PI/2.+cart_rand()*M_PI/2.; } //-x,-y
