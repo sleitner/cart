@@ -498,7 +498,6 @@ int global_timestep() {
 	return global_ret;
 }
 
-int ret;
 int timestep( int level, MPI_Comm level_com ) 
 /* returns -1 if timestep would invalidate cfl condition */
 {
@@ -506,6 +505,7 @@ int timestep( int level, MPI_Comm level_com )
 	double velocity;
 	int nlevel;
 	int factor;
+	int ret;
 	int step_ret;
 	int true_ret;
 	double dt_needed;
