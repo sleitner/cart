@@ -15,24 +15,26 @@ int main( int argc, char *argv[] ) {
 	float *tmp_float;
 
 	if ( argc != 2 ) {
-	  fprintf(stderr,"Usage: %s fileset_prefix\n",argv[0]);
+		fprintf(stderr,"Usage: %s fileset_prefix\n",argv[0]);
 		exit(1);
 	}
 
-	artio_file handle = artio_fileset_open( argv[1], 0, NULL);
+	artio_fileset *handle = artio_fileset_open( argv[1], 0, NULL );
 	if ( handle == NULL ) {
 		fprintf(stderr,"Unable to open fileset %s\n", argv[1] );
 		exit(1);
 	}
+
+	printf("opened\n");
 
 	while ( artio_parameter_iterate( handle, key, &type, &length ) == ARTIO_SUCCESS ) {
 		switch (type) {
 			case ARTIO_TYPE_STRING :
 				tmp_string = (char **)malloc( length*sizeof(char *) );
 				for ( i = 0; i < length; i++ ) {
-					tmp_string[i] = (char *)malloc( 256*sizeof(char) );
+					tmp_string[i] = (char *)malloc( ARTIO_MAX_STRING_LENGTH*sizeof(char) );
 				}
-				artio_parameter_get_string_array(handle, key, length, tmp_string, 256 );
+				artio_parameter_get_string_array(handle, key, length, tmp_string );
 				printf("%36s | %6s |", key, "STRING"); 
 				for ( i = 0; i < length; i++ ) {
 					printf(" '%s'", tmp_string[i] );

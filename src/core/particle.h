@@ -31,7 +31,6 @@ extern float particle_pot[/* num_particles */];
 extern double tintg;
 extern double ekin;
 extern double ekin1;
-extern double ekin2;
 extern double au0;
 extern double aeu0;
 extern double ap0;

@@ -2531,7 +2531,6 @@ void read_cart_header_to_units( char *header_filename) {
 	    tintg		= header.tintg;
 	    ekin		= header.ekin;
 	    ekin1		= header.ekin1;
-	    ekin2		= header.ekin2;
 	    au0         = header.au0;
 	    aeu0		= header.aeu0;
 

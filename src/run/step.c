@@ -501,6 +501,8 @@ int timestep( int level, MPI_Comm level_com )
 {
 	int j, courant_cell;
 	double velocity;
+	int nlevel;
+	int factor;
 	int ret;
 	int step_ret;
 	int true_ret;
@@ -578,6 +580,22 @@ int timestep( int level, MPI_Comm level_com )
 				break;
 			}
 		}
+	} else {
+		/* advance timestep on lower levels */
+		factor = 1;
+		for ( nlevel = level + 1; nlevel <= max_level; nlevel++ ) {
+			tl[nlevel] = tl[level] + dtl[level];
+			tl_old[nlevel] = tl[nlevel] - dtl[nlevel];
+
+#ifdef COSMOLOGY
+			abox[nlevel] = abox_from_tcode( tl[nlevel] );
+			auni[nlevel] = auni_from_tcode( tl[nlevel] );
+			abox_old[nlevel] = abox_from_tcode( tl_old[nlevel] );
+#endif
+
+			factor *= time_refinement_factor[nlevel];
+			num_steps_on_level[nlevel] += factor;
+		}
 	}
 
 	if(level <= max_mpi_sync_level)
@@ -594,31 +612,6 @@ int timestep( int level, MPI_Comm level_com )
 	//  reset the basic units to a further moment in time.
 	*/
 	start_time( WORK_TIMER );
-
-	if(level>min_level && tl[level]+0.1*dtl[level]<tl[level-1])
-	  {
-	    /*
-	    //  A new level appeared locally. Sync the time variables 
-	    //  with the parent. The time-step variable should've been 
-	    //  set already.
-	    */
-	    cart_debug("Creating level %d...",level);
-#ifdef COSMOLOGY
-	    cart_debug("Spatial resolution: %le kpc (proper), %le CHIMP (comoving)",units->length*cell_size[level]/constants->kpc,units->length_in_chimps*cell_size[level]);
-#else  /* COSMOLOGY */
-	    cart_debug("Spatial resolution: %le kpc",units->length*cell_size[level]/constants->kpc);
-#endif /* COSMOLOGY */
-
-
-	    tl[level] = tl[level-1];
-#ifdef COSMOLOGY
-	    abox[level] = abox[level-1];
-	    auni[level] = auni[level-1];
-	    abox_old[level] = abox_old[level-1];
-#endif /* COSMOLOGY */
-
-	    num_steps_on_level[level] = num_steps_on_level[level-1]*time_refinement_factor[level];
-	  }
 	units_update(level);
 	end_time( WORK_TIMER );
 

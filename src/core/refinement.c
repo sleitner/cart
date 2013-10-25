@@ -31,7 +31,7 @@ int refinement_is_static        = 0;
 int spatially_limited_refinement = 0;
 int refinement_volume_level     = min_level;
 
-float split_tolerance		= 0.8;
+float split_tolerance		= 0.6;
 float join_tolerance		= 0.2;
 
 int num_diffusion_steps		= 4;
@@ -88,7 +88,7 @@ void config_verify_refinement()
 
   VERIFY(ref:diffusion-steps, num_diffusion_steps >= 0 );
 
-  VERIFY(ref:diffusion-coefficient, diffusion_coefficient > 0.0 );
+  VERIFY(ref:diffusion-coefficient, diffusion_coefficient > 0.0 && diffusion_coefficient < 1./6. );
 
   VERIFY(ref:reaction-increment, reaction_increment > 0.0 );
 
@@ -279,7 +279,7 @@ void diffusion_step( int level, int icell ) {
 	}
 
 	refinement_indicator( icell, 0 ) += diffusion_coefficient * new_indicator;
-	refinement_indicator( icell, 0 ) = MIN( 1.0, refinement_indicator( icell, 0 ) );
+	refinement_indicator( icell, 0 ) = MIN( 1.0, MAX( refinement_indicator( icell, 0 ), 0.0 ) );
 }
 
 void refine( int level ) {

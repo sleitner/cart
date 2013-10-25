@@ -311,6 +311,7 @@ int divide_list_linear( float *global_work, int *constrained_quantities,
 	cart_debug("dividing linearly for %u procs, first_proc = %u for %u cells starting at %d", 
 			num_procs_in_division, first_proc, num_root_cells_in_division, first_cell_index );
 
+	local_work = 0.0;
 	ideal_work_per_proc = total_work / (double)num_procs_in_division;
 
 	index = 0;

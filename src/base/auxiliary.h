@@ -1,6 +1,7 @@
 #ifndef __AUXILIARY_H__
 #define __AUXILIARY_H__
 
+#include <mpi.h>
 #include <stdlib.h>
 
 
@@ -16,6 +17,7 @@ int nearest_int( double x );
 
 
 void cart_error( const char *fmt, ... );
+void cart_breakpoint( int proc, MPI_Comm comm );
 
 #ifndef NDEBUG
 void cart_debug( const char *fmt, ... );
@@ -64,6 +66,10 @@ void linear_array_copy_float(float *dest, float *src, int size);
 #ifndef MAX
 #define MAX(x,y)        (((x) > (y)) ? (x): (y))
 #endif
+#ifndef CLIP
+#define CLIP(x,a,b)		(((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x)))
+#endif
+
 #define SIGN(x,y)       ( (y>=0) ? fabs(x) : -fabs(x) )
 
 /*

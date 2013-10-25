@@ -8,7 +8,7 @@
 
 #ifdef REFINEMENT
 
-#define num_refinement_indicators	12
+#define num_refinement_indicators	13
 
 #define DARK_MASS_INDICATOR             0
 #define GAS_MASS_INDICATOR              1
@@ -21,7 +21,8 @@
 #define JEANS_LENGTH_INDICATOR          8
 #define DARK_1STSPEC_INDICATOR          9
 #define GAS_1STSPEC_INDICATOR           10
-#define PLUGIN_INDICATOR                11
+#define DARK_PARTICLE_COUNT_INDICATOR	11
+#define PLUGIN_INDICATOR                12
 
 
 typedef struct REFINEMENT_INDICATOR_TYPE
@@ -53,6 +54,7 @@ float density_gradient_indicator( int cell, int level, int neighbors[], float dr
 float pressure_gradient_indicator( int cell, int level, int neighbors[] );
 float entropy_gradient_indicator( int cell, int level, int neighbors[] );
 float jeans_length_indicator( int cell, int level );
+float dark_particle_count_indicator( int cell, int level );
 
 #endif /* REFINEMENT */
 
