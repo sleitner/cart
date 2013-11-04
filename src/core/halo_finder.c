@@ -1037,7 +1037,7 @@ void write_halo_particle_list( halo_list *halos ) {
 		nh = halos->num_halos;
 		np = particle_species_num[0];
 		
-		size = sizeof(int);
+		size = sizeof(int)+sizeof(particleid_t);
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &nh, sizeof(float), 1, output );
 		fwrite( &np, sizeof(particleid_t), 1, output );
