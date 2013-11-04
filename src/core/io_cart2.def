@@ -208,7 +208,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 		}
 
 		num_particles_total = particle_species_indices[num_particle_species];
-		cart_debug("num_particles_total = %u", num_particles_total );
+		cart_debug("num_particles_total = %ld", num_particles_total );
 
 		num_parts_per_page = header.Nrow*header.Nrow;
 		num_parts_per_proc_page = num_parts_per_page/num_procs;
@@ -339,7 +339,7 @@ void FUNCTION( char *header_filename, char *data_filename,
 		MPI_Bcast( &step, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &cart_particle_num_row, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_particle_species, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
-		MPI_Bcast( &num_particles_total, 1, MPI_LONG, MASTER_NODE, mpi.comm.run );
+		MPI_Bcast( &num_particles_total, 1, MPI_PARTICLEID_T, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_parts_per_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_parts_per_proc_page, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
 		MPI_Bcast( &num_pages, 1, MPI_INT, MASTER_NODE, mpi.comm.run );
@@ -417,7 +417,8 @@ void FUNCTION( char *header_filename, char *data_filename,
 
 		for ( i = 0; i < num_pages; i++ ) {
 			if ( i == num_pages - 1 ) {
-				num_parts_in_page = num_particles_total - num_parts_per_page*(num_pages-1);
+				num_parts_in_page = num_particles_total - 
+						(particleid_t)num_parts_per_page*(num_pages-1);
 			} else {
 				num_parts_in_page = num_parts_per_page;
 			}

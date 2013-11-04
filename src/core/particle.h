@@ -5,12 +5,23 @@
 #error "Missing config.h include."
 #endif
 
-#define particleid_t int64_t
-#define MPI_PARTICLEID_T	MPI_LONG
+#ifdef PARTICLES
 
-#ifdef PARTICLES 
+#include <stdint.h>
+#include <limits.h>
 
-#define NULL_PARTICLE   (-1)
+#ifdef OLDSTYLE_32BIT_PARTICLEID
+#define particleid_t        int
+#define MPI_PARTICLEID_T    MPI_INT
+#define NULL_PARTICLE       (-1)
+#define PARTICLEID_MAX      INT_MAX
+#else
+#define particleid_t        int64_t
+#define MPI_PARTICLEID_T    MPI_LONG
+#define NULL_PARTICLE       (-1L)
+#define PARTICLEID_MAX      INT64_MAX
+#endif
+
 #define FREE_PARTICLE_LEVEL	(-1)
 
 #define SAVE_PARTICLE_LISTS     0

@@ -155,7 +155,6 @@
 #define num_refinement_levels (30-num_root_grid_refinements)
 #endif
 
-
 /*
 //  Default to num_star_particles = num_particles if not set.
 */

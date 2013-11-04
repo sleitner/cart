@@ -19,18 +19,21 @@ void check_map() {
 	double pos[nDim];
 	int neighbors[num_neighbors];
 	int total_root_cells;
-	particleid_t total_particles;
 	int level;
 	int count;
-	int ipart, ipart_next;
 	int icell, ioct;
 	int num_level_cells;
 	int *level_cells;
 	int sfc;
 	float max_var[num_vars];
 	float min_var[num_vars];
-	int species_count[100];
-	particleid_t species_count_total[100];
+
+#ifdef PARTICLES
+	int ipart, ipart_next;
+	particleid_t total_particles;
+	int species_count[MAX_PARTICLE_SPECIES];
+	particleid_t species_count_total[MAX_PARTICLE_SPECIES];
+#endif /* PARTICLES */
 #ifdef GRAVITY
 	const int accel_vars[nDim] = { VAR_ACCEL, VAR_ACCEL+1, VAR_ACCEL+2 };
 	const int color[num_children] = {
@@ -189,7 +192,7 @@ void check_map() {
 		if ( particle_level[i] != FREE_PARTICLE_LEVEL ) {
 			if( particle_id[i] >= num_particles_total )
 			  {
-			    cart_error("Incorrect particle[%d] id=%d, num_particles_total=%d",i,particle_id[i],num_particles_total);
+			    cart_error("Incorrect particle[%d] id=%ld, num_particles_total=%ld",i,particle_id[i],num_particles_total);
 			  }
 			count++;
 			species_count[ particle_species( particle_id[i] ) ]++;
@@ -313,7 +316,11 @@ void check_map() {
 
 		select_level( level, CELL_TYPE_BUFFER, &num_level_cells, &level_cells );
 
+#ifdef OPENMP_DECLARE_CONST
 #pragma omp parallel for default(none) private(icell,pos,j) shared(level,num_level_cells,level_cells,cell_vars,cell_size)
+#else
+#pragma omp parallel for default(none) private(icell,pos,j) shared(level,num_level_cells,level_cells,cell_vars)
+#endif
 		for ( i = 0; i < num_level_cells; i++ ) {
 			icell = level_cells[i];
 

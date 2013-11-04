@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <math.h>
 
 #include "auxiliary.h"
@@ -1004,7 +1005,7 @@ void write_halo_particle_list( halo_list *halos ) {
 	int local_particle_count;
 	int total_particle_count;
 	int proc;
-	int *ids;
+	particleid_t *ids;
 	double dx, r, v, lgr;
 	int plocal, pindex;
 	int i1, i2, j1, j2, k1, k2;
@@ -1036,7 +1037,7 @@ void write_halo_particle_list( halo_list *halos ) {
 		nh = halos->num_halos;
 		np = particle_species_num[0];
 		
-		size = 2*sizeof(int);
+		size = sizeof(int);
 		fwrite( &size, sizeof(int), 1, output );
 		fwrite( &nh, sizeof(float), 1, output );
 		fwrite( &np, sizeof(particleid_t), 1, output );
@@ -1070,7 +1071,7 @@ void write_halo_particle_list( halo_list *halos ) {
 #ifndef COMPILER_GCC
 		/* Get compiler segfault under GCC */
 #pragma omp parallel default(none) shared(i1,i2,j1,j2,k1,k2,h,cell_child_oct,cell_vars,num_bins,oct_pos,oct_level,rvir2,particle_id,particle_x,cell_particle_list,particle_list_next,rlmin,rr,drl,local_radial_potential,local_bin_volume,local_particle_count) private(cell_list,i,j,k,m,coords,r,icell,dx,level,ioct,parent,child,lgr,bin,thread_radial_potential,thread_bin_volume,thread_particle_count,ipart)
-#endif
+#endif /* COMPILER_GCC */
 #endif /* OPENMP_DECLARE_CONST */
         {
             cell_list = stack_init();
@@ -1215,7 +1216,7 @@ void write_halo_particle_list( halo_list *halos ) {
 #endif /* GRAVITY */
 
 		pindex = 0;
-		ids = cart_alloc(int, local_particle_count);
+		ids = cart_alloc(particleid_t, local_particle_count);
 
 		i1 = (int)floor(h->pos[0]-h->rvir);
 		i2 = (int)(h->pos[0]+h->rvir);
@@ -1345,13 +1346,13 @@ void write_halo_particle_list( halo_list *halos ) {
 			fwrite( &size, sizeof(int), 1, output );
 			fwrite( &h->id, sizeof(int), 1, output );
 			fwrite( &total_particle_count, sizeof(int), 1, output );
-			fwrite( ids, sizeof(int), local_particle_count, output );
+			fwrite( ids, sizeof(particleid_t), local_particle_count, output );
 			cart_free( ids );
 
 			for ( proc = 1; proc < num_procs; proc++ ) {
-				ids = cart_alloc(int, particle_counts[proc] );
-				MPI_Recv( ids, particle_counts[proc], MPI_INT, proc, 0, mpi.comm.run, MPI_STATUS_IGNORE );
-				fwrite( ids, sizeof(int), particle_counts[proc], output );
+				ids = cart_alloc(particleid_t, particle_counts[proc] );
+				MPI_Recv( ids, particle_counts[proc], MPI_PARTICLEID_T, proc, 0, mpi.comm.run, MPI_STATUS_IGNORE );
+				fwrite( ids, sizeof(particleid_t), particle_counts[proc], output );
 				cart_free( ids );
 			}
 
@@ -1370,7 +1371,7 @@ void write_halo_particle_list( halo_list *halos ) {
 			fwrite( &size, sizeof(int), 1, output );
 		} else {
 			/* send binding energies to root processor */
-			MPI_Send( ids, local_particle_count, MPI_INT, MASTER_NODE, 0, mpi.comm.run );
+			MPI_Send( ids, local_particle_count, MPI_PARTICLEID_T, MASTER_NODE, 0, mpi.comm.run );
 			cart_free( ids );
 
 #ifdef GRAVITY

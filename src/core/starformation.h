@@ -8,6 +8,8 @@
 
 #ifdef STAR_FORMATION
 
+#include "particle.h"
+
 #ifdef STAR_PARTICLE_TYPES
 extern int star_particle_type[num_star_particles];
 #endif /* STAR_PARTICLE_TYPES */
@@ -23,7 +25,7 @@ extern float star_formation_volume_max[nDim];
 DECLARE_LEVEL_ARRAY(int,star_formation_frequency);
 
 extern int num_local_star_particles;
-extern int last_star_id;
+extern particleid_t last_star_id;
 extern int num_new_stars;
 
 extern double total_stellar_mass;
