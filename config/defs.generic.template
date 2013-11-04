@@ -57,6 +57,9 @@
 
 ?#define DISABLE_PLUGINS
 
+?#define OLDSTYLE_32BIT_PARTICLEID
+?#define OLDSTYLE_32BIT_TRACERID
+
 ?#define OLDSTYLE_PARTICLE_FILE_IGNORE_NGRID 
 ?#define OLDSTYLE_COOLING_EXPLICIT_SOLVER
 
@@ -71,4 +74,3 @@
 ?#define num_particles		        <value>
 ?#define num_star_particles             <value>  /* if omitted, defauts to num_particles */
 ?#define num_tracers                    <value>
-
