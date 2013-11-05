@@ -57,7 +57,7 @@ void star_form_particles(int level, int icell, double dtl, double dt_eff, float 
         create_star_particle( icell, mstar, dtl, STAR_TYPE_NORMAL );
         
 #ifdef LOG_STAR_CREATION      
-        log_star_creation( icell, particle_mass[ipart], FILE_RECORD);
+        log_star_creation( icell, mstar, FILE_RECORD);
 #endif
         
     }

@@ -57,7 +57,7 @@ double OneStar_UV_fraction(double ini_mass_sol, double age_yr, double Zsol){
     const double sclZ=-2.0; 
     double logZsol, logZ_scl;
     double fmexp, fmlow, fmZ, ftZ, ft;
-    double uvfraction, at;
+    double uvfraction;
 #ifdef ENRICHMENT
     logZsol=log10(Zsol);
     logZsol=MIN( MAX(logZsol,-2), 0);  /* range of FSPS models -- extrapolation likely valid on either side.*/ 

@@ -148,7 +148,7 @@ void snIa_setup(int level)
 
 void snIa_thermal_feedback(int level, int cell, int ipart, double t_next )
 {
-  double dteff, phi, dU, dU_turb;
+	double dteff, phi, dU, dU_turb;
 
 #ifdef COSMOLOGY
   double tn = tphys_from_tcode(t_next);
