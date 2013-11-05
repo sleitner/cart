@@ -907,7 +907,6 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 #endif
         
 	if(apply_lapidus_viscosity) lapidus( dtx2, L1, R1, sweep_direction, j3, j4, j5, v, f );
-	    
 }
 
 #else /* defined(ISOTROPIC_TURBULENCE_ENERGY) || defined(EXTRA_PRESSURE_SOURCE) */
@@ -927,6 +926,7 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 	int R2 = cell_list[3];
 
 	cart_assert( cell_is_leaf(L1) && cell_is_leaf(R1) );
+
 	/* L2 */
 	v[0][0] = cell_gas_density(L2);
 	v[1][0] = MAX( pressure_floor * v[0][0]*v[0][0], cell_gas_pressure(L2) );
