@@ -18,6 +18,9 @@
 #include "iterators.h"
 #include "load_balance.h"
 #include "run/step.h"
+#include "run/starformation_step.h"
+#include "run/hydro_step.h"
+
 #include "refinement.h"
 #include "refinement_indicators.h"
 #include "refinement_operations.h"
@@ -202,14 +205,8 @@ void ic_star_spread(int icell, float dm_star){
     int neighbors[num_neighbors];
     int nneighbors[num_neighbors];
     int nnneighbors[num_neighbors];
-    
-#ifdef LOG_STAR_CREATION
-    log_star_creation( icell, dm_star, FILE_RECORD);
-#endif
-
     /* star particle can form and takes properties from gas */
     star_cell_conditions( icell );
-    /* particle_v[ipart][i] = cell_momentum(icell,i) / cell_gas_density(icell); */
     new_density = cell_gas_density(icell) + dm_star * cell_volume_inverse[cell_level(icell)];
     density_fraction = new_density / cell_gas_density(icell);
     cell_gas_density(icell) = new_density;
@@ -222,37 +219,24 @@ void ic_star_spread(int icell, float dm_star){
     cell_gas_metal_density_Ia(icell) *= density_fraction;
 #endif
 #endif
-    
     if(dm_star!=0){
         cart_debug("star mass %e",dm_star);
-        create_star_particle(icell, dm_star, (double)dtl[level], STAR_TYPE_NORMAL);
+        if(icstarII){
+            create_star_particle(icell, dm_star, (double)dtl[level], STAR_TYPE_STARII);
+            if(dm_star*units->mass/constants->Msun >120)
+                cart_error("dont init starII particles to be over 100Msun");
+        }else{
+            create_star_particle(icell, dm_star, (double)dtl[level], STAR_TYPE_NORMAL);
+        }
     }
     remap_star_ids();
-
     /* set cells neighboring star to have the star-cell properties*/
     cell_all_neighbors( icell, neighbors );
     star_cell_conditions( icell );
     for(i=0;i<num_neighbors;i++){
         star_cell_conditions( neighbors[i] );
-        
-/* ////////////// neighbors of neighbors (or just choose a region) */
-/*         cell_all_neighbors( neighbors[i], nneighbors ); */
-/*         for(j=0;j<num_neighbors;j++){ */
-/*             star_cell_conditions( nneighbors[j] ); */
-            
-/*             cell_all_neighbors( nneighbors[i], nnneighbors ); */
-/*             for(k=0;k<num_neighbors;k++){ */
-/*                 star_cell_conditions( nnneighbors[j] ); */
-                
-/*             } */
-/*         } */
-                
     }
-        
-    
-    
     hydro_split_update(cell_level(icell)); //update all non-leafs with their child's value
-    
 #ifdef BLASTWAVE_FEEDBACK
     init_blastwave(icell);
 #endif /* BLASTWAVE_FEEDBACK */
@@ -507,7 +491,7 @@ void init_run() {
         cart_debug("advection dir %d velocity %e ",idir,adv_velocity[idir]*units->velocity/constants->kms);
     }
     for ( level = min_level; level <= max_level; level++ ) {
-        select_level( level, CELL_TYPE_LOCAL && CELL_TYPE_LEAF, &num_level_cells, &level_cells );
+        select_level( level, CELL_TYPE_LOCAL | CELL_TYPE_LEAF, &num_level_cells, &level_cells );
         for ( i = 0; i < num_level_cells; i++ ) {
             icell=level_cells[i];
             tot_energy0 += cell_gas_energy(icell)*cell_volume[level];
