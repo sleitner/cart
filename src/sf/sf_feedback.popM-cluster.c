@@ -99,15 +99,9 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 
 }
 
-extern double sf_min_gas_number_density;
 void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt )
 {
-    if( cell_gas_density(cell)*units->number_density*constants->XH 
-	> sf_min_gas_number_density){ /* note this parameter is active for any SFP */
-	if(tauIR_boost>0){
-	    cell_trapIR(level, cell, t_next, dt); 
-	} 
-    }
+	cell_trapIR(level, cell, t_next, dt); 
 }
 #endif /* HYDRO && PARTICLES */
 

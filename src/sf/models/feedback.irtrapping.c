@@ -33,7 +33,7 @@ void trapIR_config_init()
 
     control_parameter_add2(control_parameter_double,&tauIR_boost,"trapIR:boost","tauIR_boost","factor multiplying tauIR for RaP IR trapping.");
 
-    control_parameter_add2(control_parameter_bool,&Apply_AVK_tauIR,"trapIR:AVK_model","Apply_AVK_tauIR","use Andrey's model for IR trapping based on matching clump and cluster mass functions.");
+    control_parameter_add2(control_parameter_bool,&Apply_AVK_tauIR,"trapIR:AVK_model","Apply_AVK_tauIR","use Andrey's model for IR trapping based on matching clump and cluster mass functions, if density is over the SF density threshold.");
 }
 
 void trapIR_config_verify()
@@ -47,16 +47,16 @@ static double factor_Kappa_IR;
 static double factor_rt_to_ergis ;
 void trapIR_setup(int level)
 {
-    if(clump_dust_temp < 125){
+	if(clump_dust_temp < 125){
 	/* Low temp  (<125K) Rosseland mean opacity from Semenov 2003 (Krumholz & Thompson 2012) */
 	/* snl: added + 0.1 to be closer to median of lines */
-        factor_Kappa_IR = tauIR_boost  
-	    * (pow(10,-1.5)*clump_dust_temp*clump_dust_temp/100. + 0.1)
-	    * units->mass/(units->length*units->length) ;
-	    
+		factor_Kappa_IR = tauIR_boost  
+			* (pow(10,-1.5)*clump_dust_temp*clump_dust_temp/100. + 0.1)
+			* units->mass/(units->length*units->length) ;
+		
     }else{
-	/* High temp (>100K) Rosseland mean opacity from Semenov 2003 (Hopkins 2011) */
-	factor_Kappa_IR = tauIR_boost * 5 *units->mass/(units->length*units->length)  ; //5cm^2/gram  */
+	    /* High temp (>100K) Rosseland mean opacity from Semenov 2003 (Hopkins 2011) */
+	    factor_Kappa_IR = tauIR_boost * 5 *units->mass/(units->length*units->length)  ; //5cm^2/gram  */
     }
     factor_rt_to_ergis =  units->mass * constants->c*constants->c / units->time ; 
 }
@@ -67,7 +67,7 @@ double Kappa_IR(double Zsol){
 
 double AVK_tauIR(double Msol, double Zsol ){
     /* Andrey's scheme for distributing trapped IR radiation to clumps of different Sigma*/
-    const float eta2 = 1; /* clumping factor? */
+	const float eta2 = 1; /* clumping factor? */
     const float eps_clump = 0.2; /* star efficiency in clumps varies with \Sigma (see fall 2010). ; old 0.3 */
     const float mu_max = 1.0; /*  0.1 up to 1.0 ; old .1 */  
     const float Mclump_min = 100; 
@@ -111,27 +111,27 @@ void masspdot_from_cell(int level, int icell, float *Msol_cell, float *pdot_cell
     pdot_sum=0;
     ipart = cell_particle_list[icell];
     while ( ipart != NULL_PARTICLE ) {
- 	if ( particle_is_star(ipart) ){
-	    age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time / constants->yr;
-	    if( age_yr < clump_survival_time ){
-		mstar_sum += particle_mass[ipart];
+	    if ( particle_is_star(ipart) ){
+		    age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time / constants->yr;
+		    if( age_yr < clump_survival_time ){
+			    mstar_sum += particle_mass[ipart];
 #ifdef STAR_PARTICLE_TYPES
-		if(star_particle_type[ipart] == STAR_TYPE_NORMAL 
-		   || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH ){
-		    pdot_sum += rapSR_pdot(ipart);
-		}else if(star_particle_type[ipart] == STAR_TYPE_STARII){
-		    ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
-		    Zsol = star_metallicity_II[ipart]/constants->Zsun;
-		    pdot_sum += starII_rapSR_pdot( ini_mass_sol, age_yr, Zsol) ;
-                }else{
-		    cart_error("star type  needs an associated pdot");
-		}
+			    if(star_particle_type[ipart] == STAR_TYPE_NORMAL 
+			       || star_particle_type[ipart] == STAR_TYPE_FAST_GROWTH ){
+				    pdot_sum += rapSR_pdot(ipart);
+			    }else if(star_particle_type[ipart] == STAR_TYPE_STARII){
+				    ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
+				    Zsol = star_metallicity_II[ipart]/constants->Zsun;
+				    pdot_sum += starII_rapSR_pdot( ini_mass_sol, age_yr, Zsol) ;
+			    }else{
+				    cart_error("star type  needs an associated pdot");
+			    }
 #else
-		pdot_sum += rapSR_pdot(ipart);
+			    pdot_sum += rapSR_pdot(ipart);
 #endif
+		    }
 	    }
-	}
-	ipart = particle_list_next[ipart];
+	    ipart = particle_list_next[ipart];
     }
     (*pdot_cell) = pdot_sum; /* uses ngp */             
     (*Msol_cell) = mstar_sum*units->mass/constants->Msun;
@@ -146,7 +146,7 @@ void masspdot_from_cell(int level, int icell, float *Msol_cell, float *pdot_cell
 /* 	* factor_rt_to_ergis / constants->c  */
 /* 	* (units->time)/ (units->velocity * units->mass); */
 /* #endif */
-
+extern double sf_min_gas_number_density;
 void cell_trapIR(int level, int icell, double t_next, double dt){
     double Zsol;
     float pdot_cell;
@@ -156,24 +156,26 @@ void cell_trapIR(int level, int icell, double t_next, double dt){
 #ifndef ENRICHMENT
     cart_error("ENRICHMENT is required for tauIR model to function");
 #endif
-    if( tauIR_boost > 0 ){
-	Zsol = cell_gas_metal_density(icell)/(cell_gas_density(icell)*constants->Zsun);
-	masspdot_from_cell(level, icell, &Msol_cell, &pdot_cell);
-	//Lbol_ergis = LUV_ergis*6; /* similar to rapSR_luminosity_code*/
-	if(pdot_cell>0){
-	    tauIR = tauIR_boost *  Kappa_IR(Zsol) 
+    if( tauIR_boost > 0 &&
+        cell_gas_density(icell)*units->number_density*constants->XH > sf_min_gas_number_density
+        ){
+	    Zsol = cell_gas_metal_density(icell)/(cell_gas_density(icell)*constants->Zsun);
+	    masspdot_from_cell(level, icell, &Msol_cell, &pdot_cell);
+	    //Lbol_ergis = LUV_ergis*6; /* similar to rapSR_luminosity_code*/
+	    if(pdot_cell>0){
+		    tauIR = tauIR_boost *  Kappa_IR(Zsol) 
 #ifdef RADIATIVE_TRANSFER
-		* (cell_HI_density(icell)+2.0*cell_H2_density(icell))/constants->XH
+			    * (cell_HI_density(icell)+2.0*cell_H2_density(icell))/constants->XH
 #else
-		* cell_gas_density(icell)
+			    * cell_gas_density(icell)
 #endif /* RADIATIVE_TRANSFER */
-		* Zsol * cell_sobolev_length(icell);
-	    if(Apply_AVK_tauIR){
-		tauIR += tauIR_boost * AVK_tauIR(Msol_cell, Zsol) ;
+			    * Zsol * cell_sobolev_length(icell);
+		    if(Apply_AVK_tauIR){
+			    tauIR += tauIR_boost * AVK_tauIR(Msol_cell, Zsol) ;
+		    }
+		    dp = pdot_cell * tauIR * dt ;
+		    distribute_momentum(dp, level, icell, dt);
 	    }
-	    dp = pdot_cell * tauIR * dt ;
-	    distribute_momentum(dp, level, icell, dt);
-	}
     }
 }
 

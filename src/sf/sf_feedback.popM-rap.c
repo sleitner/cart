@@ -154,17 +154,14 @@ struct StellarFeedbackParticle sf_feedback_particle_internal =
     sfb_config_init,
     sfb_config_verify,
     sfb_init,
-    sfb_setup
     sfb_setup,
     NULL
   };
 
-void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt ){}
-
 struct StellarFeedbackCell sf_feedback_cell_internal =
 {
-    sfb_hydro_feedback_cell,
-    gather_kicks
+    NULL,
+    NULL
 };
 
 

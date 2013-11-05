@@ -60,7 +60,7 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 #endif /* HYDRO && PARTICLES */
 
 
-struct StellarFeedback sf_feedback_internal = 
+struct StellarFeedbackParticle sf_feedback_internal = 
   {
     "f12-AGB-SNII",
     sfb_hydro_feedback,
@@ -69,7 +69,15 @@ struct StellarFeedback sf_feedback_internal =
     sfb_config_init,
     sfb_config_verify,
     sfb_init,
-    sfb_setup
+    sfb_setup,
+    NULL
   };
+
+struct StellarFeedbackCell sf_feedback_cell_internal =
+{
+    NULL,
+    NULL
+};
+
 
 #endif /* STAR_FORMATION */

@@ -185,25 +185,18 @@ int sfb_destroy_star_particle(int level,int icell,int ipart)
     ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
     Zsol = star_metallicity_II[ipart]/constants->Zsun;
     if ( star_particle_type[ipart] == STAR_TYPE_STARII &&
-	 star_age > OneStar_stellar_lifetime(ini_mass_sol, Zsol)
-	){
-	return -1;
+         star_age > OneStar_stellar_lifetime(ini_mass_sol, Zsol)
+         ){
+	    return -1;
     }else{
-	return 1;
+	    return 1;
     }
-    
 }
 
 
-extern double sf_min_gas_number_density;
 void sfb_hydro_feedback_cell(int level, int cell, double t_next, double dt )
 {
-    if( cell_gas_density(cell)*units->number_density*constants->XH 
-	> sf_min_gas_number_density){ /* note this parameter is active for any SFP */
-	if(tauIR_boost>0){
-	    cell_trapIR(level, cell, t_next, dt); 
-	} 
-    }
+	cell_trapIR(level, cell, t_next, dt); 
 }
 #endif /* HYDRO && PARTICLES */
 
