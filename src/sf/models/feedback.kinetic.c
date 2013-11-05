@@ -323,7 +323,7 @@ void cart_rand_unit_vector_oct(double uni[nDim], int ichild){
     }else{
 		uni[2] = -cart_rand();
     }
-    r = sqrt(1-uni[2]*uni[2]);
+    r = sqrt(MAX(1-uni[2]*uni[2],0));
     if(ichild == 3 || ichild == 7){  phi = 1*M_PI/2.+cart_rand()*M_PI/2.; } //+x,+y
     if(ichild == 2 || ichild == 6){  phi = 2*M_PI/2.+cart_rand()*M_PI/2.; } //-x,+y
     if(ichild == 0 || ichild == 4){  phi = 3*M_PI/2.+cart_rand()*M_PI/2.; } //-x,-y
@@ -391,15 +391,7 @@ void kfb_kick_cell(int icell, int ichild, int idir[nDim], double dp, int level){
 
 	/* max momentum that can be added to cell corresponding to feedback_speed_time_ceiling */
 	dp_cell = copysign(1.0,dp)*MIN( fabs(dp*cell_volume_inverse[level]), 
-			dvfact*cell_gas_density(icell) ); 
-	/////////////////////
-	/* plot 'checkoctrandir' u 6:7:3:4 w vec */
-	/* plot 'checkoctrandir' u 6:7:3:4 w vec, 'checkoctrandir' u 5:6:2:3 w vec, 'checkoctran\
-	   dir' u 5:7:2:4 w vec */
-/* 	double pos[nDim]; */
-/* 	cell_center_position(icell, pos); */
-/* 	printf("kicking %f %f %f  %f %f %f  %e\n", pos[0], pos[1], pos[2],uni[0], uni[1], uni[2],dp_cell); */
-	/////////////////////
+	                                dvfact*cell_gas_density(icell) ); 
 	for(i=0; i<nDim; i++){
 		dp_dir = dp_cell * uni[i]; 
 		p1 = cell_momentum(icell,i);
@@ -694,22 +686,7 @@ void kfb_kick_from_pextra(int level, int icell, double dt){
 					 */
 					iside = neighbor_side_child[j_kicked][ichild];
 					nb_child = cell_child(iPar,iside);
-					if(!cell_is_leaf(nb_child)){
-						double pos[nDim];
-						cell_center_position(icell, pos);
-						printf("kicked  %f %f %f  lev %d %e\n",
-						       pos[0],pos[1],pos[2], cell_level(icell),cell_size[level]/2);
-						cell_center_position(nb_child, pos);
-						printf("sourcechild  %f %f %f  lev %d %e\n",
-						       pos[0],pos[1],pos[2], cell_level(nb_child),cell_size[cell_level(nb[j])]/2);
-						cell_center_position(nb[j], pos);
-						printf("sourceparent %f %f %f  lev %d %e   dirkick %d %d %d \n",
-						       pos[0],pos[1],pos[2],
-						       cell_level(nb[j]),cell_size[cell_level(nb[j])]/2,
-						       dirkick[0], dirkick[1], dirkick[2]
-						       );
-					}
-					cart_assert(cell_is_leaf(nb_child)); //snl: this assert failed!
+					cart_assert(cell_is_leaf(nb_child)); 
 					constv = constv_from_extra_pressure(nb_child, level, dt);
 					dpi = constv*cell_gas_density(icell);
 					kfb_kick_cell(icell, NEIGHBOR_VECTOR, dirkick, dpi, level);
