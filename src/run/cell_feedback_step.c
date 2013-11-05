@@ -8,6 +8,7 @@
 #include "tree.h"
 #include "units.h" 
 #include "starformation_feedback.h"
+#include "cell_buffer.h"
 #include "step.h"
 #include "hydro.h"
 
