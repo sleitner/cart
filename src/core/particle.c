@@ -556,7 +556,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 			/* if we received a full page, set up to receive a new one */
 			if ( num_parts_to_recv[proc] > 0 ) {
 				page_count[proc]++;
-				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 2*page_count[proc], 
+				MPI_Irecv( recv_id[proc], page_size, MPI_PARTICLEID_T, proc, 2*page_count[proc], 
 						mpi.comm.run, &recv_id_requests[proc] );
 				MPI_Irecv( recv_parts[proc], parts_page_size, MPI_DOUBLE, proc, 
 						page_count[proc], mpi.comm.run, &recv_parts_requests[proc] );
