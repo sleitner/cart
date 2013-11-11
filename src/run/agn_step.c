@@ -232,7 +232,7 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 			proc = processor_owner( sfc );
 
 			if ( proc == local_proc_id ) {
-				icell = cell_find_positioni_sfc( sfc, sample_x );
+				icell = cell_find_position_sfc( sfc, sample_x );
 
 				agn_list[i].sink_cell_proc[j] = local_proc_id;
 				agn_list[i].sink_cell_index[j] = icell;

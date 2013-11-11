@@ -472,7 +472,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 
 		if ( proc != MPI_UNDEFINED ) {
 			num_pages_received++;
-			MPI_Get_count( &status, MPI_INT, &id_count );
+			MPI_Get_count( &status, MPI_PARTICLEID_T, &id_count );
 
 			MPI_Wait( &recv_parts_requests[proc], MPI_STATUS_IGNORE );
 

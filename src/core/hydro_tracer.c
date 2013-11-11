@@ -388,7 +388,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 
 		if ( proc != MPI_UNDEFINED ) {
 			num_pages_received++;
-			MPI_Get_count( &status, MPI_INT, &id_count );
+			MPI_Get_count( &status, MPI_TRACERID_T, &id_count );
 
 			MPI_Wait( &recv_tracer_requests[proc], MPI_STATUS_IGNORE );
 
@@ -410,7 +410,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 			/* if we received a full page, set up to receive a new one */
 			if ( id_count == page_size ) {
 				page_count[proc]++;
-				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, page_count[proc],
+				MPI_Irecv( recv_id[proc], page_size, MPI_TRACERID_T, proc, page_count[proc],
 						mpi.comm.run, &recv_id_requests[proc] );
 				MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, proc,
 						page_count[proc], mpi.comm.run, &recv_tracer_requests[proc] );
