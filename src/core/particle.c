@@ -203,8 +203,8 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	int num_requests;
 	int num_parts_to_recv[MAX_PROCS];
 	int page_count[MAX_PROCS];
-	int *send_id;
-	int *recv_id[MAX_PROCS];
+	particleid_t *send_id;
+	particleid_t *recv_id[MAX_PROCS];
 	double *send_parts;
 	double *recv_parts[MAX_PROCS];
 	int num_pages_received;
@@ -297,10 +297,10 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	/* set up receives */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_parts_to_recv[proc] > 0 ) {
-			recv_id[proc] = cart_alloc(int, page_size );
+			recv_id[proc] = cart_alloc(particleid_t, page_size );
 			recv_parts[proc] = cart_alloc(double, parts_page_size );
 
-			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0, 
+			MPI_Irecv( recv_id[proc], page_size, MPI_PARTICLEID_T, proc, 0, 
 				mpi.comm.run, &recv_id_requests[proc] );
 			MPI_Irecv( recv_parts[proc], parts_page_size, MPI_DOUBLE, 
 				proc, 0, mpi.comm.run, &recv_parts_requests[proc] );
@@ -341,7 +341,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	}
 
 	/* allocate space for the pages */
-	send_id = cart_alloc(int, num_pages_to_send * page_size );
+	send_id = cart_alloc(particleid_t, num_pages_to_send * page_size );
 	send_parts = cart_alloc(double, num_pages_to_send * parts_page_size );
 	num_request_types = 2;
 
