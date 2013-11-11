@@ -417,7 +417,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 			if ( id_count % page_size == 0 || i == num_parts_to_send[proc]-1 ) {
 				MPI_Isend( &send_id[num_pages_sent*page_size], 
 					id_count - num_pages_sent*page_size, 
-					MPI_INT, proc, 2*proc_pages_sent, mpi.comm.run, 
+					MPI_PARTICLEID_T, proc, 2*proc_pages_sent, mpi.comm.run, 
 					&send_requests[num_send_requests++] );
 
 				MPI_Isend( &send_parts[num_pages_sent*parts_page_size], 
