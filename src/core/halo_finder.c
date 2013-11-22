@@ -726,7 +726,7 @@ halo_list *find_halos() {
     }
 
 	/* test that values of minimum mass and rr[0] are consistent */
-	if ( bin_volume[0]*delta_vir_mean < min_halo_mass_code ) {
+	if ( bin_volume[0]*delta_vir_mean > min_halo_mass_code && min_halo_mass_code > 0 ) {
 		cart_debug("WARNING: value of halo:rhalo_bin_rmin too large for chosen halo:min_halo_mass.  Small halos may be missed due to binning.");
 	}
 
