@@ -65,7 +65,7 @@ double cart_rand() {
 	return ret;
 }
 
-unsigned long int cart_rand_int(unsigned long int nmax) {
+unsigned long int cart_rand_ulong(unsigned long int nmax) {
 	unsigned long int ret;
 
 #ifdef UNIQUE_RAND
