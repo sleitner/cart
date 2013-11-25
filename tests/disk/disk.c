@@ -314,7 +314,8 @@ void init_dm_particles(float mp){
 
 
 void assign_darkmatter_model(FILE *fd){
-    int i, icell, level, ipart;
+    int icell, level, ipart;
+	particleid_t i;
     float xp,yp,zp, vxp,vyp,vzp, mp, mp1, u_gas;
     double pos[nDim], vel[nDim];
     float Zsol = constants->Zsun;
@@ -396,11 +397,12 @@ void assign_darkmatter_uniform(){
     double pos[nDim], vel[nDim];
     float Zsol = constants->Zsun;
     double pdt;
-    int current_id;
+    particleid_t current_id;
     int current_type;
     
     current_id = N_HALO;
     current_type = 1;
+	/* dhr - this is 64-bit unsafe for large num_grid */
     for(i=0;i<num_grid*num_grid*num_grid;i++)
 	{
 	    cell_center_position(i, pos);
@@ -1030,7 +1032,7 @@ void init_run() {
 int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], double vel[nDim], double pdt, double age, int type) {
 	int i;
 	int ipart;
-	int id;
+	particleid_t id;
 	int level;
 	float new_density;
 	float density_fraction, thermal_pressure;

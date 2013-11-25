@@ -241,7 +241,8 @@ void run_output()
 
 void init_run()
 {
-  int i, j, species, id, level, cell;
+  int i, j, species, level, cell;
+  particleid_t id;
   int num_level_cells;
   int *level_cells;
   float astart, hubble;
@@ -328,7 +329,8 @@ void init_run()
   
   num_local_particles = 0;
   num_local_star_particles = 0;
-  
+
+  /* dhr - this code is not 64-bit safe */ 
   for(i=0; i<num_particles_total; i++)
     {
       if(i < num_star_particles)

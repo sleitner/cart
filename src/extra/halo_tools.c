@@ -50,7 +50,7 @@ int halo_level( const halo *h, MPI_Comm local_comm )
 void dump_region_around_halo(const char *filename, const halo *h, float size)
 {
   int i, j, n, nbuf;
-  int *ids;
+  particleid_t *ids;
   FILE *f;
 
   cart_assert(h != NULL);
@@ -64,7 +64,7 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
     }
 
   nbuf = n + 1;  /* in case n is zero */
-  ids = cart_alloc(int,nbuf);
+  ids = cart_alloc(particleid_t,nbuf);
   
   for(n=j=0; j<num_particles; j++) if(particle_id[j]!=NULL_PARTICLE && particle_id[j]<particle_species_indices[1])
     {
@@ -90,7 +90,7 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
 
       for(j=0; j<n; j++)
 	{
-	  fprintf(f,"%d\n",ids[j]);
+	  fprintf(f,"%ld\n",ids[j]);
 	}
 
       for(i=1; i<num_procs; i++)
@@ -100,12 +100,12 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
             {
               cart_free(ids);
 	      nbuf = n;
-              ids = cart_alloc(int,nbuf);
+              ids = cart_alloc(particleid_t,nbuf);
             }
-          MPI_Recv(ids,n,MPI_INT,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
+          MPI_Recv(ids,n,MPI_PARTICLEID_T,i,0,mpi.comm.run,MPI_STATUS_IGNORE);
 	  for(j=0; j<n; j++)
 	    {
-	      fprintf(f,"%d\n",ids[j]);
+	      fprintf(f,"%ld\n",ids[j]);
 	    }
         }
 
@@ -114,7 +114,7 @@ void dump_region_around_halo(const char *filename, const halo *h, float size)
   else
     {
       MPI_Send(&n,1,MPI_INT,MASTER_NODE,0,mpi.comm.run);
-      MPI_Send(ids,n,MPI_INT,MASTER_NODE,0,mpi.comm.run);
+      MPI_Send(ids,n,MPI_PARTICLEID_T,MASTER_NODE,0,mpi.comm.run);
    }
 
   cart_free(ids);

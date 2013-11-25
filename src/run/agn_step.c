@@ -72,7 +72,6 @@ void agn_compute_agn_physics( int num_level_agn, agn_sink_data *agn_list , int l
 void construct_agn_root_cell_lists( int *num_agn_ret, int **num_root_agn_ret, int **agn_index_ret, int **agn_particle_list_ret );
 int agn_merge_or_not( int ipart, int ipart2 );
 void agn_merge_list( int ipart, int *merge_list, int merge_count );
-int sort_particles_by_mass( const void *, const void *);
 
 extern double sink_sample_weights[SINK_SAMPLES_3D];
 extern double sink_sample_offset[SINK_SAMPLES_3D][nDim];
@@ -233,7 +232,7 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 			proc = processor_owner( sfc );
 
 			if ( proc == local_proc_id ) {
-				icell = cell_find_positioni_sfc( sfc, sample_x );
+				icell = cell_find_position_sfc( sfc, sample_x );
 
 				agn_list[i].sink_cell_proc[j] = local_proc_id;
 				agn_list[i].sink_cell_index[j] = icell;
@@ -245,7 +244,7 @@ void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int le
 					agn_list[i].sink_momentum[j][k] = cell_momentum(icell, k);
 				}
 			} else if ( proc == -1 ) {
-				cart_error("Unable to find processor owner of sink position for agn %d\n", particle_id[ipart] );
+				cart_error("Unable to find processor owner of sink position for agn %ld\n", particle_id[ipart] );
 			} else {
 				send_sample_count[proc]++;
 				agn_list[i].sink_cell_proc[j] = proc;
@@ -790,7 +789,7 @@ void agn_find_mergers() {
         order[i] = agn_particle_list[i];
     }
 
-	qsort( order, num_agn, sizeof(int), sort_particles_by_mass );
+	qsort( order, num_agn, sizeof(int), compare_particle_mass );
 	dx = (int)( agn_merge_radius * cell_size[max_level] / cell_size[min_level]) + 1;
 
 	for ( i = num_agn-1; i >= 0; i-- ) {
@@ -798,7 +797,7 @@ void agn_find_mergers() {
 
 		/* skip over AGN that have been removed due to merging with more massive AGN */
 		if ( particle_level[ipart] != FREE_PARTICLE_LEVEL ) {
-			cart_debug("finding mergers for agn id = %d, Mbh = %e Msun", 
+			cart_debug("finding mergers for agn id = %ld, Mbh = %e Msun", 
 				particle_id[ipart], particle_mass[ipart] * units->mass / constants->Msun );
 
 			agn_merger_count = 0;
@@ -947,23 +946,6 @@ int agn_merge_or_not( int ipart, int ipart2 ) {
 	}
 
 	return 0;
-}
-
-int sort_particles_by_mass( const void *a, const void *b ) {
-	int index_a = *(int *)a;
-	int index_b = *(int *)b;
-
-	cart_assert( index_a >= 0 && index_a < num_particles );
-	cart_assert( index_b >= 0 && index_b < num_particles );
-
-	if ( particle_mass[index_a] < particle_mass[index_b] ) {
-		return -1;
-	} else if ( particle_mass[index_a] > particle_mass[index_b] ) {
-		return 1;
-	} else {
-		/* decreasing order of id */
-		return ( particle_id[index_b] - particle_id[index_a] );
-	}
 }
 
 void agn_seed( halo_list *list ) {

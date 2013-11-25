@@ -737,7 +737,7 @@ int timestep( int level, MPI_Comm level_com )
 
 #ifdef GRAVITY
 #if defined(HYDRO) || defined(REFINEMENT)
-    /* if hydro or refinement are enabled, we destroyed the value of the 
+	/* if hydro or refinement are enabled, we destroyed the value of the 
      * acceleration variable and need to recompute it here */
 	compute_accelerations_particles(level);
 #endif /* HYDRO || REFINEMENT */

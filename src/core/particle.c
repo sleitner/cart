@@ -37,15 +37,15 @@ float particle_pot[num_particles];
 
 int particle_level[num_particles];
 float particle_mass[num_particles];
-int particle_id[num_particles];
+particleid_t particle_id[num_particles];
 int particle_list_next[num_particles];
 int particle_list_prev[num_particles];
 
 /* particle species */
 int num_particle_species = 0;
 float particle_species_mass[MAX_PARTICLE_SPECIES];
-int particle_species_num[MAX_PARTICLE_SPECIES];
-int particle_species_indices[MAX_PARTICLE_SPECIES+1];
+particleid_t particle_species_num[MAX_PARTICLE_SPECIES];
+particleid_t particle_species_indices[MAX_PARTICLE_SPECIES+1];
 
 /* variables for logging energy */
 double tintg = 0.0;
@@ -59,7 +59,7 @@ double ap1 = 0.0;
 int cell_particle_list[num_cells];
 
 int num_local_particles = 0;
-long num_particles_total = 0;
+particleid_t num_particles_total = 0;
 
 int next_free_particle = 0;
 int free_particle_list = NULL_PARTICLE;
@@ -203,8 +203,8 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	int num_requests;
 	int num_parts_to_recv[MAX_PROCS];
 	int page_count[MAX_PROCS];
-	int *send_id;
-	int *recv_id[MAX_PROCS];
+	particleid_t *send_id;
+	particleid_t *recv_id[MAX_PROCS];
 	double *send_parts;
 	double *recv_parts[MAX_PROCS];
 	int num_pages_received;
@@ -297,10 +297,10 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	/* set up receives */
 	for ( proc = 0; proc < num_procs; proc++ ) {
 		if ( num_parts_to_recv[proc] > 0 ) {
-			recv_id[proc] = cart_alloc(int, page_size );
+			recv_id[proc] = cart_alloc(particleid_t, page_size );
 			recv_parts[proc] = cart_alloc(double, parts_page_size );
 
-			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0, 
+			MPI_Irecv( recv_id[proc], page_size, MPI_PARTICLEID_T, proc, 0, 
 				mpi.comm.run, &recv_id_requests[proc] );
 			MPI_Irecv( recv_parts[proc], parts_page_size, MPI_DOUBLE, 
 				proc, 0, mpi.comm.run, &recv_parts_requests[proc] );
@@ -341,7 +341,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 	}
 
 	/* allocate space for the pages */
-	send_id = cart_alloc(int, num_pages_to_send * page_size );
+	send_id = cart_alloc(particleid_t, num_pages_to_send * page_size );
 	send_parts = cart_alloc(double, num_pages_to_send * parts_page_size );
 	num_request_types = 2;
 
@@ -417,7 +417,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 			if ( id_count % page_size == 0 || i == num_parts_to_send[proc]-1 ) {
 				MPI_Isend( &send_id[num_pages_sent*page_size], 
 					id_count - num_pages_sent*page_size, 
-					MPI_INT, proc, 2*proc_pages_sent, mpi.comm.run, 
+					MPI_PARTICLEID_T, proc, 2*proc_pages_sent, mpi.comm.run, 
 					&send_requests[num_send_requests++] );
 
 				MPI_Isend( &send_parts[num_pages_sent*parts_page_size], 
@@ -472,7 +472,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 
 		if ( proc != MPI_UNDEFINED ) {
 			num_pages_received++;
-			MPI_Get_count( &status, MPI_INT, &id_count );
+			MPI_Get_count( &status, MPI_PARTICLEID_T, &id_count );
 
 			MPI_Wait( &recv_parts_requests[proc], MPI_STATUS_IGNORE );
 
@@ -556,7 +556,7 @@ void trade_particle_lists( int num_parts_to_send[MAX_PROCS], int *particle_list_
 			/* if we received a full page, set up to receive a new one */
 			if ( num_parts_to_recv[proc] > 0 ) {
 				page_count[proc]++;
-				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 2*page_count[proc], 
+				MPI_Irecv( recv_id[proc], page_size, MPI_PARTICLEID_T, proc, 2*page_count[proc], 
 						mpi.comm.run, &recv_id_requests[proc] );
 				MPI_Irecv( recv_parts[proc], parts_page_size, MPI_DOUBLE, proc, 
 						page_count[proc], mpi.comm.run, &recv_parts_requests[proc] );
@@ -681,7 +681,7 @@ void build_particle_list() {
 	particle_list_enabled = 1;
 }
 
-int particle_alloc( int id ) { 
+int particle_alloc( particleid_t id ) { 
 	int ipart;
 	int i;
 
@@ -1023,7 +1023,7 @@ void delete_particle( int icell, int part ) {
 	}
 }
 
-int particle_species( int id ) {
+int particle_species( particleid_t id ) {
 	int specie = 0;
 
 	for ( specie = 0; specie < num_particle_species; specie++ ) {
@@ -1033,6 +1033,61 @@ int particle_species( int id ) {
 	}
 
 	return specie;
+}
+
+/* dhr - this function is strictly overkill, since id order also defines
+ * species order.  Unsure why it was written this way, as it has costly
+ * species array lookups */
+int compare_particle_species_id( const void *a, const void *b ) {
+	particleid_t id1 = particle_id[*(int *)a];
+	particleid_t id2 = particle_id[*(int *)b];
+	int species1 = particle_species(id1);
+	int species2 = particle_species(id2);
+
+	if ( species1 == species2 ) {
+		if ( id1 > id2 ) {
+			return 1;
+		} else if ( id1 < id2 ) {
+			return -1;
+		} else {
+			return 0;
+		}
+	} else {
+		return species1 - species2;
+	}
+}
+
+int compare_particle_ids( const void *a, const void *b ) {
+	particleid_t id1 = particle_id[*(int *)a];
+	particleid_t id2 = particle_id[*(int *)b];
+
+	if ( id1 > id2 ) {
+		return 1;
+	} else if ( id1 < id2 ) {
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+int compare_particle_mass( const void *a, const void *b ) {
+	int index_a = *(int *)a;
+	int index_b = *(int *)b;
+
+	if ( particle_mass[index_a] < particle_mass[index_b] ) {
+		return -1;
+	} else if ( particle_mass[index_a] > particle_mass[index_b] ) {
+		return 1;
+	} else {
+		/* decreasing order of id */
+		if ( particle_id[index_b] > particle_id[index_a] ) {
+			return 1;
+		} else if ( particle_id[index_b] < particle_id[index_a] ) {
+			return -1;
+		} else {
+			return 0;
+		}
+	}
 }
 
 #if defined(GRAVITY) || defined(RADIATIVE_TRANSFER)

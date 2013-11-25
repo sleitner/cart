@@ -334,7 +334,13 @@ int sort_particles( const void *a, const void *b ) {
 	} else if ( particle_parent_cell[index_a] > particle_parent_cell[index_b] ) {
 		return 1;
 	} else {
-		return ( particle_id[index_a] - particle_id[index_b] );
+		if ( particle_id[index_a] > particle_id[index_b] ) {
+			return 1;
+		} else if ( particle_id[index_a] < particle_id[index_b] ) {
+			return -1;
+		} else {
+			return 0;
+		}
 	}
 }
 
@@ -348,6 +354,7 @@ void cache_reorder_particles() {
 	int num_normal_particles;
 	int *level_cells;
 	int *backup_ints;
+	particleid_t *backup_ids;
 	float *backup_floats;
 	double *backup_doubles;
 	int *old_particle_index;
@@ -583,19 +590,23 @@ void cache_reorder_particles() {
 
 	cart_free( backup_floats );
 
-	backup_ints = cart_alloc(int, num_particles );
+	backup_ids = cart_alloc(particleid_t, num_particles );
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {
-			backup_ints[ipart] = particle_id[ old_particle_index[ipart] ];
+			backup_ids[ipart] = particle_id[ old_particle_index[ipart] ];
 		} else {
-			backup_ints[ipart] = NULL_PARTICLE;
+			backup_ids[ipart] = NULL_PARTICLE;
 		}
 	}
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
-		particle_id[ipart] = backup_ints[ipart];
+		particle_id[ipart] = backup_ids[ipart];
 	}
+
+	cart_free( backup_ids );
+
+	backup_ints = cart_alloc(int, num_particles );
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( old_particle_index[ipart] != -1 ) {

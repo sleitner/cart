@@ -24,6 +24,7 @@
 #include "sfc.h"
 #include "skiplist.h"
 #include "starformation.h"
+#include "system.h"
 #include "timing.h"
 #include "times.h"
 #include "tree.h"
@@ -302,17 +303,6 @@ void unpack_cell_vars(int icell, int num_pack_vars, int *sim_var_indices,
 	}
 }
 
-#ifdef PARTICLES
-int compare_particle_species_id( const void *a, const void *b ) {
-	int id1 = particle_id[*(int *)a];
-	int id2 = particle_id[*(int *)b];
-	int species1 = particle_species(id1);
-	int species2 = particle_species(id2);
-
-	return ( species1 == species2 ) ? id1 - id2 : species1 - species2;
-}
-#endif /* PARTICLES */
-
 void create_artio_filename( int filename_flag, char *label, char *filename ) {
 	char dir[256];
 
@@ -442,6 +432,7 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 	char **primary_variable_labels[MAX_PARTICLE_SPECIES];
 	int num_secondary_variables[MAX_PARTICLE_SPECIES];
 	char **secondary_variable_labels[MAX_PARTICLE_SPECIES];
+	int64_t species_num[MAX_PARTICLE_SPECIES];
 
 	int *root_tree_particle_list;
 	int *order;
@@ -733,10 +724,13 @@ void write_artio_restart_worker( char *filename, int fileset_write_options ) {
 				if ( num_secondary_variables[i] > 0 ) {
 					cart_free( secondary_variable_labels[i] );
 				}
+
+				/* copy to promote datatype if necessary */
+				species_num[i] = particle_species_num[i];
 			}
 
-			artio_parameter_set_int_array( handle, "particle_species_num", 
-					num_particle_species, particle_species_num );
+			artio_parameter_set_long_array( handle, "particle_species_num", 
+					num_particle_species, species_num );
 			artio_parameter_set_float_array( handle, "particle_species_mass", 
 					num_particle_species, particle_species_mass );
 
@@ -1556,33 +1550,50 @@ void read_artio_particles( artio_fileset *handle ) {
 	int id, ipart;
 	int species;
 	int subspecies;
-	long num_particles_local = 0L;
+	particleid_t num_particles_local = 0;
+	
 	int num_species;
 
 	double primary_variables[7];
 	float secondary_variables[5];
-
+	
+	int species_num_int[MAX_PARTICLE_SPECIES];
+	int64_t species_num_long[MAX_PARTICLE_SPECIES];
 	int num_particles_per_species[MAX_PARTICLE_SPECIES];
 
 	start_time( PARTICLE_READ_IO_TIMER );
 
 	artio_parameter_get_int( handle, "num_particle_species", &num_species);
-
 	if ( num_species > MAX_PARTICLE_SPECIES ) {
-		cart_error("Ran out of particle species!");
+		cart_error("ARTIO file contains more than the available particle species.  Increase MAX_PARTICLE_SPECIES.");
 	}
-
 	num_particle_species = num_species;
 
-	if ( artio_parameter_get_int_array( handle, "particle_species_num", 
-				num_species, particle_species_num ) != ARTIO_SUCCESS ||
-			artio_parameter_get_float_array( handle, "particle_species_mass", 
+	if ( artio_parameter_get_int_array( handle, "particle_species_num",
+			num_species, species_num_int ) == ARTIO_SUCCESS ) {
+		for ( i = 0; i < num_species; i++ ) {
+			particle_species_num[i] = (particleid_t)species_num_int[i];
+		}
+	} else if ( artio_parameter_get_long_array( handle, "particle_species_num",
+			num_species, species_num_long ) == ARTIO_SUCCESS ) {
+		for ( i = 0; i < num_species; i++ ) {
+			/* detect overflow in downcast */
+			if ( sizeof(particleid_t) < sizeof(int64_t) && species_num_long[i] >= PARTICLEID_MAX ) {
+				cart_error("Detected truncation in converting artio particle species to internal precision.  Use int64 particle ids!");
+			}
+			particle_species_num[i] = (particleid_t)species_num_long[i];
+		}
+	} else {
+		cart_error("Unable to load particle species counts from artio header file!");
+	}	
+
+	if ( artio_parameter_get_float_array( handle, "particle_species_mass", 
 				num_species, particle_species_mass ) != ARTIO_SUCCESS ) {
-		cart_error("Unable to load particle species data from artio header file!");
+		cart_error("Unable to load particle species mass from artio header file!");
 	}
 
 	for ( i = 0; i < num_species; i++ ) {
-		cart_debug("particle species %d: %u particles, %e mass", i, 
+		cart_debug("particle species %d: %lu particles, %e mass", i, 
 			particle_species_num[i], particle_species_mass[i] );
 	}
 
@@ -1623,10 +1634,10 @@ void read_artio_particles( artio_fileset *handle ) {
 				}
 
 				/* unpack variables */
-				if ( pid >= INT_MAX ) {
-					cart_error("Error storing particle id %ld in 32-bit integer!", pid );
+				if ( pid >= PARTICLEID_MAX ) {
+					cart_error("Error storing particle id %ld in particleid_t integer!", pid );
 				}
-				id = (int)pid;
+				id = (particleid_t)pid;
 				ipart = particle_alloc( id );
 
 				for ( j = 0; j < nDim; j++ ) {
@@ -1677,10 +1688,6 @@ void read_artio_particles( artio_fileset *handle ) {
 
 	artio_particle_clear_sfc_cache(handle);
 
-/*  DHR - due to deleted particles, this code is incorrect, i.e. the sum of the local active particles
-    does not equal num_particles_total
-	MPI_Allreduce( &num_particles_local, &num_particles_total, 1, MPI_LONG, MPI_SUM, mpi.comm.run );
-*/
 	num_particles_total = particle_species_indices[num_particle_species];
 
 	end_time( PARTICLE_READ_IO_TIMER );

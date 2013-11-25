@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "auxiliary.h"
+#include "cell_buffer.h"
 #include "hydro.h"
 #include "hydro_tracer.h"
 #include "io.h"
@@ -17,18 +18,17 @@
 #include "times.h"
 #include "tree.h"
 #include "units.h"
-#include "cell_buffer.h"
 
 
 double tracer_x[num_tracers][nDim];
-int tracer_id[num_tracers];
+tracerid_t tracer_id[num_tracers];
 int tracer_list_next[num_tracers];
 int tracer_list_prev[num_tracers];
 
 int cell_tracer_list[num_cells];
 
 int num_local_tracers = 0;
-int num_tracers_total = 0;
+tracerid_t num_tracers_total = 0;
 
 int next_free_tracer = 0;
 int free_tracer_list = NULL_TRACER;
@@ -167,6 +167,9 @@ void set_hydro_tracers_to_particles() {
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( particle_level[ipart] != FREE_PARTICLE_LEVEL && particle_id[ipart] < particle_species_indices[1] ) {
+			if ( particle_id[ipart] > TRACERID_MAX ) {
+				cart_error("Integer overflow detecdted in particle to tracer ids. Try compiling with 64-bit tracer ids!");
+			}
 			tracer = tracer_alloc( particle_id[ipart] );
 
 			for ( i = 0; i < nDim; i++ ) {
@@ -178,10 +181,10 @@ void set_hydro_tracers_to_particles() {
 		}
 	}
 
-	MPI_Allreduce( &num_local_tracers, &num_tracers_total, 1, MPI_INT, MPI_SUM, mpi.comm.run );
+	MPI_Allreduce( &num_local_tracers, &num_tracers_total, 1, MPI_TRACERID_T, MPI_SUM, mpi.comm.run );
 
 	cart_debug("num_local_tracers = %u", num_local_tracers );
-	cart_debug("num_tracers_total = %u", num_tracers_total );
+	cart_debug("num_tracers_total = %ld", num_tracers_total );
 	tracer_list_enabled = 1;
 }
 #endif /* PARTICLES */
@@ -229,7 +232,7 @@ void update_tracer_list( int level ) {
 						insert_tracer( new_cell, tracer );
 					}
 				} else if ( proc == -1 ) {
-					cart_error("Unable to find processor owner for tracer %d", tracer_id[tracer] );
+					cart_error("Unable to find processor owner for tracer %ld", tracer_id[tracer] );
 				} else {
 					delete_tracer( iter_cell, tracer );
 					tracer_list_next[tracer] = tracer_list_to_send[proc];
@@ -259,8 +262,8 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 	int num_pages_to_send;
 	int num_send_requests;
 	int page_count[MAX_PROCS];
-	unsigned int *send_id;
-	unsigned int *recv_id[MAX_PROCS];
+	tracerid_t *send_id;
+	tracerid_t *recv_id[MAX_PROCS];
 	double *send_tracers;
 	double *recv_tracers[MAX_PROCS];
 	int num_pages_received;
@@ -278,10 +281,10 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 		if ( ( trade_level == -1 && proc != local_proc_id ) ||
 				( trade_level != -1 &&
 				( num_remote_buffers[trade_level][proc] > 0 || num_local_buffers[trade_level][proc] > 0 ) ) ) {
-			recv_id[proc] = cart_alloc(unsigned int, page_size );
+			recv_id[proc] = cart_alloc(tracerid_t, page_size );
 			recv_tracers[proc] = cart_alloc(double, tracers_page_size );
 
-			MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, 0,
+			MPI_Irecv( recv_id[proc], page_size, MPI_TRACERID_T, proc, 0,
 					mpi.comm.run, &recv_id_requests[proc] );
 			MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE,
 					proc, 0, mpi.comm.run, &recv_tracer_requests[proc] );
@@ -310,7 +313,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 	}
 
 	/* allocate space for the pages */
-	send_id = cart_alloc(unsigned int, num_pages_to_send * page_size );
+	send_id = cart_alloc(tracerid_t, num_pages_to_send * page_size );
 	send_tracers = cart_alloc(double, num_pages_to_send * tracers_page_size );
 	send_requests = cart_alloc(MPI_Request, 2*num_pages_to_send );
 
@@ -339,7 +342,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 					tracer = tracer_list_next[tracer];
 
 					if ( id_count == page_size ) {
-						MPI_Isend( &send_id[num_pages_sent*page_size], page_size, MPI_INT, proc,
+						MPI_Isend( &send_id[num_pages_sent*page_size], page_size, MPI_TRACERID_T, proc,
 							proc_pages_sent, mpi.comm.run, &send_requests[num_send_requests++] );
 						MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracers_page_size,
 							MPI_DOUBLE, proc, proc_pages_sent, mpi.comm.run,
@@ -354,7 +357,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 
 				tracer_list_free( tracer_list_to_send[proc] );
 
-				MPI_Isend( &send_id[num_pages_sent*page_size], id_count, MPI_INT, proc, proc_pages_sent,
+				MPI_Isend( &send_id[num_pages_sent*page_size], id_count, MPI_TRACERID_T, proc, proc_pages_sent,
 					mpi.comm.run, &send_requests[num_send_requests++] );
 				MPI_Isend( &send_tracers[num_pages_sent*tracers_page_size], tracer_count, MPI_DOUBLE, proc,
 					proc_pages_sent, mpi.comm.run, &send_requests[num_send_requests++] );
@@ -364,7 +367,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 
 			} else {
 				/* send a single empty page */
-				MPI_Isend( &send_id[page_size*num_pages_sent], 0, MPI_INT, proc, 0, mpi.comm.run,
+				MPI_Isend( &send_id[page_size*num_pages_sent], 0, MPI_TRACERID_T, proc, 0, mpi.comm.run,
 					&send_requests[num_send_requests++] );
 				MPI_Isend( &send_tracers[tracers_page_size*num_pages_sent], 0, MPI_DOUBLE, proc, 0,
 					mpi.comm.run, &send_requests[num_send_requests++] );
@@ -385,7 +388,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 
 		if ( proc != MPI_UNDEFINED ) {
 			num_pages_received++;
-			MPI_Get_count( &status, MPI_INT, &id_count );
+			MPI_Get_count( &status, MPI_TRACERID_T, &id_count );
 
 			MPI_Wait( &recv_tracer_requests[proc], MPI_STATUS_IGNORE );
 
@@ -407,7 +410,7 @@ void trade_tracer_lists( int *num_tracers_to_send, int *tracer_list_to_send, int
 			/* if we received a full page, set up to receive a new one */
 			if ( id_count == page_size ) {
 				page_count[proc]++;
-				MPI_Irecv( recv_id[proc], page_size, MPI_INT, proc, page_count[proc],
+				MPI_Irecv( recv_id[proc], page_size, MPI_TRACERID_T, proc, page_count[proc],
 						mpi.comm.run, &recv_id_requests[proc] );
 				MPI_Irecv( recv_tracers[proc], tracers_page_size, MPI_DOUBLE, proc,
 						page_count[proc], mpi.comm.run, &recv_tracer_requests[proc] );
@@ -444,7 +447,7 @@ void build_tracer_list() {
 	tracer_list_enabled = 1;
 }
 
-int tracer_alloc( int id ) {
+int tracer_alloc( tracerid_t id ) {
 	int tracer;
 
 	if ( free_tracer_list == NULL_TRACER ) {
