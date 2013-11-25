@@ -688,22 +688,22 @@ void hydro_apply_isotropic_turbulence_dissipation(int level, int num_level_cells
     float crossing_time,vas,tcode_diss, dU;
     tcode_diss = fix_isotropic_turbulence_dissipation_time*constants->yr/units->time;
 #pragma omp parallel for default(none), shared(level,num_level_cells,level_cells,cell_child_oct,cell_vars,dtl,tcode_diss), private(i,icell,crossing_time,vas,cell_old, dU)
-    for ( i = 0; i < num_level_cells; i++ ) {
-	icell = level_cells[i];
-	    cell_old = cell_isotropic_turbulence_energy(icell);
-	    /* dissipate tubulent energy */
-	    if(tcode_diss>0){
-		cell_isotropic_turbulence_energy(icell) *= exp(-dtl[level]/tcode_diss);
-	    }else{
-		vas = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
-		crossing_time = cell_size[level]/vas ;
-		cell_isotropic_turbulence_energy(icell) *= exp(-dtl[level]/crossing_time);
-	    }
-	    /* turbulent energy goes into internal energy */
-            dU = cell_old - cell_isotropic_turbulence_energy(icell);
-	    cell_gas_internal_energy(icell) += dU;
-            cell_gas_pressure(icell) += dU*(cell_gas_gamma(icell)-1);
-    }
+	for ( i = 0; i < num_level_cells; i++ ) {
+		icell = level_cells[i];
+		cell_old = cell_isotropic_turbulence_energy(icell);
+		/* dissipate tubulent energy */
+		if(tcode_diss>0){
+			cell_isotropic_turbulence_energy(icell) *= exp(-dtl[level]/tcode_diss);
+		}else{
+			vas = sqrt(cell_gas_gamma(icell)*cell_gas_pressure(icell)/cell_gas_density(icell));
+			crossing_time = cell_size[level]/vas ;
+			cell_isotropic_turbulence_energy(icell) *= exp(-dtl[level]/crossing_time);
+		}
+		/* turbulent energy goes into internal energy */
+		dU = cell_old - cell_isotropic_turbulence_energy(icell);
+		cell_gas_internal_energy(icell) += dU;
+		cell_gas_pressure(icell) += dU*(cell_gas_gamma(icell)-1);
+	}
 }
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 
@@ -721,7 +721,7 @@ void hydro_zero_extra_source_vars(int level, int num_level_cells, int *level_cel
 #endif /* EXTRA_PRESSURE_SOURCE */
 
 void hydro_advance_internalenergy( int level ) {
-        int i,j;
+	int i,j;
 	int icell;
 	int num_level_cells;
 	int *level_cells;
@@ -747,9 +747,9 @@ void hydro_advance_internalenergy( int level ) {
 		cell_electron_internal_energy(icell) = MAX( 1.0e-30, cell_electron_internal_energy(icell)*div*div*div );
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
 		for(j=0; j<num_extra_energy_variables ;j++){
-		    gamma1 = extra_energy_gamma(j) - 1.0; 
-		    div = 1.0 + gamma1 * ref[icell] * div_dt;
-		    cell_extra_energy_variables(icell,j) = MAX( 0.0, cell_extra_energy_variables(icell,j)*div*div*div );
+			gamma1 = extra_energy_gamma(j) - 1.0; 
+			div = 1.0 + gamma1 * ref[icell] * div_dt;
+			cell_extra_energy_variables(icell,j) = MAX( 0.0, cell_extra_energy_variables(icell,j)*div*div*div );
 		}
 
 		/* synchronize internal and total energy */
@@ -788,7 +788,7 @@ void hydro_advance_internalenergy( int level ) {
 	hydro_apply_isotropic_turbulence_dissipation(level,num_level_cells,level_cells);
 #endif /* ISOTROPIC_TURBULENCE_ENERGY */
 #ifdef EXTRA_PRESSURE_SOURCE
-        hydro_zero_extra_source_vars(level,num_level_cells,level_cells);
+	hydro_zero_extra_source_vars(level,num_level_cells,level_cells);
 #endif /* EXTRA_PRESSURE_SOURCE */
 
 	cart_free( level_cells );
