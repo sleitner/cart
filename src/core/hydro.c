@@ -320,13 +320,13 @@ float cell_sobolev_length2(int cell, int level, float *vel)
 
 
 float cell_gas_sound_speed( int icell ) {
-        float gPeff;
-        int j;
-        gPeff = cell_gas_gamma(icell)*(cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell);
-        for ( j = 0; j < num_extra_energy_variables; j++ ) {
-                gPeff += extra_energy_gamma(j)*cell_extra_energy_pressure(icell,j);
-        }
-        return sqrt(gPeff/cell_gas_density(icell));
+	float gPeff;
+	int j;
+	gPeff = cell_gas_gamma(icell)*(cell_gas_gamma(icell)-1.0)*cell_gas_internal_energy(icell);
+	for ( j = 0; j < num_extra_energy_variables; j++ ) {
+		gPeff += extra_energy_gamma(j)*cell_extra_energy_pressure(icell,j);
+	}
+	return sqrt(gPeff/cell_gas_density(icell));
 }
 
 #endif /*HYDRO*/
