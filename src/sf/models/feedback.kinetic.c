@@ -613,28 +613,27 @@ void distribute_momentum(double dp, int level, int icell, double dt){
 	double dPressure;
 	/* dp is in momentum code units -- NOT per volume (mass*velocity * dt/time )*/
 	dp *= kfb_boost_kicks;
-	PLUGIN_POINT(RecordDistributedMomentum)(dp, icell, level);
 
 	switch ( kfb_internal_method ) {
-	case KFB_METHOD_KICKS:
-		kfb_kick(dp, level, icell);
-		break;
+		case KFB_METHOD_KICKS:
+			kfb_kick(dp, level, icell);
+			break;
 #ifdef EXTRA_PRESSURE_SOURCE
-	case KFB_METHOD_PRESSURIZE:
-		dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
-		kfb_pressurize(dPressure, level, icell);
-		break;
-	case KFB_METHOD_HYBRID:
-		dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
-		kfb_hybrid_pressurize_kick(dp, dPressure, level, icell);
-		break;
-	case KFB_METHOD_HYBRIDGATHER:
-		dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
-		kfb_hybrid_gather(dPressure, level, icell);
-		break;
+		case KFB_METHOD_PRESSURIZE:
+			dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
+			kfb_pressurize(dPressure, level, icell);
+			break;
+		case KFB_METHOD_HYBRID:
+			dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
+			kfb_hybrid_pressurize_kick(dp, dPressure, level, icell);
+			break;
+		case KFB_METHOD_HYBRIDGATHER:
+			dPressure = dp / dt / (6*cell_size[level]*cell_size[level]) ; /* Pr = \dot{p}/A */
+			kfb_hybrid_gather(dPressure, level, icell);
+			break;
 #endif
-	default:
-		cart_error("Invalid kfb_internal_method in distribute_momentum");
+		default:
+			cart_error("Invalid kfb_internal_method in distribute_momentum");
 	}
 }
 
