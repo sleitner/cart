@@ -1,9 +1,11 @@
 #include "config.h"
 
+#include <malloc.h>
 #include <mpi.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifdef _OPENMP
 #include <omp.h>

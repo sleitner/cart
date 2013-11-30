@@ -7,6 +7,13 @@
 
 #ifdef PARTICLES
 
+/*
+//  C++ compatibility: INT64_MAX is defined only if __STDC_LIMIT_MACROS set explicitly (ISO C99 standard)
+*/
+#ifdef __cplusplus
+#define __STDC_LIMIT_MACROS
+#endif
+
 #include <stdint.h>
 #include <limits.h>
 
