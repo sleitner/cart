@@ -297,10 +297,10 @@ void init_dm_particles(float mp, int nhalo){
 }
 
 
-void assign_darkmatter_model(FILE *fd, int nhalo){
-    static float mp1;
-    int i, icell, level, ipart;
-    float xp,yp,zp, vxp,vyp,vzp, mp;
+void assign_darkmatter_model(FILE *fd){
+    int icell, level, ipart;
+	particleid_t i;
+    float xp,yp,zp, vxp,vyp,vzp, mp, mp1, u_gas;
     double pos[nDim], vel[nDim];
     double pdt;
     int current_type;
@@ -965,7 +965,7 @@ void init_run() {
 int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], double vel[nDim], double pdt, double age, int type) {
 	int i;
 	int ipart;
-	int id;
+	particleid_t id;
 	int level;
 
 	cart_assert( icell > -1 && icell < num_cells );

@@ -557,17 +557,13 @@ void restart_load_balance_cart( char *grid_filename, char *particle_header_filen
 
 #ifdef PARTICLES
 
-int compare_particle_ids( const void *a, const void *b ) {
-	return ( particle_id[*(int *)a] - particle_id[*(int *)b] );
-}
-
 void write_cart_particles( char *header_filename, char *data_filename, char *timestep_filename, char *stellar_filename ) {
 	int i;
 	int num_parts;
 	char desc[46];
 	int processor_heap[MAX_PROCS];
 	int *particle_order;
-	int *page_ids[MAX_PROCS];
+	particleid_t *page_ids[MAX_PROCS];
 	double *page[MAX_PROCS];
 	double *output_page;
 	double *times_page[MAX_PROCS];
@@ -579,7 +575,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 	int num_parts_per_proc_page;
 	int num_pages, index;
 	int local_count;
-	int current_id;
+	particleid_t current_id;
 	int size;
 	FILE *output;
 	FILE *timestep_output;
@@ -601,6 +597,12 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 	int *star_type_page[MAX_PROCS];
 #endif /* STAR_PARTICLE_TYPES */
 #endif /* STAR_FORMATION */
+
+#ifndef OLDSTYLE_32BIT_PARTICLEID
+	if ( num_particles_total >= INT_MAX ) {
+		cart_error("ERROR: CART files do not support particle ids greater than INT_MAX!  Use of this file format is deprecated.");
+	}
+#endif /* OLDSTYLE_32BIT_PARTICLEID */
 
 	if(cart_particle_file_mode > 0) cart_particle_file_mode = 0; /* Auto-reset */
 
@@ -716,24 +718,24 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 		/* allocate space to receive pages of particles from other procs */
 		for ( i = 1; i < num_procs; i++ ) {
 			page[i] = cart_alloc(double, 2*nDim*num_parts_per_proc_page );
-			page_ids[i] = cart_alloc(int, num_parts_per_proc_page );
+			page_ids[i] = cart_alloc(particleid_t, num_parts_per_proc_page );
 		}
 
 		/* allocate actual page which will be written */
 		output_page = cart_alloc(double, 2*nDim*num_parts_per_page );
 
 		processor_heap[0] = MASTER_NODE;
-		page_ids[0] = cart_alloc(int, 1);
+		page_ids[0] = cart_alloc(particleid_t, 1);
 		pos[0] = 0;
 		if ( num_local_particles > 0 ) {
 			page_ids[0][0] = particle_id[particle_order[0]];
 		} else {
-			page_ids[0][0] = -1;
+			page_ids[0][0] = NULL_PARTICLE;
 		}
 
 		/* receive initial pages */
 		for ( i = 1; i < num_procs; i++ ) {
-			MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT, i, 0, mpi.comm.run, &status );
+			MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_PARTICLEID_T, i, 0, mpi.comm.run, &status );
 			MPI_Get_count( &status, MPI_INT, &count[i] );
 			MPI_Recv( page[i], 2*nDim*num_parts_per_proc_page, MPI_DOUBLE, i, 0, mpi.comm.run, MPI_STATUS_IGNORE );
 
@@ -747,7 +749,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 			/* fix for case where one processor has no particles */
 			if ( count[i] == 0 ) {
-				page_ids[i][0] = -1;
+				page_ids[i][0] = NULL_PARTICLE;
 			}
 		}
 
@@ -759,7 +761,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				leftproc = processor_heap[left];
 				rootproc = processor_heap[root];
 
-				if ( page_ids[rootproc][0] == -1 || ( page_ids[leftproc][0] != -1 &&
+				if ( page_ids[rootproc][0] == NULL_PARTICLE || ( page_ids[leftproc][0] != NULL_PARTICLE &&
 						page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
 					smallest = left;
 				} else {
@@ -767,10 +769,10 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				}
 
 				right = left+1;
-				if ( right < num_procs && ( page_ids[processor_heap[smallest]][0] == -1 ||
+				if ( right < num_procs && ( page_ids[processor_heap[smallest]][0] == NULL_PARTICLE ||
 						( page_ids[processor_heap[right]][0] != -1 &&
 						  page_ids[processor_heap[right]][0] <
-						  page_ids[processor_heap[smallest]][0] ) ) ) {
+							  page_ids[processor_heap[smallest]][0] ) ) ) {
 					smallest = right;
 				}
 
@@ -846,7 +848,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 						if ( local_count < num_local_particles ) {
 							page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
 						} else {
-							page_ids[local_proc_id][0] = -1;
+							page_ids[local_proc_id][0] = NULL_PARTICLE;
 						}
 					} else {
 						while ( num_parts < num_parts_in_page &&
@@ -871,7 +873,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							/* if we've run out, refill page */
 							if ( pos[proc] == count[proc] ) {
 								if ( count[proc] == num_parts_per_proc_page ) {
-									MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+									MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_PARTICLEID_T,
 											proc, pages[proc], mpi.comm.run, &status );
 									MPI_Get_count( &status, MPI_INT, &count[proc] );
 									MPI_Recv( page[proc], 2*nDim*num_parts_per_proc_page,
@@ -886,12 +888,12 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 									pages[proc]++;
 
 									if ( count[proc] == 0 ) {
-										page_ids[proc][0] = -1;
+										page_ids[proc][0] = NULL_PARTICLE;
 									}
 								} else {
 									pos[proc] = 0;
 									count[proc] = 0;
-									page_ids[proc][0] = -1;
+									page_ids[proc][0] = NULL_PARTICLE;
 								}
 							}
 						}
@@ -904,8 +906,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 						leftproc = processor_heap[left];
 						rootproc = processor_heap[root];
 
-						if ( page_ids[rootproc][pos[rootproc]] == -1 ||
-								( page_ids[leftproc][pos[leftproc]] != -1 &&
+						if ( page_ids[rootproc][pos[rootproc]] == NULL_PARTICLE ||
+								( page_ids[leftproc][pos[leftproc]] != NULL_PARTICLE &&
 								  page_ids[leftproc][pos[leftproc]] <
 								  page_ids[rootproc][pos[rootproc]] ) ) {
 							smallest = left;
@@ -918,8 +920,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							rightproc = processor_heap[right];
 							smallestproc = processor_heap[smallest];
 
-							if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
-									( page_ids[rightproc][pos[rightproc]] != -1 &&
+							if ( page_ids[smallestproc][pos[smallestproc]] == NULL_PARTICLE ||
+									( page_ids[rightproc][pos[rightproc]] != NULL_PARTICLE &&
 									  page_ids[rightproc][pos[rightproc]] <
 									  page_ids[smallestproc][pos[smallestproc]] ) ) {
 								smallest = right;
@@ -1031,14 +1033,14 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			processor_heap[0] = MASTER_NODE;
 			pos[0] = 0;
 			if ( first_star == num_local_particles ) {
-				page_ids[0][0] = -1;
+				page_ids[0][0] = NULL_PARTICLE;
 			} else {
 				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
-				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT,
+				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_PARTICLEID_T,
 						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT,
@@ -1048,7 +1050,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				processor_heap[i] = i;
 
 				if ( count[i] == 0 ) {
-					page_ids[i][0] = -1;
+					page_ids[i][0] = NULL_PARTICLE;
 				}
 			}
 
@@ -1060,8 +1062,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 					leftproc = processor_heap[left];
 					rootproc = processor_heap[root];
 
-					if ( page_ids[rootproc][0] == -1 ||
-							( page_ids[leftproc][0] != -1 &&
+					if ( page_ids[rootproc][0] == NULL_PARTICLE ||
+							( page_ids[leftproc][0] != NULL_PARTICLE &&
 							  page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
 						smallest = left;
 					} else {
@@ -1070,8 +1072,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 					right = left+1;
 					if ( right < num_procs &&
-							( page_ids[processor_heap[smallest]][0] == -1 ||
-							( page_ids[processor_heap[right]][0] != -1 &&
+							( page_ids[processor_heap[smallest]][0] == NULL_PARTICLE ||
+							( page_ids[processor_heap[right]][0] != NULL_PARTICLE &&
 							  page_ids[processor_heap[right]][0] <
 							  page_ids[processor_heap[smallest]][0] ) ) ) {
 						smallest = right;
@@ -1125,7 +1127,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							if ( local_count < num_local_particles ) {
 								page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
 							} else {
-								page_ids[local_proc_id][0] = -1;
+								page_ids[local_proc_id][0] = NULL_PARTICLE;
 							}
 						} else {
 							while ( num_parts < num_parts_in_page &&
@@ -1140,7 +1142,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								/* if we've run out, refill page */
 								if ( pos[proc] == count[proc] ) {
 									if ( count[proc] == num_parts_per_proc_page ) {
-										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_PARTICLEID_T,
 												proc, pages[proc], mpi.comm.run, &status );
 										MPI_Get_count( &status, MPI_INT, &count[proc] );
 										MPI_Recv( star_page[proc], num_parts_per_proc_page,
@@ -1149,12 +1151,12 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 										pages[proc]++;
 
 										if ( count[proc] == 0 ) {
-											page_ids[proc][0] = -1;
+											page_ids[proc][0] = NULL_PARTICLE;
 										}
 									} else {
 										pos[proc] = 0;
 										count[proc] = 0;
-										page_ids[proc][0] = -1;
+										page_ids[proc][0] = NULL_PARTICLE;
 									}
 								}
 							}
@@ -1167,8 +1169,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							leftproc = processor_heap[left];
 							rootproc = processor_heap[root];
 
-							if ( page_ids[rootproc][pos[rootproc]] == -1 ||
-									( page_ids[leftproc][pos[leftproc]] != -1 &&
+							if ( page_ids[rootproc][pos[rootproc]] == NULL_PARTICLE ||
+									( page_ids[leftproc][pos[leftproc]] != NULL_PARTICLE &&
 									  page_ids[leftproc][pos[leftproc]] <
 									  page_ids[rootproc][pos[rootproc]] ) ) {
 								smallest = left;
@@ -1181,8 +1183,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								rightproc = processor_heap[right];
 								smallestproc = processor_heap[smallest];
 
-								if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
-										( page_ids[rightproc][pos[rightproc]] != -1 &&
+								if ( page_ids[smallestproc][pos[smallestproc]] == NULL_PARTICLE ||
+										( page_ids[rightproc][pos[rightproc]] != NULL_PARTICLE &&
 										  page_ids[rightproc][pos[rightproc]] <
 										  page_ids[smallestproc][pos[smallestproc]] ) ) {
 									smallest = right;
@@ -1215,14 +1217,14 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			processor_heap[0] = MASTER_NODE;
 			pos[0] = 0;
 			if ( first_star == num_local_particles ) {
-				page_ids[0][0] = -1;
+				page_ids[0][0] = NULL_PARTICLE;
 			} else {
-	                        page_ids[0][0] = particle_id[particle_order[first_star]];
+				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
-				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT,
+				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_PARTICLEID_T,
 						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT,
@@ -1232,7 +1234,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				pages[i] = 1;
 
 				if ( count[i] == 0 ) {
-					page_ids[i][0] = -1;
+					page_ids[i][0] = NULL_PARTICLE;
 				}
 			}
 
@@ -1244,7 +1246,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 					leftproc = processor_heap[left];
 					rootproc = processor_heap[root];
 
-					if ( page_ids[rootproc][0] == -1 || ( page_ids[leftproc][0] != -1 &&
+					if ( page_ids[rootproc][0] == NULL_PARTICLE || ( page_ids[leftproc][0] != NULL_PARTICLE &&
 								page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
 						smallest = left;
 					} else {
@@ -1253,8 +1255,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 					right = left+1;
 					if ( right < num_procs &&
-							( page_ids[processor_heap[smallest]][0] == -1 ||
-							( page_ids[processor_heap[right]][0] != -1 &&
+							( page_ids[processor_heap[smallest]][0] == NULL_PARTICLE ||
+							( page_ids[processor_heap[right]][0] != NULL_PARTICLE &&
 							  page_ids[processor_heap[right]][0] <
 							  page_ids[processor_heap[smallest]][0] ) ) ) {
 						smallest = right;
@@ -1308,7 +1310,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							if ( local_count < num_local_particles ) {
 								page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
 							} else {
-								page_ids[local_proc_id][0] = -1;
+								page_ids[local_proc_id][0] = NULL_PARTICLE;
 							}
 						} else {
 							while ( num_parts < num_parts_in_page &&
@@ -1323,7 +1325,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								/* if we've run out, refill page */
 								if ( pos[proc] == count[proc] ) {
 									if ( count[proc] == num_parts_per_proc_page ) {
-										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_PARTICLEID_T,
 												proc, pages[proc], mpi.comm.run, &status );
 										MPI_Get_count( &status, MPI_INT, &count[proc] );
 										MPI_Recv( star_page[proc], num_parts_per_proc_page,
@@ -1332,11 +1334,11 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 										pages[proc]++;
 
 										if ( count[proc] == 0 ) {
-											page_ids[proc][0] = -1;
+											page_ids[proc][0] = NULL_PARTICLE;
 										}
 									} else {
 										pos[proc] = 0;
-										page_ids[proc][0] = -1;
+										page_ids[proc][0] = NULL_PARTICLE;
 									}
 								}
 							}
@@ -1349,8 +1351,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							leftproc = processor_heap[left];
 							rootproc = processor_heap[root];
 
-							if ( page_ids[rootproc][pos[rootproc]] == -1 ||
-									( page_ids[leftproc][pos[leftproc]] != -1 &&
+							if ( page_ids[rootproc][pos[rootproc]] == NULL_PARTICLE ||
+									( page_ids[leftproc][pos[leftproc]] != NULL_PARTICLE &&
 									  page_ids[leftproc][pos[leftproc]] < page_ids[rootproc][pos[rootproc]] ) ) {
 								smallest = left;
 							} else {
@@ -1362,8 +1364,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								rightproc = processor_heap[right];
 								smallestproc = processor_heap[smallest];
 
-								if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
-										( page_ids[rightproc][pos[rightproc]] != -1 &&
+								if ( page_ids[smallestproc][pos[smallestproc]] == NULL_PARTICLE ||
+										( page_ids[rightproc][pos[rightproc]] != NULL_PARTICLE &&
 										  page_ids[rightproc][pos[rightproc]] <
 										  page_ids[smallestproc][pos[smallestproc]] ) ) {
 									smallest = right;
@@ -1396,14 +1398,14 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			processor_heap[0] = MASTER_NODE;
 			pos[0] = 0;
 			if ( first_star == num_local_particles ) {
-				page_ids[0][0] = -1;
+				page_ids[0][0] = NULL_PARTICLE;
 			} else {
 				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
-				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT,
+				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_PARTICLEID_T,
 						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT,
@@ -1413,7 +1415,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				processor_heap[i] = i;
 
 				if ( count[i] == 0 ) {
-					page_ids[i][0] = -1;
+					page_ids[i][0] = NULL_PARTICLE;
 				}
 			}
 
@@ -1425,7 +1427,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 					leftproc = processor_heap[left];
 					rootproc = processor_heap[root];
 
-					if ( page_ids[rootproc][0] == -1 || ( page_ids[leftproc][0] != -1 &&
+					if ( page_ids[rootproc][0] == NULL_PARTICLE || ( page_ids[leftproc][0] != NULL_PARTICLE &&
 								page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
 						smallest = left;
 					} else {
@@ -1434,8 +1436,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 					right = left+1;
 					if ( right < num_procs &&
-							( page_ids[processor_heap[smallest]][0] == -1 ||
-							( page_ids[processor_heap[right]][0] != -1 &&
+							( page_ids[processor_heap[smallest]][0] == NULL_PARTICLE ||
+							( page_ids[processor_heap[right]][0] != NULL_PARTICLE &&
 							  page_ids[processor_heap[right]][0] <
 							  page_ids[processor_heap[smallest]][0] ) ) ) {
 						smallest = right;
@@ -1489,7 +1491,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							if ( local_count < num_local_particles ) {
 								page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
 							} else {
-								page_ids[local_proc_id][0] = -1;
+								page_ids[local_proc_id][0] = NULL_PARTICLE;
 							}
 						} else {
 							while ( num_parts < num_parts_in_page &&
@@ -1504,7 +1506,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								/* if we've run out, refill page */
 								if ( pos[proc] == count[proc] ) {
 									if ( count[proc] == num_parts_per_proc_page ) {
-										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_PARTICLEID_T,
 												proc, pages[proc], mpi.comm.run, &status );
 										MPI_Get_count( &status, MPI_INT, &count[proc] );
 										MPI_Recv( star_page[proc], num_parts_per_proc_page,
@@ -1513,11 +1515,11 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 										pages[proc]++;
 
 										if ( count[proc] == 0 ) {
-											page_ids[proc][0] = -1;
+											page_ids[proc][0] = NULL_PARTICLE;
 										}
 									} else {
 										pos[proc] = 0;
-										page_ids[proc][0] = -1;
+										page_ids[proc][0] = NULL_PARTICLE;
 									}
 								}
 							}
@@ -1530,8 +1532,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							leftproc = processor_heap[left];
 							rootproc = processor_heap[root];
 
-							if ( page_ids[rootproc][pos[rootproc]] == -1 ||
-									( page_ids[leftproc][pos[leftproc]] != -1 &&
+							if ( page_ids[rootproc][pos[rootproc]] == NULL_PARTICLE ||
+									( page_ids[leftproc][pos[leftproc]] != NULL_PARTICLE &&
 									  page_ids[leftproc][pos[leftproc]] < page_ids[rootproc][pos[rootproc]] ) ) {
 								smallest = left;
 							} else {
@@ -1543,8 +1545,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								rightproc = processor_heap[right];
 								smallestproc = processor_heap[smallest];
 
-								if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
-										( page_ids[rightproc][pos[rightproc]] != -1 &&
+								if ( page_ids[smallestproc][pos[smallestproc]] == NULL_PARTICLE ||
+										( page_ids[rightproc][pos[rightproc]] != NULL_PARTICLE &&
 										  page_ids[rightproc][pos[rightproc]] <
 										  page_ids[smallestproc][pos[smallestproc]] ) ) {
 									smallest = right;
@@ -1578,14 +1580,14 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			processor_heap[0] = MASTER_NODE;
 			pos[0] = 0;
 			if ( first_star == num_local_particles ) {
-				page_ids[0][0] = -1;
+				page_ids[0][0] = NULL_PARTICLE;
 			} else {
 				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
-				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT,
+				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_PARTICLEID_T,
 						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT,
@@ -1595,7 +1597,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				processor_heap[i] = i;
 
 				if ( count[i] == 0 ) {
-					page_ids[i][0] = -1;
+					page_ids[i][0] = NULL_PARTICLE;
 				}
 			}
 
@@ -1607,7 +1609,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 					leftproc = processor_heap[left];
 					rootproc = processor_heap[root];
 
-					if ( page_ids[rootproc][0] == -1 || ( page_ids[leftproc][0] != -1 &&
+					if ( page_ids[rootproc][0] == NULL_PARTICLE || ( page_ids[leftproc][0] != NULL_PARTICLE &&
 								page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
 						smallest = left;
 					} else {
@@ -1616,8 +1618,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 					right = left+1;
 					if ( right < num_procs &&
-							( page_ids[processor_heap[smallest]][0] == -1 ||
-							( page_ids[processor_heap[right]][0] != -1 &&
+							( page_ids[processor_heap[smallest]][0] == NULL_PARTICLE ||
+							( page_ids[processor_heap[right]][0] != NULL_PARTICLE &&
 							  page_ids[processor_heap[right]][0] <
 							  page_ids[processor_heap[smallest]][0] ) ) ) {
 						smallest = right;
@@ -1671,7 +1673,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							if ( local_count < num_local_particles ) {
 								page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
 							} else {
-								page_ids[local_proc_id][0] = -1;
+								page_ids[local_proc_id][0] = NULL_PARTICLE;
 							}
 						} else {
 							while ( num_parts < num_parts_in_page &&
@@ -1686,7 +1688,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								/* if we've run out, refill page */
 								if ( pos[proc] == count[proc] ) {
 									if ( count[proc] == num_parts_per_proc_page ) {
-										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_PARTICLEID_T,
 												proc, pages[proc], mpi.comm.run, &status );
 										MPI_Get_count( &status, MPI_INT, &count[proc] );
 										MPI_Recv( star_page[proc], num_parts_per_proc_page,
@@ -1695,11 +1697,11 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 										pages[proc]++;
 
 										if ( count[proc] == 0 ) {
-											page_ids[proc][0] = -1;
+											page_ids[proc][0] = NULL_PARTICLE;
 										}
 									} else {
 										pos[proc] = 0;
-										page_ids[proc][0] = -1;
+										page_ids[proc][0] = NULL_PARTICLE;
 									}
 								}
 							}
@@ -1712,8 +1714,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							leftproc = processor_heap[left];
 							rootproc = processor_heap[root];
 
-							if ( page_ids[rootproc][pos[rootproc]] == -1 ||
-									( page_ids[leftproc][pos[leftproc]] != -1 &&
+							if ( page_ids[rootproc][pos[rootproc]] == NULL_PARTICLE ||
+									( page_ids[leftproc][pos[leftproc]] != NULL_PARTICLE &&
 									  page_ids[leftproc][pos[leftproc]] < page_ids[rootproc][pos[rootproc]] ) ) {
 								smallest = left;
 							} else {
@@ -1725,8 +1727,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								rightproc = processor_heap[right];
 								smallestproc = processor_heap[smallest];
 
-								if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
-										( page_ids[rightproc][pos[rightproc]] != -1 &&
+								if ( page_ids[smallestproc][pos[smallestproc]] == NULL_PARTICLE ||
+										( page_ids[rightproc][pos[rightproc]] != NULL_PARTICLE &&
 										  page_ids[rightproc][pos[rightproc]] <
 										  page_ids[smallestproc][pos[smallestproc]] ) ) {
 									smallest = right;
@@ -1760,14 +1762,14 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			processor_heap[0] = MASTER_NODE;
 			pos[0] = 0;
 			if ( first_star == num_local_particles ) {
-				page_ids[0][0] = -1;
+				page_ids[0][0] = NULL_PARTICLE;
 			} else {
 				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
-				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT,
+				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_PARTICLEID_T,
 						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_page[i], num_parts_per_proc_page, MPI_FLOAT,
@@ -1777,7 +1779,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				processor_heap[i] = i;
 
 				if ( count[i] == 0 ) {
-					page_ids[i][0] = -1;
+					page_ids[i][0] = NULL_PARTICLE;
 				}
 			}
 
@@ -1789,7 +1791,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 					leftproc = processor_heap[left];
 					rootproc = processor_heap[root];
 
-					if ( page_ids[rootproc][0] == -1 || ( page_ids[leftproc][0] != -1 &&
+					if ( page_ids[rootproc][0] == NULL_PARTICLE || ( page_ids[leftproc][0] != NULL_PARTICLE &&
 								page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
 						smallest = left;
 					} else {
@@ -1798,8 +1800,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 					right = left+1;
 					if ( right < num_procs &&
-							( page_ids[processor_heap[smallest]][0] == -1 ||
-							( page_ids[processor_heap[right]][0] != -1 &&
+							( page_ids[processor_heap[smallest]][0] == NULL_PARTICLE ||
+							( page_ids[processor_heap[right]][0] != NULL_PARTICLE &&
 							  page_ids[processor_heap[right]][0] <
 							  page_ids[processor_heap[smallest]][0] ) ) ) {
 						smallest = right;
@@ -1853,7 +1855,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							if ( local_count < num_local_particles ) {
 								page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
 							} else {
-								page_ids[local_proc_id][0] = -1;
+								page_ids[local_proc_id][0] = NULL_PARTICLE;
 							}
 						} else {
 							while ( num_parts < num_parts_in_page &&
@@ -1868,7 +1870,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								/* if we've run out, refill page */
 								if ( pos[proc] == count[proc] ) {
 									if ( count[proc] == num_parts_per_proc_page ) {
-										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_PARTICLEID_T,
 												proc, pages[proc], mpi.comm.run, &status );
 										MPI_Get_count( &status, MPI_INT, &count[proc] );
 										MPI_Recv( star_page[proc], num_parts_per_proc_page,
@@ -1877,11 +1879,11 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 										pages[proc]++;
 
 										if ( count[proc] == 0 ) {
-											page_ids[proc][0] = -1;
+											page_ids[proc][0] = NULL_PARTICLE;
 										}
 									} else {
 										pos[proc] = 0;
-										page_ids[proc][0] = -1;
+										page_ids[proc][0] = NULL_PARTICLE;
 									}
 								}
 							}
@@ -1894,8 +1896,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							leftproc = processor_heap[left];
 							rootproc = processor_heap[root];
 
-							if ( page_ids[rootproc][pos[rootproc]] == -1 ||
-									( page_ids[leftproc][pos[leftproc]] != -1 &&
+							if ( page_ids[rootproc][pos[rootproc]] == NULL_PARTICLE ||
+									( page_ids[leftproc][pos[leftproc]] != NULL_PARTICLE &&
 									  page_ids[leftproc][pos[leftproc]] < page_ids[rootproc][pos[rootproc]] ) ) {
 								smallest = left;
 							} else {
@@ -1907,8 +1909,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								rightproc = processor_heap[right];
 								smallestproc = processor_heap[smallest];
 
-								if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
-										( page_ids[rightproc][pos[rightproc]] != -1 &&
+								if ( page_ids[smallestproc][pos[smallestproc]] == NULL_PARTICLE ||
+										( page_ids[rightproc][pos[rightproc]] != NULL_PARTICLE &&
 										  page_ids[rightproc][pos[rightproc]] <
 										  page_ids[smallestproc][pos[smallestproc]] ) ) {
 									smallest = right;
@@ -1949,14 +1951,14 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			processor_heap[0] = MASTER_NODE;
 			pos[0] = 0;
 			if ( first_star == num_local_particles ) {
-				page_ids[0][0] = -1;
+				page_ids[0][0] = NULL_PARTICLE;
 			} else {
 				page_ids[0][0] = particle_id[particle_order[first_star]];
 			}
 
 			/* receive initial pages */
 			for ( i = 1; i < num_procs; i++ ) {
-				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_INT,
+				MPI_Recv( page_ids[i], num_parts_per_proc_page, MPI_PARTICLEID_T,
 						i, 0, mpi.comm.run, &status );
 				MPI_Get_count( &status, MPI_INT, &count[i] );
 				MPI_Recv( star_type_page[i], num_parts_per_proc_page, MPI_INT,
@@ -1966,7 +1968,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				processor_heap[i] = i;
 
 				if ( count[i] == 0 ) {
-					page_ids[i][0] = -1;
+					page_ids[i][0] = NULL_PARTICLE;
 				}
 			}
 
@@ -1978,7 +1980,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 					leftproc = processor_heap[left];
 					rootproc = processor_heap[root];
 
-					if ( page_ids[rootproc][0] == -1 || ( page_ids[leftproc][0] != -1 &&
+					if ( page_ids[rootproc][0] == NULL_PARTICLE || ( page_ids[leftproc][0] != NULL_PARTICLE &&
 								page_ids[leftproc][0] < page_ids[rootproc][0] ) ) {
 						smallest = left;
 					} else {
@@ -1987,8 +1989,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 
 					right = left+1;
 					if ( right < num_procs &&
-							( page_ids[processor_heap[smallest]][0] == -1 ||
-							( page_ids[processor_heap[right]][0] != -1 &&
+							( page_ids[processor_heap[smallest]][0] == NULL_PARTICLE ||
+							( page_ids[processor_heap[right]][0] != NULL_PARTICLE &&
 							  page_ids[processor_heap[right]][0] <
 							  page_ids[processor_heap[smallest]][0] ) ) ) {
 						smallest = right;
@@ -2042,7 +2044,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							if ( local_count < num_local_particles ) {
 								page_ids[local_proc_id][0] = particle_id[particle_order[local_count]];
 							} else {
-								page_ids[local_proc_id][0] = -1;
+								page_ids[local_proc_id][0] = NULL_PARTICLE;
 							}
 						} else {
 							while ( num_parts < num_parts_in_page &&
@@ -2057,7 +2059,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								/* if we've run out, refill page */
 								if ( pos[proc] == count[proc] ) {
 									if ( count[proc] == num_parts_per_proc_page ) {
-										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_INT,
+										MPI_Recv( page_ids[proc], num_parts_per_proc_page, MPI_PARTICLEID_T,
 												proc, 2*pages[proc], mpi.comm.run, &status );
 										MPI_Get_count( &status, MPI_INT, &count[proc] );
 										MPI_Recv( star_type_page[proc], num_parts_per_proc_page,
@@ -2066,11 +2068,11 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 										pages[proc]++;
 
 										if ( count[proc] == 0 ) {
-											page_ids[proc][0] = -1;
+											page_ids[proc][0] = NULL_PARTICLE;
 										}
 									} else {
 										pos[proc] = 0;
-										page_ids[proc][0] = -1;
+										page_ids[proc][0] = NULL_PARTICLE;
 									}
 								}
 							}
@@ -2083,8 +2085,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 							leftproc = processor_heap[left];
 							rootproc = processor_heap[root];
 
-							if ( page_ids[rootproc][pos[rootproc]] == -1 ||
-									( page_ids[leftproc][pos[leftproc]] != -1 &&
+							if ( page_ids[rootproc][pos[rootproc]] == NULL_PARTICLE ||
+									( page_ids[leftproc][pos[leftproc]] != NULL_PARTICLE &&
 									  page_ids[leftproc][pos[leftproc]] < page_ids[rootproc][pos[rootproc]] ) ) {
 								smallest = left;
 							} else {
@@ -2096,8 +2098,8 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 								rightproc = processor_heap[right];
 								smallestproc = processor_heap[smallest];
 
-								if ( page_ids[smallestproc][pos[smallestproc]] == -1 ||
-										( page_ids[rightproc][pos[rightproc]] != -1 &&
+								if ( page_ids[smallestproc][pos[smallestproc]] == NULL_PARTICLE ||
+										( page_ids[rightproc][pos[rightproc]] != NULL_PARTICLE &&
 										  page_ids[rightproc][pos[rightproc]] <
 										  page_ids[smallestproc][pos[smallestproc]] ) ) {
 									smallest = right;
@@ -2146,7 +2148,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 		}
 	} else {
 		page[local_proc_id] = cart_alloc(double, 2*nDim*num_parts_per_proc_page );
-		page_ids[local_proc_id] = cart_alloc(int, num_parts_per_proc_page );
+		page_ids[local_proc_id] = cart_alloc(particleid_t, num_parts_per_proc_page );
 		pages[local_proc_id] = 0;
 
 		if ( timestep_filename != NULL ) {
@@ -2174,7 +2176,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 			}
 
 			/* send the page */
-			MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+			MPI_Send( page_ids[local_proc_id], i, MPI_PARTICLEID_T, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 			MPI_Send( page[local_proc_id], local_count, MPI_DOUBLE, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 
 			if ( timestep_filename != NULL ) {
@@ -2210,7 +2212,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				}
 
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( page_ids[local_proc_id], i, MPI_PARTICLEID_T, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
@@ -2226,7 +2228,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				}
 
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( page_ids[local_proc_id], i, MPI_PARTICLEID_T, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
@@ -2242,7 +2244,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				}
 
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( page_ids[local_proc_id], i, MPI_PARTICLEID_T, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
@@ -2259,7 +2261,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				}
 
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( page_ids[local_proc_id], i, MPI_PARTICLEID_T, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
@@ -2275,7 +2277,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				}
 
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
+				MPI_Send( page_ids[local_proc_id], i, MPI_PARTICLEID_T, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				MPI_Send( star_page[local_proc_id], i, MPI_FLOAT, MASTER_NODE, pages[local_proc_id], mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
@@ -2297,7 +2299,7 @@ void write_cart_particles( char *header_filename, char *data_filename, char *tim
 				}
 
 				/* send the page */
-				MPI_Send( page_ids[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id], mpi.comm.run );
+				MPI_Send( page_ids[local_proc_id], i, MPI_PARTICLEID_T, MASTER_NODE, 2*pages[local_proc_id], mpi.comm.run );
 				MPI_Send( star_type_page[local_proc_id], i, MPI_INT, MASTER_NODE, 2*pages[local_proc_id]+1, mpi.comm.run );
 				pages[local_proc_id]++;
 			} while ( i == num_parts_per_proc_page );
@@ -2515,9 +2517,9 @@ void read_cart_header_to_units( char *header_filename) {
 	    abox_old[min_level] = abox[min_level] - header.astep;
 
 	    if ( header.astep > 0.0 ) {
-		dt = tl[min_level] - tcode_from_abox(abox[min_level]-header.astep);
-	    } else {
-		dt = 0.0;
+			dt = tl[min_level] - tcode_from_abox(abox[min_level]-header.astep);
+		} else {
+			dt = 0.0;
 	    }
 
 #else

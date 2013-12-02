@@ -188,7 +188,7 @@ void initial_conditions( int cell, int level ) {
 #endif /* HYDRO */
 
 #ifdef PARTICLES
-double particle_q_init( int id ) {
+double particle_q_init( particleid_t id ) {
 	int i, j, k;
 	double qfact;
 
@@ -389,12 +389,12 @@ void run_output() {
 			v_rms += (particle_v[i][0]-v_z)*(particle_v[i][0]-v_z);
 			v_norm += v_z*v_z;
                         
-			fprintf(particles, "%u %e %e %e %e %e \n",
-                                particle_id[i],
-				particle_x[i][0],
-				particle_v[i][0], 
-				particle_pot[i],
-                                x_z,v_z ); 
+			fprintf(particles, "%lu %e %e %e %e %e \n",
+					particle_id[i],
+					particle_x[i][0],
+					particle_v[i][0], 
+					particle_pot[i],
+					x_z,v_z ); 
                         
                         
 		}
@@ -440,43 +440,43 @@ void init_run() {
 	int num_level_cells;
 	int *level_cells;
 
-        cosmology_set(OmegaM,OmM0);
-        cosmology_set(OmegaB,OmB0);
-        cosmology_set(OmegaL,OmL0);
-        cosmology_set(h,h0);
-        cosmology_set(DeltaDC,dDC);
-        box_size = Lbox0;
-        
+	cosmology_set(OmegaM,OmM0);
+	cosmology_set(OmegaB,OmB0);
+	cosmology_set(OmegaL,OmL0);
+	cosmology_set(h,h0);
+	cosmology_set(DeltaDC,dDC);
+	box_size = Lbox0;
+
 	units_set_art(cosmology->OmegaM,cosmology->h,box_size);
-        units_init();
-        build_cell_buffer();
-        repair_neighbors();
+	units_init();
+	build_cell_buffer();
+	repair_neighbors();
         
 	auni[min_level] = auni_init;
 	tl[min_level] = tcode_from_auni( auni_init );
 	for ( i = min_level; i <= max_level; i++ ) { tl[i] = tl[min_level]; }
 	abox[min_level] = auni_init;
 
-        for(i=min_level+1; i<=max_level; i++)
-        {
+	for(i=min_level+1; i<=max_level; i++)
+	{
             tl[i] = tl[min_level];
             auni[i] = auni[min_level];
             abox[i] = abox[min_level];
-        }
+	}
         
-        units_update(min_level);
-        cart_debug("tl[min_level] = %f", tl[min_level] );
-        cart_debug("au[min_level] = %f", auni[min_level] );
-        cart_debug("ab[min_level] = %f", abox[min_level] );
-        cart_debug("DC mode = %f", cosmology->DeltaDC );
-        cosmology_set_fixed();
+	units_update(min_level);
+	cart_debug("tl[min_level] = %f", tl[min_level] );
+	cart_debug("au[min_level] = %f", auni[min_level] );
+	cart_debug("ab[min_level] = %f", abox[min_level] );
+	cart_debug("DC mode = %f", cosmology->DeltaDC );
+	cosmology_set_fixed();
 
 
 	rhogas0 = cosmology->OmegaB/cosmology->OmegaM;
 	cart_debug("rhogas0 = %e", rhogas0 );
 
 	Tinit = TinitK/units->temperature;
-        
+
 
 	ak = 2.0*M_PI / lambda;
 	dgrowth = growth(abox[min_level]);
@@ -501,23 +501,23 @@ void init_run() {
 	}
 #endif /* HYDRO */
 
-        cart_debug("choose timestep and set velocity on the half step");
-        dtl[min_level] = 0.0;
-        set_timestepping_scheme();
-        dtl[min_level]=.125;
-        cart_debug("=======================%e",dtl[min_level]);
-        
-        dtl_old[min_level] = dtl[min_level];
-        tl_old[min_level] = tl[min_level]-dtl[min_level];
-        abox_old[min_level] = abox_from_tcode(tl_old[min_level]);
-        dtl_old[min_level] = dtl[min_level];
-        
+	cart_debug("choose timestep and set velocity on the half step");
+	dtl[min_level] = 0.0;
+	set_timestepping_scheme();
+	dtl[min_level]=.125;
+	cart_debug("=======================%e",dtl[min_level]);
+
+	dtl_old[min_level] = dtl[min_level];
+	tl_old[min_level] = tl[min_level]-dtl[min_level];
+	abox_old[min_level] = abox_from_tcode(tl_old[min_level]);
+	dtl_old[min_level] = dtl[min_level];
+
 	for ( i = min_level+1; i <= max_level; i++ ) {
-            tl_old[i] = tl[i]-dtl[i];
-            abox_old[i] = abox_from_tcode(tl_old[i]);
-            dtl_old[i] = dtl[i];
-        }
-                
+		tl_old[i] = tl[i]-dtl[i];
+		abox_old[i] = abox_from_tcode(tl_old[i]);
+		dtl_old[i] = dtl[i];
+	}
+
 #ifdef GRAVITY
 #ifdef HYDRO
 	for ( i = min_level; i <= max_level; i++ ) {
@@ -571,8 +571,8 @@ void init_run() {
 				}
 
 				if ( particle_x[ipart][2] >= (double)num_grid ) {
-                                      	particle_x[ipart][2] -= num_grid;
-                                }
+					particle_x[ipart][2] -= num_grid;
+				}
 
 				icell = cell_find_position( particle_x[ipart] );
 
@@ -581,8 +581,8 @@ void init_run() {
 					particle_v[ipart][1] = 0.0;
 					particle_v[ipart][2] = 0.0;
 
-					particle_id[ipart] = num_grid*num_grid*i + num_grid*j + k;
-                                        particle_mass[ipart] = pw;
+					particle_id[ipart] = (particleid_t)num_grid*(num_grid*i + j) + k;
+					particle_mass[ipart] = pw;
 
 					cart_assert( qi == particle_q_init( particle_id[ipart] ) );
 
@@ -598,7 +598,7 @@ void init_run() {
 	cart_debug("created %u particles", ipart );
 
 	num_local_particles = ipart;
-	num_particles_total = num_grid*num_grid*num_grid;
+	num_particles_total = (particleid_t)num_grid*(particleid_t)num_grid*(particleid_t)num_grid;
 	num_particle_species = 1;
 	particle_species_mass[0] = pw;
 	particle_species_num[0] = num_particles_total;
@@ -607,23 +607,16 @@ void init_run() {
 
 	build_particle_list();
 
-
 /* 	assign_density( min_level, min_level ); */ //for refinement
 /* 	modify( min_level, 0 ); */
  	assign_density( min_level, min_level );  //for refinement
  	modify( min_level, 0 ); 
 
-
 	if ( local_proc_id == MASTER_NODE ) {
 		particles = fopen("dumps/particle_rms.dat", "w");
 		fclose(particles);
 	}
-
-	
-
 #endif
-
-        cart_debug("snl10 %e ",cell_accel(0,0));
 
 	check_map();
 	cart_debug("done with initialization");

@@ -33,12 +33,12 @@ void FUNCTION( char *particle_header_filename, char *particle_data, float *cell_
 	
 	read_cart_particle_header( particle_header_filename, &header, &endian, &nbody_flag );
 
-	num_particles_total = header.num[ header.Nspecies - 1 ];
+	num_particles_total = (particleid_t)header.num[ header.Nspecies - 1 ];
 	num_parts_per_page = header.Nrow*header.Nrow;
 	num_pages = (num_particles_total>0) ? (num_particles_total-1) / num_parts_per_page + 1 : 0;
 
 	cart_debug("num_parts_per_page = %d", num_parts_per_page );
-	cart_debug("num_particles_total = %d", num_particles_total );
+	cart_debug("num_particles_total = %ld", num_particles_total );
 	cart_debug("num_pages = %d", num_pages );
 
 	if ( nbody_flag ) {
@@ -68,7 +68,7 @@ void FUNCTION( char *particle_header_filename, char *particle_data, float *cell_
 	for ( page = 0; page < num_pages; page++ ) {
 		if ( page == num_pages - 1 ) {
 			num_parts_in_page = num_particles_total - 
-				num_parts_per_page*(num_pages-1);
+				(particleid_t)num_parts_per_page*(num_pages-1);
 		} else {
 			num_parts_in_page = num_parts_per_page;
 		}

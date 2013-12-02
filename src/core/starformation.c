@@ -18,7 +18,7 @@
 #include "imf.h"
 
 int num_local_star_particles = 0;
-int last_star_id = -1;
+particleid_t last_star_id = -1;
 int num_new_stars = 0;
 
 double total_stellar_mass = 0.0;
@@ -182,7 +182,7 @@ void star_formation_rate(int level, int num_level_cells, int *level_cells, float
 int create_star_particle( int icell, float mass, double pdt, int type ) {
 	int i;
 	int ipart;
-	int id;
+	particleid_t id;
 	int level;
 	double pos[nDim];
 	float new_density;

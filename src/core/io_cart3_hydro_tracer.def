@@ -28,10 +28,11 @@ void FUNCTION_WRITE( char *filename ) {
 	char label[32];
 	int num_tracers_in_page;
 	int num_tracers_per_page, num_tracers_per_proc_page, num_pages;
-	int num_tracers_written, current_id, local_count;
+	int num_tracers_written, local_count;
+	tracerid_t current_id;
 	HYDRO_TRACER_POSITION_FLOAT *output_page;
 	float *output_vars_page;
-	int *page_ids[MAX_PROCS];
+	tracerid_t *page_ids[MAX_PROCS];
 	float *vars_page[MAX_PROCS];
 	double *page[MAX_PROCS];
 	int num_pages_sent;
@@ -117,9 +118,9 @@ void FUNCTION_WRITE( char *filename ) {
 		fwrite( &size, sizeof(int), 1, output );
 
 		/* number of tracers & page_size */
-		size = 2 * sizeof(int);
+		size = sizeof(tracerid_t) + sizeof(int);
 		fwrite( &size, sizeof(int), 1, output );
-		fwrite( &num_tracers_total, sizeof(int), 1, output );
+		fwrite( &num_tracers_total, sizeof(tracerid_t), 1, output );
 		fwrite( &cart_tracer_num_row, sizeof(int), 1, output );
 		fwrite( &size, sizeof(int), 1, output );
 
@@ -143,7 +144,7 @@ void FUNCTION_WRITE( char *filename ) {
 
 		/* allocate space to receive pages of tracers from other procs */
 		for ( i = 1; i < num_procs; i++ ) {
-			page_ids[i] = cart_alloc(int, num_tracers_per_proc_page );
+			page_ids[i] = cart_alloc(tracerid_t, num_tracers_per_proc_page );
 			page[i] = cart_alloc(double, nDim * num_tracers_per_proc_page );
 			vars_page[i] = cart_alloc(float, num_hydro_vars_traced * num_tracers_per_proc_page );
 		}
@@ -155,8 +156,8 @@ void FUNCTION_WRITE( char *filename ) {
 		for ( i = 1; i < num_procs; i++ ) {
 			num_pages_received[i] = 0;
 			MPI_Recv( page_ids[i], num_tracers_per_proc_page,
-				MPI_INT, i, num_pages_received[i], mpi.comm.run, &status );
-			MPI_Get_count( &status, MPI_INT, &count[i] );
+				MPI_TRACERID_T, i, num_pages_received[i], mpi.comm.run, &status );
+			MPI_Get_count( &status, MPI_TRACERID_T, &count[i] );
 			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
 			MPI_Recv( page[i], nDim * num_tracers_per_proc_page, MPI_DOUBLE, i,
 				num_pages_received[i], mpi.comm.run, MPI_STATUS_IGNORE );
@@ -209,9 +210,9 @@ void FUNCTION_WRITE( char *filename ) {
 
 						/* if run out, refill page */
 						if ( pos[j] == count[j] && count[j] == num_tracers_per_proc_page ) {
-							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_INT,
+							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_TRACERID_T,
 								j, num_pages_received[j], mpi.comm.run, &status );
-							MPI_Get_count( &status, MPI_INT, &count[j] );
+							MPI_Get_count( &status, MPI_TRACERID_T, &count[j] );
 							cart_assert( count[j] >= 0 && count[j] <= num_tracers_per_proc_page );
 							MPI_Recv( page[j], nDim * num_tracers_per_proc_page,
 								MPI_DOUBLE, j, num_pages_received[j],
@@ -236,9 +237,9 @@ void FUNCTION_WRITE( char *filename ) {
 
 		/* receive initial pages */
 		for ( i = 1; i < num_procs; i++ ) {
-			MPI_Recv( page_ids[i], num_tracers_per_proc_page, MPI_INT,
+			MPI_Recv( page_ids[i], num_tracers_per_proc_page, MPI_TRACERID_T,
 				i, num_pages_received[i], mpi.comm.run, &status );
-			MPI_Get_count( &status, MPI_INT, &count[i] );
+			MPI_Get_count( &status, MPI_TRACERID_T, &count[i] );
 			cart_assert( count[i] >= 0 && count[i] <= num_tracers_per_proc_page );
 			MPI_Recv( vars_page[i], num_hydro_vars_traced * num_tracers_per_proc_page,
 				MPI_FLOAT, i, num_pages_received[i], mpi.comm.run, MPI_STATUS_IGNORE );
@@ -296,9 +297,9 @@ void FUNCTION_WRITE( char *filename ) {
 
 						/* if we've run out, refill page */
 						if ( pos[j] == count[j] && count[j] == num_tracers_per_proc_page ) {
-							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_INT,
+							MPI_Recv( page_ids[j], num_tracers_per_proc_page, MPI_TRACERID_T,
 								j, num_pages_received[j], mpi.comm.run, &status );
-							MPI_Get_count( &status, MPI_INT, &count[j] );
+							MPI_Get_count( &status, MPI_TRACERID_T, &count[j] );
 							cart_assert( count[j] >= 0 && count[j] <= num_tracers_per_proc_page );
 							MPI_Recv( vars_page[j], num_hydro_vars_traced * num_tracers_per_proc_page,
 								MPI_FLOAT, j, num_pages_received[j],
@@ -326,7 +327,7 @@ void FUNCTION_WRITE( char *filename ) {
 		fclose( output );
 	} else {
 		num_pages_sent = 0;
-		page_ids[local_proc_id] = cart_alloc(int, num_tracers_per_proc_page );
+		page_ids[local_proc_id] = cart_alloc(tracerid_t, num_tracers_per_proc_page );
 		page[local_proc_id] = cart_alloc(double, nDim * num_tracers_per_proc_page );
 		vars_page[local_proc_id] = cart_alloc(float, num_hydro_vars_traced * num_tracers_per_proc_page );
 
@@ -349,7 +350,7 @@ void FUNCTION_WRITE( char *filename ) {
 			cart_assert( i <= num_tracers_per_proc_page );
 
 			/* send the page */
-			MPI_Send( page_ids[local_proc_id], i, MPI_INT,
+			MPI_Send( page_ids[local_proc_id], i, MPI_TRACERID_T,
 				MASTER_NODE, num_pages_sent, mpi.comm.run );
 			MPI_Send( page[local_proc_id], local_count, MPI_DOUBLE,
 				MASTER_NODE, num_pages_sent, mpi.comm.run );
@@ -379,7 +380,7 @@ void FUNCTION_WRITE( char *filename ) {
 
 			cart_assert( i <= num_tracers_per_proc_page );
 
-			MPI_Send( page_ids[local_proc_id], i, MPI_INT,
+			MPI_Send( page_ids[local_proc_id], i, MPI_TRACERID_T,
 				MASTER_NODE, num_pages_sent, mpi.comm.run );
 			MPI_Send( vars_page[local_proc_id], local_count,
 				MPI_FLOAT, MASTER_NODE, num_pages_sent, mpi.comm.run );
@@ -401,9 +402,10 @@ void FUNCTION_READ( char *filename ) {
 	char tracerjobname[256];
 	double tmpt, tmpdt;
 	int tmp_num_grid, tmp_num_hydro_vars_traced;
+	int tmp_tracers_total;
 	int num_read;
 	int proc;
-	int current_id;
+	tracerid_t current_id;
 	int tracer;
 	int index;
 	int coords[nDim];
@@ -414,7 +416,7 @@ void FUNCTION_READ( char *filename ) {
 	int num_tracers_per_page, num_tracers_per_proc_page, num_pages;
 	HYDRO_TRACER_POSITION_FLOAT *input_page;		// modified to float positions
 	HYDRO_TRACER_POSITION_FLOAT *x, *y, *z;		// modified to float positions
-	int *page_ids[MAX_PROCS];
+	tracerid_t *page_ids[MAX_PROCS];
 	double *page[MAX_PROCS];
 	int count[MAX_PROCS];
 	int current_page[MAX_PROCS];
@@ -483,12 +485,28 @@ void FUNCTION_READ( char *filename ) {
 
 		/* number of tracers & page_size */
 		fread( &size, sizeof(int), 1, input );
-		fread( &num_tracers_total, sizeof(int), 1, input );
+		if ( endian ) {
+			reorder( (char *)&size, sizeof(int) );
+		}
+		if ( size == sizeof(int)+sizeof(tracerid_t) ) {
+			fread( &num_tracers_total, sizeof(tracerid_t), 1, input );
+			if ( endian ) {
+				reorder( (char *)&num_tracers_total, sizeof(tracerid_t) );
+			}
+		} else if ( size == 2*sizeof(int) ) {
+			fread( &tmp_tracers_total, sizeof(int), 1, input );
+			if ( endian ) {
+				reorder( (char *)&tmp_tracers_total, sizeof(int) );	
+			}
+			num_tracers_total = tmp_tracers_total;
+		} else {
+			/* implies tracerid_t == int32_t and output is 64-bit, throw error */
+			cart_error("Tracer file %s has 64-bit ids and cart compiled with 32-bit ids", filename);
+		}
 		fread( &cart_tracer_num_row, sizeof(int), 1, input );
 		fread( &size, sizeof(int), 1, input );
 
 		if ( endian ) {
-			reorder( (char *)&num_tracers_total, sizeof(int) );
 			reorder( (char *)&cart_tracer_num_row, sizeof(int) );
 		}
 
@@ -527,7 +545,7 @@ void FUNCTION_READ( char *filename ) {
 
 		/* allocate buffer space for tracers on other processors */
 		for ( i = 1; i < num_procs; i++ ) {
-			page_ids[i] = cart_alloc(int, num_tracers_per_proc_page );
+			page_ids[i] = cart_alloc(tracerid_t, num_tracers_per_proc_page );
 			page[i] = cart_alloc(double, nDim * num_tracers_per_proc_page );
 			count[i] = 0;
 			current_page[i] = 0;
@@ -604,7 +622,7 @@ void FUNCTION_READ( char *filename ) {
 					count[proc]++;
 
 					if ( count[proc] == num_tracers_per_proc_page ) {
-						MPI_Send( page_ids[proc], num_tracers_per_proc_page, MPI_INT, proc,
+						MPI_Send( page_ids[proc], num_tracers_per_proc_page, MPI_TRACERID_T, proc,
 							current_page[proc], mpi.comm.run );
 						MPI_Send( page[proc], nDim * num_tracers_per_proc_page,
 							MPI_DOUBLE, proc, current_page[proc], mpi.comm.run );
@@ -619,7 +637,7 @@ void FUNCTION_READ( char *filename ) {
 
 		/* send final pages */
 		for ( proc = 1; proc < num_procs; proc++ ) {
-			MPI_Send( page_ids[proc], count[proc], MPI_INT, proc, current_page[proc], mpi.comm.run );
+			MPI_Send( page_ids[proc], count[proc], MPI_TRACERID_T, proc, current_page[proc], mpi.comm.run );
 			MPI_Send( page[proc], nDim * count[proc], MPI_DOUBLE, proc, current_page[proc], mpi.comm.run );
 			cart_free( page_ids[proc] );
 			cart_free( page[proc] );
@@ -630,15 +648,15 @@ void FUNCTION_READ( char *filename ) {
 		fclose( input );
 	} else {
 
-		page_ids[local_proc_id] = cart_alloc(int, num_tracers_per_proc_page );
+		page_ids[local_proc_id] = cart_alloc(tracerid_t, num_tracers_per_proc_page );
 		page[local_proc_id] = cart_alloc(double, nDim * num_tracers_per_proc_page );
 		count[local_proc_id] = num_tracers_per_proc_page;
 		current_page[local_proc_id] = 0;
 
 		while ( count[local_proc_id] == num_tracers_per_proc_page ) {
-			MPI_Recv( page_ids[local_proc_id], num_tracers_per_proc_page, MPI_INT,
+			MPI_Recv( page_ids[local_proc_id], num_tracers_per_proc_page, MPI_TRACERID_T,
 				MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
-			MPI_Get_count( &status, MPI_INT, &count[local_proc_id] );
+			MPI_Get_count( &status, MPI_TRACERID_T, &count[local_proc_id] );
 			MPI_Recv( page[local_proc_id], nDim * num_tracers_per_proc_page,
 				MPI_DOUBLE, MASTER_NODE, current_page[local_proc_id], mpi.comm.run, &status );
 

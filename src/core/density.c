@@ -21,22 +21,26 @@
 #define DENSITY_CHUNK_SIZE	16384
 #endif /* DENSITY_CHUNK_SIZE */
 
-
+#ifdef PARTICLES
 int max_dark_matter_level = max_level;
-int max_first_species_id = -1;
+particleid_t max_first_species_id = -1;
 
 void assign_particle_density_smoothed( int level );
-
+#endif /* PARTICLES */
 
 void config_init_density()
 {
+#ifdef PARTICLES
   control_parameter_add2(control_parameter_int,&max_dark_matter_level,"max-dark-matter-level","max_dark_matter_level","maximum level for dark matter density assignment. The dark matter density is set to be uniform on lower levels.");
+#endif /* PARTICLES */
 }
 
 
 void config_verify_density()
 {
+#ifdef PARTICLES
   VERIFY(max-dark-matter-level, max_dark_matter_level>=min_level && max_dark_matter_level<=max_level );
+#endif /* PARTICLES */
 }
 
 

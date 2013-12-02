@@ -23,7 +23,7 @@
 
 #include "start_analysis.h"
 
-extern int max_first_species_id;
+extern particleid_t max_first_species_id;
 
 
 void config_append_units_to_file(const char *filename);

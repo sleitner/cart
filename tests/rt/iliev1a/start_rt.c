@@ -265,7 +265,8 @@ void run_output()
 
 void init_run()
 {
-   int i, j, species, id, level, cell;
+   int i, j, species, level, cell;
+   particleid_t id;
    int num_level_cells;
    int *level_cells;
    float astart, hubble;

@@ -244,7 +244,6 @@ void check_restart_star_creation(){
 	fstar_ae = auni_from_tcode((double)star_tbirth[i]);
 	if (  fstar_ae > last_ae ) {
 	  local_count_stars++ ;
-	  //cart_debug("snl %.10lf %d",auni_from_tcode((double)star_tbirth[i]),particle_id[i]);
 	}
 	if ( fstar_ae > last_ae + 1e-6 ) {
 	  low_local_count_stars++ ;
@@ -797,10 +796,10 @@ void log_diagnostics() {
 		}
 
 #ifdef COSMOLOGY
-		fprintf( star_log, "%u %e %e %e %e %e %u %e %e %e %e %e\n", step, tl[min_level],
+		fprintf( star_log, "%u %e %e %e %e %e %lu %e %e %e %e %e\n", step, tl[min_level],
 			dtl[min_level], auni[min_level], current_age, dtyears, 
 #else
-		fprintf( star_log, "%u %e %e %e %e %u %e %e %e %e %e\n", step, tl[min_level],
+		fprintf( star_log, "%u %e %e %e %e %lu %e %e %e %e %e\n", step, tl[min_level],
 			dtl[min_level], current_age, dtyears, 
 #endif /* COSMOLOGY */
 			particle_species_num[num_particle_species-1],
