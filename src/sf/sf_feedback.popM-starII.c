@@ -74,6 +74,8 @@ void check_fsdefs_compatible()
         cart_error("SF_FORMSTAR needs to be <continous> or <hart-starII> for SF_FEEDBACK -starII variants");
     }
 }
+#undef STR_VALUE
+#undef to_string
 void sfb_config_verify()
 {
   check_fsdefs_compatible();

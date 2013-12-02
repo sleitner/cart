@@ -35,7 +35,6 @@ void config_init_formstar()
 
 #define STR_VALUE(arg)      #arg
 #define to_string(name)     STR_VALUE(name)
-
 void config_verify_formstar()
 {
   char formstar_internal_name[99];
@@ -58,6 +57,8 @@ void config_verify_formstar()
 
   if(sf_formstar_internal.config_verify != NULL) sf_formstar_internal.config_verify();
 }
+#undef STR_VALUE
+#undef to_string
 
 void init_formstar()
 {

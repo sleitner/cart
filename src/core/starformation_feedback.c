@@ -68,7 +68,6 @@ void config_init_star_formation_feedback()
 
 #define STR_VALUE(arg)      #arg
 #define to_string(name)     STR_VALUE(name)
-
 void config_verify_star_formation_feedback()
 {
   char feedback_internal_name[99];
@@ -115,6 +114,8 @@ void config_verify_star_formation_feedback()
   VERIFY(blastwave-time, !(blastwave_time < 0.0) );
 #endif /* BLASTWAVE_FEEDBACK */
 }
+#undef STR_VALUE
+#undef to_string
 
 
 void init_star_formation_feedback()

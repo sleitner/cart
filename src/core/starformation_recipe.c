@@ -38,7 +38,6 @@ void config_init_star_formation_recipe()
 
 #define STR_VALUE(arg)      #arg
 #define to_string(name)     STR_VALUE(name)
-
 void config_verify_star_formation_recipe()
 {
   char recipe_internal_name[99];
@@ -61,5 +60,7 @@ void config_verify_star_formation_recipe()
 
   if(sf_recipe_internal.config_verify != NULL) sf_recipe_internal.config_verify();
 }
+#undef STR_VALUE
+#undef to_string
 
 #endif /* HYDRO && STAR_FORMATION */

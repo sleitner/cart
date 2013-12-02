@@ -53,6 +53,8 @@ void check_fbdefs_compatible()
         cart_error("SF_FORMSTAR includes STARII formation then SF_FEEDBACK must be a -starII variant : %s", feedback_external_name);
     }
 }
+#undef STR_VALUE
+#undef to_string
 void starII_config_verify()
 {
 #ifndef STAR_PARTICLE_TYPES
