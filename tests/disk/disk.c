@@ -45,7 +45,7 @@ void merge_buffer_cell_gas_density_momentum( int level ) ;
 int create_star_particle( int icell, float mass, double dt, int type );
 int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], double vel[nDim], double pdt, double age, int type );
 
-extern int last_star_id;
+extern particleid_t last_star_id;
 double pos_central[nDim]={num_grid/2.,num_grid/2.,num_grid/2.};
 char fname_allparticles[256];
 char fname_vcirc[256];
@@ -297,7 +297,7 @@ void init_dm_particles(float mp, int nhalo){
 }
 
 
-void assign_darkmatter_model(FILE *fd){
+void assign_darkmatter_model(FILE *fd, int nhalo){
     int icell, level, ipart;
 	particleid_t i;
     float xp,yp,zp, vxp,vyp,vzp, mp, mp1, u_gas;
