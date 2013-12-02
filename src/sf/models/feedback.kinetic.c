@@ -613,6 +613,7 @@ void distribute_momentum(double dp, int level, int icell, double dt){
 	double dPressure;
 	/* dp is in momentum code units -- NOT per volume (mass*velocity * dt/time )*/
 	dp *= kfb_boost_kicks;
+	PLUGIN_POINT(RecordDistributedMomentum)(dp, icell, level);
 
 	switch ( kfb_internal_method ) {
 		case KFB_METHOD_KICKS:
