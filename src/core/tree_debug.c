@@ -238,7 +238,7 @@ void check_map() {
 	}
 	cart_assert( count == num_local_particles );
 
-	MPI_Allreduce( &num_local_particles, &total_particles, 1, MPI_INT, MPI_SUM, mpi.comm.run );	
+	MPI_Allreduce( &num_local_particles, &total_particles, 1, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
 
 	cart_assert( total_particles == num_particles_total );
 
