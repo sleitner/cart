@@ -31,7 +31,7 @@ void check_map() {
 #ifdef PARTICLES
 	int ipart, ipart_next;
 	particleid_t total_particles;
-	int species_count[MAX_PARTICLE_SPECIES];
+	particleid_t species_count[MAX_PARTICLE_SPECIES];
 	particleid_t species_count_total[MAX_PARTICLE_SPECIES];
 #endif /* PARTICLES */
 #ifdef GRAVITY
@@ -205,7 +205,7 @@ void check_map() {
 	}
 	cart_assert( count == num_local_particles );
 
-	MPI_Allreduce( species_count, species_count_total, num_particle_species, MPI_INT, MPI_SUM, mpi.comm.run );
+	MPI_Allreduce( species_count, species_count_total, num_particle_species, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
 
 	for ( i = 0; i < num_particle_species; i++ ) {
 		cart_assert( species_count_total[i] == particle_species_num[i] );
