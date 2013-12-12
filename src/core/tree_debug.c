@@ -20,7 +20,7 @@ void check_map() {
 	int neighbors[num_neighbors];
 	int total_root_cells;
 	int level;
-	int count;
+	particleid_t count;
 	int icell, ioct;
 	int num_level_cells;
 	int *level_cells;
@@ -256,7 +256,7 @@ void check_map() {
 	}
 	cart_assert( count == num_local_star_particles );
 
-	MPI_Allreduce( &count, &total_particles, 1, MPI_INT, MPI_SUM, mpi.comm.run );
+	MPI_Allreduce( &count, &total_particles, 1, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
 
 	cart_assert( total_particles == particle_species_num[num_particle_species-1] );
 
