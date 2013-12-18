@@ -23,6 +23,7 @@
 #include "starformation_feedback.h"
 #include "sfc.h"
 #include "times.h"
+#include "timing.h"
 #include "tree.h"
 #include "units.h"
 

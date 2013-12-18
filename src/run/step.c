@@ -753,7 +753,7 @@ int timestep( int level, MPI_Comm level_com )
 		star_particle_feedback(level, star_feedback_frequency[level]);
 
 #if defined(STAR_PARTICLE_TYPES) && defined(AGN)
-		agn_feedback( level, star_feedbacK_frequency[level] );
+		agn_feedback( level, star_feedback_frequency[level] );
 #endif /* STAR_PARTICLE_TYPES && AGN */
 
 		cell_feedback(level, star_feedback_frequency[level]);
