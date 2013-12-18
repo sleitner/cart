@@ -477,7 +477,9 @@ int global_timestep() {
 #endif /* AGN */
 
 		/* now remap ids of stars created in this timestep */
+		start_time( COMMUNICATION_TIMER );
 		end_star_allocation();
+		end_time( COMMUNICATION_TIMER );
 #endif /* STAR_FORMATION */
 
 		if ( halos != NULL ) {

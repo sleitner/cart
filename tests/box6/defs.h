@@ -24,3 +24,5 @@
 #define num_star_particles              5000000
 
  
+ 
+#define SF_FORMSTAR <hart>

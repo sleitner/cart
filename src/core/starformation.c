@@ -6,6 +6,7 @@
 #include "control_parameter.h"
 #include "cosmology.h"
 #include "hydro.h"
+#include "parallel.h"
 #include "particle.h"
 #include "starformation.h"
 #include "starformation_recipe.h"
@@ -320,8 +321,6 @@ void end_star_allocation() {
 	particleid_t *block_ids;
 	int proc_new_stars[MAX_PROCS];
 
-	start_time( COMMUNICATION_TIMER );
-
 	/* collect number of stars created */
 	MPI_Allgather( &num_new_stars, 1, MPI_INT, proc_new_stars, 1, MPI_INT, mpi.comm.run );
 
@@ -380,8 +379,6 @@ void end_star_allocation() {
 	num_particles_total += total_new_stars;
 	num_new_stars = 0;
 	last_star_id = particle_species_indices[num_particle_species]-1;
-
-	end_time( COMMUNICATION_TIMER );
 }
 
 #endif /* PARTICLES && STAR_FORMATION */
