@@ -10,7 +10,7 @@
 
 #include "halos.h"
 
-void agn_feedback(int level);
+void agn_feedback(int level, int time_multiplier);
 void agn_find_mergers();
 void agn_seed( halo_list *list );
 

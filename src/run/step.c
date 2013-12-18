@@ -749,13 +749,18 @@ int timestep( int level, MPI_Comm level_com )
 #endif /* GRAVITY */
 
 #ifdef STAR_FORMATION
-        if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
-                star_particle_feedback(level, star_feedback_frequency[level]);
-                cell_feedback(level, star_feedback_frequency[level]);
+	if ( num_steps_on_level[level] % star_feedback_frequency[level] == 0 ) {
+		star_particle_feedback(level, star_feedback_frequency[level]);
+
+#if defined(STAR_PARTICLE_TYPES) && defined(AGN)
+		agn_feedback( level, star_feedbacK_frequency[level] );
+#endif /* STAR_PARTICLE_TYPES && AGN */
+
+		cell_feedback(level, star_feedback_frequency[level]);
 
 #ifdef STAR_PARTICLE_TYPES 
-                /* feedback should care about star destruction if it happens before t_next */
-                star_destruction( level ); 
+		/* feedback should care about star destruction if it happens before t_next */
+		star_destruction( level ); 
 #endif /* STAR_PARTICLE_TYPES */
 
 		/* update cell values changed by starformation and feedback */

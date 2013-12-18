@@ -11,7 +11,6 @@
 #include "tree.h"
 #include "units.h"
 
-#include "agn_step.h"
 #include "starformation_feedback_step.h"
 #include "step.h"
 
@@ -71,10 +70,6 @@ void star_particle_feedback(int level, int time_multiplier) {
 	}
 
 	cart_free(level_cells);
-
-#if defined(STAR_PARTICLE_TYPES) && defined(AGN)
-	agn_feedback( level );
-#endif /* STAR_PARTICLE_TYPES && AGN */
 
 	end_time( WORK_TIMER );
 }

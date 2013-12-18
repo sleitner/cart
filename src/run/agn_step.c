@@ -77,15 +77,19 @@ extern double sink_sample_weights[SINK_SAMPLES_3D];
 extern double sink_sample_offset[SINK_SAMPLES_3D][nDim];
 extern int num_sink_samples;
 
-void agn_feedback( int level ) {
+void agn_feedback( int level, int time_multiplier ) {
 	/* primary entry point for agn module */
 	int i;
 	int ipart;
 	int num_level_cells, *level_cells;
 	int num_level_agn;
 	agn_sink_data *agn_list;
-		
-	double t_next = tl[level] + dtl[level]; 
+	double t_next;
+
+	/* some communication is hidden in this blanket timing call */
+	start_time( WORK_TIMER );
+	
+	t_next = tl[level] + (double)time_multiplier*dtl[level]; 
 
 	/* compute redshift-dependent factors */
 	crit_bondi_gas_density = bondi_pivot_gas_density/constants->XH/units->number_density;
@@ -152,6 +156,8 @@ void agn_feedback( int level ) {
 
 	/* free agn_sink_data */
 	cart_free( agn_list );
+
+	end_time( WORK_TIMER );
 }
 
 void agn_collect_sink_values( int num_level_agn, agn_sink_data *agn_list, int level ) {
@@ -502,7 +508,7 @@ void agn_update_sink_values( int num_level_agn, agn_sink_data *agn_list, int lev
 					cell_momentum(icell,k) = density_fraction*cell_momentum(icell,k) + agn_list[i].sink_momentum[j][k];
 				}
 
-				for ( k = 0; k < num_chem_species; k++ ) {                                                                                                                                  
+				for ( k = 0; k < num_chem_species; k++ ) {
 					cell_advected_variable(icell,k) *= density_fraction;
 				}
 
