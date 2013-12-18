@@ -39,7 +39,6 @@ void cell_feedback(int level, int time_multiplier) {
 		for ( i = 0; i < num_level_cells; i++ ) {
 			sf_feedback_cell->hydro_feedback_cell(level, level_cells[i], t_next, dt_next);  
 		}
-		cart_free(level_cells);
 	}
 
 	if( sf_feedback_cell->gather_feedback_cell != NULL ){
