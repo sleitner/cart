@@ -839,46 +839,46 @@ void compute_hydro_fluxes( int cell_list[4], double f[num_hydro_vars-1] ) {
 
 	cart_assert( cell_is_leaf(L1) && cell_is_leaf(R1) );
 
-        for ( i = 0; i < 4; i++ ) {
-            irl = cell_list[i];
-            
-            v[0][i] = cell_gas_density(irl);
-	    v[1][i] = MAX(cell_gas_pressure(irl),1e-30); /* Pressure floor is applied *after* gamma_eff calculation */
-	    for ( j = 0; j < num_extra_energy_variables; j++ ) {
-		v[1][i] += cell_extra_energy_pressure(irl,j);
-	    }
-            v[2][i] = cell_momentum(irl,j3)/cell_gas_density(irl);
-            v[3][i] = cell_momentum(irl,j4)/cell_gas_density(irl);
-            v[4][i] = cell_momentum(irl,j5)/cell_gas_density(irl);
-	    /* gamma_eff = (g1*P1+g2*P2+...)/(P1+P2+...) */
-            v[5][i] = cell_gas_gamma(irl)*MAX(cell_gas_pressure(irl),1e-30);
-	    for(j=0; j<num_extra_energy_variables ;j++){
-		v[5][i] += extra_energy_gamma(j)*cell_extra_energy_pressure(irl,j);
-	    }
-	    v[5][i] /= v[1][i];
-	    
+	for ( i = 0; i < 4; i++ ) {
+		irl = cell_list[i];
+
+		v[0][i] = cell_gas_density(irl);
+		v[1][i] = MAX(cell_gas_pressure(irl),1e-30); /* Pressure floor is applied *after* gamma_eff calculation */
+		for ( j = 0; j < num_extra_energy_variables; j++ ) {
+			v[1][i] += cell_extra_energy_pressure(irl,j);
+		}
+		v[2][i] = cell_momentum(irl,j3)/cell_gas_density(irl);
+		v[3][i] = cell_momentum(irl,j4)/cell_gas_density(irl);
+		v[4][i] = cell_momentum(irl,j5)/cell_gas_density(irl);
+		/* gamma_eff = (g1*P1+g2*P2+...)/(P1+P2+...) */
+		v[5][i] = cell_gas_gamma(irl)*MAX(cell_gas_pressure(irl),1e-30);
+		for(j=0; j<num_extra_energy_variables ;j++){
+			v[5][i] += extra_energy_gamma(j)*cell_extra_energy_pressure(irl,j);
+		}
+		v[5][i] /= v[1][i];
+
 #ifdef EXTRA_PRESSURE_SOURCE
-            v[1][i] += cell_extra_pressure_source(irl);
+		v[1][i] += cell_extra_pressure_source(irl);
 #endif /* EXTRA_PRESSURE_SOURCE */
-	    v[1][i] = MAX( pressure_floor * v[0][i]*v[0][i], v[1][i]);
-            v[6][i] = constants->gamma;
+		v[1][i] = MAX( pressure_floor * v[0][i]*v[0][i], v[1][i]);
+		v[6][i] = constants->gamma;
 #ifdef ELECTRON_ION_NONEQUILIBRIUM
-	    v[7][i] = cell_electron_internal_energy(irl);
+		v[7][i] = cell_electron_internal_energy(irl);
 #endif /* ELECTRON_ION_NONEQUILIBRIUM */
-	    for(j=0; j<num_extra_energy_variables ;j++){
-		v[j+7+num_electronion_noneq_vars][i] = cell_extra_energy_variables(irl,j); 
-	    }
-            for ( j = 0; j < num_chem_species; j++ ) {
-		v[num_hydro_vars-num_chem_species-1+j][i] = cell_advected_variable(irl,j)/cell_gas_density(irl);
-            }
+		for(j=0; j<num_extra_energy_variables ;j++){
+			v[j+7+num_electronion_noneq_vars][i] = cell_extra_energy_variables(irl,j); 
+		}
+		for ( j = 0; j < num_chem_species; j++ ) {
+			v[num_hydro_vars-num_chem_species-1+j][i] = cell_advected_variable(irl,j)/cell_gas_density(irl);
+		}
 
 #ifdef GRAVITY_IN_RIEMANN
-            /* Roughly truelove 98 (eq 34,36) */
-            /* but they want s(n-1/2) for predictor then s(n+1/2) for update. */
-	    if(irl==1){g[0] = 0.5*cell_accel( irl, j3 ); }
-	    if(irl==2){g[1] = 0.5*cell_accel( irl, j3 ); }
+		/* Roughly truelove 98 (eq 34,36) */
+		/* but they want s(n-1/2) for predictor then s(n+1/2) for update. */
+		if(irl==1){g[0] = 0.5*cell_accel( irl, j3 ); }
+		if(irl==2){g[1] = 0.5*cell_accel( irl, j3 ); }
 #endif
-        }
+	}
         
 	if ( cell_level(R1) > cell_level(L1) ) {
 		c[0] = 1.0/1.5;
