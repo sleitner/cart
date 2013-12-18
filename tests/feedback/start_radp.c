@@ -98,6 +98,7 @@ double advection_momentum(int icell,int idir)
         return 0;
     }
 }
+
 void star_cell_conditions( int icell ) {
     cell_gas_density(icell) = convert_n_to_density(n_h2);
     cell_momentum(icell,0) = advection_momentum(icell,0);
@@ -229,7 +230,6 @@ void ic_star_spread(int icell, float dm_star){
             create_star_particle(icell, dm_star, (double)dtl[level], STAR_TYPE_NORMAL);
         }
     }
-    remap_star_ids();
     /* set cells neighboring star to have the star-cell properties*/
     cell_all_neighbors( icell, neighbors );
     star_cell_conditions( icell );
@@ -394,7 +394,6 @@ void init_run() {
     /* position stars */
     num_particle_species=1;
     num_particles_total=0;
-    last_star_id=-1;
     float dm_star; double dx;
     int ic[NSTARS];
     ic[0] = icell_central(0,0,0);
@@ -441,10 +440,12 @@ void init_run() {
     }
     
     /* resolution scaling /NSTARS: */
+	start_star_allocation();
     dm_star = mstar_one_msun*constants->Msun/units->mass/(NSTARS_1D*NSTARS_1D*1.0); 
     for(i=0; i<NSTARS; i++){
         ic_star_spread(ic[i],dm_star);
     }
+	end_star_allocation();
     
     /* make it impossible to produce more stars */
     for ( i = 0; i < nDim; i++ ) {

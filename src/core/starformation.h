@@ -27,8 +27,6 @@ extern float star_formation_volume_max[nDim];
 DECLARE_LEVEL_ARRAY(int,star_formation_frequency);
 
 extern int num_local_star_particles;
-extern particleid_t last_star_id;
-extern int num_new_stars;
 
 extern double total_stellar_mass;
 extern double total_stellar_initial_mass;
@@ -50,6 +48,10 @@ void init_star_formation();
 void star_formation_rate( int level, int num_level_cells, int *level_cells, float *sfr);
 void grow_star_particle( int ipart, float dmass, int icell, int level);
 int create_star_particle( int icell, float mass, double pdt, int type );
+
+void start_star_allocation();
+void end_star_allocation();
+particleid_t star_particle_alloc();
 
 /* global parameters */
 

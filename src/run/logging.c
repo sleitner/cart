@@ -61,8 +61,6 @@ void output_star_creation( int icell, double mass, FILE *f ){
   tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature); 
   rho_min = 0.5/(constants->XH*units->number_density);
 
-  //true, but useless id = last_star_id + local_proc_id + 1;
-
   level = cell_level(icell);
   level_UP = ( log( cell_size[min_level] / (1.0*constants->kpc/units->length) ) / log(2.0) ); //want UP to be ~1pKpc
     //level_UP = level-1;

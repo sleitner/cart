@@ -68,7 +68,7 @@ extern int particle_list_prev[/* num_particles */];
 
 extern int cell_particle_list[num_cells];
 
-extern particleid_t num_local_particles;
+extern int num_local_particles;
 extern particleid_t num_particles_total;
 extern int next_free_particle;
 extern int free_particle_list;

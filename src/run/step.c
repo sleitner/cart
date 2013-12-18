@@ -424,8 +424,7 @@ int global_timestep() {
 #endif /* RADIATIVE_TRANSFER */
 
 #ifdef STAR_FORMATION
-	num_new_stars = 0;
-	last_star_id = particle_species_indices[num_particle_species]-1;
+	start_star_allocation();	
 #endif /* STAR_FORMATION */
 
 	PLUGIN_POINT(GlobalStepBegin)();
@@ -478,7 +477,7 @@ int global_timestep() {
 #endif /* AGN */
 
 		/* now remap ids of stars created in this timestep */
-		remap_star_ids();
+		end_star_allocation();
 #endif /* STAR_FORMATION */
 
 		if ( halos != NULL ) {

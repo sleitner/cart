@@ -39,7 +39,6 @@ extern double tot_momentum0;
 //extern const int NSTARS;
 extern float adv_velocity[3];
 extern double tot_energy0;
-extern int last_star_id;
 
 int icell_central(double dispx,double dispy,double dispz);
     

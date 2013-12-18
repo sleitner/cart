@@ -20,7 +20,6 @@ void check_map() {
 	int neighbors[num_neighbors];
 	int total_root_cells;
 	int level;
-	particleid_t count;
 	int icell, ioct;
 	int num_level_cells;
 	int *level_cells;
@@ -30,7 +29,8 @@ void check_map() {
 
 #ifdef PARTICLES
 	int ipart, ipart_next;
-	particleid_t total_particles;
+	int total_local_particles;
+	particleid_t total_particles, tmp;
 	particleid_t species_count[MAX_PARTICLE_SPECIES];
 	particleid_t species_count_total[MAX_PARTICLE_SPECIES];
 #endif /* PARTICLES */
@@ -183,7 +183,7 @@ void check_map() {
 
 #ifdef PARTICLES
 	/* check particles */
-	count = 0;
+	total_local_particles = 0;
 	for ( i = 0; i < num_particle_species; i++ ) {
 		species_count[i] = 0;
 	}
@@ -194,16 +194,16 @@ void check_map() {
 			  {
 			    cart_error("Incorrect particle[%d] id=%ld, num_particles_total=%ld",i,particle_id[i],num_particles_total);
 			  }
-			count++;
+			total_local_particles++;
 			species_count[ particle_species( particle_id[i] ) ]++;
 		}
 	}
 
-	if ( count != num_local_particles ) {
-		cart_debug("count = %u", count );
+	if ( total_local_particles != num_local_particles ) {
+		cart_debug("total_local_particles = %u", total_local_particles );
 		cart_debug("num_local_particles = %u", num_local_particles );
 	}
-	cart_assert( count == num_local_particles );
+	cart_assert( total_local_particles == num_local_particles );
 
 	MPI_Allreduce( species_count, species_count_total, num_particle_species, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
 
@@ -211,7 +211,7 @@ void check_map() {
 		cart_assert( species_count_total[i] == particle_species_num[i] );
 	}
 
-	count = 0;
+	total_local_particles = 0;
 	for ( level = min_level; level <= max_level; level++ ) {
 		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 		for ( i = 0; i < num_level_cells; i++ ) {
@@ -223,7 +223,7 @@ void check_map() {
 				cart_assert( particle_level[ipart] != FREE_PARTICLE_LEVEL );
 				cart_assert( particle_id[ipart] < num_particles_total );
 
-				count++;
+				total_local_particles++;
 				ipart_next = particle_list_next[ipart];
 				cart_assert( ipart_next == NULL_PARTICLE || particle_list_prev[ipart_next] == ipart );
 				ipart = ipart_next;
@@ -232,31 +232,33 @@ void check_map() {
 		cart_free( level_cells );
 	}
 
-	if ( count != num_local_particles ) {
+	if ( total_local_particles != num_local_particles ) {
 		cart_debug("num_local_particles = %u", num_local_particles );
-		cart_debug("count = %u", count );
+		cart_debug("total_local_particles = %u", total_local_particles );
 	}
-	cart_assert( count == num_local_particles );
+	cart_assert( total_local_particles == num_local_particles );
 
-	MPI_Allreduce( &num_local_particles, &total_particles, 1, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
+	tmp = (particleid_t)total_local_particles;
+	MPI_Allreduce( &tmp, &total_particles, 1, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
 
 	cart_assert( total_particles == num_particles_total );
 
 #ifdef STAR_FORMATION
-	count = 0;
+	total_local_particles = 0;
 	for ( i = 0; i < num_star_particles; i++ ) {
 		if ( particle_is_star(i) ) {
-			count++;
+			total_local_particles++;
 		}
 	}
 
-	if ( count != num_local_star_particles ) {
-		cart_debug("count = %u", count );
+	if ( total_local_particles != num_local_star_particles ) {
+		cart_debug("total_local_particles= %u", total_local_particles );
 		cart_debug("num_local_star_particles = %u", num_local_star_particles );
 	}
-	cart_assert( count == num_local_star_particles );
+	cart_assert( total_local_particles == num_local_star_particles );
 
-	MPI_Allreduce( &count, &total_particles, 1, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
+	tmp = (particleid_t)total_local_particles;
+	MPI_Allreduce( &total_local_particles, &total_particles, 1, MPI_PARTICLEID_T, MPI_SUM, mpi.comm.run );
 
 	cart_assert( total_particles == particle_species_num[num_particle_species-1] );
 

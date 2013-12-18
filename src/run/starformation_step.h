@@ -12,8 +12,6 @@
 void star_formation( int level, int time_multiplier );
 #endif /* HYDRO */
 
-void remap_star_ids();
-
 #endif /* STAR_FORMATION */
 
 #endif

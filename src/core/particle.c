@@ -58,7 +58,7 @@ double ap1 = 0.0;
 
 int cell_particle_list[num_cells];
 
-particleid_t num_local_particles = 0;
+int num_local_particles = 0;
 particleid_t num_particles_total = 0;
 
 int next_free_particle = 0;

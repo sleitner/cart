@@ -42,10 +42,8 @@
 
 #include "disk.h"
 void merge_buffer_cell_gas_density_momentum( int level ) ;
-int create_star_particle( int icell, float mass, double dt, int type );
 int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], double vel[nDim], double pdt, double age, int type );
 
-extern particleid_t last_star_id;
 double pos_central[nDim]={num_grid/2.,num_grid/2.,num_grid/2.};
 char fname_allparticles[256];
 char fname_vcirc[256];
@@ -377,9 +375,10 @@ void assign_star_model(FILE *fd, int nstars){
     int add_particles=0;
     int Alladded_particles=0;
 
+	start_star_allocation();
+
     cart_debug("starting assign star");
     /* place_star adds one before assigning id*/
-    last_star_id = particle_species_indices[num_particle_species-1]-1;
     for(i=0;i<nstars;i++)
 	{
 	    fscanf(fd,"%e",&xp);
@@ -416,8 +415,9 @@ void assign_star_model(FILE *fd, int nstars){
     if(nstars!=0 && !particle_is_star(ipart)){
         cart_error("ipart %d should be a star",ipart );
     }
+
+	end_star_allocation();
     cart_debug("finished assign star\n");
-    
 }
 
 void count_particle_types(int *ngas, int *nhalo, int *nstars){
@@ -536,7 +536,6 @@ void read_model_particles(int iter_number){
 	/*assign_second_darkmatter_component(nhalo);*/
 	cart_debug("assigning stars");
 	assign_star_model(fd, nstars);
-	remap_star_ids();
     }
     fclose(fd);
 }
@@ -972,10 +971,7 @@ int place_star_particle( int icell, float mass, double Zsol, double pos[nDim], d
 	cart_assert( mass > 0.0 );
 	cart_assert(age > 0 );
 
-	id = last_star_id + local_proc_id + 1;
-	last_star_id += num_procs;
-	num_new_stars++;
-
+	id = star_particle_alloc();
 	ipart = particle_alloc( id );
 	cart_assert( ipart < num_star_particles );
 

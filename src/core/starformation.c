@@ -136,47 +136,46 @@ void init_star_formation()
 
 #ifdef HYDRO
 
-void star_formation_rate(int level, int num_level_cells, int *level_cells, float *sfr)
-{
-  int i, j;
-  int cell;
-  double pos[nDim];
-  int do_star_formation;
-  double tem_max, rho_min;
+void star_formation_rate(int level, int num_level_cells, int *level_cells, float *sfr) {
+	int i, j;
+	int cell;
+	double pos[nDim];
+	int do_star_formation;
+	double tem_max, rho_min;
 
-  tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature);
-  rho_min = sf_min_gas_number_density/(constants->XH*units->number_density);
+	tem_max = sf_max_gas_temperature/(constants->wmu*units->temperature);
+	rho_min = sf_min_gas_number_density/(constants->XH*units->number_density);
 #ifdef COSMOLOGY
-  rho_min = MAX(rho_min,sf_min_overdensity*cosmology->OmegaB/cosmology->OmegaM);
+	rho_min = MAX(rho_min,sf_min_overdensity*cosmology->OmegaB/cosmology->OmegaM);
 #endif
 
-  if(sf_recipe->setup != NULL) sf_recipe->setup(level);
+	if(sf_recipe->setup != NULL) sf_recipe->setup(level);
 
-  for(i=0; i<num_level_cells; i++)
-    {
-      cell = level_cells[i];
-
-      sfr[i] = -1.0;
-      if(cell_is_leaf(cell))
+	for(i=0; i<num_level_cells; i++)
 	{
-	  /* check position */
-	  cell_center_position(cell,pos);
+		cell = level_cells[i];
 
-	  do_star_formation = 1;
-	  for(j=0; j<nDim; j++)
-	    {
-	      if(pos[j]<star_formation_volume_min[j] || pos[j]>star_formation_volume_max[j])
+		sfr[i] = -1.0;
+		if(cell_is_leaf(cell))
 		{
-		  do_star_formation = 0;
-		}
-	    }
+			/* check position */
+			cell_center_position(cell,pos);
 
-	  if(do_star_formation && cell_gas_density(cell)>rho_min && cell_gas_temperature(cell)<tem_max)
-	    {
-	      sfr[i] = sf_recipe->rate(cell);
-	    }
+			do_star_formation = 1;
+			for(j=0; j<nDim; j++)
+			{
+				if(pos[j]<star_formation_volume_min[j] || pos[j]>star_formation_volume_max[j])
+				{
+					do_star_formation = 0;
+				}
+			}
+
+			if(do_star_formation && cell_gas_density(cell)>rho_min && cell_gas_temperature(cell)<tem_max)
+			{
+				sfr[i] = sf_recipe->rate(cell);
+			}
+		}
 	}
-    }
 }
 
 int create_star_particle( int icell, float mass, double pdt, int type ) {
@@ -192,10 +191,7 @@ int create_star_particle( int icell, float mass, double pdt, int type ) {
 	cart_assert( icell >= 0 && icell < num_cells );
 	cart_assert( mass > 0.0 );
 
-	id = last_star_id + local_proc_id + 1;
-	last_star_id += num_procs;
-	num_new_stars++;
-
+	id = star_particle_alloc();
 	ipart = particle_alloc( id );
 	cart_assert( ipart < num_star_particles );
 
@@ -294,4 +290,98 @@ int create_star_particle( int icell, float mass, double pdt, int type ) {
 }
 
 #endif /* HYDRO */
+
+void start_star_allocation() {
+	cart_assert( num_particle_species >= 1 );
+	num_new_stars = 0;
+	last_star_id = particle_species_indices[num_particle_species]-1;
+}
+
+particleid_t star_particle_alloc() {
+	particleid_t id;
+
+	cart_assert( num_new_stars >= 0 );
+	cart_assert( last_star_id >= 0 );
+
+	id  = last_star_id + num_procs + 1;
+	last_star_id += num_procs;
+	num_new_stars++;
+	return id;
+}
+
+void end_star_allocation() {
+	int i;
+	int proc;
+	int ipart;
+	int block;
+	int max_stars;	
+	particleid_t new_id;
+	int total_new_stars;
+	particleid_t *block_ids;
+	int proc_new_stars[MAX_PROCS];
+
+	start_time( COMMUNICATION_TIMER );
+
+	/* collect number of stars created */
+	MPI_Allgather( &num_new_stars, 1, MPI_INT, proc_new_stars, 1, MPI_INT, mpi.comm.run );
+
+	/* find how many "blocks" to expect */
+	max_stars = 0;
+	total_new_stars = 0;
+	for ( proc = 0; proc < num_procs; proc++ ) {
+		if ( proc_new_stars[proc] > max_stars ) {
+			max_stars = proc_new_stars[proc];
+		}
+
+		total_new_stars += proc_new_stars[proc];
+	}
+
+	if ( total_new_stars > 0 ) {
+		/* create lists of indices for each block */
+		block_ids = cart_alloc(particleid_t, max_stars);
+
+		block_ids[0] = 0;
+		for ( block = 1; block < max_stars; block++ ) {
+			block_ids[block] = block_ids[block-1];
+			for ( proc = 0; proc < num_procs; proc++ ) {
+				if ( proc_new_stars[proc] >= block ) {
+					block_ids[block]++;
+				}
+			}
+		}
+	
+		/* find all newly allocated stars and remap their id's (keeping order) */
+		for ( ipart = 0; ipart < num_star_particles; ipart++ ) {
+			if ( particle_level[ipart] != FREE_PARTICLE_LEVEL && 
+					particle_id[ipart] >= particle_species_indices[num_particle_species] ) {
+	
+				block = ( particle_id[ipart] - particle_species_indices[num_particle_species] ) / num_procs;
+				proc = ( particle_id[ipart] - particle_species_indices[num_particle_species] ) % num_procs;
+				new_id = particle_species_indices[num_particle_species] + block_ids[block];
+	
+				for ( i = 0; i < proc; i++ ) {
+					if ( proc_new_stars[i] > block ) {
+						new_id++;
+					}
+				}
+				
+				cart_assert( new_id <= particle_id[ipart] && 
+					new_id < particle_species_indices[num_particle_species]+total_new_stars );
+
+				particle_id[ipart] = new_id;
+			}
+		}
+
+		cart_free(block_ids);
+	}
+
+	particle_species_indices[num_particle_species] += total_new_stars;
+	particle_species_num[num_particle_species-1] += total_new_stars;
+	num_particles_total += total_new_stars;
+	num_new_stars = 0;
+	last_star_id = particle_species_indices[num_particle_species]-1;
+
+	end_time( COMMUNICATION_TIMER );
+}
+
 #endif /* PARTICLES && STAR_FORMATION */
