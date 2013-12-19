@@ -15,7 +15,7 @@
 
 void setup_cell_feedback(int level){}
 
-#ifdef HYDRO 
+#ifdef HYDRO
 void cell_feedback(int level, int time_multiplier) {
 	int i;
 	int ipart;
