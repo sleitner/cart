@@ -23,14 +23,14 @@
 #include "tree_linkedlist.h"
 
 
-float cost_per_cell		= 1.0;
-float cost_per_particle		= 0.25;
+float cost_per_cell	            = 1.0;
+float cost_per_particle         = 0.25;
 
-float reserve_cell_fraction = 0.3;
+float reserve_cell_fraction     = 0.3;
 #ifdef PARTICLES
 float reserve_particle_fraction = 0.1;
 #endif /* PARTICLES */
-int load_balance_frequency	= 0;
+int load_balance_frequency      = 0;
 
 
 void config_init_load_balance()
@@ -100,7 +100,7 @@ int divide_list_recursive( float *global_work,
 
 	for ( c = 0; c < num_constraints; c++ ) {
 		if ( sum_constraints[c] > (long)num_procs_in_division*(long)per_proc_constraints[c] ) {
-			cart_debug("sum_constraints[%d] = %d vs %d", c, sum_constraints[c],
+			cart_debug("sum_constraints[%d] = %ld vs %ld", c, sum_constraints[c],
 				(long)num_procs_in_division*(long)per_proc_constraints[c] );
 			cart_debug("first_proc = %d", first_proc );
 			cart_debug("num_procs_in_division = %d", num_procs_in_division );
