@@ -164,6 +164,7 @@ void set_hydro_tracers_to_particles() {
 	int ipart;
 	int icell;
 	int tracer;
+	tracerid_t tmp;
 
 	for ( ipart = 0; ipart < num_particles; ipart++ ) {
 		if ( particle_level[ipart] != FREE_PARTICLE_LEVEL && particle_id[ipart] < particle_species_indices[1] ) {
@@ -181,7 +182,8 @@ void set_hydro_tracers_to_particles() {
 		}
 	}
 
-	MPI_Allreduce( &num_local_tracers, &num_tracers_total, 1, MPI_TRACERID_T, MPI_SUM, mpi.comm.run );
+	tmp = num_local_tracers;
+	MPI_Allreduce( &tmp, &num_tracers_total, 1, MPI_TRACERID_T, MPI_SUM, mpi.comm.run );
 
 	cart_debug("num_local_tracers = %u", num_local_tracers );
 	cart_debug("num_tracers_total = %ld", num_tracers_total );
