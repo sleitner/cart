@@ -11,10 +11,6 @@
 #include "onestarfits.h"
 #include "form_star.starII.h"
 
-#ifndef ENRICHMENT
-#error "for onestarfits ENRICHMENT should be on"
-#endif /* ENRICHMENT */
-
 double agetau(double ini_mass_sol, double age_yr, double Zsol);
 /* Raiteri et al. 1996 */
 /* Mej=0.7682*pow(mass_sol,1.056) */
