@@ -182,6 +182,17 @@ void check_map() {
 	}
 
 #ifdef PARTICLES
+	/* check consistency between particle species arrays */
+	tmp = 0;
+	cart_assert( particle_species_indices[0] == 0 );
+	cart_assert( num_particle_species >= 0 && num_particle_species <= MAX_PARTICLE_SPECIES );
+	for ( i = 0; i < num_particle_species; i++ ) {
+		cart_assert( particle_species_num[i] >= 0 );
+		cart_assert( particle_species_indices[i+1] == tmp + particle_species_num[i] );
+		tmp += particle_species_num[i];
+	}
+	cart_assert( tmp == num_particles_total );
+
 	/* check particles */
 	total_local_particles = 0;
 	for ( i = 0; i < num_particle_species; i++ ) {
