@@ -6,6 +6,7 @@
 
 #include "auxiliary.h"
 #include "cell_buffer.h"
+#include "hydro_tracer.h"
 #include "iterators.h"
 #include "parallel.h"
 #include "particle.h"
@@ -44,6 +45,13 @@ void check_map() {
 #endif
 	};
 #endif
+
+#ifdef HYDRO_TRACERS
+	int itracer, itracer_next;
+	int total_local_tracers;
+	tracerid_t tmp_local_tracers;
+	tracerid_t total_tracers;
+#endif /* HYDRO_TRACERS */
 
 	/* test root cells */
 	cart_assert( num_cells_per_level[min_level] == proc_sfc_index[local_proc_id+1] - proc_sfc_index[local_proc_id] );
@@ -188,6 +196,16 @@ void check_map() {
 	cart_assert( num_particle_species >= 0 && num_particle_species <= MAX_PARTICLE_SPECIES );
 	for ( i = 0; i < num_particle_species; i++ ) {
 		cart_assert( particle_species_num[i] >= 0 );
+		if ( particle_species_indices[i+1] != tmp + particle_species_num[i] ) {
+			for ( j = 0; j < num_particle_species; j++ ) {
+				cart_debug("particle_species_num[%u] = %ld", j, particle_species_num[j]);
+			}
+			for ( j = 0; j < num_particle_species+1; j++ ) {	
+				cart_debug("particle_species_indices[%u] = %ld", j, particle_species_indices[j] );
+			}
+			cart_debug("i = %d", i );
+			cart_debug("tmp = %ld", tmp );
+		}
 		cart_assert( particle_species_indices[i+1] == tmp + particle_species_num[i] );
 		tmp += particle_species_num[i];
 	}
@@ -276,9 +294,63 @@ void check_map() {
 	for ( i = num_star_particles; i < num_particles; i++ ) {
 		cart_assert( !particle_is_star(i) );
 	}
-
 #endif /* STAR_FORMATION */
 #endif /* PARTICLES */
+
+#ifdef HYDRO_TRACERS
+	/* does the number of non-free tracers match num_local_tracers? */
+	total_local_tracers = 0;
+	for ( i = 0; i < num_tracers; i++ ) {
+		if ( tracer_id[i] != NULL_TRACER ) {
+			total_local_tracers++;
+		}
+	}
+
+	cart_assert( total_local_tracers == num_local_tracers );
+
+	/* does the number of tracers in cell lists match num_local_tracers? 
+	 * also check the integrity of the cell tracer linked lists */
+	total_local_tracers = 0;
+	for ( level = min_level; level <= max_level; level++ ) {
+		select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
+		for ( i = 0; i < num_level_cells; i++ ) {
+			icell = level_cells[i];
+			itracer = cell_tracer_list[icell];
+			cart_assert( itracer == NULL_TRACER || tracer_list_prev[itracer] == NULL_TRACER );
+
+			while ( itracer != NULL_TRACER ) {
+				cart_assert( tracer_id[itracer] != NULL_TRACER );
+				cart_assert( tracer_id[itracer] < num_tracers_total );
+
+				total_local_tracers++;
+				itracer_next = tracer_list_next[itracer];
+				if ( itracer_next != NULL_TRACER && tracer_list_prev[itracer_next] != itracer ) {
+					cart_debug("itracer = %d", itracer );
+					cart_debug("itracer_next = %d", itracer_next );
+					cart_debug("tracer_list_prev[itracer_next] = %d", tracer_list_prev[itracer_next] );
+					cart_debug("level = %d", level );
+					cart_debug("icell = %d", icell );
+					cart_debug("cell_tracer_list[icell] = %d", cell_tracer_list[icell] );
+				}
+				cart_assert( itracer_next == NULL_TRACER || tracer_list_prev[itracer_next] == itracer );
+				itracer = itracer_next;
+			}
+		}
+		cart_free( level_cells );
+	}
+
+	if ( total_local_tracers != num_local_tracers ) {
+		cart_debug("total_local_tracers = %ld", total_local_tracers );
+		cart_debug("num_local_tracers = %ld", num_local_tracers );
+	}
+	cart_assert( total_local_tracers == num_local_tracers );
+
+	/* does the sum of num_local_tracers equal num_tracers_total? */
+	tmp_local_tracers = num_local_tracers;
+	MPI_Allreduce( &tmp_local_tracers, &total_tracers, 1, MPI_TRACERID_T, MPI_SUM, mpi.comm.run );
+
+	cart_assert( total_tracers == num_tracers_total );
+#endif /* HYDRO_TRACERS */
 
 #ifdef GRAVITY
 	for ( level = min_level+1; level <= max_level; level++ ) {

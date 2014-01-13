@@ -1170,7 +1170,13 @@ void build_refinement_region(int do_load_balance){
 				load_balance();
 			}
 		}
+
+#ifdef DEBUG
+		check_map();
+#endif /* DEBUG */
 	}
+
+	cart_debug("done with build-refinement_region");
 }
 #endif /* REFINEMENT */
 

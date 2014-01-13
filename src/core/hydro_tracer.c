@@ -77,8 +77,11 @@ char *hydro_vars_traced_labels[] = {
 void init_hydro_tracers() {
 	int i;
 
+#pragma omp parallel for default(none), private(i), shared(tracer_id,tracer_list_next,tracer_list_prev)
 	for ( i = 0; i < num_tracers; i++ ) {
 		tracer_id[i] = NULL_TRACER;
+		tracer_list_next[i] = NULL_TRACER;
+		tracer_list_prev[i] = NULL_TRACER;
 	}
 
 #pragma omp parallel for default(none), private(i), shared(cell_tracer_list,size_cell_array)
@@ -178,6 +181,7 @@ void set_hydro_tracers_to_particles() {
 			}
 
 			icell = cell_find_position( tracer_x[tracer] );
+			cart_assert( icell != NULL_OCT );
 			insert_tracer( icell, tracer );
 		}
 	}
@@ -216,33 +220,31 @@ void update_tracer_list( int level ) {
 	select_level( level, CELL_TYPE_LOCAL, &num_level_cells, &level_cells );
 	for ( k = 0; k < num_level_cells; k++ ) {
 		iter_cell = level_cells[k];
+		tracer = cell_tracer_list[iter_cell];
 
-		if ( cell_is_leaf(iter_cell) ) {
-			tracer = cell_tracer_list[iter_cell];
+		while ( tracer != NULL_TRACER ) {
+			tracer2 = tracer_list_next[tracer];
 
-			while ( tracer != NULL_TRACER ) {
-				tracer2 = tracer_list_next[tracer];
+			sfc = sfc_index_position( tracer_x[tracer] );
+			proc = processor_owner( sfc );
 
-				sfc = sfc_index_position( tracer_x[tracer] );
-				proc = processor_owner( sfc );
+			if ( proc == local_proc_id ) {
+				new_cell = cell_find_position_sfc( sfc, tracer_x[tracer] );
 
-				if ( proc == local_proc_id ) {
-					new_cell = cell_find_position_sfc( sfc, tracer_x[tracer] );
-
-					if ( new_cell != iter_cell ) {
-						delete_tracer( iter_cell, tracer );
-						insert_tracer( new_cell, tracer );
-					}
-				} else if ( proc == -1 ) {
-					cart_error("Unable to find processor owner for tracer %ld", tracer_id[tracer] );
-				} else {
+				if ( new_cell != iter_cell ) {
 					delete_tracer( iter_cell, tracer );
-					tracer_list_next[tracer] = tracer_list_to_send[proc];
-					tracer_list_to_send[proc] = tracer;
+					insert_tracer( new_cell, tracer );
 				}
-
-				tracer = tracer2;
+			} else if ( proc == -1 ) {
+				cart_error("Unable to find processor owner for tracer %ld", tracer_id[tracer] );
+			} else {
+				delete_tracer( iter_cell, tracer );
+				tracer_list_next[tracer] = tracer_list_to_send[proc];
+				tracer_list_to_send[proc] = tracer;
+				num_tracers_to_send[proc]++;
 			}
+
+			tracer = tracer2;
 		}
 	}
 
@@ -566,8 +568,10 @@ void insert_tracer( int icell, int tracer ) {
 	int head;
 
 	cart_assert( icell >= 0 && icell < num_cells );
+	cart_assert( cell_is_local( icell ) );
 	cart_assert( cell_is_leaf( icell ) );
 	cart_assert( tracer >= 0 && tracer < num_tracers );
+	cart_assert( tracer_id[tracer] != NULL_TRACER );
 
 	head = cell_tracer_list[icell];
 

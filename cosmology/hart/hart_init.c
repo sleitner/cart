@@ -94,4 +94,8 @@ void hart_init() {
 		build_cell_buffer();
 		repair_neighbors();
 	}
+
+#ifdef DEBUG
+	check_map();
+#endif /* DEBUG */
 }
