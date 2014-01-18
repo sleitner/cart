@@ -19,7 +19,7 @@
 #include "imf.h"
 
 int num_local_star_particles = 0;
-particleid_t last_star_id = -1;
+particleid_t next_star_id_block = -1;
 int num_new_stars = 0;
 
 double total_stellar_mass = 0.0;
@@ -295,17 +295,17 @@ int create_star_particle( int icell, float mass, double pdt, int type ) {
 void start_star_allocation() {
 	cart_assert( num_particle_species >= 1 );
 	num_new_stars = 0;
-	last_star_id = particle_species_indices[num_particle_species]-1;
+	next_star_id_block = particle_species_indices[num_particle_species];
 }
 
 particleid_t star_particle_alloc() {
 	particleid_t id;
 
 	cart_assert( num_new_stars >= 0 );
-	cart_assert( last_star_id >= 0 );
+	cart_assert( next_star_id_block >= particle_species_indices[num_particle_species] );
 
-	id  = last_star_id + num_procs + 1;
-	last_star_id += num_procs;
+	id = next_star_id_block + local_proc_id;
+	next_star_id_block += num_procs;
 	num_new_stars++;
 	return id;
 }
@@ -355,6 +355,7 @@ void end_star_allocation() {
 					particle_id[ipart] >= particle_species_indices[num_particle_species] ) {
 	
 				block = ( particle_id[ipart] - particle_species_indices[num_particle_species] ) / num_procs;
+				cart_assert( block < max_stars );
 				proc = ( particle_id[ipart] - particle_species_indices[num_particle_species] ) % num_procs;
 				new_id = particle_species_indices[num_particle_species] + block_ids[block];
 	
@@ -378,7 +379,7 @@ void end_star_allocation() {
 	particle_species_num[num_particle_species-1] += total_new_stars;
 	num_particles_total += total_new_stars;
 	num_new_stars = 0;
-	last_star_id = particle_species_indices[num_particle_species]-1;
+	next_star_id_block = particle_species_indices[num_particle_species];
 }
 
 #endif /* PARTICLES && STAR_FORMATION */
