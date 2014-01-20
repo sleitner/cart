@@ -130,26 +130,20 @@ void kfb_config_init(){
 
 void kfb_config_verify()
 {
-
-	VERIFY( kfb:method,
 #ifdef EXTRA_PRESSURE_SOURCE
-	        kfb_internal_method == KFB_METHOD_PRESSURIZE || kfb_internal_method == KFB_METHOD_KICKS || kfb_internal_method == KFB_METHOD_HYBRID ||
-	        kfb_internal_method == KFB_METHOD_HYBRIDGATHER
+	VERIFY( kfb:method, kfb_internal_method == KFB_METHOD_PRESSURIZE || kfb_internal_method == KFB_METHOD_KICKS || kfb_internal_method == KFB_METHOD_HYBRID || kfb_internal_method == KFB_METHOD_HYBRIDGATHER );
 #else
-	        kfb_internal_method == KFB_METHOD_KICKS
+	VERIFY( kfb:method, kfb_internal_method == KFB_METHOD_KICKS );
 #endif /* EXTRA_PRESSURE_SOURCE */
-	        );
 
 	VERIFY( kfb:spread,
 	        kfb_internal_spread == KFB_SPREAD_CELL || kfb_internal_spread == KFB_SPREAD_OCT || kfb_internal_spread == KFB_SPREAD_CUBE );
 
-	VERIFY( kfb:turbulence,
 #ifdef ISOTROPIC_TURBULENCE_ENERGY
-	        kfb_internal_turbulence == KFB_TURBULENCE_NONE || kfb_internal_turbulence == KFB_TURBULENCE_CANCEL || kfb_internal_turbulence == KFB_TURBULENCE_BOTH
+	VERIFY( kfb:turbulence, kfb_internal_turbulence == KFB_TURBULENCE_NONE || kfb_internal_turbulence == KFB_TURBULENCE_CANCEL || kfb_internal_turbulence == KFB_TURBULENCE_BOTH );
 #else
-	        kfb_internal_turbulence == KFB_TURBULENCE_NONE 
+	VERIFY( kfb:turbulence, kfb_internal_turbulence == KFB_TURBULENCE_NONE );
 #endif
-	        );
 
 	VERIFY(kfb:boost_kicks, kfb_boost_kicks>=0);
 }

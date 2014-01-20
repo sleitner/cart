@@ -11,6 +11,7 @@
 #include "imf.h"
 #include "parallel.h"
 #include "particle.h"
+#include "rt.h"
 #include "starformation.h"
 #include "tree.h"
 #include "units.h"
@@ -63,7 +64,11 @@ float tau_UV(int icell){
 #ifdef RADIATIVE_TRANSFER
 	(cell_HI_density(icell)+2.0*cell_H2_density(icell)) * rtDmw(icell) *
 #else
+#ifdef ENRICHMENT
 	cell_gas_metal_density(icell) / (constants->Zsun) *
+#else
+        0 *
+#endif /* ENRICHMENT */
 #endif
 	cell_sobolev_length(icell);
     return tau;

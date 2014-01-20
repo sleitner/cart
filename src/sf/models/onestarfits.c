@@ -112,7 +112,11 @@ double OneStar_Lbol_RT(int ipart){
     restenergy = particle_mass[ipart]*units->mass * constants->c*constants->c; /* erg */
     ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
     age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time/constants->yr ;
+#ifdef ENRICHMENT
     Zsol = star_metallicity_II[ipart]/constants->Zsun;
+#else
+    Zsol = 0;
+#endif /* ENRICHMENT */
     Lbol = OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * Lsun_to_ergs * units->time;
     return Lbol / restenergy ;
 }
@@ -122,7 +126,11 @@ double OneStar_Lion_RT(int ipart){
     restenergy = particle_mass[ipart]*units->mass * constants->c*constants->c; /* erg */
     ini_mass_sol = star_initial_mass[ipart]*units->mass/constants->Msun;
     age_yr = (particle_t[ipart]-star_tbirth[ipart])*units->time/constants->yr ;
+#ifdef ENRICHMENT
     Zsol = star_metallicity_II[ipart]/constants->Zsun;
+#else
+    Zsol = 0;
+#endif /* ENRICHMENT */
     Lion = OneStar_Lbol_Lsun(ini_mass_sol,age_yr,Zsol) * Lsun_to_ergs * units->time
 	    * OneStar_ionizing_fraction(ini_mass_sol,age_yr,Zsol);
     return Lion / restenergy ;

@@ -159,7 +159,11 @@ void cell_trapIR(int level, int icell, double t_next, double dt){
     if( tauIR_boost > 0 &&
         cell_gas_density(icell)*units->number_density*constants->XH > sf_min_gas_number_density
         ){
+#ifdef ENRICHMENT
 	    Zsol = cell_gas_metal_density(icell)/(cell_gas_density(icell)*constants->Zsun);
+#else
+	    Zsol = 0;
+#endif /* ENRICHMENT */
 	    masspdot_from_cell(level, icell, &Msol_cell, &pdot_cell);
 	    //Lbol_ergis = LUV_ergis*6; /* similar to rapSR_luminosity_code*/
 	    if(pdot_cell>0){
