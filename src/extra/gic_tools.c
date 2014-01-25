@@ -242,75 +242,75 @@ void gicMakeMask(const char *filename, const halo_list *halos, float size, int m
       cart_debug("Done halo #%d, id=%d",ih,h->id);
     }
 
-  /*
-  //  Diffuse to create lower level buffers
-  */
-  for(lev=level-1; lev>0; lev--)
-  {
-      for(k=0; k<num_grid; k++)
-      {
-	  for(j=0; j<num_grid; j++)
+
+  if ( local_proc_id == MASTER_NODE ) {
+	  /*
+	  //  Diffuse to create lower level buffers
+	  */
+	  for(lev=level-1; lev>0; lev--)
 	  {
-	      for(i=0; i<num_grid; i++)
-	      {
-		  if(mask[i+num_grid*(j+num_grid*k)] == 0)
+		  for(k=0; k<num_grid; k++)
 		  {
-		      done = 0;
-		      for(koff=-width; done==0 && koff<=width; koff++) for(joff=-width; done==0 && joff<=width; joff++) for(ioff=-width; done==0 && ioff<=width; ioff++)
-		      {
-			  if(ioff*ioff+joff*joff+koff*koff <= width2)
+			  for(j=0; j<num_grid; j++)
 			  {
-			      i1 = (i+ioff+num_grid) % num_grid;
-			      j1 = (j+joff+num_grid) % num_grid;
-			      k1 = (k+koff+num_grid) % num_grid;
-			      if(mask[i1+num_grid*(j1+num_grid*k1)] > lev)
-			      {
-				  mask[i+num_grid*(j+num_grid*k)] = lev;
-				  done = 1;
-			      }
+				  for(i=0; i<num_grid; i++)
+				  {
+					  if(mask[i+num_grid*(j+num_grid*k)] == 0)
+					  {
+						  done = 0;
+						  for(koff=-width; done==0 && koff<=width; koff++) for(joff=-width; done==0 && joff<=width; joff++) for(ioff=-width; done==0 && ioff<=width; ioff++)
+						  {
+							  if(ioff*ioff+joff*joff+koff*koff <= width2)
+							  {
+								  i1 = (i+ioff+num_grid) % num_grid;
+								  j1 = (j+joff+num_grid) % num_grid;
+								  k1 = (k+koff+num_grid) % num_grid;
+								  if(mask[i1+num_grid*(j1+num_grid*k1)] > lev)
+								  {
+									  mask[i+num_grid*(j+num_grid*k)] = lev;
+									  done = 1;
+								  }
+							  }
+						  }
+					  }
+				  }
 			  }
-		      }
 		  }
-	      }
 	  }
-      }
+
+	  /*
+	  //  Write plain ascii files. 
+	  */
+	  for(lev=1; lev<=level; lev++)
+	  {
+		  sprintf(str,"%s.%-u",filename,lev);
+		  f = fopen(str,"w");
+		  cart_assert(f != NULL);
+
+		  /* fprintf(f,"%d %d %d\n",shift[0],shift[1],shift[2]); */
+		  /* DHR: masks are now always unshifted */
+		  fprintf(f, "0 0 0\n");
+
+		  for(k=0; k<num_grid; k++)
+		  {
+			  for(j=0; j<num_grid; j++)
+			  {
+				  for(i=0; i<num_grid; i++)
+				  {
+					  if(mask[i+num_grid*(j+num_grid*k)] == lev)
+					  {
+						  fprintf(f,"%d %d %d\n",i+1,j+1,k+1);
+					  }
+				  }
+			  }
+		  }
+
+		  fclose(f);
+	  }
+
+	  cart_free(halo_mask);
+	  cart_free(mask);
   }
-
-  /*
-  //  Write plain ascii files. 
-  */
-  if(local_proc_id == MASTER_NODE)
-    {
-      for(lev=1; lev<=level; lev++)
-	{
-	  sprintf(str,"%s.%-u",filename,lev);
-	  f = fopen(str,"w");
-	  cart_assert(f != NULL);
-
-	  /* fprintf(f,"%d %d %d\n",shift[0],shift[1],shift[2]); */
-          /* DHR: masks are now always unshifted */
-          fprintf(f, "0 0 0\n");
-
-	  for(k=0; k<num_grid; k++)
-	    {
-	      for(j=0; j<num_grid; j++)
-		{
-		  for(i=0; i<num_grid; i++)
-		    {
-		      if(mask[i+num_grid*(j+num_grid*k)] == lev)
-			{
-			  fprintf(f,"%d %d %d\n",i+1,j+1,k+1);
-			}
-		    }
-		}
-	    }
-  
-	  fclose(f);
-	}
-
-      cart_free(halo_mask);
-      cart_free(mask);
-    }
 }
 
 #endif /* PARTICLES */
