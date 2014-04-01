@@ -23,7 +23,7 @@
 
 float tau_UV(int icell);
 static double tauUV_factor;
-int starII_rapSR_boost = 1;
+double starII_rapSR_boost = 1;
 float Lsun_to_pdot;
 
 void starII_rapSR_config_init()
