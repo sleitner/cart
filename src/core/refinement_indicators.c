@@ -186,7 +186,7 @@ void control_parameter_list_refinement_indicator(FILE *stream, const void *ptr)
 	      if(newline)
 		{
 		  fprintf(stream,"\n");
-		  control_parameter_print_name(stream,"refinement");
+		  control_parameter_print_name(stream,"ref:indicator");
 		}
 	      fprintf(stream,"id=%-d weight=%-g from-level=%-d to-level=%-d ",i,refinement_indicator[i].weight,from_level,to_level);
 	      for(level=from_level; level<=to_level; level++)
