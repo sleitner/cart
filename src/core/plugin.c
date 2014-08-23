@@ -85,14 +85,14 @@ void config_init_plugins()
     }
 #endif
 
-  PLUGIN_POINT(ConfigInit)();
+  PLUGIN_POINT(ConfigInit,());
 }
 
 void config_verify_plugins()
 {
-  PLUGIN_POINT(ConfigVerify)();
+  PLUGIN_POINT(ConfigVerify,());
 }
 
 #ifdef __cplusplus
-PluginList::PluginList() : active(plugin_t()), next(0), head(0){}
+PluginList::PluginList() : active(plugin_t()), head(0){}
 #endif

@@ -225,7 +225,7 @@ void run( int restart, const char *restart_label ) {
 	current_steps = 0;
 	last_restart_step = 0;
 
-	PLUGIN_POINT(RunBegin)();
+	PLUGIN_POINT(RunBegin,());
 
 	/*
 	//  Plugin should use-up all un-extracted options
@@ -318,7 +318,7 @@ void run( int restart, const char *restart_label ) {
 			log_star_creation(-1,-1.0,FILE_CLOSE); 
 			log_star_creation(-1,-1.0,FILE_OPEN); 
 #endif
-			PLUGIN_POINT(CFLRestart)();
+			PLUGIN_POINT(CFLRestart,());
 		} else {
 			current_steps++;
 
@@ -344,7 +344,7 @@ void run( int restart, const char *restart_label ) {
 		}
 	}
 
-	PLUGIN_POINT(RunEnd)();
+	PLUGIN_POINT(RunEnd,());
 
 	/* destroy buffer */
 	if ( buffer_enabled ) {
@@ -427,7 +427,7 @@ int global_timestep() {
 	start_star_allocation();	
 #endif /* STAR_FORMATION */
 
-	PLUGIN_POINT(GlobalStepBegin)();
+	PLUGIN_POINT(GlobalStepBegin,());
 
 	ret = timestep( min_level, mpi.comm.run );
 	current_step_level = -1;
@@ -491,7 +491,7 @@ int global_timestep() {
 		rtStepEnd();
 #endif /* RADIATIVE_TRANSFER */
 
-		PLUGIN_POINT(GlobalStepEnd)();
+		PLUGIN_POINT(GlobalStepEnd,());
 
 	}
 
@@ -523,7 +523,7 @@ int timestep( int level, MPI_Comm level_com )
 	start_timing_level( level );
 	start_time( LEVEL_TIMER );
 
-	PLUGIN_POINT(LevelStepBegin)(level,level_com);
+	PLUGIN_POINT(LevelStepBegin,(level,level_com));
 
 	start_time( WORK_TIMER );
 	units_update(level);
@@ -688,7 +688,7 @@ int timestep( int level, MPI_Comm level_com )
 		end_time( COMMUNICATION_TIMER );
 
 		if ( true_ret < 0 ) {
-			PLUGIN_POINT(LevelStepFail)(level,level_com);
+			PLUGIN_POINT(LevelStepFail,(level,level_com));
 			end_time( LEVEL_TIMER );
 			end_timing_level( level ); 
 			return true_ret;
@@ -825,7 +825,7 @@ int timestep( int level, MPI_Comm level_com )
 #endif
                 num_steps_on_level[level] );
 
-	PLUGIN_POINT(LevelStepEnd)(level,level_com);
+	PLUGIN_POINT(LevelStepEnd,(level,level_com));
 
 	num_steps_on_level[level]++;
 

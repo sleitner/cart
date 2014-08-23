@@ -61,7 +61,6 @@ void config_verify_plugins();
 struct PluginList
 {
   const plugin_t active;
-  const plugin_t* next;
   const plugin_t* const head;
 #ifdef __cplusplus
   PluginList();  // Not implemented
@@ -71,10 +70,10 @@ struct PluginList
 extern struct PluginList plugins;
 
 #ifdef DISABLE_PLUGINS
-#define PLUGIN_POINT(call)
+#define PLUGIN_POINT(call,args)
 #else  /* DISABLE_PLUGINS */
-#define PLUGIN_POINT(call) \
-  if(plugins.active.call != NULL) for(plugins.next=plugins.head; plugins.next->call!=NULL; plugins.next++) plugins.next->call
+#define PLUGIN_POINT(call,args)	\
+  if(plugins.active.call != NULL) { const plugin_t* p; for(p=plugins.head; p->call!=NULL; p++) p->call args; }
 #endif /* DISABLE_PLUGINS */
 
 #endif

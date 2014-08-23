@@ -133,7 +133,7 @@ float sfb_radiation_pressure(int cell)
 #endif /* RT_UV */
  
   pressure = (1-exp(-tauUV)+rt_rp_amplt*pow(rt_rp_factor.cd2sigma100*cd_gas,rt_rp_slope))*rt_rp_factor.rf2Prad*rfLoc;
-  PLUGIN_POINT(RadiationFeedbackEnd)(level,cell,pressure);
+  PLUGIN_POINT(RadiationFeedbackEnd,(level,cell,pressure));
 
   return pressure;
 

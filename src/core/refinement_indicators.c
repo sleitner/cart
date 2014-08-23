@@ -398,7 +398,7 @@ float dark_particle_count_indicator( int cell, int level ) {
 
 float plugin_indicator( int cell, int level ) {
         float indicator;
-        PLUGIN_POINT(RefinementIndicator)(cell, level, &indicator);
+        PLUGIN_POINT(RefinementIndicator,(cell, level, &indicator));
         return indicator;
 }
 
