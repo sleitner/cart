@@ -164,10 +164,6 @@ void sfb_hydro_feedback(int level, int cell, int ipart, double t_next )
 	    starII_explosion_thermal(level, cell, ipart);  
 	}else{
 	    
-	    if(cell_gas_density(cell) != cell_gas_density(cell)){
-		cart_error("bad gas density %d %e",cell,cell_gas_density(cell) );
-	    }
-
 	    if(starII_rapSR_boost > 0){
 		starII_rapSR_kick(level, cell, ipart,ini_mass_sol,age_yr,Zsol, t_next);    
 	    }
