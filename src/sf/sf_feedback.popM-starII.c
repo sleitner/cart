@@ -185,10 +185,9 @@ int sfb_destroy_star_particle(int level,int icell,int ipart)
     if ( star_particle_type[ipart] == STAR_TYPE_STARII &&
          star_age > OneStar_stellar_lifetime(ini_mass_sol, Zsol)
          ){
-	    return -1;
-    }else{
 	    return 1;
     }
+    return 0;
 }
 
 
