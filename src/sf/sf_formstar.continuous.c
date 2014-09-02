@@ -27,7 +27,7 @@ double cluster_min_expected_mass=100;        /* do not form a cluster particle i
 
 double cluster_age_spread_code; 
 double cluster_min_expected_mass_code; 
-int starII_indicator;
+int starII_indicator=0;
 
 void star_form_config_init()
 {

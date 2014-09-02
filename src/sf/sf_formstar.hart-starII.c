@@ -20,7 +20,7 @@ double sf_timescale = 3.0e7;                 /* in yrs; used to be called tau_SF
 double sf_min_stellar_particle_mass = 0.0;   /* in Msun; used to be called dm_star_min */
 double mstar_min;
 double dt_SF;
-int starII_indicator;
+int starII_indicator=1;
 void star_form_config_init()
 {
     control_parameter_add4(control_parameter_double,&sf_min_stellar_particle_mass,"sf:min-stellar-particle-mass","sf_min_stellar_particle_mass","sf_min_stellar_particle_mass","dm_star_min","minimum mass for a newly created stellar particle, in solar masses. This value should be small enough to avoid artifically boosting the SFR in the low density gas.");
@@ -38,7 +38,7 @@ void star_form_config_verify()
 
     VERIFY(sf:min-stellar-particle-mass, !(sf_min_stellar_particle_mass < 0.0) );
 
-    VERIFY(starII:indicator,starII_indicator==1 || starII_indicator==0);
+    VERIFY(starII:indicator,starII_indicator==1);
     starII_config_verify();
 }
 
