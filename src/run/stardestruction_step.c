@@ -44,6 +44,7 @@ void star_destruction(int level) {
 			ipart_next = particle_list_next[ipart];
 			if ( particle_is_star(ipart) ) {
 				idelete = sf_feedback_particle->destroy_star_particle(level,icell,ipart);
+				cart_assert(idelete==0 || idelete==1);
 				if(idelete == 1){
 #pragma omp critical
 					{
